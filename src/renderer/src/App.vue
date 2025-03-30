@@ -10,7 +10,7 @@ const novels = ref([
     author: '奇幻',
     wordCount: '128,567',
     updateTime: '2024-01-15',
-    coverUrl: '/src/assets/covers/cover1.jpg'
+    coverUrl: '/src/assets/covers/cover_demo.jpg'
   },
   {
     id: 2,
@@ -18,7 +18,7 @@ const novels = ref([
     author: '都市',
     wordCount: '256,789',
     updateTime: '2024-01-14',
-    coverUrl: '/src/assets/covers/cover2.jpg'
+    coverUrl: '/src/assets/covers/cover_demo.jpg'
   },
   {
     id: 3,
@@ -26,7 +26,7 @@ const novels = ref([
     author: '古风',
     wordCount: '198,234',
     updateTime: '2024-01-13',
-    coverUrl: '/src/assets/covers/cover3.jpg'
+    coverUrl: '/src/assets/covers/cover_demo.jpg'
   },
   {
     id: 4,
@@ -34,7 +34,7 @@ const novels = ref([
     author: '科幻',
     wordCount: '167,990',
     updateTime: '2024-01-12',
-    coverUrl: '/src/assets/covers/cover4.jpg'
+    coverUrl: '/src/assets/covers/cover_demo.jpg'
   }
 ])
 </script>
