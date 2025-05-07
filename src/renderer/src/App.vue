@@ -1,5 +1,46 @@
 <script setup>
+import { ref, onMounted } from 'vue'
 import Bookshelf from './components/Bookshelf.vue'
+import { useMainStore } from './stores'
+
+const showDirDialog = ref(false)
+const bookDir = ref('')
+const mainStore = useMainStore()
+
+// 检查本地存储是否有bookDir
+onMounted(async () => {
+  const dir = await window.electronStore?.get('booksDir')
+  if (!dir) {
+    showDirDialog.value = true
+  } else {
+    bookDir.value = dir
+    await loadBooks(dir)
+  }
+})
+
+// 选择目录
+async function handleChooseDir() {
+  const result = await window.electron?.selectBooksDir()
+  if (result && result.filePaths && result.filePaths[0]) {
+    bookDir.value = result.filePaths[0]
+    await window.electronStore.set('booksDir', bookDir.value)
+    await loadBooks(bookDir.value)
+    showDirDialog.value = false
+  }
+}
+
+// 读取书籍目录下所有书籍
+async function loadBooks(dir) {
+  // 调用主进程API读取目录下所有书籍meta.json
+  const books = await window.electron.readBooksDir(dir)
+  mainStore.setBooks(books)
+}
+
+// 确认目录
+async function handleConfirmDir() {
+  await window.electronStore.set('booksDir', bookDir.value)
+  showDirDialog.value = false
+}
 </script>
 
 <template>
@@ -18,7 +59,7 @@ import Bookshelf from './components/Bookshelf.vue'
           <i class="el-icon-setting"></i>
           主题设置
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="showDirDialog = true">
           <i class="el-icon-setting"></i>
           系统设置
         </div>
@@ -39,6 +80,34 @@ import Bookshelf from './components/Bookshelf.vue'
 
     <!-- 书架区 -->
     <Bookshelf />
+
+    <!-- 选择书籍目录弹窗 -->
+    <el-dialog
+      v-model="showDirDialog"
+      title="请选择书籍主目录"
+      width="600px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      align-center
+    >
+      <el-form label-width="80px">
+        <el-form-item label="书籍目录">
+          <el-row :gutter="10" style="width: 100%">
+            <el-col :span="18">
+              <el-input v-model="bookDir" readonly placeholder="请选择目录" />
+            </el-col>
+            <el-col :span="6">
+              <el-button type="primary" style="width: 100%" @click="handleChooseDir">
+                选择目录
+              </el-button>
+            </el-col>
+          </el-row>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

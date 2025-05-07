@@ -5,6 +5,7 @@
   "main": "./out/main/index.js",
   "author": "51mazi",
   "homepage": "https://electron-vite.org",
+  "type": "module",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

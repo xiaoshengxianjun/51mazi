@@ -1,7 +1,38 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import Store from 'electron-store'
+
+// 创建 store 实例
+const store = new Store({
+  // 可以设置加密
+  // encryptionKey: 'your-encryption-key',
+
+  // 设置默认值
+  defaults: {
+    config: {
+      theme: 'light',
+      booksDir: ''
+      // 其他默认配置...
+    }
+  }
+})
+
+ipcMain.handle('store:get', async (_, key) => {
+  return store.get(key)
+})
+
+ipcMain.handle('store:set', async (_, key, value) => {
+  store.set(key, value)
+  return true
+})
+
+ipcMain.handle('store:delete', async (_, key) => {
+  store.delete(key)
+  return true
+})
 
 function createWindow() {
   // Create the browser window.
@@ -14,7 +45,7 @@ function createWindow() {
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false
     }
   })
@@ -74,3 +105,47 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+// 选择书籍目录
+ipcMain.handle('select-books-dir', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  })
+  return result
+})
+
+// 创建书籍
+ipcMain.handle('create-book', async (event, { dir, name, type, targetCount, intro }) => {
+  // 1. 处理文件夹名合法性
+  const safeName = name.replace(/[\\/:*?"<>|]/g, '_')
+  const bookPath = join(dir, safeName)
+  if (!fs.existsSync(bookPath)) {
+    fs.mkdirSync(bookPath)
+  }
+  // 2. 写入 mazi.json
+  const meta = { name, type, targetCount, intro, createdAt: Date.now() }
+  fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
+  return true
+})
+
+// 读取书籍目录
+ipcMain.handle('read-books-dir', async (event, dir) => {
+  const books = []
+  if (!fs.existsSync(dir)) return books
+  const files = fs.readdirSync(dir, { withFileTypes: true })
+  for (const file of files) {
+    if (file.isDirectory()) {
+      const metaPath = join(dir, file.name, 'mazi.json')
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          books.push({ ...meta, id: file.name })
+        } catch (e) {
+          // ignore parse error
+          console.error('read-books-dir', e)
+        }
+      }
+    }
+  }
+  return books
+})

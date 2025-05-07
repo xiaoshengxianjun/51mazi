@@ -18,7 +18,7 @@
 
     <!-- 新建书籍弹窗 -->
     <el-dialog v-model="dialogVisible" title="新建书籍" width="500px">
-      <el-form :model="form" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item prop="name" label="书名">
           <el-input v-model="form.name" placeholder="请输入书籍名称" />
         </el-form-item>
@@ -47,9 +47,9 @@
             <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
-        <el-form-item prop="wordCount" label="目标字数">
+        <el-form-item prop="targetCount" label="目标字数">
           <el-input
-            v-model="form.wordCount"
+            v-model="form.targetCount"
             placeholder="请输入目标字数"
             type="number"
             :min="10000"
@@ -57,8 +57,8 @@
             :step="10000"
           />
         </el-form-item>
-        <el-form-item prop="desc" label="简介">
-          <el-input v-model="form.desc" type="textarea" :rows="5" placeholder="请输入简介" />
+        <el-form-item prop="intro" label="简介">
+          <el-input v-model="form.intro" type="textarea" :rows="5" placeholder="请输入简介" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -75,7 +75,7 @@
       <Book
         v-for="book in books"
         :key="book.id"
-        :title="book.title"
+        :name="book.name"
         :type="book.type"
         :word-count="book.wordCount"
         :update-time="book.updateTime"
@@ -91,28 +91,50 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Book from './Book.vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
+import { useMainStore } from '../stores'
+
+const mainStore = useMainStore()
 
 defineProps({})
 
 // 新建书籍弹窗相关
 const dialogVisible = ref(false)
+const formRef = ref(null)
 const form = ref({
   name: '',
   type: '',
-  wordCount: 10000,
-  desc: ''
+  targetCount: 10000,
+  intro: ''
+})
+const rules = ref({
+  name: [{ required: true, message: '请输入书籍名称', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择类型', trigger: 'blur' }],
+  targetCount: [{ required: true, message: '请输入目标字数', trigger: 'blur' }],
+  intro: [{ required: true, message: '请输入简介', trigger: 'blur' }]
 })
 
-function handleCreate() {
-  // 这里只做关闭弹窗，实际可扩展为添加到 books
-  dialogVisible.value = false
+async function handleCreate() {
+  formRef.value.validate(async (valid) => {
+    if (valid) {
+      const booksDir = await window.electronStore?.get('booksDir')
+      // 这里只做关闭弹窗，实际可扩展为添加到 books
+      await window.electron.createBook({
+        dir: booksDir,
+        name: form.value.name,
+        type: form.value.type,
+        targetCount: form.value.targetCount,
+        intro: form.value.intro
+      })
+      dialogVisible.value = false
+    }
+  })
 }
 
 // 模拟数据
-const books = ref([])
+const books = computed(() => mainStore.books)
 </script>
 
 <style lang="scss" scoped>
