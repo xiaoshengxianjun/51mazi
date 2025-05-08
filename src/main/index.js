@@ -115,15 +115,15 @@ ipcMain.handle('select-books-dir', async () => {
 })
 
 // 创建书籍
-ipcMain.handle('create-book', async (event, { dir, name, type, targetCount, intro }) => {
+ipcMain.handle('create-book', async (event, bookInfo) => {
   // 1. 处理文件夹名合法性
-  const safeName = name.replace(/[\\/:*?"<>|]/g, '_')
-  const bookPath = join(dir, safeName)
+  const safeName = bookInfo.name.replace(/[\\/:*?"<>|]/g, '_')
+  const bookPath = join(bookInfo.dir, safeName)
   if (!fs.existsSync(bookPath)) {
     fs.mkdirSync(bookPath)
   }
   // 2. 写入 mazi.json
-  const meta = { name, type, targetCount, intro, createdAt: Date.now() }
+  const meta = { ...bookInfo, createdAt: Date.now(), updatedAt: Date.now() }
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
   return true
 })
@@ -139,7 +139,7 @@ ipcMain.handle('read-books-dir', async (event, dir) => {
       if (fs.existsSync(metaPath)) {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-          books.push({ ...meta, id: file.name })
+          books.push({ ...meta })
         } catch (e) {
           // ignore parse error
           console.error('read-books-dir', e)
@@ -148,4 +148,24 @@ ipcMain.handle('read-books-dir', async (event, dir) => {
     }
   }
   return books
+})
+
+// 删除书籍
+ipcMain.handle('delete-book', async (event, { dir, name }) => {
+  const bookPath = join(dir, name)
+  if (fs.existsSync(bookPath)) {
+    fs.rmSync(bookPath, { recursive: true })
+    return true
+  }
+  return false
+})
+
+// 编辑书籍
+ipcMain.handle('edit-book', async (event, bookInfo) => {
+  const bookPath = join(bookInfo.dir, bookInfo.name)
+  if (fs.existsSync(bookPath)) {
+    fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(bookInfo, null, 2), 'utf-8')
+    return true
+  }
+  return false
 })

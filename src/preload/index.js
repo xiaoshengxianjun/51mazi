@@ -16,7 +16,11 @@ if (process.contextIsolated) {
       // 创建书籍
       createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
       // 读取书籍目录
-      readBooksDir: (dir) => ipcRenderer.invoke('read-books-dir', dir)
+      readBooksDir: (dir) => ipcRenderer.invoke('read-books-dir', dir),
+      // 删除书籍
+      deleteBook: (dir, name) => ipcRenderer.invoke('delete-book', { dir, name }),
+      // 编辑书籍
+      editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo)
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

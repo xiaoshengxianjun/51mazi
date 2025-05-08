@@ -2,10 +2,11 @@
   <div class="bookshelf">
     <!-- 顶部操作栏 -->
     <div class="top-bar">
-      <el-button type="primary" class="new-book-btn" @click="dialogVisible = true">
+      <el-button type="primary" class="new-book-btn" @click="handleNewBook">
         <el-icon><Plus /></el-icon>
         新建书籍
       </el-button>
+      <el-button type="primary" class="new-book-btn" @click="readBooksDir"> 刷新 </el-button>
       <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
           最近更新
@@ -16,35 +17,20 @@
       </el-dropdown>
     </div>
 
-    <!-- 新建书籍弹窗 -->
-    <el-dialog v-model="dialogVisible" title="新建书籍" width="500px">
+    <!-- 新建/编辑书籍弹窗 -->
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑书籍' : '新建书籍'" width="500px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item prop="name" label="书名">
           <el-input v-model="form.name" placeholder="请输入书籍名称" />
         </el-form-item>
         <el-form-item prop="type" label="类型">
           <el-select v-model="form.type" placeholder="请选择类型">
-            <el-option label="玄幻" value="fantasy" />
-            <el-option label="仙侠" value="xianxia" />
-            <el-option label="奇幻" value="fantasy" />
-            <el-option label="都市" value="urban" />
-            <el-option label="科幻" value="scifi" />
-            <el-option label="武侠" value="wuxia" />
-            <el-option label="言情" value="romance" />
-            <el-option label="历史" value="historical" />
-            <el-option label="悬疑" value="mystery" />
-            <el-option label="军事" value="military" />
-            <el-option label="游戏" value="game" />
-            <el-option label="体育" value="sports" />
-            <el-option label="现实" value="realistic" />
-            <el-option label="同人" value="fanfic" />
-            <el-option label="青春" value="youth" />
-            <el-option label="职场" value="workplace" />
-            <el-option label="校园" value="campus" />
-            <el-option label="二次元" value="anime" />
-            <el-option label="轻小说" value="lightnovel" />
-            <el-option label="短篇" value="short" />
-            <el-option label="其他" value="other" />
+            <el-option
+              v-for="item in BOOK_TYPES"
+              :key="item.value + item.label"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item prop="targetCount" label="目标字数">
@@ -63,7 +49,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCreate">创建</el-button>
+        <el-button type="primary" @click="handleConfirm">{{ isEdit ? '保存' : '创建' }}</el-button>
       </template>
     </el-dialog>
 
@@ -77,9 +63,12 @@
         :key="book.id"
         :name="book.name"
         :type="book.type"
+        :type-name="book.typeName"
         :word-count="book.wordCount"
         :update-time="book.updateTime"
         :cover-url="book.coverUrl"
+        @on-edit="onEdit(book)"
+        @on-delete="onDelete(book)"
       />
     </div>
 
@@ -91,17 +80,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Book from './Book.vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { useMainStore } from '../stores'
+import { BOOK_TYPES } from '../constants/config'
+import { readBooksDir, createBook, deleteBook, updateBook } from '../service/books'
+import { ElMessageBox, ElMessage } from 'element-plus'
 
 const mainStore = useMainStore()
 
-defineProps({})
-
 // 新建书籍弹窗相关
 const dialogVisible = ref(false)
+const isEdit = ref(false)
+const editBookId = ref('')
 const formRef = ref(null)
 const form = ref({
   name: '',
@@ -116,25 +108,93 @@ const rules = ref({
   intro: [{ required: true, message: '请输入简介', trigger: 'blur' }]
 })
 
-async function handleCreate() {
+// 书籍列表数据
+const books = computed(() => mainStore.books)
+
+// 右键菜单相关
+function onEdit(book) {
+  isEdit.value = true
+  editBookId.value = book.id
+  dialogVisible.value = true
+  form.value.name = book.name
+  form.value.type = book.type
+  form.value.targetCount = book.targetCount
+  form.value.intro = book.intro
+}
+
+async function onDelete(book) {
+  try {
+    await ElMessageBox.confirm(`确定要删除《${book.name}》吗？此操作不可恢复！`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteBook(book.name)
+    ElMessage.success('删除成功')
+    await readBooksDir()
+  } catch (e) {
+    // 用户取消
+    console.log(e)
+  }
+}
+
+async function handleConfirm() {
   formRef.value.validate(async (valid) => {
     if (valid) {
+      // 校验同名书籍
+      const exists = books.value.some(
+        (b) => b.name === form.value.name && (!isEdit.value || b.id !== editBookId.value)
+      )
+      if (exists) {
+        ElMessage.error('已存在同名书籍，不能重复创建！')
+        return
+      }
       const booksDir = await window.electronStore?.get('booksDir')
-      // 这里只做关闭弹窗，实际可扩展为添加到 books
-      await window.electron.createBook({
+      const randomId = isEdit.value
+        ? editBookId.value
+        : Date.now().toString() + Math.floor(Math.random() * 10000).toString()
+      const bookData = {
         dir: booksDir,
+        id: randomId,
         name: form.value.name,
         type: form.value.type,
+        typeName: BOOK_TYPES.find((item) => item.value === form.value.type)?.label,
         targetCount: form.value.targetCount,
         intro: form.value.intro
-      })
+      }
+      if (isEdit.value && editBookId.value) {
+        // 编辑模式，调用 updateBook
+        await updateBook({
+          dir: booksDir,
+          ...bookData,
+          id: editBookId.value
+        })
+      } else {
+        // 新建模式
+        await createBook(bookData)
+      }
       dialogVisible.value = false
+      isEdit.value = false
+      editBookId.value = ''
+      await readBooksDir()
     }
   })
 }
 
-// 模拟数据
-const books = computed(() => mainStore.books)
+function handleNewBook() {
+  isEdit.value = false
+  editBookId.value = ''
+  form.value.name = ''
+  form.value.type = ''
+  form.value.targetCount = 10000
+  form.value.intro = ''
+  dialogVisible.value = true
+}
+
+// 组件挂载时自动加载
+onMounted(() => {
+  readBooksDir()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -161,8 +221,7 @@ const books = computed(() => mainStore.books)
   overflow-y: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  background: white;
+  gap: 10px;
   border-radius: $border-radius;
 }
 .books-box-empty {

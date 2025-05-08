@@ -1,11 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Bookshelf from './components/Bookshelf.vue'
-import { useMainStore } from './stores'
 
 const showDirDialog = ref(false)
 const bookDir = ref('')
-const mainStore = useMainStore()
 
 // 检查本地存储是否有bookDir
 onMounted(async () => {
@@ -14,7 +12,6 @@ onMounted(async () => {
     showDirDialog.value = true
   } else {
     bookDir.value = dir
-    await loadBooks(dir)
   }
 })
 
@@ -24,16 +21,8 @@ async function handleChooseDir() {
   if (result && result.filePaths && result.filePaths[0]) {
     bookDir.value = result.filePaths[0]
     await window.electronStore.set('booksDir', bookDir.value)
-    await loadBooks(bookDir.value)
     showDirDialog.value = false
   }
-}
-
-// 读取书籍目录下所有书籍
-async function loadBooks(dir) {
-  // 调用主进程API读取目录下所有书籍meta.json
-  const books = await window.electron.readBooksDir(dir)
-  mainStore.setBooks(books)
 }
 
 // 确认目录
