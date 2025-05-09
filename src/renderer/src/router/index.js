@@ -4,8 +4,12 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    // component: () => import('../views/Home.vue')
-    component: () => import('../App.vue')
+    component: () => import('@renderer/views/Home.vue')
+  },
+  {
+    path: '/editor',
+    name: 'Editor',
+    component: () => import('@renderer/views/Editor.vue')
   }
   // 在这里添加更多路由配置
 ]

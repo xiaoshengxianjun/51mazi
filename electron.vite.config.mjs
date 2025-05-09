@@ -7,7 +7,14 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    // 添加主进程热重载配置
+    watch: {
+      // 监听主进程文件变化
+      include: ['src/main/*'],
+      // 忽略 node_modules
+      ignored: ['**/node_modules/**', '**/dist/**']
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]

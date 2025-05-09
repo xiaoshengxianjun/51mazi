@@ -37,9 +37,9 @@ ipcMain.handle('store:delete', async (_, key) => {
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1050,
+    width: 1000,
     height: 800,
-    minWidth: 1050,
+    minWidth: 1000,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
@@ -125,6 +125,10 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   // 2. 写入 mazi.json
   const meta = { ...bookInfo, createdAt: Date.now(), updatedAt: Date.now() }
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
+
+  // 3. 创建正文和笔记文件夹
+  fs.mkdirSync(join(bookPath, '正文'), { recursive: true })
+  fs.mkdirSync(join(bookPath, '笔记'), { recursive: true })
   return true
 })
 

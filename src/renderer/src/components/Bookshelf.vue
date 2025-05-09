@@ -67,6 +67,7 @@
         :word-count="book.wordCount"
         :update-time="book.updateTime"
         :cover-url="book.coverUrl"
+        @on-open="onOpen(book)"
         @on-edit="onEdit(book)"
         @on-delete="onDelete(book)"
       />
@@ -83,12 +84,14 @@
 import { ref, computed, onMounted } from 'vue'
 import Book from './Book.vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
-import { useMainStore } from '../stores'
-import { BOOK_TYPES } from '../constants/config'
-import { readBooksDir, createBook, deleteBook, updateBook } from '../service/books'
+import { useMainStore } from '@renderer/stores'
+import { BOOK_TYPES } from '@renderer/constants/config'
+import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 const mainStore = useMainStore()
+const router = useRouter()
 
 // 新建书籍弹窗相关
 const dialogVisible = ref(false)
@@ -110,6 +113,16 @@ const rules = ref({
 
 // 书籍列表数据
 const books = computed(() => mainStore.books)
+
+// 打开书籍
+function onOpen(book) {
+  router.push({
+    path: '/editor',
+    query: {
+      name: book.name
+    }
+  })
+}
 
 // 右键菜单相关
 function onEdit(book) {

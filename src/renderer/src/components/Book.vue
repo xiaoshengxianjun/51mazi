@@ -1,5 +1,5 @@
 <template>
-  <div class="book" @contextmenu.prevent="showMenu($event)">
+  <div class="book" @click="emit('onOpen')" @contextmenu.prevent="showMenu($event)">
     <div class="spine"></div>
     <div class="cover-bg">
       <div class="title-block">
@@ -41,7 +41,7 @@
 import { ref, onBeforeUnmount } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 
-const emit = defineEmits(['onEdit', 'onDelete'])
+const emit = defineEmits(['onOpen', 'onEdit', 'onDelete'])
 defineProps({
   id: String,
   name: String,
@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
   border: 2px solid #e5e2d7;
   box-sizing: border-box;
   transition: transform 0.3s ease;
-
+  cursor: pointer;
   &:hover {
     transform: scale(1.02);
   }
@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
   .title-block {
     position: absolute;
     right: 18px;
-    top: 30px;
+    top: 20px;
     width: 60px;
     height: 180px;
     background: #f9f6e7;
