@@ -116,12 +116,18 @@ const books = computed(() => mainStore.books)
 
 // 打开书籍
 function onOpen(book) {
-  router.push({
-    path: '/editor',
-    query: {
-      name: book.name
-    }
-  })
+  // 通过 Electron API 请求主进程打开新窗口
+  if (window.electron && window.electron.openBookEditorWindow) {
+    window.electron.openBookEditorWindow(book.id, book.name)
+  } else {
+    // 兼容老逻辑
+    router.push({
+      path: '/editor',
+      query: {
+        name: book.name
+      }
+    })
+  }
 }
 
 // 右键菜单相关
@@ -162,12 +168,10 @@ async function handleConfirm() {
         ElMessage.error('已存在同名书籍，不能重复创建！')
         return
       }
-      const booksDir = await window.electronStore?.get('booksDir')
       const randomId = isEdit.value
         ? editBookId.value
         : Date.now().toString() + Math.floor(Math.random() * 10000).toString()
       const bookData = {
-        dir: booksDir,
         id: randomId,
         name: form.value.name,
         type: form.value.type,
@@ -178,7 +182,6 @@ async function handleConfirm() {
       if (isEdit.value && editBookId.value) {
         // 编辑模式，调用 updateBook
         await updateBook({
-          dir: booksDir,
           ...bookData,
           id: editBookId.value
         })

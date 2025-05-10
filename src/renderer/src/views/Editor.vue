@@ -5,23 +5,38 @@
       <!-- 笔记部分 -->
       <div class="panel-section">
         <div class="section-header" @click="toggleNotes">
-          <el-icon class="toggle-icon" :class="{ 'is-active': notesExpanded }">
-            <ArrowRight />
-          </el-icon>
-          <span>笔记</span>
+          <div class="section-header-left">
+            <el-icon class="toggle-icon" :class="{ 'is-active': notesExpanded }">
+              <ArrowRight />
+            </el-icon>
+            <span>笔记</span>
+          </div>
+          <div class="section-header-right">
+            <el-tooltip content="创建笔记本" placement="bottom" :show-after="2000">
+              <el-icon><FolderAdd /></el-icon>
+            </el-tooltip>
+            <!-- <el-tooltip content="创建笔记" placement="bottom" show-after="2000">
+              <el-icon><DocumentAdd /></el-icon>
+            </el-tooltip> -->
+          </div>
         </div>
         <div v-show="notesExpanded" class="section-content">
           <el-tree
             :data="notesTree"
             :props="defaultProps"
+            empty-text="暂无笔记"
             node-key="id"
             default-expand-all
             @node-click="handleNoteClick"
           >
             <template #default="{ node }">
               <div class="custom-tree-node">
-                <el-icon><Document /></el-icon>
+                <!-- <el-icon><Document /></el-icon> -->
                 <span>{{ node.label }}</span>
+                <div class="chapter-actions">
+                  <el-icon @click.stop="editNode(node)"><Edit /></el-icon>
+                  <el-icon @click.stop="deleteNode(node)"><Delete /></el-icon>
+                </div>
               </div>
             </template>
           </el-tree>
@@ -31,25 +46,53 @@
       <!-- 正文部分 -->
       <div class="panel-section">
         <div class="section-header" @click="toggleChapters">
-          <el-icon class="toggle-icon" :class="{ 'is-active': chaptersExpanded }">
-            <ArrowRight />
-          </el-icon>
-          <span>正文</span>
+          <div class="section-header-left">
+            <el-icon class="toggle-icon" :class="{ 'is-active': chaptersExpanded }">
+              <ArrowRight />
+            </el-icon>
+            <span>正文</span>
+          </div>
+          <div class="section-header-right">
+            <el-tooltip content="创建卷" placement="bottom" :show-after="2000">
+              <el-icon @click.stop="createVolume"><FolderAdd /></el-icon>
+            </el-tooltip>
+            <el-tooltip content="卷排序" placement="bottom" :show-after="2000">
+              <el-icon><Sort /></el-icon>
+            </el-tooltip>
+            <el-tooltip content="正文设置" placement="bottom" :show-after="2000">
+              <el-icon><Setting /></el-icon>
+            </el-tooltip>
+          </div>
         </div>
         <div v-show="chaptersExpanded" class="section-content">
           <el-tree
             :data="chaptersTree"
             :props="defaultProps"
+            empty-text="暂无章节"
             node-key="id"
             default-expand-all
             @node-click="handleChapterClick"
           >
-            <template #default="{ node, data }">
+            <template #default="{ node }">
               <div class="custom-tree-node">
-                <el-icon>
-                  <component :is="data.type === 'volume' ? 'Folder' : 'Document'" />
-                </el-icon>
-                <span>{{ node.label }}</span>
+                <span v-if="!editingNode || editingNode.id !== node.data.id">{{ node.label }}</span>
+                <el-input
+                  v-else
+                  v-model="editingName"
+                  size="small"
+                  @keyup.enter="confirmEdit(node)"
+                  @blur="confirmEdit(node)"
+                />
+                <div class="chapter-actions">
+                  <el-icon
+                    v-if="node.data.type === 'volume'"
+                    @click.stop="createChapter(node.data.id)"
+                  >
+                    <DocumentAdd />
+                  </el-icon>
+                  <el-icon @click.stop="editNode(node)"><Edit /></el-icon>
+                  <el-icon @click.stop="deleteNode(node)"><Delete /></el-icon>
+                </div>
               </div>
             </template>
           </el-tree>
@@ -84,11 +127,31 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowRight, Document } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import {
+  ArrowRight,
+  DocumentAdd,
+  FolderAdd,
+  Sort,
+  Setting,
+  Edit,
+  Delete
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
-const bookName = route.query.name
+
+// 解析新窗口参数
+let bookName = null
+if (window.process && window.process.argv) {
+  // Electron 传递的 additionalArguments
+  for (const arg of window.process.argv) {
+    if (arg.startsWith('bookName=')) bookName = decodeURIComponent(arg.replace('bookName=', ''))
+  }
+}
+if (!bookName) {
+  // 回退到 hash/query
+  bookName = route.query.name
+}
 
 // 面板展开状态
 const notesExpanded = ref(false)
@@ -112,42 +175,16 @@ const defaultProps = {
 }
 
 // 模拟数据 - 实际应该从主进程获取
-const notesTree = ref([
-  {
-    id: '1',
-    name: '写作大纲.md',
-    type: 'note'
-  },
-  {
-    id: '2',
-    name: '人物设定.md',
-    type: 'note'
-  }
-])
-
-const chaptersTree = ref([
-  {
-    id: 'v1',
-    name: '正文',
-    type: 'volume',
-    children: [
-      {
-        id: 'c1',
-        name: '第一章',
-        type: 'chapter'
-      },
-      {
-        id: 'c2',
-        name: '第二章',
-        type: 'chapter'
-      }
-    ]
-  }
-])
+const notesTree = ref([])
+const chaptersTree = ref([])
 
 // 当前编辑的文件
 const currentFile = ref(null)
 const editorContent = ref('')
+
+// 编辑节点相关
+const editingNode = ref(null)
+const editingName = ref('')
 
 // 切换笔记面板
 function toggleNotes() {
@@ -189,7 +226,7 @@ async function saveContent() {
   try {
     // TODO: 调用主进程保存文件
     ElMessage.success('保存成功')
-  } catch (error) {
+  } catch {
     ElMessage.error('保存失败')
   }
 }
@@ -235,6 +272,105 @@ onUnmounted(() => {
 onMounted(async () => {
   // TODO: 从主进程加载书籍的笔记和章节数据
 })
+
+// 创建卷
+async function createVolume() {
+  try {
+    const result = await window.electron.createVolume(bookName)
+    if (result.success) {
+      ElMessage.success('创建卷成功')
+      // 重新加载章节数据
+      await loadChapters()
+    } else {
+      ElMessage.error(result.message || '创建卷失败')
+    }
+  } catch {
+    ElMessage.error('创建卷失败')
+  }
+}
+
+// 创建章节
+async function createChapter(volumeId) {
+  try {
+    const result = await window.electron.createChapter(bookName, volumeId)
+    if (result.success) {
+      ElMessage.success('创建章节成功')
+      // 重新加载章节数据
+      await loadChapters()
+    } else {
+      ElMessage.error(result.message || '创建章节失败')
+    }
+  } catch {
+    ElMessage.error('创建章节失败')
+  }
+}
+
+// 加载章节数据
+async function loadChapters() {
+  try {
+    const chapters = await window.electron.loadChapters(bookName)
+    chaptersTree.value = chapters
+  } catch {
+    ElMessage.error('加载章节失败')
+  }
+}
+
+// 编辑节点
+function editNode(node) {
+  editingNode.value = node.data
+  editingName.value = node.data.name
+}
+
+// 确认编辑
+async function confirmEdit(node) {
+  if (!editingNode.value) return
+  const newName = editingName.value.trim()
+  if (newName) {
+    try {
+      const result = await window.electron.editNode(bookName, editingNode.value.id, newName)
+      if (result.success) {
+        ElMessage.success('编辑成功')
+        await loadChapters()
+      } else {
+        ElMessage.error(result.message || '编辑失败')
+      }
+    } catch {
+      ElMessage.error('编辑失败')
+    }
+  }
+  editingNode.value = null
+  editingName.value = ''
+}
+
+// 删除节点
+async function deleteNode(node) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除${node.data.type === 'volume' ? '卷' : '章节'}吗？此操作不可恢复！`,
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    const result = await window.electron.deleteNode(bookName, node.data.id)
+    if (result.success) {
+      ElMessage.success('删除成功')
+      await loadChapters()
+    } else {
+      ElMessage.error(result.message || '删除失败')
+    }
+  } catch (e) {
+    // 用户取消
+    console.log(e)
+  }
+}
+
+// 在组件挂载时加载章节数据
+onMounted(async () => {
+  await loadChapters()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -276,15 +412,22 @@ onMounted(async () => {
 }
 
 .section-header {
-  padding: 8px 12px;
+  padding: 10px 0;
   font-size: 14px;
   font-weight: 500;
   color: #333;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
   user-select: none;
+  &-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 10px;
+    font-size: 16px;
+  }
 
   &:hover {
     background-color: #e8e8e8;
@@ -293,20 +436,38 @@ onMounted(async () => {
 
 .toggle-icon {
   transition: transform 0.2s;
+  font-size: 12px;
+  padding: 6px;
+  box-sizing: content-box;
+  padding: 6px;
   &.is-active {
     transform: rotate(90deg);
   }
 }
 
-.section-content {
-  //   padding: 4px 0;
-}
+// .section-content {
+//   padding: 0px 5px;
+//   background-color: #fff;
+// }
 
 .custom-tree-node {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  // gap: 4px;
   font-size: 13px;
+  .chapter-actions {
+    display: none;
+    padding-right: 10px;
+    align-items: center;
+    gap: 12px;
+  }
+  &:hover {
+    .chapter-actions {
+      display: flex;
+    }
+  }
 }
 
 .right-panel {

@@ -16,11 +16,26 @@ if (process.contextIsolated) {
       // 创建书籍
       createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
       // 读取书籍目录
-      readBooksDir: (dir) => ipcRenderer.invoke('read-books-dir', dir),
+      readBooksDir: () => ipcRenderer.invoke('read-books-dir'),
       // 删除书籍
-      deleteBook: (dir, name) => ipcRenderer.invoke('delete-book', { dir, name }),
+      deleteBook: (name) => ipcRenderer.invoke('delete-book', { name }),
       // 编辑书籍
-      editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo)
+      editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo),
+      // 编辑器新窗口打开
+      openBookEditorWindow: (id, name) =>
+        ipcRenderer.invoke('open-book-editor-window', { id, name }),
+      // 创建卷
+      createVolume: (bookName) => ipcRenderer.invoke('create-volume', bookName),
+      // 创建章节
+      createChapter: (bookName, volumeId) =>
+        ipcRenderer.invoke('create-chapter', { bookName, volumeId }),
+      // 加载章节数据
+      loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
+      // 编辑节点
+      editNode: (bookName, nodeId, newName) =>
+        ipcRenderer.invoke('edit-node', { bookName, nodeId, newName }),
+      // 删除节点
+      deleteNode: (bookName, nodeId) => ipcRenderer.invoke('delete-node', { bookName, nodeId })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储
