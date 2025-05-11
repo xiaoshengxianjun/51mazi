@@ -32,10 +32,32 @@ if (process.contextIsolated) {
       // 加载章节数据
       loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
       // 编辑节点
-      editNode: (bookName, nodeId, newName) =>
-        ipcRenderer.invoke('edit-node', { bookName, nodeId, newName }),
+      editNode: (bookName, payload) => ipcRenderer.invoke('edit-node', { bookName, ...payload }),
       // 删除节点
-      deleteNode: (bookName, nodeId) => ipcRenderer.invoke('delete-node', { bookName, nodeId })
+      deleteNode: (bookName, payload) =>
+        ipcRenderer.invoke('delete-node', { bookName, ...payload }),
+      // 获取书籍排序
+      getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
+      // 设置书籍排序
+      setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
+      // 加载笔记数据
+      loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
+      // 笔记本和笔记的增删改查
+      createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
+      deleteNotebook: (bookName, notebookName) =>
+        ipcRenderer.invoke('delete-notebook', { bookName, notebookName }),
+      renameNotebook: (bookName, oldName, newName) =>
+        ipcRenderer.invoke('rename-notebook', { bookName, oldName, newName }),
+      createNote: (bookName, notebookName, noteName) =>
+        ipcRenderer.invoke('create-note', { bookName, notebookName, noteName }),
+      deleteNote: (bookName, notebookName, noteName) =>
+        ipcRenderer.invoke('delete-note', { bookName, notebookName, noteName }),
+      renameNote: (bookName, notebookName, oldName, newName) =>
+        ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),
+      readNote: (bookName, notebookName, noteName) =>
+        ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
+      editNote: (bookName, notebookName, noteName, content) =>
+        ipcRenderer.invoke('edit-note', { bookName, notebookName, noteName, content })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

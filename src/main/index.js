@@ -132,8 +132,18 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
   // 3. 创建正文和笔记文件夹
-  fs.mkdirSync(join(bookPath, '正文'), { recursive: true })
-  fs.mkdirSync(join(bookPath, '笔记'), { recursive: true })
+  const textPath = join(bookPath, '正文')
+  fs.mkdirSync(textPath, { recursive: true })
+  const notesPath = join(bookPath, '笔记')
+  fs.mkdirSync(notesPath, { recursive: true })
+
+  // 4. 默认创建一个正文卷
+  fs.mkdirSync(join(textPath, '正文'), { recursive: true })
+  // 5. 在笔记文件夹中创建大纲、设定、人物三个默认笔记本文件夹
+  fs.mkdirSync(join(notesPath, '大纲'), { recursive: true })
+  fs.mkdirSync(join(notesPath, '设定'), { recursive: true })
+  fs.mkdirSync(join(notesPath, '人物'), { recursive: true })
+
   return true
 })
 
@@ -285,7 +295,8 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
           volumeChapters.push({
             id: file.name,
             name: file.name.replace('.txt', ''),
-            type: 'chapter'
+            type: 'chapter',
+            path: join(bookPath, '正文', volumeName, file.name) // 唯一
           })
         }
       }
@@ -293,6 +304,7 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
         id: volumeName,
         name: volumeName,
         type: 'volume',
+        path: join(bookPath, '正文', volumeName), // 唯一
         children: volumeChapters
       })
     }
@@ -301,21 +313,29 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
 })
 
 // 编辑节点
-ipcMain.handle('edit-node', async (event, { bookName, nodeId, newName }) => {
+ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, newName }) => {
   try {
     const booksDir = store.get('booksDir')
-    const bookPath = join(booksDir, bookName)
-    const nodePath = join(bookPath, nodeId)
-    const newPath = join(bookPath, newName)
-
-    // 检查新名称是否已存在
-    if (fs.existsSync(newPath)) {
-      return { success: false, message: '名称已存在' }
+    if (type === 'volume') {
+      // 卷重命名
+      const volumePath = join(booksDir, bookName, '正文', volume)
+      const newVolumePath = join(booksDir, bookName, '正文', newName)
+      if (fs.existsSync(newVolumePath)) {
+        return { success: false, message: '新卷名已存在' }
+      }
+      fs.renameSync(volumePath, newVolumePath)
+      return { success: true }
+    } else if (type === 'chapter') {
+      // 章节重命名
+      const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
+      const newChapterPath = join(booksDir, bookName, '正文', volume, `${newName}.txt`)
+      if (fs.existsSync(newChapterPath)) {
+        return { success: false, message: '新章节名已存在' }
+      }
+      fs.renameSync(chapterPath, newChapterPath)
+      return { success: true }
     }
-
-    // 重命名文件或文件夹
-    fs.renameSync(nodePath, newPath)
-    return { success: true }
+    return { success: false, message: '类型错误' }
   } catch (error) {
     console.error('编辑节点失败:', error)
     return { success: false, message: error.message }
@@ -323,22 +343,177 @@ ipcMain.handle('edit-node', async (event, { bookName, nodeId, newName }) => {
 })
 
 // 删除节点
-ipcMain.handle('delete-node', async (event, { bookName, nodeId }) => {
-  try {
-    const booksDir = store.get('booksDir')
-    const bookPath = join(booksDir, bookName)
-    const nodePath = join(bookPath, nodeId)
-
-    // 检查节点是否存在
-    if (!fs.existsSync(nodePath)) {
-      return { success: false, message: '节点不存在' }
-    }
-
-    // 删除文件或文件夹
-    fs.rmSync(nodePath, { recursive: true, force: true })
+ipcMain.handle('delete-node', async (event, { bookName, type, volume, chapter }) => {
+  const booksDir = store.get('booksDir')
+  if (type === 'volume') {
+    const volumePath = join(booksDir, bookName, '正文', volume)
+    // 删除整个卷文件夹
+    if (!fs.existsSync(volumePath)) return { success: false, message: '卷不存在' }
+    fs.rmSync(volumePath, { recursive: true, force: true })
     return { success: true }
-  } catch (error) {
-    console.error('删除节点失败:', error)
-    return { success: false, message: error.message }
+  } else if (type === 'chapter') {
+    const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
+    if (!fs.existsSync(chapterPath)) return { success: false, message: '章节不存在' }
+    fs.rmSync(chapterPath)
+    return { success: true }
   }
+  return { success: false, message: '类型错误' }
+})
+
+ipcMain.handle('get-sort-order', (event, bookName) => {
+  return store.get(`sortOrder:${bookName}`) || 'asc'
+})
+
+ipcMain.handle('set-sort-order', (event, { bookName, order }) => {
+  store.set(`sortOrder:${bookName}`, order)
+  return true
+})
+
+// 加载笔记数据
+ipcMain.handle('load-notes', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const notesPath = join(bookPath, '笔记')
+  if (!fs.existsSync(notesPath)) {
+    return []
+  }
+  // 递归读取笔记目录
+  function readNotesDir(dir, isRoot = false) {
+    const items = fs.readdirSync(dir, { withFileTypes: true })
+    return items
+      .filter((item) => {
+        if (isRoot) return item.isDirectory() // 根层只返回文件夹（笔记本）
+        if (item.isDirectory()) return true
+        // 只返回 .txt 文件作为笔记
+        return item.isFile() && item.name.endsWith('.txt')
+      })
+      .map((item) => {
+        if (item.isDirectory()) {
+          return {
+            id: item.name,
+            name: item.name,
+            type: 'folder',
+            path: join(dir, item.name), // 唯一
+            children: readNotesDir(join(dir, item.name))
+          }
+        } else {
+          return {
+            id: item.name,
+            name: item.name.replace(/\.txt$/, ''),
+            type: 'note',
+            path: join(dir, item.name) // 唯一
+          }
+        }
+      })
+  }
+  return readNotesDir(notesPath, true)
+})
+
+// 创建笔记本
+ipcMain.handle('create-notebook', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const notesPath = join(booksDir, bookName, '笔记')
+  let baseName = '新建笔记本'
+  let notebookName = baseName
+  let index = 1
+  while (fs.existsSync(join(notesPath, notebookName))) {
+    notebookName = `${baseName}${index}`
+    index++
+  }
+  fs.mkdirSync(join(notesPath, notebookName))
+  return { success: true, notebookName }
+})
+
+// 删除笔记本
+ipcMain.handle('delete-notebook', async (event, { bookName, notebookName }) => {
+  const booksDir = store.get('booksDir')
+  const notebookPath = join(booksDir, bookName, '笔记', notebookName)
+  if (!fs.existsSync(notebookPath)) {
+    return { success: false, message: '笔记本不存在' }
+  }
+  fs.rmSync(notebookPath, { recursive: true, force: true })
+  return { success: true }
+})
+
+// 重命名笔记本
+ipcMain.handle('rename-notebook', async (event, { bookName, oldName, newName }) => {
+  const booksDir = store.get('booksDir')
+  const notesPath = join(booksDir, bookName, '笔记')
+  const oldPath = join(notesPath, oldName)
+  const newPath = join(notesPath, newName)
+  if (!fs.existsSync(oldPath)) {
+    return { success: false, message: '原笔记本不存在' }
+  }
+  if (fs.existsSync(newPath)) {
+    return { success: false, message: '新笔记本名已存在' }
+  }
+  fs.renameSync(oldPath, newPath)
+  return { success: true }
+})
+
+// 创建笔记
+ipcMain.handle('create-note', async (event, { bookName, notebookName, noteName }) => {
+  const booksDir = store.get('booksDir')
+  const notebookPath = join(booksDir, bookName, '笔记', notebookName)
+  if (!fs.existsSync(notebookPath)) {
+    return { success: false, message: '笔记本不存在' }
+  }
+  let baseName = noteName || '新建笔记'
+  let fileName = `${baseName}.txt`
+  let index = 1
+  while (fs.existsSync(join(notebookPath, fileName))) {
+    fileName = `${baseName}${index}.txt`
+    index++
+  }
+  fs.writeFileSync(join(notebookPath, fileName), '')
+  return { success: true }
+})
+
+// 删除笔记
+ipcMain.handle('delete-note', async (event, { bookName, notebookName, noteName }) => {
+  const booksDir = store.get('booksDir')
+  const notePath = join(booksDir, bookName, '笔记', notebookName, `${noteName}.txt`)
+  if (!fs.existsSync(notePath)) {
+    return { success: false, message: '笔记不存在' }
+  }
+  fs.rmSync(notePath)
+  return { success: true }
+})
+
+// 重命名笔记
+ipcMain.handle('rename-note', async (event, { bookName, notebookName, oldName, newName }) => {
+  const booksDir = store.get('booksDir')
+  const notebookPath = join(booksDir, bookName, '笔记', notebookName)
+  const oldPath = join(notebookPath, `${oldName}.txt`)
+  const newPath = join(notebookPath, `${newName}.txt`)
+  if (!fs.existsSync(oldPath)) {
+    return { success: false, message: '原笔记不存在' }
+  }
+  if (fs.existsSync(newPath)) {
+    return { success: false, message: '新笔记名已存在' }
+  }
+  fs.renameSync(oldPath, newPath)
+  return { success: true }
+})
+
+// 读取笔记内容
+ipcMain.handle('read-note', async (event, { bookName, notebookName, noteName }) => {
+  const booksDir = store.get('booksDir')
+  const notePath = join(booksDir, bookName, '笔记', notebookName, `${noteName}.txt`)
+  if (!fs.existsSync(notePath)) {
+    return { success: false, message: '笔记不存在' }
+  }
+  const content = fs.readFileSync(notePath, 'utf-8')
+  return { success: true, content }
+})
+
+// 保存笔记内容
+ipcMain.handle('edit-note', async (event, { bookName, notebookName, noteName, content }) => {
+  const booksDir = store.get('booksDir')
+  const notePath = join(booksDir, bookName, '笔记', notebookName, `${noteName}.txt`)
+  if (!fs.existsSync(notePath)) {
+    return { success: false, message: '笔记不存在' }
+  }
+  fs.writeFileSync(notePath, content, 'utf-8')
+  return { success: true }
 })
