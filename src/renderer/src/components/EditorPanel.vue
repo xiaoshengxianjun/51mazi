@@ -11,53 +11,44 @@
       </el-select>
       <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
         <el-option label="12px" value="12px" />
+        <el-option label="13px" value="13px" />
         <el-option label="14px" value="14px" />
+        <el-option label="15px" value="15px" />
         <el-option label="16px" value="16px" />
         <el-option label="18px" value="18px" />
         <el-option label="20px" value="20px" />
+        <el-option label="22px" value="22px" />
+        <el-option label="24px" value="24px" />
       </el-select>
       <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
         <el-option label="1.2" value="1.2" />
+        <el-option label="1.3" value="1.3" />
+        <el-option label="1.4" value="1.4" />
         <el-option label="1.5" value="1.5" />
+        <el-option label="1.6" value="1.6" />
         <el-option label="1.8" value="1.8" />
         <el-option label="2" value="2" />
       </el-select>
-      <el-button-group class="toolbar-item">
-        <el-button size="small" @click="toggleBold" :type="isBold ? 'primary' : 'default'">
-          <b>B</b>
-        </el-button>
-        <el-button size="small" @click="toggleItalic" :type="isItalic ? 'primary' : 'default'">
-          <i>I</i>
-        </el-button>
-      </el-button-group>
-      <el-button-group class="toolbar-item">
-        <el-button
-          size="small"
-          @click="setAlign('left')"
-          :type="align === 'left' ? 'primary' : 'default'"
-        >
-          左
-        </el-button>
-        <el-button
-          size="small"
-          @click="setAlign('center')"
-          :type="align === 'center' ? 'primary' : 'default'"
-        >
-          中
-        </el-button>
-        <el-button
-          size="small"
-          @click="setAlign('right')"
-          :type="align === 'right' ? 'primary' : 'default'"
-        >
-          右
-        </el-button>
-      </el-button-group>
+      <el-button
+        class="toolbar-item"
+        size="small"
+        :type="isBold ? 'primary' : 'default'"
+        @click="toggleBold"
+      >
+        <b>B</b>
+      </el-button>
+      <el-button
+        class="toolbar-item"
+        size="small"
+        :type="isItalic ? 'primary' : 'default'"
+        @click="toggleItalic"
+      >
+        <i>I</i>
+      </el-button>
       <el-button size="small" class="toolbar-item" @click="copyContent">
         <el-icon><DocumentCopy /></el-icon>
       </el-button>
-      <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button>
-      <el-button size="small" class="toolbar-item" @click="redo"> 重做 </el-button>
+      <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
       <el-button size="small" class="toolbar-item" type="primary" @click="saveContent">
         保存
       </el-button>
@@ -67,7 +58,7 @@
       <el-input
         v-model="chapterTitle"
         placeholder="章节标题"
-        size="large"
+        maxlength="20"
         class="chapter-title-input"
       />
     </div>
@@ -79,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
@@ -87,14 +78,22 @@ import StarterKit from '@tiptap/starter-kit'
 import Bold from '@tiptap/extension-bold'
 import Italic from '@tiptap/extension-italic'
 import TextAlign from '@tiptap/extension-text-align'
-// 可引入更多扩展，如 FontFamily、FontSize、LineHeight、Collapsible（段落折叠）等
+import { useEditorStore } from '@renderer/stores/editor'
+import { Extension } from '@tiptap/core'
+import { Collapsible } from '@renderer/extensions/Collapsible'
+
+const editorStore = useEditorStore()
 
 const props = defineProps({
   bookName: String
   // 可扩展章节ID、章节内容等props
 })
 
-const chapterTitle = ref('')
+const chapterTitle = computed({
+  get: () => editorStore.chapterTitle,
+  set: (val) => editorStore.setChapterTitle(val)
+})
+
 const fontFamily = ref('inherit')
 const fontSize = ref('16px')
 const lineHeight = ref('1.6')
@@ -102,21 +101,48 @@ const align = ref('left')
 
 const editor = ref(null)
 
+// 监听 store 内容变化，回显到编辑器
+watch(
+  () => editorStore.content,
+  (val) => {
+    if (editor.value && val !== editor.value.getHTML()) {
+      editor.value.commands.setContent(val || '')
+    }
+  }
+)
+
+// 支持Tab键插入制表符
+const TabInsert = Extension.create({
+  name: 'tabInsert',
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        this.editor.commands.insertContent('\t')
+        return true
+      }
+    }
+  }
+})
+
 onMounted(() => {
   editor.value = new Editor({
     extensions: [
       StarterKit,
       Bold,
       Italic,
-      TextAlign.configure({ types: ['heading', 'paragraph'] })
-      // 后续可引入 Collapsible 扩展
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TabInsert, // 支持Tab键插入制表符
+      Collapsible // 自定义段落折叠扩展
     ],
-    content: '',
+    content: editorStore.content,
     editorProps: {
       attributes: {
         style: () =>
-          `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value};`
+          `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value}; white-space: pre-wrap;` // 保证缩进显示
       }
+    },
+    onUpdate: ({ editor }) => {
+      editorStore.setContent(editor.getHTML())
     }
   })
 })
@@ -137,24 +163,57 @@ function toggleItalic() {
   editor.value.chain().focus().toggleItalic().run()
   isItalic.value = editor.value.isActive('italic')
 }
-function setAlign(val) {
-  align.value = val
-  editor.value.chain().focus().setTextAlign(val).run()
-}
 function copyContent() {
   const html = editor.value.getHTML()
   navigator.clipboard.writeText(html)
   ElMessage.success('已复制内容')
 }
-function undo() {
-  editor.value.chain().focus().undo().run()
-}
-function redo() {
-  editor.value.chain().focus().redo().run()
-}
-function saveContent() {
-  // TODO: 保存章节内容和标题到主进程
-  ElMessage.success('保存成功（示例）')
+
+const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
+
+// 保存内容
+async function saveContent() {
+  const file = editorStore.currentFile
+  if (!file) {
+    ElMessage.warning('未选择章节或笔记')
+    return
+  }
+  let result
+  if (file.type === 'note') {
+    result = await window.electron.editNote({
+      bookName: props.bookName,
+      notebookName: file.notebook,
+      noteName: file.name, // 旧文件名
+      newName: editorStore.chapterTitle, // 新标题（newName）
+      content: editorStore.content // 内容
+    })
+    if (result.success) {
+      ElMessage.success('保存成功')
+      if (result.name && result.name !== file.name) {
+        editorStore.setFile({ ...file, name: result.name })
+      }
+      emit('refresh-notes')
+    } else {
+      ElMessage.error(result?.message || '保存失败')
+    }
+  } else if (file.type === 'chapter') {
+    result = await window.electron.saveChapter({
+      bookName: props.bookName,
+      volumeName: file.volume,
+      chapterName: file.name, // 旧文件名
+      newName: editorStore.chapterTitle, // 新标题（newName）
+      content: editorStore.content // 内容
+    })
+    if (result.success) {
+      ElMessage.success('保存成功')
+      if (result.name && result.name !== file.name) {
+        editorStore.setFile({ ...file, name: result.name })
+      }
+      emit('refresh-chapters')
+    } else {
+      ElMessage.error(result?.message || '保存失败')
+    }
+  }
 }
 
 // 监听字体、字号、行高变化，动态应用样式
@@ -173,17 +232,21 @@ watch([fontFamily, fontSize, lineHeight], () => {
   height: 100%;
   background: #fff;
   color: #000;
+  min-height: 0;
 }
 .editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 10px;
+  padding: 8px 15px;
   border-bottom: 1px solid #eee;
   background: #fafbfc;
 }
+.toolbar-item {
+  margin: 0;
+}
 .chapter-title {
-  padding: 12px 16px 0 16px;
+  padding: 8px 15px;
   border-bottom: 1px solid #eee;
   background: #fafbfc;
 }
@@ -192,8 +255,23 @@ watch([fontFamily, fontSize, lineHeight], () => {
   font-weight: bold;
 }
 .editor-content {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   padding: 16px;
   overflow-y: auto;
+  background: #fff;
+  white-space: pre-wrap; // 保证Tab缩进和换行显示
+  font-family: inherit, monospace;
+  > div {
+    height: 100%;
+  }
+}
+::v-deep(.tiptap) {
+  height: 100%;
+  white-space: pre-wrap; // 保证Tab缩进和换行显示
+  font-family: inherit, monospace;
+  &:focus {
+    outline: none;
+  }
 }
 </style>

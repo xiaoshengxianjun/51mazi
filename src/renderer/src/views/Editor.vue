@@ -2,7 +2,7 @@
   <div class="editor-container">
     <!-- 左侧面板 -->
     <div class="left-panel" :style="{ width: leftPanelWidth + 'px' }">
-      <NoteChapter :book-name="bookName" />
+      <NoteChapter ref="noteChapterRef" :book-name="bookName" />
     </div>
 
     <!-- 拖拽条 -->
@@ -10,7 +10,11 @@
 
     <!-- 右侧编辑区 -->
     <div class="right-panel">
-      <EditorPanel :book-name="bookName" />
+      <EditorPanel
+        :book-name="bookName"
+        @refresh-notes="refreshNotes"
+        @refresh-chapters="refreshChapters"
+      />
     </div>
   </div>
 </template>
@@ -18,8 +22,8 @@
 <script setup>
 import { ref, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import NoteChapter from '../components/NoteChapter.vue'
-import EditorPanel from '../components/EditorPanel.vue'
+import NoteChapter from '@renderer/components/NoteChapter.vue'
+import EditorPanel from '@renderer/components/EditorPanel.vue'
 
 const route = useRoute()
 
@@ -46,6 +50,8 @@ const DEFAULT_WIDTH = 280
 const isResizing = ref(false)
 const startX = ref(0)
 const startWidth = ref(0)
+
+const noteChapterRef = ref(null)
 
 // 开始拖拽
 function startResize(e) {
@@ -76,6 +82,20 @@ function stopResize() {
 // 重置面板宽度
 function resetPanelWidth() {
   leftPanelWidth.value = DEFAULT_WIDTH
+}
+
+function refreshNotes() {
+  noteChapterRef.value && noteChapterRef.value.reloadNotes && noteChapterRef.value.reloadNotes()
+}
+
+function refreshChapters() {
+  noteChapterRef.value &&
+    noteChapterRef.value.reloadChapters &&
+    noteChapterRef.value.reloadChapters()
+}
+
+function handleSelectFile(file) {
+  // 预留：可做高亮、聚焦等
 }
 
 // 组件卸载时清理事件监听

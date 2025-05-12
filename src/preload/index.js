@@ -56,8 +56,10 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),
       readNote: (bookName, notebookName, noteName) =>
         ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
-      editNote: (bookName, notebookName, noteName, content) =>
-        ipcRenderer.invoke('edit-note', { bookName, notebookName, noteName, content })
+      editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+      readChapter: (bookName, volumeName, chapterName) =>
+        ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
+      saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo)
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

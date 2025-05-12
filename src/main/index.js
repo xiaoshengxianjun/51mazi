@@ -507,13 +507,64 @@ ipcMain.handle('read-note', async (event, { bookName, notebookName, noteName }) 
   return { success: true, content }
 })
 
-// 保存笔记内容
-ipcMain.handle('edit-note', async (event, { bookName, notebookName, noteName, content }) => {
-  const booksDir = store.get('booksDir')
-  const notePath = join(booksDir, bookName, '笔记', notebookName, `${noteName}.txt`)
-  if (!fs.existsSync(notePath)) {
-    return { success: false, message: '笔记不存在' }
+// 保存笔记内容并支持重命名
+ipcMain.handle(
+  'edit-note',
+  async (event, { bookName, notebookName, noteName, newName, content }) => {
+    const booksDir = store.get('booksDir')
+    const notebookPath = join(booksDir, bookName, '笔记', notebookName)
+    const oldPath = join(notebookPath, `${noteName}.txt`)
+    const newPath = join(notebookPath, `${newName || noteName}.txt`)
+    if (!fs.existsSync(oldPath)) {
+      return { success: false, message: '笔记不存在' }
+    }
+    // 1. 先写内容到原文件
+    fs.writeFileSync(oldPath, content, 'utf-8')
+    // 2. 判断是否需要重命名
+    if (newName && newName !== noteName) {
+      if (fs.existsSync(newPath)) {
+        return { success: false, message: '笔记名已存在', name: noteName }
+      }
+      fs.renameSync(oldPath, newPath)
+      return { success: true, name: newName }
+    }
+    return { success: true, name: noteName }
   }
-  fs.writeFileSync(notePath, content, 'utf-8')
-  return { success: true }
+)
+
+// 读取章节内容
+ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName }) => {
+  const booksDir = store.get('booksDir')
+  const chapterPath = join(booksDir, bookName, '正文', volumeName, `${chapterName}.txt`)
+  if (!fs.existsSync(chapterPath)) {
+    return { success: false, message: '章节不存在' }
+  }
+  const content = fs.readFileSync(chapterPath, 'utf-8')
+  // 章节标题可单独存储或直接用文件名
+  return { success: true, content }
 })
+
+// 保存章节内容并支持重命名
+ipcMain.handle(
+  'save-chapter',
+  async (event, { bookName, volumeName, chapterName, newName, content }) => {
+    const booksDir = store.get('booksDir')
+    const volumePath = join(booksDir, bookName, '正文', volumeName)
+    const oldPath = join(volumePath, `${chapterName}.txt`)
+    const newPath = join(volumePath, `${newName || chapterName}.txt`)
+    if (!fs.existsSync(oldPath)) {
+      return { success: false, message: '章节不存在' }
+    }
+    // 1. 先写内容到原文件
+    fs.writeFileSync(oldPath, content, 'utf-8')
+    // 2. 判断是否需要重命名
+    if (newName && newName !== chapterName) {
+      if (fs.existsSync(newPath)) {
+        return { success: false, message: '章节名已存在', name: chapterName }
+      }
+      fs.renameSync(oldPath, newPath)
+      return { success: true, name: newName }
+    }
+    return { success: true, name: chapterName }
+  }
+)

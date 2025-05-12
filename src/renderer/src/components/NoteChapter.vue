@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineExpose } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,
@@ -116,6 +116,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useEditorStore } from '@renderer/stores/editor'
 
 const props = defineProps({
   bookName: {
@@ -138,10 +139,6 @@ const chaptersExpanded = ref(true)
 const notesTree = ref([])
 const chaptersTree = ref([])
 
-// 当前编辑的文件
-const currentFile = ref(null)
-const editorContent = ref('')
-
 // 编辑节点相关
 const editingNode = ref(null)
 const editingName = ref('')
@@ -152,6 +149,8 @@ const editingNoteName = ref('')
 
 // 排序状态
 const sortOrder = ref('asc')
+
+const editorStore = useEditorStore()
 
 // 切换笔记面板
 function toggleNotes() {
@@ -169,13 +168,14 @@ async function handleNoteClick(data, node) {
     const parent = node.parent.data
     const res = await window.electron.readNote(props.bookName, parent.name, data.name)
     if (res.success) {
-      currentFile.value = {
+      editorStore.setFile({
         name: data.name,
         type: 'note',
         path: data.path,
         notebook: parent.name
-      }
-      editorContent.value = res.content
+      })
+      editorStore.setContent(res.content)
+      editorStore.setChapterTitle(data.name) // 笔记名作为标题
     } else {
       ElMessage.error(res.message || '读取笔记失败')
     }
@@ -183,15 +183,22 @@ async function handleNoteClick(data, node) {
 }
 
 // 处理章节点击
-function handleChapterClick(data) {
+async function handleChapterClick(data, node) {
   if (data.type === 'chapter') {
-    currentFile.value = {
-      name: data.name,
-      type: 'chapter',
-      path: data.path
+    // 读取章节内容
+    const res = await window.electron.readChapter(props.bookName, node.parent.data.name, data.name)
+    if (res.success) {
+      editorStore.setFile({
+        name: data.name,
+        type: 'chapter',
+        path: data.path,
+        volume: node.parent.data.name
+      })
+      editorStore.setContent(res.content)
+      editorStore.setChapterTitle(data.name) // 章节名作为标题
+    } else {
+      ElMessage.error(res.message || '读取章节失败')
     }
-    // TODO: 从主进程读取文件内容
-    editorContent.value = '章节内容...'
   }
 }
 
@@ -433,6 +440,15 @@ onMounted(async () => {
   notesTree.value = await window.electron.loadNotes(props.bookName)
   console.log(notesTree.value)
 })
+
+defineExpose({
+  reloadNotes,
+  reloadChapters: loadChapters
+})
+
+async function reloadNotes() {
+  notesTree.value = await window.electron.loadNotes(props.bookName)
+}
 </script>
 <style lang="scss" scoped>
 .panel-section {
