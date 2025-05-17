@@ -43,8 +43,8 @@ if (!bookName) {
 // 面板宽度控制
 const leftPanelWidth = ref(280)
 const MIN_WIDTH = 200
-const MAX_WIDTH = 500
-const DEFAULT_WIDTH = 280
+const MAX_WIDTH = 400
+const DEFAULT_WIDTH = 300
 
 // 拖拽状态
 const isResizing = ref(false)
@@ -94,9 +94,9 @@ function refreshChapters() {
     noteChapterRef.value.reloadChapters()
 }
 
-function handleSelectFile(file) {
-  // 预留：可做高亮、聚焦等
-}
+// function handleSelectFile(file) {
+//   // 预留：可做高亮、聚焦等
+// }
 
 // 组件卸载时清理事件监听
 onUnmounted(() => {

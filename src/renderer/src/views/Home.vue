@@ -112,7 +112,7 @@ async function handleConfirmDir() {
 
 .sidebar {
   width: 200px;
-  background-color: #f0f0ff;
+  background-color: #f0f0f0;
   padding: 20px 0;
   display: flex;
   flex-direction: column;
@@ -147,7 +147,7 @@ async function handleConfirmDir() {
 
 .menu-item:hover,
 .menu-item.active {
-  background-color: #e0e7ff;
+  background-color: #ecf5ff;
   // color: #6366f1;
 }
 </style>

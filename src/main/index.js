@@ -264,12 +264,15 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   if (!fs.existsSync(volumePath)) {
     fs.mkdirSync(volumePath, { recursive: true })
   }
-  let chapterName = '第1章'
-  let index = 1
-  while (fs.existsSync(join(volumePath, `${chapterName}.txt`))) {
-    chapterName = `第${index}章`
-    index++
-  }
+
+  // 获取当前卷下的所有章节文件
+  const files = fs.readdirSync(volumePath, { withFileTypes: true })
+  const chapters = files.filter((file) => file.isFile() && file.name.endsWith('.txt'))
+
+  // 计算新的章节序号
+  const nextChapterNumber = chapters.length + 1
+  const chapterName = `第${nextChapterNumber}章`
+
   fs.writeFileSync(join(volumePath, `${chapterName}.txt`), '')
   return { success: true }
 })

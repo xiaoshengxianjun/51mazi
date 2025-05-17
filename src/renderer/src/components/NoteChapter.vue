@@ -16,6 +16,7 @@
     </div>
     <div v-show="notesExpanded" class="section-content">
       <el-tree
+        ref="noteTreeRef"
         :data="notesTree"
         :props="defaultProps"
         empty-text="暂无笔记"
@@ -26,13 +27,17 @@
       >
         <template #default="{ node }">
           <div class="custom-tree-node">
-            <span v-if="!editingNoteNode || editingNoteNode.path !== node.data.path">
+            <span
+              v-if="!editingNoteNode || editingNoteNode.path !== node.data.path"
+              class="node-name"
+            >
               {{ node.label }}
             </span>
             <el-input
               v-else
               v-model="editingNoteName"
               size="small"
+              maxlength="20"
               @click.stop
               @keyup.enter="confirmEditNote(node)"
               @blur="confirmEditNote(node)"
@@ -73,6 +78,7 @@
     </div>
     <div v-show="chaptersExpanded" class="section-content">
       <el-tree
+        ref="chapterTreeRef"
         :data="chaptersTree"
         :props="defaultProps"
         empty-text="暂无章节"
@@ -83,11 +89,14 @@
       >
         <template #default="{ node }">
           <div class="custom-tree-node">
-            <span v-if="!editingNode || editingNode.path !== node.data.path">{{ node.label }}</span>
+            <span v-if="!editingNode || editingNode.path !== node.data.path" class="node-name">
+              {{ node.label }}
+            </span>
             <el-input
               v-else
               v-model="editingName"
               size="small"
+              maxlength="20"
               @click.stop
               @keyup.enter="confirmEdit(node)"
               @blur="confirmEdit(node)"
@@ -107,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineExpose } from 'vue'
+import { ref, onMounted, defineExpose, nextTick } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,
@@ -159,6 +168,28 @@ const currentNoteNodeKey = ref(null)
 
 // 当前章节节点 key
 const currentChapterNodeKey = ref(null)
+
+// 新增的 ref 和 keys
+const chapterTreeRef = ref(null)
+const noteTreeRef = ref(null)
+
+// 记录上次展开的节点key
+const expandedChapterKeys = ref([])
+const expandedNoteKeys = ref([])
+
+function getAllExpandedKeysFromTreeData(treeData) {
+  const keys = []
+  function traverse(nodes) {
+    nodes.forEach(node => {
+      if (node.children && node.children.length > 0 && node.expanded !== false) {
+        keys.push(node.path)
+        traverse(node.children)
+      }
+    })
+  }
+  traverse(treeData)
+  return keys
+}
 
 // 切换笔记面板
 function toggleNotes() {
@@ -248,12 +279,15 @@ async function createChapter(volumeId) {
 async function loadChapters(autoSelectLatest = false) {
   try {
     const chapters = await window.electron.loadChapters(props.bookName)
-    // 应用排序
     if (sortOrder.value === 'desc') {
       chapters.reverse()
     }
     chaptersTree.value = chapters
-
+    nextTick(() => {
+      if (chapterTreeRef.value && expandedChapterKeys.value.length > 0) {
+        chapterTreeRef.value.setExpandedKeys(expandedChapterKeys.value)
+      }
+    })
     // 自动选中最新卷的最新章节
     if (autoSelectLatest && chapters.length > 0) {
       const latestVolume = chapters[chapters.length - 1]
@@ -274,6 +308,7 @@ async function loadChapters(autoSelectLatest = false) {
 
 // 编辑节点
 function editNode(node) {
+  expandedChapterKeys.value = getAllExpandedKeysFromTreeData(chaptersTree.value)
   editingNode.value = { ...node.data }
   editingName.value = node.data.name
 }
@@ -377,6 +412,7 @@ async function createNote(node) {
 
 // 编辑笔记本/笔记名
 function editNoteNode(node) {
+  expandedNoteKeys.value = getAllExpandedKeysFromTreeData(notesTree.value)
   editingNoteNode.value = { ...node.data }
   editingNoteName.value = node.data.name
 }
@@ -471,6 +507,11 @@ defineExpose({
 
 async function reloadNotes() {
   notesTree.value = await window.electron.loadNotes(props.bookName)
+  nextTick(() => {
+    if (noteTreeRef.value && expandedNoteKeys.value.length > 0) {
+      noteTreeRef.value.setExpandedKeys(expandedNoteKeys.value)
+    }
+  })
 }
 </script>
 <style lang="scss" scoped>
@@ -524,15 +565,25 @@ async function reloadNotes() {
   justify-content: space-between;
   // gap: 4px;
   font-size: 13px;
+  width: 100%;
+  overflow: hidden;
+  .node-name {
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .chapter-actions {
-    display: none;
+    opacity: 0;
+    display: flex;
     padding-right: 10px;
     align-items: center;
     gap: 12px;
   }
   &:hover {
     .chapter-actions {
-      display: flex;
+      opacity: 1;
     }
   }
 }
