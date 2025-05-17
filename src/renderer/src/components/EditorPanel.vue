@@ -66,6 +66,12 @@
     <div class="editor-content">
       <EditorContent :editor="editor" />
     </div>
+    <div class="editor-stats">
+      <span class="word-count">字数：{{ wordCount }}</span>
+      <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
+        速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
+      </span>
+    </div>
   </div>
 </template>
 
@@ -86,8 +92,11 @@ const editorStore = useEditorStore()
 
 const props = defineProps({
   bookName: String
-  // 可扩展章节ID、章节内容等props
 })
+
+// 计算属性
+const wordCount = computed(() => editorStore.wordCount)
+const typingSpeed = computed(() => editorStore.typingSpeed)
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -100,6 +109,7 @@ const lineHeight = ref('1.6')
 const align = ref('left')
 
 const editor = ref(null)
+let saveTimer = null
 
 function plainTextToHtml(text) {
   if (!text) return ''
@@ -120,7 +130,7 @@ function plainTextToHtml(text) {
 
 // 监听 store 内容变化，回显到编辑器
 watch(
-  () => editorStore.currentFile,
+  () => editorStore.file,
   (newFile, oldFile) => {
     if (editor.value && newFile?.path !== oldFile?.path) {
       editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
@@ -148,26 +158,70 @@ onMounted(() => {
       Bold,
       Italic,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TabInsert, // 支持Tab键插入制表符
-      Collapsible // 自定义段落折叠扩展
+      TabInsert,
+      Collapsible
     ],
     content: editorStore.content,
     editorProps: {
       attributes: {
         style: () =>
-          `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value}; white-space: pre-wrap;` // 保证缩进显示
+          `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value}; white-space: pre-wrap;`
       }
     },
     onUpdate: ({ editor }) => {
-      editorStore.setContent(editor.getText())
+      const content = editor.getText()
+      editorStore.setContent(content)
+      // 防抖保存
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        autoSaveContent()
+      }, 1000)
     }
   })
   editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
 })
 
-onBeforeUnmount(() => {
+onBeforeUnmount(async () => {
+  if (saveTimer) clearTimeout(saveTimer)
+  // 保存最后的内容
+  await autoSaveContent()
+  // 重置码字统计
+  editorStore.resetTypingTimer()
   editor.value && editor.value.destroy()
 })
+
+// 自动保存内容
+async function autoSaveContent() {
+  const file = editorStore.file
+  if (!file) return
+
+  let result
+  if (file.type === 'note') {
+    result = await window.electron.editNote({
+      bookName: props.bookName,
+      notebookName: file.notebook,
+      noteName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
+    })
+  } else if (file.type === 'chapter') {
+    result = await window.electron.saveChapter({
+      bookName: props.bookName,
+      volumeName: file.volume,
+      chapterName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
+    })
+  }
+
+  if (result?.success) {
+    if (result.name && result.name !== file.name) {
+      editorStore.setFile({ ...file, name: result.name })
+    }
+  } else {
+    ElMessage.error(result?.message || '自动保存失败')
+  }
+}
 
 // 菜单栏操作
 const isBold = ref(false)
@@ -177,10 +231,12 @@ function toggleBold() {
   editor.value.chain().focus().toggleBold().run()
   isBold.value = editor.value.isActive('bold')
 }
+
 function toggleItalic() {
   editor.value.chain().focus().toggleItalic().run()
   isItalic.value = editor.value.isActive('italic')
 }
+
 function copyContent() {
   const html = editor.value.getHTML()
   navigator.clipboard.writeText(html)
@@ -189,21 +245,22 @@ function copyContent() {
 
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
 
-// 保存内容
+// 手动保存内容
 async function saveContent() {
-  const file = editorStore.currentFile
+  const file = editorStore.file
   if (!file) {
     ElMessage.warning('未选择章节或笔记')
     return
   }
+
   let result
   if (file.type === 'note') {
     result = await window.electron.editNote({
       bookName: props.bookName,
       notebookName: file.notebook,
-      noteName: file.name, // 旧文件名
-      newName: editorStore.chapterTitle, // 新标题（newName）
-      content: editorStore.content // 内容
+      noteName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
     })
     if (result.success) {
       ElMessage.success('保存成功')
@@ -218,9 +275,9 @@ async function saveContent() {
     result = await window.electron.saveChapter({
       bookName: props.bookName,
       volumeName: file.volume,
-      chapterName: file.name, // 旧文件名
-      newName: editorStore.chapterTitle, // 新标题（newName）
-      content: editorStore.content // 内容
+      chapterName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
     })
     if (result.success) {
       ElMessage.success('保存成功')
@@ -244,7 +301,7 @@ watch([fontFamily, fontSize, lineHeight], () => {
 
 // 监听当前文件类型，动态设置首行缩进
 watch(
-  () => editorStore.currentFile,
+  () => editorStore.file,
   (file) => {
     if (editor.value) {
       const isChapter = file?.type === 'chapter'

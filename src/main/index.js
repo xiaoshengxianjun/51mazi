@@ -547,7 +547,61 @@ ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName
   return { success: true, content }
 })
 
-// 保存章节内容并支持重命名
+// 计算章节字数
+function countChapterWords(content) {
+  return content.length
+}
+
+// 计算书籍总字数
+async function calculateBookWordCount(bookName) {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const volumePath = join(bookPath, '正文')
+  let totalWords = 0
+
+  if (!fs.existsSync(volumePath)) return totalWords
+
+  const volumes = fs.readdirSync(volumePath, { withFileTypes: true })
+  for (const volume of volumes) {
+    if (volume.isDirectory()) {
+      const volumeName = volume.name
+      const volumePath = join(bookPath, '正文', volumeName)
+      const files = fs.readdirSync(volumePath, { withFileTypes: true })
+      for (const file of files) {
+        if (file.isFile() && file.name.endsWith('.txt')) {
+          const content = fs.readFileSync(join(volumePath, file.name), 'utf-8')
+          totalWords += countChapterWords(content)
+        }
+      }
+    }
+  }
+  return totalWords
+}
+
+// 更新书籍元数据
+async function updateBookMetadata(bookName) {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const metaPath = join(bookPath, 'mazi.json')
+  
+  if (!fs.existsSync(metaPath)) return false
+  
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+    const totalWords = await calculateBookWordCount(bookName)
+    
+    meta.totalWords = totalWords
+    meta.updatedAt = Date.now()
+    
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    console.error('更新书籍元数据失败:', error)
+    return false
+  }
+}
+
+// 修改保存章节内容的处理函数
 ipcMain.handle(
   'save-chapter',
   async (event, { bookName, volumeName, chapterName, newName, content }) => {
@@ -566,8 +620,15 @@ ipcMain.handle(
         return { success: false, message: '章节名已存在', name: chapterName }
       }
       fs.renameSync(oldPath, newPath)
-      return { success: true, name: newName }
     }
-    return { success: true, name: chapterName }
+    // 3. 更新书籍元数据
+    await updateBookMetadata(bookName)
+    return { success: true, name: newName || chapterName }
   }
 )
+
+// 添加获取书籍总字数的处理函数
+ipcMain.handle('get-book-word-count', async (event, bookName) => {
+  const totalWords = await calculateBookWordCount(bookName)
+  return { success: true, totalWords }
+})

@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     Book: typeof import('./src/components/Book.vue')['default']
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
+    Editor: typeof import('./src/components/Editor.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
