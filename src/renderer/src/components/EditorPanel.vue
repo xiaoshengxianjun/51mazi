@@ -101,12 +101,29 @@ const align = ref('left')
 
 const editor = ref(null)
 
+function plainTextToHtml(text) {
+  if (!text) return ''
+  // 1. 按行分割
+  const lines = text.split('\n')
+  // 2. 每行处理缩进和空格
+  const htmlLines = lines.map((line) => {
+    // 替换Tab为8个&nbsp;
+    let html = line.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')
+    // 替换连续空格为 &nbsp;
+    html = html.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length))
+    // 包裹为<p>
+    return html ? `<p>${html}</p>` : ''
+  })
+  // 3. 拼接
+  return htmlLines.join('')
+}
+
 // 监听 store 内容变化，回显到编辑器
 watch(
-  () => editorStore.content,
-  (val) => {
-    if (editor.value && val !== editor.value.getHTML()) {
-      editor.value.commands.setContent(val || '')
+  () => editorStore.currentFile,
+  (newFile, oldFile) => {
+    if (editor.value && newFile?.path !== oldFile?.path) {
+      editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
     }
   }
 )
@@ -142,9 +159,10 @@ onMounted(() => {
       }
     },
     onUpdate: ({ editor }) => {
-      editorStore.setContent(editor.getHTML())
+      editorStore.setContent(editor.getText())
     }
   })
+  editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
 })
 
 onBeforeUnmount(() => {
@@ -223,6 +241,21 @@ watch([fontFamily, fontSize, lineHeight], () => {
     editor.value.view.updateState(editor.value.state)
   }
 })
+
+// 监听当前文件类型，动态设置首行缩进
+watch(
+  () => editorStore.currentFile,
+  (file) => {
+    if (editor.value) {
+      const isChapter = file?.type === 'chapter'
+      const style = document.querySelector('.tiptap')
+      if (style) {
+        style.style.textIndent = isChapter ? '2em' : '0'
+      }
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style lang="scss" scoped>

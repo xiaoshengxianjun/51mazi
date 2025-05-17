@@ -13,3 +13,4 @@ export const useMainStore = defineStore('main', {
     // 在这里定义你的 getters
   }
 })
+ 

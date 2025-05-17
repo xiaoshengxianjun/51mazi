@@ -20,7 +20,8 @@
         :props="defaultProps"
         empty-text="暂无笔记"
         node-key="path"
-        default-expand-all
+        highlight-current
+        :current-node-key="currentNoteNodeKey"
         @node-click="handleNoteClick"
       >
         <template #default="{ node }">
@@ -76,7 +77,8 @@
         :props="defaultProps"
         empty-text="暂无章节"
         node-key="path"
-        default-expand-all
+        highlight-current
+        :current-node-key="currentChapterNodeKey"
         @node-click="handleChapterClick"
       >
         <template #default="{ node }">
@@ -152,6 +154,12 @@ const sortOrder = ref('asc')
 
 const editorStore = useEditorStore()
 
+// 当前笔记节点 key
+const currentNoteNodeKey = ref(null)
+
+// 当前章节节点 key
+const currentChapterNodeKey = ref(null)
+
 // 切换笔记面板
 function toggleNotes() {
   notesExpanded.value = !notesExpanded.value
@@ -176,6 +184,7 @@ async function handleNoteClick(data, node) {
       })
       editorStore.setContent(res.content)
       editorStore.setChapterTitle(data.name) // 笔记名作为标题
+      currentNoteNodeKey.value = data.path // 保持选中态
     } else {
       ElMessage.error(res.message || '读取笔记失败')
     }
@@ -196,6 +205,7 @@ async function handleChapterClick(data, node) {
       })
       editorStore.setContent(res.content)
       editorStore.setChapterTitle(data.name) // 章节名作为标题
+      currentChapterNodeKey.value = data.path // 保持选中态
     } else {
       ElMessage.error(res.message || '读取章节失败')
     }
@@ -235,7 +245,7 @@ async function createChapter(volumeId) {
 }
 
 // 加载章节数据
-async function loadChapters() {
+async function loadChapters(autoSelectLatest = false) {
   try {
     const chapters = await window.electron.loadChapters(props.bookName)
     // 应用排序
@@ -243,6 +253,20 @@ async function loadChapters() {
       chapters.reverse()
     }
     chaptersTree.value = chapters
+
+    // 自动选中最新卷的最新章节
+    if (autoSelectLatest && chapters.length > 0) {
+      const latestVolume = chapters[chapters.length - 1]
+      if (latestVolume.children && latestVolume.children.length > 0) {
+        const latestChapter = latestVolume.children[latestVolume.children.length - 1]
+        const fakeNode = {
+          data: latestChapter,
+          parent: { data: latestVolume }
+        }
+        await handleChapterClick(latestChapter, fakeNode)
+        currentChapterNodeKey.value = latestChapter.path
+      }
+    }
   } catch {
     ElMessage.error('加载章节失败')
   }
@@ -435,15 +459,14 @@ async function deleteNoteNode(node) {
 // 组件挂载时加载书籍数据
 onMounted(async () => {
   sortOrder.value = await window.electron.getSortOrder(props.bookName)
-  await loadChapters()
+  await loadChapters(true) // 首次加载时自动选中最新章节
   // 加载笔记目录
   notesTree.value = await window.electron.loadNotes(props.bookName)
-  console.log(notesTree.value)
 })
 
 defineExpose({
   reloadNotes,
-  reloadChapters: loadChapters
+  reloadChapters: (autoSelectLatest = false) => loadChapters(autoSelectLatest)
 })
 
 async function reloadNotes() {
