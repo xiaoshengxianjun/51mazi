@@ -10,7 +10,7 @@
           <i class="el-icon-document"></i>
           我的书架
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="showThemeDialog = true">
           <i class="el-icon-setting"></i>
           主题设置
         </div>
@@ -63,15 +63,47 @@
         <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 主题设置弹框 -->
+    <el-dialog v-model="showThemeDialog" title="主题设置" width="500" :close-on-click-modal="false">
+      <el-radio-group
+        v-model="themeStore.currentTheme"
+        style="display: flex; justify-content: center; gap: 50px"
+        @change="handleThemeChange"
+      >
+        <div class="theme-option">
+          <el-radio label="light">
+            <div class="theme-preview light"></div>
+            亮色
+          </el-radio>
+        </div>
+        <div class="theme-option">
+          <el-radio label="dark">
+            <div class="theme-preview dark"></div>
+            暗色
+          </el-radio>
+        </div>
+        <div class="theme-option">
+          <el-radio label="yellow">
+            <div class="theme-preview yellow"></div>
+            黄色
+          </el-radio>
+        </div>
+      </el-radio-group>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
+import { useThemeStore } from '@renderer/stores/theme'
+import { ElDialog, ElRadioGroup, ElRadio } from 'element-plus'
 
 const showDirDialog = ref(false)
 const bookDir = ref('')
+const showThemeDialog = ref(false)
+const themeStore = useThemeStore()
 
 // 检查本地存储是否有bookDir
 onMounted(async () => {
@@ -81,6 +113,8 @@ onMounted(async () => {
   } else {
     bookDir.value = dir
   }
+  // 初始化主题
+  await themeStore.initTheme()
 })
 
 // 选择目录
@@ -97,6 +131,12 @@ async function handleChooseDir() {
 async function handleConfirmDir() {
   await window.electronStore.set('booksDir', bookDir.value)
   showDirDialog.value = false
+}
+
+// 切换主题
+async function handleThemeChange(theme) {
+  await themeStore.setTheme(theme)
+  showThemeDialog.value = false
 }
 </script>
 
@@ -149,5 +189,37 @@ async function handleConfirmDir() {
 .menu-item.active {
   background-color: #ecf5ff;
   // color: #6366f1;
+}
+
+.theme-option {
+}
+
+.theme-preview {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 1px solid var(--border-color);
+  
+  &.light {
+    background-color: #F8F9FA;
+  }
+  
+  &.dark {
+    background-color: #1A1A1A;
+  }
+  
+  &.yellow {
+    background-color: #FAF0E6;
+  }
+}
+
+:deep(.el-radio) {
+  display: flex;
+  align-items: center;
+  margin-right: 0;
+  height: 32px;
 }
 </style>
