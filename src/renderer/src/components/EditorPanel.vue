@@ -67,9 +67,9 @@
       <EditorContent :editor="editor" />
     </div>
     <div class="editor-stats">
-      <span class="word-count">字数：{{ wordCount }}</span>
+      <span class="word-count">章节字数：{{ wordCount }}</span>
       <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
-        速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
+        码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
       </span>
     </div>
   </div>
@@ -323,6 +323,7 @@ watch(
   background: var(--bg-soft);
   color: var(--text-primary);
   min-height: 0;
+  overflow: hidden;
 }
 .editor-toolbar {
   display: flex;
@@ -358,6 +359,7 @@ watch(
 }
 .editor-stats {
   height: 28px;
+  width: 100%;
   line-height: 28px;
   padding: 0px 15px;
   border-top: 1px solid var(--border-color);
@@ -365,6 +367,7 @@ watch(
   font-size: 14px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 20px;
   color: var(--text-primary);
 }
