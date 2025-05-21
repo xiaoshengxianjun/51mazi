@@ -109,7 +109,7 @@ onUnmounted(() => {
 .editor-container {
   display: flex;
   height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--bg-primary);
   position: relative;
 }
 
@@ -131,8 +131,8 @@ onUnmounted(() => {
 }
 
 .left-panel {
-  background-color: #f0f0f0;
-  border-right: 1px solid #ddd;
+  background-color: var(--bg-soft);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -143,7 +143,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  background-color: var(--bg-primary);
   min-width: 0; // 防止内容溢出
 }
 </style>

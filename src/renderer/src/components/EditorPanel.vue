@@ -320,8 +320,8 @@ watch(
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #fff;
-  color: #000;
+  background: var(--bg-soft);
+  color: var(--text-primary);
   min-height: 0;
 }
 .editor-toolbar {
@@ -329,32 +329,44 @@ watch(
   align-items: center;
   gap: 10px;
   padding: 8px 15px;
-  border-bottom: 1px solid #eee;
-  background: #fafbfc;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-soft);
 }
 .toolbar-item {
   margin: 0;
 }
 .chapter-title {
   padding: 8px 15px;
-  border-bottom: 1px solid #eee;
-  background: #fafbfc;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-soft);
 }
 .chapter-title-input {
   font-size: 20px;
   font-weight: bold;
 }
 .editor-content {
-  flex: 1 1 0%;
+  flex: 1;
   min-height: 0;
   padding: 16px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--bg-primary);
   white-space: pre-wrap; // 保证Tab缩进和换行显示
   font-family: inherit, monospace;
   > div {
     height: 100%;
   }
+}
+.editor-stats {
+  height: 28px;
+  line-height: 28px;
+  padding: 0px 15px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-soft);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--text-primary);
 }
 ::v-deep(.tiptap) {
   height: 100%;

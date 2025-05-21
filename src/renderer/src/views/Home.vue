@@ -147,15 +147,16 @@ async function handleThemeChange(theme) {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background-color: #f5f7fa;
+  background-color: var(--bg-primary);
 }
 
 .sidebar {
   width: 200px;
-  background-color: #f0f0f0;
+  background-color: var(--bg-soft);
   padding: 20px 0;
   display: flex;
   flex-direction: column;
+  border-right: 1px solid var(--border-color);
 }
 
 .logo {
@@ -181,13 +182,13 @@ async function handleThemeChange(theme) {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  color: #666;
+  color: var(--text-primary);
   transition: all 0.3s;
 }
 
 .menu-item:hover,
 .menu-item.active {
-  background-color: #ecf5ff;
+  background-color: var(--bg-mute);
   // color: #6366f1;
 }
 
@@ -202,17 +203,17 @@ async function handleThemeChange(theme) {
   margin-right: 8px;
   vertical-align: middle;
   border: 1px solid var(--border-color);
-  
+
   &.light {
-    background-color: #F8F9FA;
+    background-color: #f8f9fa;
   }
-  
+
   &.dark {
-    background-color: #1A1A1A;
+    background-color: #1a1a1a;
   }
-  
+
   &.yellow {
-    background-color: #FAF0E6;
+    background-color: #faf0e6;
   }
 }
 

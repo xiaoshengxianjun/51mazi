@@ -180,7 +180,7 @@ const expandedNoteKeys = ref([])
 function getAllExpandedKeysFromTreeData(treeData) {
   const keys = []
   function traverse(nodes) {
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       if (node.children && node.children.length > 0 && node.expanded !== false) {
         keys.push(node.path)
         traverse(node.children)
@@ -516,14 +516,14 @@ async function reloadNotes() {
 </script>
 <style lang="scss" scoped>
 .panel-section {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .section-header {
   padding: 10px 0;
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -538,7 +538,7 @@ async function reloadNotes() {
   }
 
   &:hover {
-    background-color: #e8e8e8;
+    background-color: var(--bg-mute);
   }
 }
 
@@ -554,8 +554,8 @@ async function reloadNotes() {
 }
 
 // .section-content {
-//   padding: 0px 5px;
-//   background-color: #fff;
+// padding: 0px 5px;
+// background-color: var(--bg-primary);
 // }
 
 .custom-tree-node {
