@@ -17,7 +17,7 @@ export const useEditorStore = defineStore('editor', () => {
   })
 
   // 计算当前字数
-  const wordCount = computed(() => {
+  const chapterWords = computed(() => {
     return content.value.length
   })
 
@@ -25,7 +25,7 @@ export const useEditorStore = defineStore('editor', () => {
   function startTypingTimer() {
     if (!typingStartTime.value) {
       typingStartTime.value = Date.now()
-      initialWordCount.value = wordCount.value
+      initialWordCount.value = chapterWords.value
     }
   }
 
@@ -35,7 +35,7 @@ export const useEditorStore = defineStore('editor', () => {
 
     const now = Date.now()
     const timeElapsed = (now - typingStartTime.value) / 1000 // 转换为秒
-    const wordsTyped = wordCount.value - initialWordCount.value
+    const wordsTyped = chapterWords.value - initialWordCount.value
 
     if (timeElapsed > 0) {
       typingSpeed.value = {
@@ -74,7 +74,7 @@ export const useEditorStore = defineStore('editor', () => {
     content,
     file,
     chapterTitle,
-    wordCount,
+    chapterWords,
     typingSpeed,
     setContent,
     setFile,

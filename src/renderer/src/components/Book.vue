@@ -14,8 +14,8 @@
     <div class="info">
       <div class="type">{{ typeName }}</div>
       <div class="stats">
-        <div>字数：{{ wordCount }}</div>
-        <div>更新：{{ updateTime }}</div>
+        <div class="word-count">字数：{{ totalWords }}</div>
+        <div class="update-time">更新：{{ updatedAt }}</div>
       </div>
     </div>
     <Teleport to="body">
@@ -47,8 +47,14 @@ defineProps({
   name: String,
   type: String,
   typeName: String,
-  wordCount: String,
-  updateTime: String,
+  totalWords: {
+    type: [String, Number],
+    default: '0'
+  },
+  updatedAt: {
+    type: String,
+    default: '暂无更新'
+  },
   coverUrl: String
 })
 
@@ -175,7 +181,7 @@ onBeforeUnmount(() => {
   }
 
   .info {
-    padding: 8px 16px 8px 36px;
+    padding: 8px 8px 8px 32px;
     background: transparent;
     font-size: 14px;
     color: #f9f6e7;
@@ -194,7 +200,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      font-size: 14px;
+      font-size: 13px;
       color: #fff;
       font-family: 'STKaiti', 'KaiTi', serif;
     }

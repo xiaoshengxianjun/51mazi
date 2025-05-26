@@ -128,7 +128,11 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
     fs.mkdirSync(bookPath)
   }
   // 2. 写入 mazi.json
-  const meta = { ...bookInfo, createdAt: Date.now(), updatedAt: Date.now() }
+  const meta = {
+    ...bookInfo,
+    createdAt: new Date().toLocaleString(),
+    updatedAt: new Date().toLocaleString()
+  }
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
   // 3. 创建正文和笔记文件夹
@@ -186,7 +190,12 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookInfo.name)
   if (fs.existsSync(bookPath)) {
-    fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(bookInfo, null, 2), 'utf-8')
+    const metaPath = join(bookPath, 'mazi.json')
+    // 读取现有元数据
+    const existingMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+    // 合并新旧数据，保留原有数据
+    const mergedMeta = { ...existingMeta, ...bookInfo }
+    fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     return true
   }
   return false
@@ -583,16 +592,16 @@ async function updateBookMetadata(bookName) {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookName)
   const metaPath = join(bookPath, 'mazi.json')
-  
+
   if (!fs.existsSync(metaPath)) return false
-  
+
   try {
     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
     const totalWords = await calculateBookWordCount(bookName)
-    
+
     meta.totalWords = totalWords
-    meta.updatedAt = Date.now()
-    
+    meta.updatedAt = new Date().toLocaleString()
+
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
     return true
   } catch (error) {

@@ -67,7 +67,7 @@
       <EditorContent :editor="editor" />
     </div>
     <div class="editor-stats">
-      <span class="word-count">章节字数：{{ wordCount }}</span>
+      <span class="word-count">章节字数：{{ chapterWords }}</span>
       <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
       </span>
@@ -87,6 +87,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { useEditorStore } from '@renderer/stores/editor'
 import { Extension } from '@tiptap/core'
 import { Collapsible } from '@renderer/extensions/Collapsible'
+import { updateBook } from '@renderer/service/books'
 
 const editorStore = useEditorStore()
 
@@ -95,7 +96,7 @@ const props = defineProps({
 })
 
 // 计算属性
-const wordCount = computed(() => editorStore.wordCount)
+const chapterWords = computed(() => editorStore.chapterWords)
 const typingSpeed = computed(() => editorStore.typingSpeed)
 
 const chapterTitle = computed({
@@ -190,6 +191,52 @@ onBeforeUnmount(async () => {
   editor.value && editor.value.destroy()
 })
 
+// 手动保存内容
+async function saveContent() {
+  const file = editorStore.file
+  if (!file) {
+    ElMessage.warning('未选择章节或笔记')
+    return
+  }
+
+  let result
+  if (file.type === 'note') {
+    result = await window.electron.editNote({
+      bookName: props.bookName,
+      notebookName: file.notebook,
+      noteName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
+    })
+    if (result.success) {
+      ElMessage.success('保存成功')
+      if (result.name && result.name !== file.name) {
+        editorStore.setFile({ ...file, name: result.name })
+      }
+      emit('refresh-notes')
+    } else {
+      ElMessage.error(result?.message || '保存失败')
+    }
+  } else if (file.type === 'chapter') {
+    result = await window.electron.saveChapter({
+      bookName: props.bookName,
+      volumeName: file.volume,
+      chapterName: file.name,
+      newName: editorStore.chapterTitle,
+      content: editorStore.content
+    })
+    if (result.success) {
+      ElMessage.success('保存成功')
+      if (result.name && result.name !== file.name) {
+        editorStore.setFile({ ...file, name: result.name })
+      }
+      emit('refresh-chapters')
+    } else {
+      ElMessage.error(result?.message || '保存失败')
+    }
+  }
+}
+
 // 自动保存内容
 async function autoSaveContent() {
   const file = editorStore.file
@@ -244,52 +291,6 @@ function copyContent() {
 }
 
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
-
-// 手动保存内容
-async function saveContent() {
-  const file = editorStore.file
-  if (!file) {
-    ElMessage.warning('未选择章节或笔记')
-    return
-  }
-
-  let result
-  if (file.type === 'note') {
-    result = await window.electron.editNote({
-      bookName: props.bookName,
-      notebookName: file.notebook,
-      noteName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
-    })
-    if (result.success) {
-      ElMessage.success('保存成功')
-      if (result.name && result.name !== file.name) {
-        editorStore.setFile({ ...file, name: result.name })
-      }
-      emit('refresh-notes')
-    } else {
-      ElMessage.error(result?.message || '保存失败')
-    }
-  } else if (file.type === 'chapter') {
-    result = await window.electron.saveChapter({
-      bookName: props.bookName,
-      volumeName: file.volume,
-      chapterName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
-    })
-    if (result.success) {
-      ElMessage.success('保存成功')
-      if (result.name && result.name !== file.name) {
-        editorStore.setFile({ ...file, name: result.name })
-      }
-      emit('refresh-chapters')
-    } else {
-      ElMessage.error(result?.message || '保存失败')
-    }
-  }
-}
 
 // 监听字体、字号、行高变化，动态应用样式
 watch([fontFamily, fontSize, lineHeight], () => {
