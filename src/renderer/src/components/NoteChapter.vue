@@ -553,10 +553,11 @@ async function reloadNotes() {
   }
 }
 
-// .section-content {
-// padding: 0px 5px;
-// background-color: var(--bg-primary);
-// }
+.section-content {
+  ::v-deep(.el-tree) {
+    background-color: var(--bg-soft);
+  }
+}
 
 .custom-tree-node {
   flex: 1;

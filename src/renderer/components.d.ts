@@ -34,5 +34,6 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Versions: typeof import('./src/components/Versions.vue')['default']
+    WordCountChart: typeof import('./src/components/WordCountChart.vue')['default']
   }
 }

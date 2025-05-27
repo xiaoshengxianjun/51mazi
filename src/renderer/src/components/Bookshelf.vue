@@ -6,7 +6,18 @@
         <el-icon><Plus /></el-icon>
         新建书籍
       </el-button>
-      <el-button type="primary" class="new-book-btn" @click="readBooksDir"> 刷新 </el-button>
+      <el-button
+        type="primary"
+        class="new-book-btn"
+        @click="
+          () => {
+            readBooksDir()
+            refreshChart()
+          }
+        "
+      >
+        刷新
+      </el-button>
       <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
           最近更新
@@ -74,15 +85,14 @@
     </div>
 
     <!-- 图表区域占位 -->
-    <div class="chart-area">
-      <!-- 图表将在后续添加 -->
-    </div>
+    <WordCountChart ref="chartRef" height="200px" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
+import WordCountChart from './WordCountChart.vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES } from '@renderer/constants/config'
@@ -113,6 +123,8 @@ const rules = ref({
 
 // 书籍列表数据
 const books = computed(() => mainStore.books)
+
+const chartRef = ref(null)
 
 // 打开书籍
 function onOpen(book) {
@@ -207,9 +219,18 @@ function handleNewBook() {
   dialogVisible.value = true
 }
 
-// 组件挂载时自动加载
+// 刷新图表数据
+async function refreshChart() {
+  chartRef.value?.updateData()
+}
+
 onMounted(() => {
   readBooksDir()
+  refreshChart()
+})
+
+onBeforeUnmount(() => {
+  // 清理资源
 })
 </script>
 
@@ -220,7 +241,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
   height: 100vh;
   padding: 20px;
   overflow: hidden;
@@ -245,13 +266,5 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-.chart-area {
-  flex-shrink: 0;
-  background: white;
-  border-radius: $border-radius;
-  padding: 20px;
-  min-height: 100px;
-  margin-top: 0;
 }
 </style>

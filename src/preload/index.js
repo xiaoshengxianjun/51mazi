@@ -59,7 +59,11 @@ if (process.contextIsolated) {
       editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
       readChapter: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
-      saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo)
+      saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
+      getBookWordCount: (bookName) => ipcRenderer.invoke('get-book-word-count', bookName),
+      getDailyWordCount: () => ipcRenderer.invoke('get-daily-word-count'),
+      getChapterStats: (bookName, volumeName, chapterName) =>
+        ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

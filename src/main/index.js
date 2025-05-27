@@ -610,6 +610,80 @@ async function updateBookMetadata(bookName) {
   }
 }
 
+// 统计文件路径
+const STATS_FILE = 'word_stats.json'
+
+// 获取统计文件路径
+function getStatsFilePath() {
+  const booksDir = store.get('booksDir')
+  return join(booksDir, STATS_FILE)
+}
+
+// 读取统计数据
+function readStats() {
+  const statsPath = getStatsFilePath()
+  if (!fs.existsSync(statsPath)) {
+    return { dailyStats: {}, chapterStats: {} }
+  }
+  try {
+    return JSON.parse(fs.readFileSync(statsPath, 'utf-8'))
+  } catch (error) {
+    console.error('读取统计文件失败:', error)
+    return { dailyStats: {}, chapterStats: {} }
+  }
+}
+
+// 保存统计数据
+function saveStats(stats) {
+  const statsPath = getStatsFilePath()
+  try {
+    fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    console.error('保存统计文件失败:', error)
+    return false
+  }
+}
+
+// 更新章节字数统计
+function updateChapterStats(bookName, volumeName, chapterName, oldContent, newContent) {
+  const stats = readStats()
+  const today = new Date().toISOString().split('T')[0]
+  const chapterKey = `${bookName}/${volumeName}/${chapterName}`
+
+  // 计算字数变化
+  const oldLength = oldContent ? oldContent.length : 0
+  const newLength = newContent ? newContent.length : 0
+  const wordDiff = newLength - oldLength
+
+  // 更新章节统计
+  if (!stats.chapterStats[chapterKey]) {
+    stats.chapterStats[chapterKey] = {
+      totalWords: 0,
+      lastUpdate: today
+    }
+  }
+
+  // 更新每日统计
+  if (!stats.dailyStats[today]) {
+    stats.dailyStats[today] = 0
+  }
+
+  // 如果章节最后更新日期不是今天，需要从旧日期中减去旧字数
+  const lastUpdate = stats.chapterStats[chapterKey].lastUpdate
+  if (lastUpdate !== today && stats.dailyStats[lastUpdate]) {
+    stats.dailyStats[lastUpdate] -= stats.chapterStats[chapterKey].totalWords
+  }
+
+  // 更新统计
+  stats.chapterStats[chapterKey].totalWords = newLength
+  stats.chapterStats[chapterKey].lastUpdate = today
+  stats.dailyStats[today] += wordDiff
+
+  // 保存统计
+  saveStats(stats)
+}
+
 // 修改保存章节内容的处理函数
 ipcMain.handle(
   'save-chapter',
@@ -618,11 +692,17 @@ ipcMain.handle(
     const volumePath = join(booksDir, bookName, '正文', volumeName)
     const oldPath = join(volumePath, `${chapterName}.txt`)
     const newPath = join(volumePath, `${newName || chapterName}.txt`)
+
     if (!fs.existsSync(oldPath)) {
       return { success: false, message: '章节不存在' }
     }
+
+    // 读取旧内容用于统计
+    const oldContent = fs.readFileSync(oldPath, 'utf-8')
+
     // 1. 先写内容到原文件
     fs.writeFileSync(oldPath, content, 'utf-8')
+
     // 2. 判断是否需要重命名
     if (newName && newName !== chapterName) {
       if (fs.existsSync(newPath)) {
@@ -630,14 +710,36 @@ ipcMain.handle(
       }
       fs.renameSync(oldPath, newPath)
     }
-    // 3. 更新书籍元数据
+
+    // 3. 更新统计
+    updateChapterStats(bookName, volumeName, chapterName, oldContent, content)
+
+    // 4. 更新书籍元数据
     await updateBookMetadata(bookName)
+
     return { success: true, name: newName || chapterName }
   }
 )
 
-// 添加获取书籍总字数的处理函数
-ipcMain.handle('get-book-word-count', async (event, bookName) => {
-  const totalWords = await calculateBookWordCount(bookName)
-  return { success: true, totalWords }
+// 修改获取每日码字数统计的处理函数
+ipcMain.handle('get-daily-word-count', async () => {
+  try {
+    const stats = readStats()
+    return { success: true, data: stats.dailyStats }
+  } catch (error) {
+    console.error('获取每日码字统计失败:', error)
+    return { success: false, message: '获取统计失败' }
+  }
+})
+
+// 添加获取章节统计的处理函数
+ipcMain.handle('get-chapter-stats', async (event, { bookName, volumeName, chapterName }) => {
+  try {
+    const stats = readStats()
+    const chapterKey = `${bookName}/${volumeName}/${chapterName}`
+    return { success: true, data: stats.chapterStats[chapterKey] || null }
+  } catch (error) {
+    console.error('获取章节统计失败:', error)
+    return { success: false, message: '获取统计失败' }
+  }
 })
