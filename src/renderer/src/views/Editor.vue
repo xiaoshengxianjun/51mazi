@@ -8,13 +8,17 @@
     <!-- 拖拽条 -->
     <div class="resize-handle" @mousedown="startResize" @dblclick="resetPanelWidth"></div>
 
-    <!-- 右侧编辑区 -->
-    <div class="right-panel">
+    <!-- 中间编辑区 -->
+    <div class="center-panel">
       <EditorPanel
         :book-name="bookName"
         @refresh-notes="refreshNotes"
         @refresh-chapters="refreshChapters"
       />
+    </div>
+    <!-- 右侧工具栏 -->
+    <div class="right-panel">
+      <EditorToolbar />
     </div>
   </div>
 </template>
@@ -24,6 +28,7 @@ import { ref, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import NoteChapter from '@renderer/components/NoteChapter.vue'
 import EditorPanel from '@renderer/components/EditorPanel.vue'
+import EditorToolbar from '@renderer/components/EditorToolbar.vue'
 
 const route = useRoute()
 
@@ -139,11 +144,17 @@ onUnmounted(() => {
   //   transition: width 0.1s ease;
 }
 
-.right-panel {
+.center-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
   min-width: 0; // 防止内容溢出
+}
+
+.right-panel {
+  width: 200px;
+  background: var(--bg-soft);
+  border-left: 1px solid var(--border-color);
 }
 </style>

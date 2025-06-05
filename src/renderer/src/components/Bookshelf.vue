@@ -2,22 +2,23 @@
   <div class="bookshelf">
     <!-- 顶部操作栏 -->
     <div class="top-bar">
-      <el-button type="primary" class="new-book-btn" @click="handleNewBook">
-        <el-icon><Plus /></el-icon>
-        新建书籍
-      </el-button>
-      <el-button
-        type="primary"
-        class="new-book-btn"
-        @click="
-          () => {
-            readBooksDir()
-            refreshChart()
-          }
-        "
-      >
-        刷新
-      </el-button>
+      <div>
+        <el-button type="primary" class="new-book-btn" @click="handleNewBook">
+          <el-icon><Plus /></el-icon>
+          新建书籍
+        </el-button>
+        <el-button
+          class="refresh-btn"
+          :icon="Refresh"
+          circle
+          @click="
+            () => {
+              readBooksDir()
+              refreshChart()
+            }
+          "
+        />
+      </div>
       <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
           最近更新
@@ -93,7 +94,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
 import WordCountChart from './WordCountChart.vue'
-import { Plus, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, Refresh } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES } from '@renderer/constants/config'
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'

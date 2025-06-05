@@ -12,6 +12,7 @@ declare module 'vue' {
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
     Editor: typeof import('./src/components/Editor.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
+    EditorToolbar: typeof import('./src/components/EditorToolbar.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
     ElCol: typeof import('element-plus/es')['ElCol']
