@@ -6,6 +6,7 @@
         <el-icon><User /></el-icon>
         <span>随机起名</span>
       </el-button>
+      <RandomName ref="randomNameRef" />
       <el-button class="tool-btn" @click="handleWorldMap">
         <el-icon><Location /></el-icon>
         <span>设计地图</span>
@@ -26,13 +27,17 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { User, Location, Timer, Avatar, Connection } from '@element-plus/icons-vue'
+import RandomName from './RandomName.vue'
+
+const randomNameRef = ref(null)
 
 // 工具栏功能处理函数
 const handleRandomName = () => {
-  ElMessage.info('随机起名功能开发中...')
+  randomNameRef.value.open()
 }
 
 const handleWorldMap = () => {
@@ -54,7 +59,8 @@ const handleRelationshipMap = () => {
 
 <style lang="scss" scoped>
 .editor-toolbar {
-  width: 200px;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--bg-soft);
   border-left: 1px solid var(--border-color);
   padding: 16px;
@@ -75,32 +81,12 @@ const handleRelationshipMap = () => {
     gap: 12px;
 
     .tool-btn {
-      display: flex;
-      align-items: center;
       justify-content: flex-start;
-      gap: 8px;
-      width: 100%;
-      height: 40px;
-      padding: 0 16px;
-      border-radius: 8px;
       background: var(--bg-base);
       border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      transition: all 0.3s ease;
-
-      &:hover {
-        background: var(--primary-color);
-        border-color: var(--primary-color);
-        color: white;
-      }
-
-      .el-icon {
-        font-size: 18px;
-      }
-
-      span {
-        font-size: 14px;
-      }
+      // color: var(--text-primary);
+      text-align: left;
+      margin: 0;
     }
   }
 }

@@ -46,7 +46,7 @@ if (!bookName) {
 }
 
 // 面板宽度控制
-const leftPanelWidth = ref(280)
+const leftPanelWidth = ref(240)
 const MIN_WIDTH = 200
 const MAX_WIDTH = 400
 const DEFAULT_WIDTH = 300
@@ -116,6 +116,7 @@ onUnmounted(() => {
   height: 100vh;
   background-color: var(--bg-primary);
   position: relative;
+  overflow: hidden;
 }
 
 .resize-handle {
@@ -153,7 +154,7 @@ onUnmounted(() => {
 }
 
 .right-panel {
-  width: 200px;
+  width: 160px;
   background: var(--bg-soft);
   border-left: 1px solid var(--border-color);
 }

@@ -651,36 +651,29 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   const today = new Date().toISOString().split('T')[0]
   const chapterKey = `${bookName}/${volumeName}/${chapterName}`
 
-  // 计算字数变化
-  const oldLength = oldContent ? oldContent.length : 0
+  // const oldLength = oldContent ? oldContent.length : 0
   const newLength = newContent ? newContent.length : 0
-  const wordDiff = newLength - oldLength
 
-  // 更新章节统计
-  if (!stats.chapterStats[chapterKey]) {
-    stats.chapterStats[chapterKey] = {
-      totalWords: 0,
-      lastUpdate: today
-    }
+  // 章节上次统计信息
+  const prev = stats.chapterStats[chapterKey]
+  const lastUpdate = prev ? prev.lastUpdate : today
+
+  // 1. 先把旧字数从旧日期扣除
+  if (prev && stats.dailyStats[lastUpdate]) {
+    stats.dailyStats[lastUpdate] -= prev.totalWords
+    if (stats.dailyStats[lastUpdate] < 0) stats.dailyStats[lastUpdate] = 0
   }
 
-  // 更新每日统计
-  if (!stats.dailyStats[today]) {
-    stats.dailyStats[today] = 0
+  // 2. 再把新字数加到今天
+  if (!stats.dailyStats[today]) stats.dailyStats[today] = 0
+  stats.dailyStats[today] += newLength
+
+  // 3. 更新章节统计
+  stats.chapterStats[chapterKey] = {
+    totalWords: newLength,
+    lastUpdate: today
   }
 
-  // 如果章节最后更新日期不是今天，需要从旧日期中减去旧字数
-  const lastUpdate = stats.chapterStats[chapterKey].lastUpdate
-  if (lastUpdate !== today && stats.dailyStats[lastUpdate]) {
-    stats.dailyStats[lastUpdate] -= stats.chapterStats[chapterKey].totalWords
-  }
-
-  // 更新统计
-  stats.chapterStats[chapterKey].totalWords = newLength
-  stats.chapterStats[chapterKey].lastUpdate = today
-  stats.dailyStats[today] += wordDiff
-
-  // 保存统计
   saveStats(stats)
 }
 
