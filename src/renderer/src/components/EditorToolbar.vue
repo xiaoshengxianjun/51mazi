@@ -62,7 +62,6 @@ const handleRelationshipMap = () => {
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-soft);
-  border-left: 1px solid var(--border-color);
   padding: 16px;
   display: flex;
   flex-direction: column;
