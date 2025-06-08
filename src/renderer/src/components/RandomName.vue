@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="随机起名"
-    width="800px"
+    width="900px"
     :close-on-click-modal="false"
     @close="onClose"
   >
@@ -16,14 +16,16 @@
       <!-- 中间规格 -->
       <div class="spec-panel">
         <el-form label-width="60px">
-          <template v-if="showChineseOptions">
+          <template v-if="showChineseOptions || showJapaneseOptions || showWesternOptions">
             <el-form-item label="姓氏">
               <el-input v-model="surname" placeholder="请输入或随机" style="width: 100%" />
               <div
                 style="margin-top: 8px; width: 100%; display: flex; justify-content: space-between"
               >
-                <el-button size="small" @click="randomSurname"> 随机单姓 </el-button>
-                <el-button size="small" @click="randomCompoundSurname">随机复姓</el-button>
+                <el-button size="small" @click="randomSurname">随机姓氏</el-button>
+                <el-button v-if="showChineseOptions" size="small" @click="randomCompoundSurname">
+                  随机复姓
+                </el-button>
               </div>
             </el-form-item>
             <el-form-item label="性别">
@@ -32,13 +34,13 @@
                 <el-radio label="女">女</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item label="字数">
+            <el-form-item v-if="showChineseOptions" label="字数">
               <el-radio-group v-model="nameLength">
                 <el-radio :label="2">二字名</el-radio>
                 <el-radio :label="3">三字名</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item v-if="nameLength === 3" label="中间字">
+            <el-form-item v-if="showChineseOptions && nameLength === 3" label="中间字">
               <el-input
                 v-model="middleChar"
                 maxlength="1"
@@ -70,7 +72,13 @@ import {
   CHINESE_SURNAMES,
   CHINESE_COMPOUND_SURNAMES,
   CHINESE_MALE_CHARS,
-  CHINESE_FEMALE_CHARS
+  CHINESE_FEMALE_CHARS,
+  JAPANESE_SURNAMES,
+  JAPANESE_MALE_CHARS,
+  JAPANESE_FEMALE_CHARS,
+  WESTERN_SURNAMES,
+  WESTERN_MALE_NAMES,
+  WESTERN_FEMALE_NAMES
 } from '../constants/config'
 
 const types = [
@@ -98,53 +106,23 @@ function onClose() {
 }
 
 const showChineseOptions = computed(() => type.value === 'cn')
-
-const jpSurnames = ['佐藤', '铃木', '高桥', '田中', '渡边', '伊藤', '中村', '小林', '加藤', '吉田']
-const jpMale = ['太郎', '翔', '健', '悠斗', '海斗', '阳斗', '莲', '陆', '葵', '隼人']
-const jpFemale = ['美咲', '葵', '结衣', '樱', '花', '爱', '优', '真由', '沙织', '千夏']
-const enSurnames = [
-  'Smith',
-  'Johnson',
-  'Williams',
-  'Brown',
-  'Jones',
-  'Miller',
-  'Davis',
-  'Garcia',
-  'Rodriguez',
-  'Wilson'
-]
-const enMale = [
-  'James',
-  'John',
-  'Robert',
-  'Michael',
-  'William',
-  'David',
-  'Richard',
-  'Joseph',
-  'Thomas',
-  'Charles'
-]
-const enFemale = [
-  'Mary',
-  'Patricia',
-  'Jennifer',
-  'Linda',
-  'Elizabeth',
-  'Barbara',
-  'Susan',
-  'Jessica',
-  'Sarah',
-  'Karen'
-]
+const showJapaneseOptions = computed(() => type.value === 'jp')
+const showWesternOptions = computed(() => type.value === 'en')
 
 function randomSurname() {
-  surname.value = CHINESE_SURNAMES[Math.floor(Math.random() * CHINESE_SURNAMES.length)]
+  if (type.value === 'cn') {
+    surname.value = CHINESE_SURNAMES[Math.floor(Math.random() * CHINESE_SURNAMES.length)]
+  } else if (type.value === 'jp') {
+    surname.value = JAPANESE_SURNAMES[Math.floor(Math.random() * JAPANESE_SURNAMES.length)]
+  } else if (type.value === 'en') {
+    surname.value = WESTERN_SURNAMES[Math.floor(Math.random() * WESTERN_SURNAMES.length)]
+  }
 }
 function randomCompoundSurname() {
-  surname.value =
-    CHINESE_COMPOUND_SURNAMES[Math.floor(Math.random() * CHINESE_COMPOUND_SURNAMES.length)]
+  if (type.value === 'cn') {
+    surname.value =
+      CHINESE_COMPOUND_SURNAMES[Math.floor(Math.random() * CHINESE_COMPOUND_SURNAMES.length)]
+  }
 }
 
 function generateNames() {
@@ -163,16 +141,17 @@ function generateNames() {
       result.push(name)
     }
   } else if (type.value === 'jp') {
-    const sur = jpSurnames[Math.floor(Math.random() * jpSurnames.length)]
-    const pool = gender.value === '男' ? jpMale : jpFemale
+    const chars = gender.value === '男' ? JAPANESE_MALE_CHARS : JAPANESE_FEMALE_CHARS
     for (let i = 0; i < 24; i++) {
-      result.push(sur + pool[Math.floor(Math.random() * pool.length)])
+      const sur =
+        surname.value || JAPANESE_SURNAMES[Math.floor(Math.random() * JAPANESE_SURNAMES.length)]
+      result.push(sur + chars[Math.floor(Math.random() * chars.length)])
     }
   } else if (type.value === 'en') {
-    const sur = enSurnames[Math.floor(Math.random() * enSurnames.length)]
-    const pool = gender.value === '男' ? enMale : enFemale
+    const sur = WESTERN_SURNAMES[Math.floor(Math.random() * WESTERN_SURNAMES.length)]
+    const pool = gender.value === '男' ? WESTERN_MALE_NAMES : WESTERN_FEMALE_NAMES
     for (let i = 0; i < 24; i++) {
-      result.push(pool[Math.floor(Math.random() * pool.length)] + ' ' + sur)
+      result.push(pool[Math.floor(Math.random() * pool.length)] + '·' + sur)
     }
   } else {
     // 其他类型，简单生成
@@ -202,13 +181,13 @@ defineExpose({ open })
   margin-right: 16px;
 }
 .spec-panel {
-  flex: 1;
-  min-width: 220px;
+  /* flex: 1; */
+  width: 260px;
   padding-right: 16px;
   border-right: 1px solid #eee;
 }
 .name-list {
-  flex: 1.5;
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(8, 1fr);
@@ -217,10 +196,9 @@ defineExpose({ open })
   align-items: start;
 }
 .name-item {
-  font-size: 18px;
-  color: #555;
+  font-size: 16px;
   cursor: pointer;
-  padding: 8px;
+  padding: 6px;
   border-radius: 4px;
   transition: background 0.2s;
   text-align: center;
