@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="随机起名"
-    width="700px"
+    width="800px"
     :close-on-click-modal="false"
     @close="onClose"
   >
@@ -15,14 +15,16 @@
       </el-menu>
       <!-- 中间规格 -->
       <div class="spec-panel">
-        <el-form label-width="60px" size="small">
+        <el-form label-width="60px">
           <template v-if="showChineseOptions">
             <el-form-item label="姓氏">
-              <el-input v-model="surname" placeholder="请输入或随机" style="width: 120px" />
-              <el-button @click="randomSurname" size="small" style="margin-left: 8px"
-                >随机单姓</el-button
+              <el-input v-model="surname" placeholder="请输入或随机" style="width: 100%" />
+              <div
+                style="margin-top: 8px; width: 100%; display: flex; justify-content: space-between"
               >
-              <el-button @click="randomCompoundSurname" size="small">随机复姓</el-button>
+                <el-button size="small" @click="randomSurname"> 随机单姓 </el-button>
+                <el-button size="small" @click="randomCompoundSurname">随机复姓</el-button>
+              </div>
             </el-form-item>
             <el-form-item label="性别">
               <el-radio-group v-model="gender">
@@ -36,27 +38,17 @@
                 <el-radio :label="3">三字名</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item label="中间字" v-if="nameLength === 3">
+            <el-form-item v-if="nameLength === 3" label="中间字">
               <el-input
                 v-model="middleChar"
                 maxlength="1"
                 placeholder="请输入中间一个字"
-                style="width: 120px"
+                style="width: 100%"
               />
             </el-form-item>
           </template>
-          <template v-else>
-            <el-form-item label="性别">
-              <el-radio-group v-model="gender">
-                <el-radio label="男">男</el-radio>
-                <el-radio label="女">女</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </template>
-          <el-form-item>
-            <el-button type="primary" @click="generateNames">生成名字</el-button>
-          </el-form-item>
         </el-form>
+        <el-button type="primary" style="width: 100%" @click="generateNames">生成名字</el-button>
       </div>
       <!-- 右侧名字列表 -->
       <div class="name-list">
@@ -74,6 +66,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import {
+  CHINESE_SURNAMES,
+  CHINESE_COMPOUND_SURNAMES,
+  CHINESE_MALE_CHARS,
+  CHINESE_FEMALE_CHARS
+} from '../constants/config'
 
 const types = [
   { label: '中国人名', value: 'cn' },
@@ -101,68 +99,6 @@ function onClose() {
 
 const showChineseOptions = computed(() => type.value === 'cn')
 
-// 字库
-const singleSurnames = [
-  '赵',
-  '钱',
-  '孙',
-  '李',
-  '周',
-  '吴',
-  '郑',
-  '王',
-  '冯',
-  '陈',
-  '褚',
-  '卫',
-  '蒋',
-  '沈',
-  '韩',
-  '杨',
-  '朱',
-  '秦',
-  '尤',
-  '许',
-  '何',
-  '吕',
-  '施',
-  '张',
-  '孔',
-  '曹',
-  '严',
-  '华',
-  '金',
-  '魏',
-  '陶',
-  '姜'
-]
-const compoundSurnames = [
-  '欧阳',
-  '司马',
-  '上官',
-  '诸葛',
-  '东方',
-  '夏侯',
-  '皇甫',
-  '尉迟',
-  '公孙',
-  '慕容',
-  '司徒',
-  '令狐',
-  '宇文',
-  '长孙',
-  '司空',
-  '轩辕',
-  '令狐',
-  '百里',
-  '呼延',
-  '端木',
-  '南宫'
-]
-const maleChars =
-  '伟强磊洋勇军杰涛超明刚平辉鹏龙华飞鑫波斌宇浩凯瑞志晨旭健宁林峰松博凡航轩坤俊铭诚昊天乐成威达'
-const femaleChars =
-  '芳娜静敏丽艳娟英慧玲芬莉桂丹萍红玉梅琳雪倩婷璐颖悦璇妍欣洁莹婧诗怡菲佳嘉璇雯彤瑶珊茜萌晨'
 const jpSurnames = ['佐藤', '铃木', '高桥', '田中', '渡边', '伊藤', '中村', '小林', '加藤', '吉田']
 const jpMale = ['太郎', '翔', '健', '悠斗', '海斗', '阳斗', '莲', '陆', '葵', '隼人']
 const jpFemale = ['美咲', '葵', '结衣', '樱', '花', '爱', '优', '真由', '沙织', '千夏']
@@ -204,18 +140,20 @@ const enFemale = [
 ]
 
 function randomSurname() {
-  surname.value = singleSurnames[Math.floor(Math.random() * singleSurnames.length)]
+  surname.value = CHINESE_SURNAMES[Math.floor(Math.random() * CHINESE_SURNAMES.length)]
 }
 function randomCompoundSurname() {
-  surname.value = compoundSurnames[Math.floor(Math.random() * compoundSurnames.length)]
+  surname.value =
+    CHINESE_COMPOUND_SURNAMES[Math.floor(Math.random() * CHINESE_COMPOUND_SURNAMES.length)]
 }
 
 function generateNames() {
   const result = []
   if (type.value === 'cn') {
-    const chars = gender.value === '男' ? maleChars : femaleChars
-    for (let i = 0; i < 18; i++) {
-      let name = surname.value || singleSurnames[Math.floor(Math.random() * singleSurnames.length)]
+    const chars = gender.value === '男' ? CHINESE_MALE_CHARS : CHINESE_FEMALE_CHARS
+    for (let i = 0; i < 24; i++) {
+      let name =
+        surname.value || CHINESE_SURNAMES[Math.floor(Math.random() * CHINESE_SURNAMES.length)]
       if (nameLength.value === 2) {
         name += chars[Math.floor(Math.random() * chars.length)]
       } else {
@@ -227,18 +165,18 @@ function generateNames() {
   } else if (type.value === 'jp') {
     const sur = jpSurnames[Math.floor(Math.random() * jpSurnames.length)]
     const pool = gender.value === '男' ? jpMale : jpFemale
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
       result.push(sur + pool[Math.floor(Math.random() * pool.length)])
     }
   } else if (type.value === 'en') {
     const sur = enSurnames[Math.floor(Math.random() * enSurnames.length)]
     const pool = gender.value === '男' ? enMale : enFemale
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
       result.push(pool[Math.floor(Math.random() * pool.length)] + ' ' + sur)
     }
   } else {
     // 其他类型，简单生成
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
       result.push('示例' + (i + 1))
     }
   }
@@ -271,19 +209,21 @@ defineExpose({ open })
 }
 .name-list {
   flex: 1.5;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 12px;
   padding-left: 16px;
-  align-items: flex-start;
+  align-items: start;
 }
 .name-item {
   font-size: 18px;
   color: #555;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 8px;
   border-radius: 4px;
   transition: background 0.2s;
+  text-align: center;
 }
 .name-item:hover {
   background: #e6f7ff;
