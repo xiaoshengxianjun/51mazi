@@ -10,6 +10,11 @@ const routes = [
     path: '/editor',
     name: 'Editor',
     component: () => import('@renderer/views/Editor.vue')
+  },
+  {
+    path: '/timeline',
+    name: 'Timeline',
+    component: () => import('@renderer/views/Timeline.vue')
   }
   // 在这里添加更多路由配置
 ]

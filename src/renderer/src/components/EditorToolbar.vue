@@ -32,8 +32,11 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { User, Location, Timer, Avatar, Connection } from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
+import { useRouter, useRoute } from 'vue-router'
 
 const randomNameRef = ref(null)
+const router = useRouter()
+const route = useRoute()
 
 // 工具栏功能处理函数
 const handleRandomName = () => {
@@ -45,7 +48,9 @@ const handleWorldMap = () => {
 }
 
 const handleTimeline = () => {
-  ElMessage.info('时间线功能开发中...')
+  // 跳转到时间线页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/timeline', query: { name: bookName } })
 }
 
 const handleCharacterProfile = () => {

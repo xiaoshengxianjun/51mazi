@@ -736,3 +736,28 @@ ipcMain.handle('get-chapter-stats', async (event, { bookName, volumeName, chapte
     return { success: false, message: '获取统计失败' }
   }
 })
+
+// 时间线数据读写
+ipcMain.handle('read-timeline', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const timelinePath = join(bookPath, 'timelines.json')
+  if (!fs.existsSync(timelinePath)) return []
+  try {
+    return JSON.parse(fs.readFileSync(timelinePath, 'utf-8'))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('write-timeline', async (event, bookName, data) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const timelinePath = join(bookPath, 'timelines.json')
+  try {
+    fs.writeFileSync(timelinePath, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch {
+    return false
+  }
+})
