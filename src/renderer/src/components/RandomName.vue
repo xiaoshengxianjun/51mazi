@@ -49,6 +49,14 @@
               />
             </el-form-item>
           </template>
+          <template v-if="showCustomOptions">
+            <el-form-item label="后缀">
+              <el-input v-model="customSuffix" placeholder="请输入或随机" style="width: 100%" />
+              <div style="margin-top: 8px; width: 100%">
+                <el-button size="small" @click="randomSuffix">随机后缀</el-button>
+              </div>
+            </el-form-item>
+          </template>
         </el-form>
         <el-button type="primary" style="width: 100%" @click="generateNames">生成名字</el-button>
       </div>
@@ -104,16 +112,22 @@ const nameLength = ref(3)
 const middleChar = ref('')
 const names = ref([])
 const visible = ref(false)
+const customSuffix = ref('')
+
 function open() {
   visible.value = true
 }
 function onClose() {
   names.value = []
+  customSuffix.value = ''
 }
 
 const showChineseOptions = computed(() => type.value === 'cn')
 const showJapaneseOptions = computed(() => type.value === 'jp')
 const showWesternOptions = computed(() => type.value === 'en')
+const showCustomOptions = computed(() => {
+  return ['force', 'place', 'book', 'item', 'elixir'].includes(type.value)
+})
 
 function randomSurname() {
   if (type.value === 'cn') {
@@ -129,6 +143,28 @@ function randomCompoundSurname() {
     surname.value =
       CHINESE_COMPOUND_SURNAMES[Math.floor(Math.random() * CHINESE_COMPOUND_SURNAMES.length)]
   }
+}
+
+function randomSuffix() {
+  let suffixPool = []
+  switch (type.value) {
+    case 'force':
+      suffixPool = FORCE_SUFFIXES
+      break
+    case 'place':
+      suffixPool = PLACE_SUFFIXES
+      break
+    case 'book':
+      suffixPool = BOOK_SUFFIXES
+      break
+    case 'item':
+      suffixPool = ITEM_SUFFIXES
+      break
+    case 'elixir':
+      suffixPool = ELIXIR_SUFFIXES
+      break
+  }
+  customSuffix.value = suffixPool[Math.floor(Math.random() * suffixPool.length)]
 }
 
 function generateNames() {
@@ -160,38 +196,63 @@ function generateNames() {
       result.push(pool[Math.floor(Math.random() * pool.length)] + '·' + sur)
     }
   } else if (type.value === 'force') {
-    // 生成各方势力名称
+    // 生成各方势力名称，前缀1-3个字
     for (let i = 0; i < 24; i++) {
-      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
-      const suffix = FORCE_SUFFIXES[Math.floor(Math.random() * FORCE_SUFFIXES.length)]
+      const prefixLength = Math.floor(Math.random() * 3) + 1 // 1-3个字
+      let prefix = ''
+      for (let j = 0; j < prefixLength; j++) {
+        prefix += CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      }
+      const suffix =
+        customSuffix.value || FORCE_SUFFIXES[Math.floor(Math.random() * FORCE_SUFFIXES.length)]
       result.push(prefix + suffix)
     }
   } else if (type.value === 'place') {
-    // 生成地名
+    // 生成地名，前缀1-3个字
     for (let i = 0; i < 24; i++) {
-      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
-      const suffix = PLACE_SUFFIXES[Math.floor(Math.random() * PLACE_SUFFIXES.length)]
+      const prefixLength = Math.floor(Math.random() * 3) + 1 // 1-3个字
+      let prefix = ''
+      for (let j = 0; j < prefixLength; j++) {
+        prefix += CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      }
+      const suffix =
+        customSuffix.value || PLACE_SUFFIXES[Math.floor(Math.random() * PLACE_SUFFIXES.length)]
       result.push(prefix + suffix)
     }
   } else if (type.value === 'book') {
-    // 生成秘籍名称
+    // 生成秘籍名称，前缀1-4个字
     for (let i = 0; i < 24; i++) {
-      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
-      const suffix = BOOK_SUFFIXES[Math.floor(Math.random() * BOOK_SUFFIXES.length)]
+      const prefixLength = Math.floor(Math.random() * 4) + 1 // 1-4个字
+      let prefix = ''
+      for (let j = 0; j < prefixLength; j++) {
+        prefix += CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      }
+      const suffix =
+        customSuffix.value || BOOK_SUFFIXES[Math.floor(Math.random() * BOOK_SUFFIXES.length)]
       result.push(prefix + suffix)
     }
   } else if (type.value === 'item') {
-    // 生成法宝名称
+    // 生成法宝名称，前缀1-4个字
     for (let i = 0; i < 24; i++) {
-      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
-      const suffix = ITEM_SUFFIXES[Math.floor(Math.random() * ITEM_SUFFIXES.length)]
+      const prefixLength = Math.floor(Math.random() * 4) + 1 // 1-4个字
+      let prefix = ''
+      for (let j = 0; j < prefixLength; j++) {
+        prefix += CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      }
+      const suffix =
+        customSuffix.value || ITEM_SUFFIXES[Math.floor(Math.random() * ITEM_SUFFIXES.length)]
       result.push(prefix + suffix)
     }
   } else if (type.value === 'elixir') {
-    // 生成灵药名称
+    // 生成灵药名称，前缀1-4个字
     for (let i = 0; i < 24; i++) {
-      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
-      const suffix = ELIXIR_SUFFIXES[Math.floor(Math.random() * ELIXIR_SUFFIXES.length)]
+      const prefixLength = Math.floor(Math.random() * 4) + 1 // 1-4个字
+      let prefix = ''
+      for (let j = 0; j < prefixLength; j++) {
+        prefix += CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      }
+      const suffix =
+        customSuffix.value || ELIXIR_SUFFIXES[Math.floor(Math.random() * ELIXIR_SUFFIXES.length)]
       result.push(prefix + suffix)
     }
   }
