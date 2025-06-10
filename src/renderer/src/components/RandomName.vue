@@ -78,7 +78,13 @@ import {
   JAPANESE_FEMALE_CHARS,
   WESTERN_SURNAMES,
   WESTERN_MALE_NAMES,
-  WESTERN_FEMALE_NAMES
+  WESTERN_FEMALE_NAMES,
+  FORCE_SUFFIXES,
+  PLACE_SUFFIXES,
+  BOOK_SUFFIXES,
+  ITEM_SUFFIXES,
+  ELIXIR_SUFFIXES,
+  CORE_WORDS
 } from '../constants/config'
 
 const types = [
@@ -153,10 +159,40 @@ function generateNames() {
     for (let i = 0; i < 24; i++) {
       result.push(pool[Math.floor(Math.random() * pool.length)] + '·' + sur)
     }
-  } else {
-    // 其他类型，简单生成
+  } else if (type.value === 'force') {
+    // 生成各方势力名称
     for (let i = 0; i < 24; i++) {
-      result.push('示例' + (i + 1))
+      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      const suffix = FORCE_SUFFIXES[Math.floor(Math.random() * FORCE_SUFFIXES.length)]
+      result.push(prefix + suffix)
+    }
+  } else if (type.value === 'place') {
+    // 生成地名
+    for (let i = 0; i < 24; i++) {
+      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      const suffix = PLACE_SUFFIXES[Math.floor(Math.random() * PLACE_SUFFIXES.length)]
+      result.push(prefix + suffix)
+    }
+  } else if (type.value === 'book') {
+    // 生成秘籍名称
+    for (let i = 0; i < 24; i++) {
+      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      const suffix = BOOK_SUFFIXES[Math.floor(Math.random() * BOOK_SUFFIXES.length)]
+      result.push(prefix + suffix)
+    }
+  } else if (type.value === 'item') {
+    // 生成法宝名称
+    for (let i = 0; i < 24; i++) {
+      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      const suffix = ITEM_SUFFIXES[Math.floor(Math.random() * ITEM_SUFFIXES.length)]
+      result.push(prefix + suffix)
+    }
+  } else if (type.value === 'elixir') {
+    // 生成灵药名称
+    for (let i = 0; i < 24; i++) {
+      const prefix = CORE_WORDS[Math.floor(Math.random() * CORE_WORDS.length)]
+      const suffix = ELIXIR_SUFFIXES[Math.floor(Math.random() * ELIXIR_SUFFIXES.length)]
+      result.push(prefix + suffix)
     }
   }
   names.value = result
