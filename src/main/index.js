@@ -592,16 +592,16 @@ async function updateBookMetadata(bookName) {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookName)
   const metaPath = join(bookPath, 'mazi.json')
-
+  
   if (!fs.existsSync(metaPath)) return false
-
+  
   try {
     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
     const totalWords = await calculateBookWordCount(bookName)
-
+    
     meta.totalWords = totalWords
     meta.updatedAt = new Date().toLocaleString()
-
+    
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
     return true
   } catch (error) {

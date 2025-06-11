@@ -24,6 +24,7 @@ export const useThemeStore = defineStore('theme', () => {
         root.style.setProperty('--text-primary', '#CBD5E1')
         root.style.setProperty('--accent-color', '#64748B')
         root.style.setProperty('--border-color', '#2D4059')
+        root.style.setProperty('--border-color-soft', '#374151')
         root.style.setProperty('--success-green', '#10B981')
         break
       case 'yellow':
@@ -33,6 +34,7 @@ export const useThemeStore = defineStore('theme', () => {
         root.style.setProperty('--text-primary', '#3A2F21')
         root.style.setProperty('--accent-color', '#5D4037')
         root.style.setProperty('--border-color', '#BCAAA4')
+        root.style.setProperty('--border-color-soft', '#D1C4B8')
         root.style.setProperty('--success-green', '#689F38')
         break
       default: // light
@@ -42,6 +44,7 @@ export const useThemeStore = defineStore('theme', () => {
         root.style.setProperty('--text-primary', '#2D2D2D')
         root.style.setProperty('--accent-color', '#4A90E2')
         root.style.setProperty('--border-color', '#E1E4E8')
+        root.style.setProperty('--border-color-soft', '#E9ECEF')
         root.style.setProperty('--success-green', '#22C55E')
     }
   }
