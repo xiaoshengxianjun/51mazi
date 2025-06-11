@@ -64,7 +64,7 @@ if (process.contextIsolated) {
       getDailyWordCount: () => ipcRenderer.invoke('get-daily-word-count'),
       getChapterStats: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName }),
-      readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', bookName),
+      readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', { bookName }),
       writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data })
     })
     contextBridge.exposeInMainWorld('api', api)

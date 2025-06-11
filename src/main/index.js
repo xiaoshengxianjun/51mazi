@@ -592,16 +592,16 @@ async function updateBookMetadata(bookName) {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookName)
   const metaPath = join(bookPath, 'mazi.json')
-  
+
   if (!fs.existsSync(metaPath)) return false
-  
+
   try {
     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
     const totalWords = await calculateBookWordCount(bookName)
-    
+
     meta.totalWords = totalWords
     meta.updatedAt = new Date().toLocaleString()
-    
+
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
     return true
   } catch (error) {
@@ -738,7 +738,7 @@ ipcMain.handle('get-chapter-stats', async (event, { bookName, volumeName, chapte
 })
 
 // 时间线数据读写
-ipcMain.handle('read-timeline', async (event, bookName) => {
+ipcMain.handle('read-timeline', async (event, { bookName }) => {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookName)
   const timelinePath = join(bookPath, 'timelines.json')
@@ -750,14 +750,22 @@ ipcMain.handle('read-timeline', async (event, bookName) => {
   }
 })
 
-ipcMain.handle('write-timeline', async (event, bookName, data) => {
+// 保存时间线数据
+ipcMain.handle('write-timeline', async (event, { bookName, data }) => {
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, bookName)
   const timelinePath = join(bookPath, 'timelines.json')
+
   try {
+    // 确保目录存在
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
     fs.writeFileSync(timelinePath, JSON.stringify(data, null, 2), 'utf-8')
-    return true
-  } catch {
-    return false
+    return { success: true }
+  } catch (error) {
+    console.error('保存时间线失败:', error)
+    return { success: false, message: error.message }
   }
 })

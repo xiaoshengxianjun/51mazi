@@ -31,7 +31,7 @@
               </div>
             </el-timeline-item>
           </el-timeline>
-          <el-button class="add-node-btn" @click="addNode(idx)">新增节点</el-button>
+          <el-button class="add-node-btn" type="primary" @click="addNode(idx)">新增节点</el-button>
           <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
             删除时间线
           </el-button>
@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, reactive } from 'vue'
+import { ref, onMounted, watch, reactive, toRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeftBold, EditPen, Delete } from '@element-plus/icons-vue'
@@ -92,13 +92,14 @@ function goBack() {
   router.push('/editor?name=' + encodeURIComponent(bookName))
 }
 
-function genId(prefix = 'id') {
-  return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10)
+function genId() {
+  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
 }
 
 async function loadTimelines() {
   try {
-    const data = await window.electronAPI.readTimeline(bookName)
+    const data = await window.electron.readTimeline(bookName)
+    console.log(data)
     timelines.value = Array.isArray(data) ? data : []
   } catch {
     timelines.value = []
@@ -106,15 +107,21 @@ async function loadTimelines() {
 }
 async function saveTimelines() {
   try {
-    await window.electronAPI.writeTimeline(bookName, timelines.value)
-  } catch {
+    // 彻底去除响应式
+    const rawTimelines = JSON.parse(JSON.stringify(toRaw(timelines.value)))
+    const result = await window.electron.writeTimeline(bookName, rawTimelines)
+    if (!result) {
+      throw new Error('保存失败')
+    }
+  } catch (error) {
+    console.error('保存时间线失败:', error)
     ElMessage.error('保存时间线失败')
   }
 }
 
 function addTimeline() {
   timelines.value.push({
-    id: genId('timeline'),
+    id: genId(),
     title: '新时间线',
     nodes: []
   })
@@ -144,7 +151,7 @@ function addNode(idx, nidx) {
 function confirmAddNode() {
   if (nodeInfo.id === -1) {
     timelines.value[currentTimelineIdx.value].nodes.push({
-      id: genId('node'),
+      id: genId(),
       title: nodeInfo.title,
       desc: nodeInfo.desc
     })
@@ -162,7 +169,9 @@ function removeNode(tidx, nidx) {
 }
 
 watch(timelines, saveTimelines, { deep: true })
-onMounted(loadTimelines)
+onMounted(() => {
+  loadTimelines()
+})
 </script>
 
 <style scoped>
@@ -192,8 +201,7 @@ onMounted(loadTimelines)
 }
 .timeline-column {
   height: 100%;
-  background: var(--bg-soft);
-  box-shadow: 0 2px 8px #0001;
+  /* background: var(--bg-soft); */
   padding: 16px;
   width: 320px;
   border-right: 1px solid var(--border-color-soft);
