@@ -15,6 +15,16 @@ const routes = [
     path: '/timeline',
     name: 'Timeline',
     component: () => import('@renderer/views/Timeline.vue')
+  },
+  {
+    path: '/map-list',
+    name: 'MapList',
+    component: () => import('@renderer/views/MapList.vue')
+  },
+  {
+    path: '/map-design',
+    name: 'MapDesign',
+    component: () => import('@renderer/views/MapDesign.vue')
   }
   // 在这里添加更多路由配置
 ]

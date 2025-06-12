@@ -44,7 +44,9 @@ const handleRandomName = () => {
 }
 
 const handleWorldMap = () => {
-  ElMessage.info('设计地图功能开发中...')
+  // 跳转到地图列表页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/map-list', query: { name: bookName } })
 }
 
 const handleTimeline = () => {
