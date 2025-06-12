@@ -320,7 +320,7 @@ watch(
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-soft);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 0;
   overflow: hidden;
@@ -363,7 +363,7 @@ watch(
   line-height: 28px;
   padding: 0px 15px;
   border-top: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  background-color: var(--bg-mute);
   font-size: 14px;
   display: flex;
   align-items: center;

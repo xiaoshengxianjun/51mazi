@@ -62,50 +62,9 @@ function refreshChapters() {
 
 <style lang="scss" scoped>
 .editor-container {
-  display: flex;
   height: 100vh;
   background-color: var(--bg-primary);
   position: relative;
   overflow: hidden;
-}
-
-.resize-handle {
-  width: 4px;
-  background-color: transparent;
-  cursor: col-resize;
-  position: absolute;
-  left: v-bind('leftPanelWidth + "px"');
-  top: 0;
-  bottom: 0;
-  z-index: 10;
-  transition: background-color 0.2s;
-
-  &:hover,
-  &:active {
-    background-color: #409eff;
-  }
-}
-
-.left-panel {
-  background-color: var(--bg-soft);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  //   transition: width 0.1s ease;
-}
-
-.center-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-primary);
-  min-width: 0; // 防止内容溢出
-}
-
-.right-panel {
-  width: 160px;
-  background: var(--bg-soft);
-  border-left: 1px solid var(--border-color);
 }
 </style>

@@ -1,116 +1,121 @@
 <template>
-  <!-- 笔记部分 -->
-  <div class="panel-section">
-    <div class="section-header" @click="toggleNotes">
-      <div class="section-header-left">
-        <el-icon class="toggle-icon" :class="{ 'is-active': notesExpanded }">
-          <ArrowRight />
-        </el-icon>
-        <span>笔记</span>
+  <div class="note-chapter">
+    <!-- 笔记部分 -->
+    <div class="panel-section">
+      <div class="section-header" @click="toggleNotes">
+        <div class="section-header-left">
+          <el-icon class="toggle-icon" :class="{ 'is-active': notesExpanded }">
+            <ArrowRight />
+          </el-icon>
+          <span>笔记</span>
+        </div>
+        <div class="section-header-right">
+          <el-tooltip content="创建笔记本" placement="bottom" :show-after="2000">
+            <el-icon @click.stop="createNotebook"><FolderAdd /></el-icon>
+          </el-tooltip>
+        </div>
       </div>
-      <div class="section-header-right">
-        <el-tooltip content="创建笔记本" placement="bottom" :show-after="2000">
-          <el-icon @click.stop="createNotebook"><FolderAdd /></el-icon>
-        </el-tooltip>
-      </div>
-    </div>
-    <div v-show="notesExpanded" class="section-content">
-      <el-tree
-        ref="noteTreeRef"
-        :data="notesTree"
-        :props="defaultProps"
-        empty-text="暂无笔记"
-        node-key="path"
-        highlight-current
-        :current-node-key="currentNoteNodeKey"
-        @node-click="handleNoteClick"
-      >
-        <template #default="{ node }">
-          <div class="custom-tree-node">
-            <span
-              v-if="!editingNoteNode || editingNoteNode.path !== node.data.path"
-              class="node-name"
-            >
-              {{ node.label }}
-            </span>
-            <el-input
-              v-else
-              v-model="editingNoteName"
-              size="small"
-              maxlength="20"
-              @click.stop
-              @keyup.enter="confirmEditNote(node)"
-              @blur="confirmEditNote(node)"
-            />
-            <div class="chapter-actions">
-              <el-icon v-if="node.data.type === 'folder'" @click.stop="createNote(node)">
-                <DocumentAdd />
-              </el-icon>
-              <el-icon @click.stop="editNoteNode(node)"><Edit /></el-icon>
-              <el-icon @click.stop="deleteNoteNode(node)"><Delete /></el-icon>
+      <div v-show="notesExpanded" class="section-content">
+        <el-tree
+          ref="noteTreeRef"
+          :data="notesTree"
+          :props="defaultProps"
+          empty-text="暂无笔记"
+          node-key="path"
+          highlight-current
+          :current-node-key="currentNoteNodeKey"
+          @node-click="handleNoteClick"
+        >
+          <template #default="{ node }">
+            <div class="custom-tree-node">
+              <span
+                v-if="!editingNoteNode || editingNoteNode.path !== node.data.path"
+                class="node-name"
+              >
+                {{ node.label }}
+              </span>
+              <el-input
+                v-else
+                v-model="editingNoteName"
+                size="small"
+                maxlength="20"
+                @click.stop
+                @keyup.enter="confirmEditNote(node)"
+                @blur="confirmEditNote(node)"
+              />
+              <div class="chapter-actions">
+                <el-icon v-if="node.data.type === 'folder'" @click.stop="createNote(node)">
+                  <DocumentAdd />
+                </el-icon>
+                <el-icon @click.stop="editNoteNode(node)"><Edit /></el-icon>
+                <el-icon @click.stop="deleteNoteNode(node)"><Delete /></el-icon>
+              </div>
             </div>
-          </div>
-        </template>
-      </el-tree>
+          </template>
+        </el-tree>
+      </div>
     </div>
-  </div>
 
-  <!-- 正文部分 -->
-  <div class="panel-section">
-    <div class="section-header" @click="toggleChapters">
-      <div class="section-header-left">
-        <el-icon class="toggle-icon" :class="{ 'is-active': chaptersExpanded }">
-          <ArrowRight />
-        </el-icon>
-        <span>正文</span>
+    <!-- 正文部分 -->
+    <div class="panel-section">
+      <div class="section-header" @click="toggleChapters">
+        <div class="section-header-left">
+          <el-icon class="toggle-icon" :class="{ 'is-active': chaptersExpanded }">
+            <ArrowRight />
+          </el-icon>
+          <span>正文</span>
+        </div>
+        <div class="section-header-right">
+          <el-tooltip content="创建卷" placement="bottom" :show-after="2000">
+            <el-icon @click.stop="createVolume"><FolderAdd /></el-icon>
+          </el-tooltip>
+          <el-tooltip content="卷排序" placement="bottom" :show-after="2000">
+            <el-icon @click.stop="sortVolumes"><Sort /></el-icon>
+          </el-tooltip>
+          <el-tooltip content="正文设置" placement="bottom" :show-after="2000">
+            <el-icon><Setting /></el-icon>
+          </el-tooltip>
+        </div>
       </div>
-      <div class="section-header-right">
-        <el-tooltip content="创建卷" placement="bottom" :show-after="2000">
-          <el-icon @click.stop="createVolume"><FolderAdd /></el-icon>
-        </el-tooltip>
-        <el-tooltip content="卷排序" placement="bottom" :show-after="2000">
-          <el-icon @click.stop="sortVolumes"><Sort /></el-icon>
-        </el-tooltip>
-        <el-tooltip content="正文设置" placement="bottom" :show-after="2000">
-          <el-icon><Setting /></el-icon>
-        </el-tooltip>
-      </div>
-    </div>
-    <div v-show="chaptersExpanded" class="section-content">
-      <el-tree
-        ref="chapterTreeRef"
-        :data="chaptersTree"
-        :props="defaultProps"
-        empty-text="暂无章节"
-        node-key="path"
-        highlight-current
-        :current-node-key="currentChapterNodeKey"
-        @node-click="handleChapterClick"
-      >
-        <template #default="{ node }">
-          <div class="custom-tree-node">
-            <span v-if="!editingNode || editingNode.path !== node.data.path" class="node-name">
-              {{ node.label }}
-            </span>
-            <el-input
-              v-else
-              v-model="editingName"
-              size="small"
-              maxlength="20"
-              @click.stop
-              @keyup.enter="confirmEdit(node)"
-              @blur="confirmEdit(node)"
-            />
-            <div class="chapter-actions">
-              <el-icon v-if="node.data.type === 'volume'" @click.stop="createChapter(node.data.id)">
-                <DocumentAdd />
-              </el-icon>
-              <el-icon @click.stop="editNode(node)"><Edit /></el-icon>
-              <el-icon @click.stop="deleteNode(node)"><Delete /></el-icon>
+      <div v-show="chaptersExpanded" class="section-content">
+        <el-tree
+          ref="chapterTreeRef"
+          :data="chaptersTree"
+          :props="defaultProps"
+          empty-text="暂无章节"
+          node-key="path"
+          highlight-current
+          :current-node-key="currentChapterNodeKey"
+          @node-click="handleChapterClick"
+        >
+          <template #default="{ node }">
+            <div class="custom-tree-node">
+              <span v-if="!editingNode || editingNode.path !== node.data.path" class="node-name">
+                {{ node.label }}
+              </span>
+              <el-input
+                v-else
+                v-model="editingName"
+                size="small"
+                maxlength="20"
+                @click.stop
+                @keyup.enter="confirmEdit(node)"
+                @blur="confirmEdit(node)"
+              />
+              <div class="chapter-actions">
+                <el-icon
+                  v-if="node.data.type === 'volume'"
+                  @click.stop="createChapter(node.data.id)"
+                >
+                  <DocumentAdd />
+                </el-icon>
+                <el-icon @click.stop="editNode(node)"><Edit /></el-icon>
+                <el-icon @click.stop="deleteNode(node)"><Delete /></el-icon>
+              </div>
             </div>
-          </div>
-        </template>
-      </el-tree>
+          </template>
+        </el-tree>
+      </div>
     </div>
   </div>
 </template>
@@ -515,6 +520,11 @@ async function reloadNotes() {
 }
 </script>
 <style lang="scss" scoped>
+.note-chapter {
+  height: 100%;
+  background-color: var(--bg-soft);
+}
+
 .panel-section {
   border-bottom: 1px solid var(--border-color);
 }
