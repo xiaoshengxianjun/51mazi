@@ -8,13 +8,33 @@
     <div class="timeline-main">
       <div class="timeline-list">
         <div v-for="(timeline, idx) in timelines" :key="timeline.id" class="timeline-column">
-          <h2 class="timeline-title">{{ timeline.title }}</h2>
-          <!-- <el-input
-          v-model="timeline.title"
-          class="timeline-title"
-          placeholder="时间线标题"
-          input-style="text-align: center"
-        /> -->
+          <div class="timeline-title-wrap">
+            <h3
+              v-show="editTitleIdx !== idx"
+              class="timeline-title"
+              @mouseenter="hoverTitleIdx = idx"
+              @mouseleave="hoverTitleIdx = -1"
+              @click="
+                () => {
+                  editTitleIdx = idx
+                  editTitleValue = timeline.title
+                }
+              "
+            >
+              {{ timeline.title }}
+              <el-icon v-show="hoverTitleIdx === idx" class="edit-title-icon"><EditPen /></el-icon>
+            </h3>
+            <el-input
+              v-show="editTitleIdx === idx"
+              v-model="editTitleValue"
+              placeholder="时间线标题"
+              :maxlength="20"
+              :autofocus="true"
+              input-style="text-align: center"
+              @keyup.enter="confirmEditTitle(idx)"
+              @blur="cancelEditTitle"
+            />
+          </div>
           <el-timeline>
             <el-timeline-item
               v-for="(node, nidx) in timeline.nodes"
@@ -31,10 +51,12 @@
               </div>
             </el-timeline-item>
           </el-timeline>
-          <el-button class="add-node-btn" type="primary" @click="addNode(idx)">新增节点</el-button>
-          <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
-            删除时间线
-          </el-button>
+          <div class="timeline-actions">
+            <el-button class="add-node-btn" @click="addNode(idx)">新增节点</el-button>
+            <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
+              删除时间线
+            </el-button>
+          </div>
         </div>
         <div class="timeline-column add-timeline">
           <el-button type="primary" @click="addTimeline">新增时间线</el-button>
@@ -72,7 +94,7 @@
 <script setup>
 import { ref, onMounted, watch, reactive, toRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeftBold, EditPen, Delete } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -87,6 +109,9 @@ const timelines = ref([])
 const bookName = route.query.name || ''
 const currentTimelineIdx = ref(-1)
 const currentNodeIdx = ref(-1)
+const hoverTitleIdx = ref(-1)
+const editTitleIdx = ref(-1)
+const editTitleValue = ref('')
 
 function goBack() {
   router.push('/editor?name=' + encodeURIComponent(bookName))
@@ -126,8 +151,18 @@ function addTimeline() {
     nodes: []
   })
 }
-function removeTimeline(idx) {
-  timelines.value.splice(idx, 1)
+async function removeTimeline(idx) {
+  try {
+    await ElMessageBox.confirm('确定要删除该时间线吗？此操作不可恢复！', '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    timelines.value.splice(idx, 1)
+    ElMessage.success('删除成功')
+  } catch {
+    // 用户取消，无需处理
+  }
 }
 /**
  * 新增节点
@@ -164,8 +199,28 @@ function confirmAddNode() {
   }
   dialogVisible.value = false
 }
-function removeNode(tidx, nidx) {
-  timelines.value[tidx].nodes.splice(nidx, 1)
+async function removeNode(tidx, nidx) {
+  try {
+    await ElMessageBox.confirm('确定要删除该节点吗？此操作不可恢复！', '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    timelines.value[tidx].nodes.splice(nidx, 1)
+    ElMessage.success('删除成功')
+  } catch {
+    // 用户取消，无需处理
+  }
+}
+
+function confirmEditTitle(idx) {
+  if (editTitleValue.value.trim()) {
+    timelines.value[idx].title = editTitleValue.value.trim()
+  }
+  editTitleIdx.value = -1
+}
+function cancelEditTitle() {
+  editTitleIdx.value = -1
 }
 
 watch(timelines, saveTimelines, { deep: true })
@@ -211,11 +266,26 @@ onMounted(() => {
     width: 100%;
   }
 }
-.timeline-title {
-  font-weight: bold;
+.timeline-title-wrap {
+  position: relative;
   margin-bottom: 16px;
+}
+.timeline-title {
+  height: 32px;
+  font-weight: bold;
   text-align: center;
   color: var(--text-primary);
+  margin-bottom: 0;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.edit-title-icon {
+  font-size: 18px;
+  transition: opacity 0.2s;
 }
 .el-timeline {
   padding: 0;
@@ -227,6 +297,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px #0002;
   position: relative;
   overflow: hidden;
+  color: var(--text-primary);
   &:hover {
     .timeline-node-actions {
       display: flex;
@@ -256,6 +327,12 @@ onMounted(() => {
 }
 .remove-timeline-btn {
   margin: 0;
+}
+.timeline-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
 }
 .timeline-node {
   background: #f5f7fa;
