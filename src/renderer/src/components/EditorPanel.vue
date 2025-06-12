@@ -87,7 +87,6 @@ import TextAlign from '@tiptap/extension-text-align'
 import { useEditorStore } from '@renderer/stores/editor'
 import { Extension } from '@tiptap/core'
 import { Collapsible } from '@renderer/extensions/Collapsible'
-import { updateBook } from '@renderer/service/books'
 
 const editorStore = useEditorStore()
 
@@ -364,7 +363,7 @@ watch(
   line-height: 28px;
   padding: 0px 15px;
   border-top: 1px solid var(--border-color);
-  background: var(--bg-soft);
+  background: var(--bg-primary);
   font-size: 14px;
   display: flex;
   align-items: center;

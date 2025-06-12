@@ -65,8 +65,9 @@ const handleRelationshipMap = () => {
 <style lang="scss" scoped>
 .editor-toolbar {
   width: 100%;
+  height: 100%;
   box-sizing: border-box;
-  background: var(--bg-soft);
+  background: var(--bg-primary);
   padding: 16px;
   display: flex;
   flex-direction: column;
