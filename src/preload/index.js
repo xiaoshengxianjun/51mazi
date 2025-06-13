@@ -83,7 +83,9 @@ if (process.contextIsolated) {
       // 读取地图列表
       readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
       // 保存地图
-      saveMap: (data) => ipcRenderer.invoke('save-map', data),
+      createMap: (data) => ipcRenderer.invoke('create-map', data),
+      // 更新地图
+      updateMap: (data) => ipcRenderer.invoke('update-map', data),
       // 读取地图图片为base64
       readMapImage: ({ bookName, mapName }) =>
         ipcRenderer.invoke('read-map-image', { bookName, mapName })

@@ -30,7 +30,7 @@
       width="400px"
       :close-on-click-modal="false"
     >
-      <el-form :model="createForm" :rules="rules" ref="createFormRef" label-width="80px">
+      <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
         <el-form-item label="地图名称" prop="name">
           <el-input
             v-model="createForm.name"
@@ -49,7 +49,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showCreateDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleCreateMap" :loading="creating"> 创建 </el-button>
+          <el-button type="primary" :loading="creating" @click="handleCreateMap"> 创建 </el-button>
         </span>
       </template>
     </el-dialog>
@@ -125,7 +125,7 @@ const handleCreateMap = async () => {
 
     // 用canvas生成空白图片
     const imageData = createBlankPngBase64(createForm.value.width, createForm.value.height)
-    await window.electron.saveMap({
+    await window.electron.createMap({
       bookName,
       mapName: createForm.value.name,
       imageData

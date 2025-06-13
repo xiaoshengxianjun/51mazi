@@ -825,8 +825,8 @@ ipcMain.handle('read-map-image', async (event, { bookName, mapName }) => {
   }
 })
 
-// 保存地图
-ipcMain.handle('save-map', async (event, { bookName, mapName, imageData }) => {
+// 创建地图（有同名校验）
+ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => {
   try {
     const booksDir = await store.get('booksDir')
     if (!booksDir) {
@@ -851,7 +851,34 @@ ipcMain.handle('save-map', async (event, { bookName, mapName, imageData }) => {
       path: filePath
     }
   } catch (error) {
-    console.error('保存地图失败:', error)
+    console.error('创建地图失败:', error)
+    throw error
+  }
+})
+
+// 更新地图（无同名校验）
+ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+    }
+    const filePath = join(mapsDir, `${mapName}.png`)
+    // 保存图片（覆盖）
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(base64Data, 'base64')
+    fs.writeFileSync(filePath, buffer)
+    return {
+      success: true,
+      path: filePath
+    }
+  } catch (error) {
+    console.error('更新地图失败:', error)
     throw error
   }
 })
