@@ -769,3 +769,114 @@ ipcMain.handle('write-timeline', async (event, { bookName, data }) => {
     return { success: false, message: error.message }
   }
 })
+
+// 读取地图列表
+ipcMain.handle('read-maps', async (event, bookName) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+
+    // 确保maps目录存在
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+      return []
+    }
+
+    // 读取所有.png文件
+    const files = fs.readdirSync(mapsDir)
+    const maps = files
+      .filter((file) => file.endsWith('.png'))
+      .map((file) => {
+        const name = join(mapsDir, file).split('.').slice(0, -1).join('.')
+        return {
+          id: name,
+          name: name,
+          thumbnail: `file://${join(mapsDir, file)}`
+        }
+      })
+
+    return maps
+  } catch (error) {
+    console.error('读取地图列表失败:', error)
+    throw error
+  }
+})
+
+// 保存地图
+ipcMain.handle('save-map', async (event, { bookName, mapName, imageData }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+
+    // 确保maps目录存在
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+    }
+
+    // 将base64图片数据转换为Buffer
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(base64Data, 'base64')
+
+    // 保存图片文件
+    const filePath = join(mapsDir, `${mapName}.png`)
+    fs.writeFileSync(filePath, buffer)
+
+    return {
+      success: true,
+      path: filePath
+    }
+  } catch (error) {
+    console.error('保存地图失败:', error)
+    throw error
+  }
+})
+
+// 创建空白地图
+ipcMain.handle('create-blank-map', async (event, { bookName, mapName, width, height }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+
+    // 确保maps目录存在
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+    }
+
+    // 创建空白图片
+    const { createCanvas } = require('canvas')
+    const canvas = createCanvas(width, height)
+    const ctx = canvas.getContext('2d')
+
+    // 设置白色背景
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, width, height)
+
+    // 保存为PNG文件
+    const filePath = join(mapsDir, `${mapName}.png`)
+    const buffer = canvas.toBuffer('image/png')
+    fs.writeFileSync(filePath, buffer)
+
+    return {
+      success: true,
+      path: filePath
+    }
+  } catch (error) {
+    console.error('创建地图失败:', error)
+    throw error
+  }
+})

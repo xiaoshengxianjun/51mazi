@@ -44,28 +44,48 @@ if (process.contextIsolated) {
       loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
       // 笔记本和笔记的增删改查
       createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
+      // 删除笔记本
       deleteNotebook: (bookName, notebookName) =>
         ipcRenderer.invoke('delete-notebook', { bookName, notebookName }),
+      // 重命名笔记本
       renameNotebook: (bookName, oldName, newName) =>
         ipcRenderer.invoke('rename-notebook', { bookName, oldName, newName }),
+      // 创建笔记
       createNote: (bookName, notebookName, noteName) =>
         ipcRenderer.invoke('create-note', { bookName, notebookName, noteName }),
+      // 删除笔记
       deleteNote: (bookName, notebookName, noteName) =>
         ipcRenderer.invoke('delete-note', { bookName, notebookName, noteName }),
+      // 重命名笔记
       renameNote: (bookName, notebookName, oldName, newName) =>
         ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),
+      // 读取笔记内容
       readNote: (bookName, notebookName, noteName) =>
         ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
+      // 编辑笔记内容
       editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+      // 读取章节内容
       readChapter: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
+      // 保存章节内容
       saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
+      // 获取书籍字数统计
       getBookWordCount: (bookName) => ipcRenderer.invoke('get-book-word-count', bookName),
+      // 获取每日码字统计
       getDailyWordCount: () => ipcRenderer.invoke('get-daily-word-count'),
+      // 获取章节统计信息
       getChapterStats: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName }),
+      // 读取时间线数据
       readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', { bookName }),
-      writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data })
+      // 保存时间线数据
+      writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data }),
+      // 读取地图列表
+      readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
+      // 保存地图
+      saveMap: (data) => ipcRenderer.invoke('save-map', data),
+      // 创建空白地图
+      createBlankMap: (data) => ipcRenderer.invoke('create-blank-map', data)
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

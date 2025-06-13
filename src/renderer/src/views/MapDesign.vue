@@ -14,45 +14,118 @@
         <el-input v-model="mapName" placeholder="请输入地图名称" class="map-name-input" />
       </div>
 
-      <div class="editor-container">
-        <!-- 这里将来会集成地图编辑器组件 -->
-        <div class="editor-placeholder">地图编辑器区域</div>
+      <div class="editor-container" ref="editorContainerRef">
+        <img
+          v-if="mapImage"
+          :src="mapImage"
+          :style="imageStyle"
+          @load="handleImageLoad"
+          ref="mapImageRef"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+const bookName = route.query.name
+const mapId = route.query.id
 
 const mapName = ref('')
-const isEdit = computed(() => !!route.query.id)
+const isEdit = computed(() => !!mapId)
+const mapImage = ref(null)
+const editorContainerRef = ref(null)
+const mapImageRef = ref(null)
 
-// 如果是编辑模式，这里需要加载地图数据
-if (isEdit.value) {
-  // TODO: 根据id加载地图数据
-  mapName.value = '示例地图'
+// 计算图片样式，使其适应容器
+const imageStyle = computed(() => {
+  if (!mapImageRef.value) return {}
+
+  const container = editorContainerRef.value
+  const image = mapImageRef.value
+
+  if (!container || !image) return {}
+
+  const containerRatio = container.clientWidth / container.clientHeight
+  const imageRatio = image.naturalWidth / image.naturalHeight
+
+  if (containerRatio > imageRatio) {
+    // 容器更宽，以高度为基准
+    return {
+      height: '100%',
+      width: 'auto'
+    }
+  } else {
+    // 容器更高，以宽度为基准
+    return {
+      width: '100%',
+      height: 'auto'
+    }
+  }
+})
+
+// 加载地图图片
+const loadMapImage = async () => {
+  try {
+    const result = await window.electron.readMaps(bookName)
+    const map = result.find((m) => m.id === mapId)
+    if (map) {
+      mapImage.value = map.thumbnail
+      mapName.value = map.name
+    }
+  } catch (error) {
+    console.error('加载地图失败:', error)
+    ElMessage.error('加载地图失败')
+  }
 }
+
+// 图片加载完成后的处理
+const handleImageLoad = () => {
+  // 可以在这里添加图片加载完成后的处理逻辑
+}
+
+onMounted(() => {
+  if (isEdit.value) {
+    loadMapImage()
+  }
+})
 
 const handleBack = () => {
   router.back()
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
     return
   }
 
-  // TODO: 保存地图数据
-  ElMessage.success('保存成功')
-  router.push('/map-list')
+  try {
+    // TODO: 获取地图图片数据
+    const imageData = 'data:image/png;base64,...' // 这里需要从地图编辑器获取实际的图片数据
+
+    await window.electron.saveMap({
+      bookName,
+      mapName: mapName.value,
+      imageData
+    })
+
+    ElMessage.success('保存成功')
+    router.push({
+      path: '/map-list',
+      query: { name: bookName }
+    })
+  } catch (error) {
+    console.error('保存地图失败:', error)
+    ElMessage.error('保存地图失败')
+  }
 }
 </script>
 
@@ -96,14 +169,14 @@ const handleSave = () => {
       background: var(--bg-soft);
       border-radius: 8px;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
-      .editor-placeholder {
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-secondary);
-        font-size: 16px;
+      img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
       }
     }
   }
