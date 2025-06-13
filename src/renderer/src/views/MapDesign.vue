@@ -1,18 +1,15 @@
 <template>
   <div class="map-design">
     <div class="header">
-      <el-button class="back-btn" @click="handleBack">
-        <el-icon><ArrowLeft /></el-icon>
+      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
         <span>返回</span>
       </el-button>
-      <h2>{{ isEdit ? '编辑地图' : '创建地图' }}</h2>
+      <h2>{{ mapName }}</h2>
       <el-button type="primary" @click="handleSave">保存地图</el-button>
     </div>
 
     <div class="content">
-      <div class="toolbar">
-        <el-input v-model="mapName" placeholder="请输入地图名称" class="map-name-input" />
-      </div>
+      <div class="toolbar"></div>
 
       <div class="editor-container" ref="editorContainerRef">
         <img
@@ -30,7 +27,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeftBold } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -74,12 +71,8 @@ const imageStyle = computed(() => {
 // 加载地图图片
 const loadMapImage = async () => {
   try {
-    const result = await window.electron.readMaps(bookName)
-    const map = result.find((m) => m.id === mapId)
-    if (map) {
-      mapImage.value = map.thumbnail
-      mapName.value = map.name
-    }
+    mapImage.value = await window.electron.readMapImage({ bookName, mapName: mapId })
+    mapName.value = mapId
   } catch (error) {
     console.error('加载地图失败:', error)
     ElMessage.error('加载地图失败')

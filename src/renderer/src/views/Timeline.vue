@@ -1,7 +1,7 @@
 <template>
   <div class="timeline-manager">
     <div class="timeline-header">
-      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="goBack">
+      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
         <span>返回</span>
       </el-button>
     </div>
@@ -113,8 +113,8 @@ const hoverTitleIdx = ref(-1)
 const editTitleIdx = ref(-1)
 const editTitleValue = ref('')
 
-function goBack() {
-  router.push('/editor?name=' + encodeURIComponent(bookName))
+function handleBack() {
+  router.back()
 }
 
 function genId() {

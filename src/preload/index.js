@@ -84,8 +84,9 @@ if (process.contextIsolated) {
       readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
       // 保存地图
       saveMap: (data) => ipcRenderer.invoke('save-map', data),
-      // 创建空白地图
-      createBlankMap: (data) => ipcRenderer.invoke('create-blank-map', data)
+      // 读取地图图片为base64
+      readMapImage: ({ bookName, mapName }) =>
+        ipcRenderer.invoke('read-map-image', { bookName, mapName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

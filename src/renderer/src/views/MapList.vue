@@ -1,8 +1,7 @@
 <template>
   <div class="map-list">
     <div class="header">
-      <el-button class="back-btn" @click="handleBack">
-        <el-icon><ArrowLeft /></el-icon>
+      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
         <span>返回</span>
       </el-button>
       <h2>地图列表</h2>
@@ -21,6 +20,7 @@
           <div class="map-name">{{ map.name }}</div>
         </div>
       </div>
+      <el-empty v-if="maps.length === 0" :image-size="200" description="暂无地图" />
     </div>
 
     <!-- 创建地图弹框 -->
@@ -32,7 +32,12 @@
     >
       <el-form :model="createForm" :rules="rules" ref="createFormRef" label-width="80px">
         <el-form-item label="地图名称" prop="name">
-          <el-input v-model="createForm.name" placeholder="请输入地图名称" />
+          <el-input
+            v-model="createForm.name"
+            clearable
+            maxlength="20"
+            placeholder="请输入地图名称"
+          />
         </el-form-item>
         <el-form-item label="宽度" prop="width">
           <el-input-number v-model="createForm.width" :min="100" :max="2000" :step="100" />
@@ -54,7 +59,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Plus } from '@element-plus/icons-vue'
+import { ArrowLeftBold, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -100,6 +105,17 @@ const handleBack = () => {
   router.back()
 }
 
+// 新增：生成空白图片的函数
+function createBlankPngBase64(width, height) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, width, height)
+  return canvas.toDataURL('image/png')
+}
+
 const handleCreateMap = async () => {
   if (!createFormRef.value) return
 
@@ -107,11 +123,12 @@ const handleCreateMap = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    await window.electron.createBlankMap({
+    // 用canvas生成空白图片
+    const imageData = createBlankPngBase64(createForm.value.width, createForm.value.height)
+    await window.electron.saveMap({
       bookName,
       mapName: createForm.value.name,
-      width: createForm.value.width,
-      height: createForm.value.height
+      imageData
     })
 
     ElMessage.success('创建成功')
@@ -173,25 +190,27 @@ const handleEditMap = (map) => {
 
   .content {
     .map-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 20px;
 
       .map-item {
+        width: 280px;
         cursor: pointer;
-        border-radius: 8px;
         overflow: hidden;
-        background: var(--bg-soft);
-        transition: transform 0.2s;
 
         &:hover {
-          transform: translateY(-2px);
+          .map-image {
+            box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+          }
         }
 
         .map-image {
           width: 100%;
-          height: 150px;
+          height: 210px;
+          border-radius: 8px;
           overflow: hidden;
+          transition: box-shadow 0.2s;
 
           img {
             width: 100%;
