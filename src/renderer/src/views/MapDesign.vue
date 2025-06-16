@@ -11,23 +11,58 @@
     <div class="content">
       <div class="toolbar">
         <el-tooltip content="铅笔" placement="bottom">
-          <div class="pencil-btn" @click="selectTool('pencil')">
-            <img src="@/assets/images/pencil.png" alt="铅笔" />
+          <div
+            :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
+            @click="selectTool('pencil')"
+          >
+            <img src="@renderer/assets/pencil.svg" alt="铅笔" />
           </div>
         </el-tooltip>
         <el-tooltip content="橡皮擦" placement="bottom">
-          <div class="eraser-btn" @click="selectTool('eraser')">
-            <img src="@/assets/images/eraser.png" alt="橡皮擦" />
+          <div
+            :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
+            @click="selectTool('eraser')"
+          >
+            <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
           </div>
         </el-tooltip>
         <el-tooltip content="油漆桶" placement="bottom">
-          <div class="bucket-btn" @click="selectTool('bucket')">
-            <img src="@/assets/images/bucket.png" alt="油漆桶" />
+          <div
+            :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
+            @click="selectTool('bucket')"
+          >
+            <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
           </div>
         </el-tooltip>
+        <el-popover
+          v-model:visible="resourcePopoverVisible"
+          placement="bottom"
+          :width="420"
+          trigger="hover"
+        >
+          <template #reference>
+            <div class="tool-btn">
+              <el-icon><PictureRounded /></el-icon>
+            </div>
+          </template>
+          <div class="resource-popover">
+            <div class="resource-grid">
+              <div
+                v-for="(resource, index) in resources"
+                :key="index"
+                class="resource-item"
+                @click="selectResource(resource)"
+                @mousedown="onResourceMouseDown(resource, $event)"
+              >
+                <img :src="resource.url" :alt="resource.name" />
+                <span class="resource-name">{{ resource.name }}</span>
+              </div>
+            </div>
+          </div>
+        </el-popover>
         <el-tooltip content="撤销" placement="bottom">
-          <div class="undo-btn" @click="undo">
-            <img src="@/assets/images/undo.png" alt="撤销" />
+          <div :class="['tool-btn', 'undo-btn']" @click="undo">
+            <img src="@renderer/assets/undo.svg" alt="撤销" />
           </div>
         </el-tooltip>
         <el-divider direction="vertical" />
@@ -36,9 +71,10 @@
             <el-color-picker v-model="color" />
           </div>
         </el-tooltip>
+        <el-divider direction="vertical" />
         <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
           <div>
-            <el-slider v-model="size" :min="1" :max="40" style="width: 100px" />
+            <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
           </div>
         </el-tooltip>
       </div>
@@ -50,8 +86,8 @@
             ref="mapImageRef"
             :src="mapImage"
             :style="imageStyle"
-            @load="handleImageLoad"
             class="map-bg"
+            @load="handleImageLoad"
           />
           <canvas
             ref="canvasRef"
@@ -75,7 +111,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeftBold } from '@element-plus/icons-vue'
+import { ArrowLeftBold, PictureRounded } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -92,6 +128,47 @@ const canvasRef = ref(null)
 const canvasWidth = ref(800)
 const canvasHeight = ref(600)
 
+const resourcePopoverVisible = ref(false)
+// 图片资源列表
+const resources = [
+  {
+    name: '点',
+    url: '/src/assets/images/point.png'
+  },
+  {
+    name: '五角星',
+    url: '/src/assets/images/star.png'
+  },
+  {
+    name: '山',
+    url: '/src/assets/images/mountain.png'
+  },
+  {
+    name: '森林',
+    url: '/src/assets/images/forest.png'
+  },
+  {
+    name: '宫殿',
+    url: '/src/assets/images/palace.png'
+  },
+  {
+    name: '城市',
+    url: '/src/assets/images/city.png'
+  },
+  {
+    name: '村庄',
+    url: '/src/assets/images/village.png'
+  },
+  {
+    name: '湖泊',
+    url: '/src/assets/images/lake.png'
+  },
+  {
+    name: '战役',
+    url: '/src/assets/images/battle.png'
+  }
+]
+
 // 工具栏状态
 const tool = ref('pencil') // pencil, eraser, bucket
 const color = ref('#222')
@@ -99,6 +176,10 @@ const size = ref(2)
 const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
 const undoStack = ref([])
+
+// 拖拽资源图片相关
+const draggingResource = ref(null)
+const dragPreviewEl = ref(null)
 
 // 画布样式适应容器
 const canvasWrapStyle = computed(() => ({
@@ -314,6 +395,79 @@ const handleSave = async () => {
     ElMessage.error('保存地图失败')
   }
 }
+
+function selectResource(resource) {
+  // 兼容点击直接拖拽
+  startResourceDrag(resource, null)
+}
+
+function startResourceDrag(resource, event) {
+  draggingResource.value = resource
+  // 创建预览元素
+  if (!dragPreviewEl.value) {
+    dragPreviewEl.value = document.createElement('img')
+    dragPreviewEl.value.src = resource.url
+    dragPreviewEl.value.style.position = 'fixed'
+    dragPreviewEl.value.style.pointerEvents = 'none'
+    dragPreviewEl.value.style.zIndex = 9999
+    dragPreviewEl.value.style.width = '40px'
+    dragPreviewEl.value.style.height = '40px'
+    document.body.appendChild(dragPreviewEl.value)
+  }
+  // 监听全局鼠标移动和松开
+  window.addEventListener('mousemove', onResourceDragMove)
+  window.addEventListener('mouseup', onResourceDragEnd)
+  if (event) {
+    onResourceDragMove(event)
+  }
+}
+
+function onResourceDragMove(e) {
+  if (!dragPreviewEl.value) return
+  dragPreviewEl.value.style.left = e.clientX - 20 + 'px'
+  dragPreviewEl.value.style.top = e.clientY - 20 + 'px'
+}
+
+function onResourceDragEnd(e) {
+  if (!draggingResource.value) return
+  // 判断是否在canvas区域
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  if (
+    e.clientX >= canvasRect.left &&
+    e.clientX <= canvasRect.right &&
+    e.clientY >= canvasRect.top &&
+    e.clientY <= canvasRect.bottom
+  ) {
+    // 转换为canvas坐标
+    const x = ((e.clientX - canvasRect.left) / canvasRect.width) * canvasRef.value.width
+    const y = ((e.clientY - canvasRect.top) / canvasRect.height) * canvasRef.value.height
+    drawResourceOnCanvas(draggingResource.value, x, y)
+  }
+  // 清理
+  if (dragPreviewEl.value) {
+    document.body.removeChild(dragPreviewEl.value)
+    dragPreviewEl.value = null
+  }
+  draggingResource.value = null
+  window.removeEventListener('mousemove', onResourceDragMove)
+  window.removeEventListener('mouseup', onResourceDragEnd)
+}
+
+function drawResourceOnCanvas(resource, x, y) {
+  const ctx = canvasRef.value.getContext('2d')
+  const img = new window.Image()
+  img.src = resource.url
+  img.onload = () => {
+    // 居中绘制，默认40x40
+    ctx.drawImage(img, x - 20, y - 20, 40, 40)
+  }
+}
+
+// 资源图片mousedown时启动拖拽
+function onResourceMouseDown(resource, event) {
+  event.preventDefault()
+  startResourceDrag(resource, event)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -354,6 +508,29 @@ const handleSave = async () => {
       gap: 16px;
       margin-bottom: 20px;
       align-items: center;
+      justify-content: center;
+      .tool-btn {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        border-radius: 4px;
+        padding: 6px;
+        color: #000;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid transparent;
+        img {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+        &.active,
+        &:hover {
+          border: 1px solid var(--el-color-primary);
+        }
+      }
     }
 
     .editor-container {
@@ -385,6 +562,29 @@ const handleSave = async () => {
         z-index: 1;
         background: transparent;
         cursor: crosshair;
+      }
+    }
+  }
+}
+.resource-popover {
+  height: max-content;
+  .resource-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+    .resource-item {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 14px;
+      img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: pointer;
       }
     }
   }
