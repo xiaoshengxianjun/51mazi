@@ -11,33 +11,24 @@
     <div class="content">
       <div class="toolbar">
         <el-tooltip content="铅笔" placement="bottom">
-          <el-button
-            :type="tool === 'pencil' ? 'primary' : 'default'"
-            @click="selectTool('pencil')"
-          >
-            <i class="iconfont icon-pencil" />
-          </el-button>
+          <div class="pencil-btn" @click="selectTool('pencil')">
+            <img src="@/assets/images/pencil.png" alt="铅笔" />
+          </div>
         </el-tooltip>
         <el-tooltip content="橡皮擦" placement="bottom">
-          <el-button
-            :type="tool === 'eraser' ? 'primary' : 'default'"
-            @click="selectTool('eraser')"
-          >
-            <i class="iconfont icon-eraser" />
-          </el-button>
+          <div class="eraser-btn" @click="selectTool('eraser')">
+            <img src="@/assets/images/eraser.png" alt="橡皮擦" />
+          </div>
         </el-tooltip>
         <el-tooltip content="油漆桶" placement="bottom">
-          <el-button
-            :type="tool === 'bucket' ? 'primary' : 'default'"
-            @click="selectTool('bucket')"
-          >
-            <i class="iconfont icon-bucket" />
-          </el-button>
+          <div class="bucket-btn" @click="selectTool('bucket')">
+            <img src="@/assets/images/bucket.png" alt="油漆桶" />
+          </div>
         </el-tooltip>
         <el-tooltip content="撤销" placement="bottom">
-          <el-button :disabled="undoStack.length === 0" @click="undo">
-            <i class="iconfont icon-undo" />
-          </el-button>
+          <div class="undo-btn" @click="undo">
+            <img src="@/assets/images/undo.png" alt="撤销" />
+          </div>
         </el-tooltip>
         <el-divider direction="vertical" />
         <el-tooltip content="颜色">
@@ -45,7 +36,7 @@
             <el-color-picker v-model="color" />
           </div>
         </el-tooltip>
-        <el-tooltip content="粗细">
+        <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
           <div>
             <el-slider v-model="size" :min="1" :max="40" style="width: 100px" />
           </div>
@@ -104,7 +95,7 @@ const canvasHeight = ref(600)
 // 工具栏状态
 const tool = ref('pencil') // pencil, eraser, bucket
 const color = ref('#222')
-const size = ref(4)
+const size = ref(2)
 const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
 const undoStack = ref([])
@@ -198,7 +189,7 @@ function getCanvasPos(e) {
 
 function startDraw(e) {
   if (tool.value === 'bucket') {
-    fillBucket()
+    fillBucket(e)
     return
   }
   drawingActive.value = true
@@ -234,14 +225,63 @@ function endDraw() {
   drawingActive.value = false
 }
 
-// 油漆桶填充（简单实现，整图填充）
-function fillBucket() {
+// 油漆桶填充（Flood Fill，闭合区域填充）
+function fillBucket(e) {
   const ctx = canvasRef.value.getContext('2d')
   // 保存撤销栈
   undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.fillStyle = color.value
-  ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+  const { x, y } = getCanvasPos(e)
+  const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
+  const data = imageData.data
+  const width = imageData.width
+  const height = imageData.height
+
+  // 获取起始像素的rgba
+  const startIdx = (Math.floor(y) * width + Math.floor(x)) * 4
+  const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]]
+
+  // 目标颜色
+  const fillColor = hexToRgba(color.value)
+
+  // 如果起始像素颜色和目标颜色一样，直接返回
+  if (colorsMatch(startColor, fillColor)) return
+
+  // Flood Fill
+  const stack = [[Math.floor(x), Math.floor(y)]]
+  while (stack.length) {
+    const [cx, cy] = stack.pop()
+    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue
+    const idx = (cy * width + cx) * 4
+    const currColor = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]]
+    if (!colorsMatch(currColor, startColor)) continue
+    // 填充颜色
+    data[idx] = fillColor[0]
+    data[idx + 1] = fillColor[1]
+    data[idx + 2] = fillColor[2]
+    data[idx + 3] = fillColor[3]
+    // 四邻域递归
+    stack.push([cx + 1, cy])
+    stack.push([cx - 1, cy])
+    stack.push([cx, cy + 1])
+    stack.push([cx, cy - 1])
+  }
+  ctx.putImageData(imageData, 0, 0)
+}
+
+// 判断颜色是否相等
+function colorsMatch(a, b) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]
+}
+// 16进制转rgba数组
+function hexToRgba(hex) {
+  let c = hex.replace('#', '')
+  if (c.length === 3)
+    c = c
+      .split('')
+      .map((s) => s + s)
+      .join('')
+  const num = parseInt(c, 16)
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255]
 }
 
 onMounted(() => {
