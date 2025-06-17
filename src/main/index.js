@@ -882,3 +882,22 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => 
     throw error
   }
 })
+
+// 删除地图
+ipcMain.handle('delete-map', async (event, { bookName, mapName }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const filePath = join(booksDir, bookName, 'maps', `${mapName}.png`)
+    if (!fs.existsSync(filePath)) {
+      throw new Error('地图不存在')
+    }
+    fs.unlinkSync(filePath)
+    return { success: true }
+  } catch (error) {
+    console.error('删除地图失败:', error)
+    throw error
+  }
+})

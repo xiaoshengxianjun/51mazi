@@ -41,7 +41,10 @@
           trigger="click"
         >
           <template #reference>
-            <div class="tool-btn">
+            <div
+              :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
+              @click="selectTool('resource')"
+            >
               <el-icon><PictureRounded /></el-icon>
             </div>
           </template>
@@ -72,14 +75,21 @@
           </div>
         </el-tooltip>
         <el-divider direction="vertical" />
+        <el-tooltip content="重置缩放">
+          <div class="tool-btn" @click="resetZoom">
+            <el-icon><ZoomIn /></el-icon>
+          </div>
+        </el-tooltip>
+        <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
+        <el-divider direction="vertical" />
         <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
-          <div>
+          <div class="slider-wrap">
             <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
           </div>
         </el-tooltip>
       </div>
 
-      <div ref="editorContainerRef" class="editor-container">
+      <div ref="editorContainerRef" class="editor-container" @wheel="handleWheel">
         <div class="canvas-wrap" :style="canvasWrapStyle">
           <img
             v-if="mapImage"
@@ -109,9 +119,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeftBold, PictureRounded } from '@element-plus/icons-vue'
+import { ArrowLeftBold, PictureRounded, ZoomIn } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -127,6 +137,9 @@ const mapImageRef = ref(null)
 const canvasRef = ref(null)
 const canvasWidth = ref(800)
 const canvasHeight = ref(600)
+const scale = ref(1) // 缩放比例
+const minScale = 0.5 // 最小缩放
+const maxScale = 3 // 最大缩放
 
 const resourcePopoverVisible = ref(false)
 // 图片资源列表
@@ -188,7 +201,10 @@ const canvasWrapStyle = computed(() => ({
   height: canvasHeight.value + 'px',
   margin: '0 auto',
   background: '#fff',
-  boxShadow: '0 2px 8px #0001'
+  boxShadow: '0 2px 8px #0001',
+  transform: `scale(${scale.value})`,
+  transformOrigin: 'center center',
+  transition: 'transform 0.1s ease-out'
 }))
 
 // 计算图片样式，使其适应canvas
@@ -259,11 +275,11 @@ function getCanvasPos(e) {
   const rect = canvasRef.value.getBoundingClientRect()
   let x, y
   if (e.touches) {
-    x = e.touches[0].clientX - rect.left
-    y = e.touches[0].clientY - rect.top
+    x = (e.touches[0].clientX - rect.left) / scale.value
+    y = (e.touches[0].clientY - rect.top) / scale.value
   } else {
-    x = e.clientX - rect.left
-    y = e.clientY - rect.top
+    x = (e.clientX - rect.left) / scale.value
+    y = (e.clientY - rect.top) / scale.value
   }
   return { x, y }
 }
@@ -365,10 +381,26 @@ function hexToRgba(hex) {
   return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255]
 }
 
+// 键盘事件处理函数
+function handleKeyDown(e) {
+  // 检查是否按下 Ctrl+Z (Windows) 或 Cmd+Z (Mac)
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault() // 阻止默认行为
+    undo()
+  }
+}
+
 onMounted(() => {
   if (isEdit.value) {
     loadMapImage()
   }
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+// 组件卸载时移除事件监听
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
 })
 
 const handleBack = () => {
@@ -468,10 +500,33 @@ function onResourceMouseDown(resource, event) {
   event.preventDefault()
   startResourceDrag(resource, event)
 }
+
+// 处理画布缩放
+function handleWheel(e) {
+  e.preventDefault()
+  const delta = e.deltaY
+  const zoomFactor = 0.1 // 每次缩放的步长
+
+  // 计算新的缩放比例
+  let newScale = scale.value
+  if (delta < 0) {
+    // 放大
+    newScale = Math.min(scale.value + zoomFactor, maxScale)
+  } else {
+    // 缩小
+    newScale = Math.max(scale.value - zoomFactor, minScale)
+  }
+
+  scale.value = newScale
+}
+
+// 重置缩放
+function resetZoom() {
+  scale.value = 1
+}
 </script>
 
 <style lang="scss" scoped>
-// @import '@/assets/iconfont/iconfont.css';
 .map-design {
   height: 100%;
   padding: 8px 16px 16px;
@@ -501,6 +556,7 @@ function onResourceMouseDown(resource, event) {
     flex: 1;
     overflow: hidden;
     display: flex;
+    align-items: center;
     flex-direction: column;
 
     .toolbar {
@@ -509,6 +565,8 @@ function onResourceMouseDown(resource, event) {
       margin-bottom: 20px;
       align-items: center;
       justify-content: center;
+      position: relative;
+      width: max-content;
       .tool-btn {
         width: 32px;
         height: 32px;
@@ -531,10 +589,23 @@ function onResourceMouseDown(resource, event) {
           border: 1px solid var(--el-color-primary);
         }
       }
+      .slider-wrap {
+        position: absolute;
+        right: -170px;
+        top: 0;
+        z-index: 1;
+      }
+      .zoom-level {
+        font-size: 14px;
+        color: var(--text-primary);
+        min-width: 60px;
+        text-align: center;
+      }
     }
 
     .editor-container {
       flex: 1;
+      width: 100%;
       background-color: #f3f3f3;
       border-radius: 8px;
       overflow: auto;
@@ -547,6 +618,7 @@ function onResourceMouseDown(resource, event) {
         position: relative;
         background: #fff;
         box-shadow: 0 2px 8px #0001;
+        will-change: transform; // 优化缩放性能
       }
       .map-bg {
         position: absolute;

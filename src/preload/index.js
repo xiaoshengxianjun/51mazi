@@ -88,7 +88,10 @@ if (process.contextIsolated) {
       updateMap: (data) => ipcRenderer.invoke('update-map', data),
       // 读取地图图片为base64
       readMapImage: ({ bookName, mapName }) =>
-        ipcRenderer.invoke('read-map-image', { bookName, mapName })
+        ipcRenderer.invoke('read-map-image', { bookName, mapName }),
+      // 删除地图
+      deleteMap: ({ bookName, mapName }) =>
+        ipcRenderer.invoke('delete-map', { bookName, mapName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

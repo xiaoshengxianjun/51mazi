@@ -13,12 +13,27 @@
 
     <div class="content">
       <div class="map-grid">
-        <div v-for="map in maps" :key="map.id" class="map-item" @click="handleEditMap(map)">
-          <div class="map-image">
-            <img :src="map.thumbnail" :alt="map.name" />
+        <el-dropdown
+          v-for="map in maps"
+          :key="map.id"
+          trigger="contextmenu"
+          @command="handleCommand($event, map)"
+        >
+          <div class="map-item">
+            <div class="map-image" @click="handleEditMap(map)">
+              <img :src="map.thumbnail" :alt="map.name" />
+            </div>
+            <div class="map-info">
+              <span class="map-name">{{ map.name }}</span>
+            </div>
           </div>
-          <div class="map-name">{{ map.name }}</div>
-        </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="edit">编辑</el-dropdown-item>
+              <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
       <el-empty v-if="maps.length === 0" :image-size="200" description="暂无地图" />
     </div>
@@ -53,6 +68,22 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 删除确认弹框 -->
+    <el-dialog
+      v-model="deleteDialogVisible"
+      title="确认删除"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <span>确定要删除地图 "{{ selectedMap?.name }}" 吗？此操作不可恢复。</span>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="deleteDialogVisible = false">取消</el-button>
+          <el-button type="danger" @click="confirmDelete">确认删除</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -70,6 +101,8 @@ const maps = ref([])
 const showCreateDialog = ref(false)
 const creating = ref(false)
 const createFormRef = ref(null)
+const deleteDialogVisible = ref(false)
+const selectedMap = ref(null)
 
 const createForm = ref({
   name: '',
@@ -116,6 +149,7 @@ function createBlankPngBase64(width, height) {
   return canvas.toDataURL('image/png')
 }
 
+// 创建地图
 const handleCreateMap = async () => {
   if (!createFormRef.value) return
 
@@ -153,14 +187,45 @@ const handleCreateMap = async () => {
   }
 }
 
+// 编辑地图
 const handleEditMap = (map) => {
   router.push({
     path: '/map-design',
-    query: {
-      name: bookName,
-      id: map.id
-    }
+    query: { name: bookName, id: map.name }
   })
+}
+
+// 处理右键菜单命令
+const handleCommand = (command, map) => {
+  switch (command) {
+    case 'edit':
+      handleEditMap(map)
+      break
+    case 'delete':
+      selectedMap.value = map
+      deleteDialogVisible.value = true
+      break
+  }
+}
+
+// 确认删除
+const confirmDelete = async () => {
+  if (!selectedMap.value) return
+
+  try {
+    await window.electron.deleteMap({
+      bookName,
+      mapName: selectedMap.value.name
+    })
+    ElMessage.success('删除成功')
+    deleteDialogVisible.value = false
+    selectedMap.value = null
+    // 重新加载地图列表
+    loadMaps()
+  } catch (error) {
+    console.error('删除地图失败:', error)
+    ElMessage.error('删除地图失败')
+  }
 }
 </script>
 
@@ -197,7 +262,6 @@ const handleEditMap = (map) => {
       .map-item {
         width: 280px;
         cursor: pointer;
-        overflow: hidden;
 
         &:hover {
           .map-image {
@@ -215,14 +279,18 @@ const handleEditMap = (map) => {
           img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
           }
         }
 
-        .map-name {
+        .map-info {
           padding: 12px;
           text-align: center;
           color: var(--text-primary);
+
+          .map-name {
+            font-size: 16px;
+          }
         }
       }
     }
@@ -231,5 +299,11 @@ const handleEditMap = (map) => {
 
 :deep(.el-dialog__body) {
   padding-top: 20px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>
