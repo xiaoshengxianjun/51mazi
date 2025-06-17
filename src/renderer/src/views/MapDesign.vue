@@ -38,7 +38,7 @@
           v-model:visible="resourcePopoverVisible"
           placement="bottom"
           :width="420"
-          trigger="hover"
+          trigger="click"
         >
           <template #reference>
             <div class="tool-btn">
