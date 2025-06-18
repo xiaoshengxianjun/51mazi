@@ -104,6 +104,7 @@
             :width="canvasWidth"
             :height="canvasHeight"
             class="draw-canvas"
+            :style="{ cursor: canvasCursor }"
             @mousedown="startDraw"
             @mousemove="drawing"
             @mouseup="endDraw"
@@ -185,7 +186,7 @@ const resources = [
 // 工具栏状态
 const tool = ref('pencil') // pencil, eraser, bucket
 const color = ref('#222')
-const size = ref(2)
+const size = ref(1)
 const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
 const undoStack = ref([])
@@ -217,6 +218,22 @@ const imageStyle = computed(() => ({
   zIndex: 0
 }))
 
+// 计算画布鼠标样式
+const canvasCursor = computed(() => {
+  switch (tool.value) {
+    case 'pencil':
+      return 'url(/src/assets/pencil.svg) 8 44, crosshair'
+    case 'eraser':
+      return 'url(/src/assets/eraser.svg) 16 44, crosshair'
+    case 'bucket':
+      return 'url(/src/assets/bucket.svg) 40 20, crosshair'
+    case 'resource':
+      return 'crosshair'
+    default:
+      return 'default'
+  }
+})
+
 // 加载地图图片
 const loadMapImage = async () => {
   try {
@@ -243,6 +260,11 @@ const handleImageLoad = () => {
 // 工具栏操作
 function selectTool(t) {
   tool.value = t
+  if (t === 'pencil') {
+    size.value = 1
+  } else if (t === 'eraser') {
+    size.value = 10
+  }
 }
 
 // 撤销
@@ -285,20 +307,28 @@ function getCanvasPos(e) {
 }
 
 function startDraw(e) {
-  if (tool.value === 'bucket') {
+  // 检查当前选中的工具
+  if (tool.value === 'pencil' || tool.value === 'eraser' || tool.value === 'resource') {
+    // 铅笔工具：绘制线条
+    drawingActive.value = true
+    const { x, y } = getCanvasPos(e)
+    lastPoint.value = { x, y }
+    // 保存撤销栈
+    const ctx = canvasRef.value.getContext('2d')
+    undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
+  } else if (tool.value === 'bucket') {
+    // 油漆桶工具：填充
     fillBucket(e)
-    return
   }
-  drawingActive.value = true
-  const { x, y } = getCanvasPos(e)
-  lastPoint.value = { x, y }
-  // 保存撤销栈
-  const ctx = canvasRef.value.getContext('2d')
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
+  // 其他工具（如 resource）不执行绘制操作
 }
 
 function drawing(e) {
   if (!drawingActive.value) return
+
+  // 只有铅笔和橡皮擦工具才能继续绘制
+  if (tool.value !== 'pencil' && tool.value !== 'eraser') return
+
   const ctx = canvasRef.value.getContext('2d')
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -307,8 +337,9 @@ function drawing(e) {
     ctx.globalCompositeOperation = 'source-over'
     ctx.strokeStyle = color.value
   } else if (tool.value === 'eraser') {
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.strokeStyle = 'rgba(0,0,0,1)'
+    // 使用白色来擦除，擦过的地方变成白色
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.strokeStyle = '#ffffff'
   }
   ctx.beginPath()
   ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
@@ -487,6 +518,9 @@ function onResourceDragEnd(e) {
 
 function drawResourceOnCanvas(resource, x, y) {
   const ctx = canvasRef.value.getContext('2d')
+  // 保存撤销栈
+  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
+
   const img = new window.Image()
   img.src = resource.url
   img.onload = () => {
