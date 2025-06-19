@@ -34,6 +34,11 @@
             <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
           </div>
         </el-tooltip>
+        <el-tooltip content="文字" placement="bottom">
+          <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
+            A
+          </div>
+        </el-tooltip>
         <el-popover
           v-model:visible="resourcePopoverVisible"
           placement="bottom"
@@ -112,7 +117,33 @@
             @touchstart.prevent="startDraw"
             @touchmove.prevent="drawing"
             @touchend.prevent="endDraw"
+            @click="handleCanvasClick"
           ></canvas>
+
+          <!-- 文字输入框 -->
+          <div
+            v-if="textInputVisible"
+            class="text-input-overlay"
+            :style="{
+              left: textInputPosition.x + 'px',
+              top: textInputPosition.y + 'px',
+              transform: 'translateY(-50%)'
+            }"
+            @mousedown.stop
+            @click.stop
+          >
+            <input
+              ref="textInputRef"
+              v-model="textInputValue"
+              type="text"
+              class="text-input"
+              placeholder="输入文字..."
+              @keydown.enter="confirmTextInput"
+              @keydown.esc="cancelTextInput"
+              @mousedown.stop
+              @click.stop
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -184,7 +215,7 @@ const resources = [
 ]
 
 // 工具栏状态
-const tool = ref('pencil') // pencil, eraser, bucket
+const tool = ref('pencil') // pencil, eraser, bucket, text
 const color = ref('#222')
 const size = ref(1)
 const drawingActive = ref(false)
@@ -194,6 +225,12 @@ const undoStack = ref([])
 // 拖拽资源图片相关
 const draggingResource = ref(null)
 const dragPreviewEl = ref(null)
+
+// 文字工具相关
+const textInputVisible = ref(false)
+const textInputValue = ref('')
+const textInputPosition = ref({ x: 0, y: 0 })
+const textInputRef = ref(null)
 
 // 画布样式适应容器
 const canvasWrapStyle = computed(() => ({
@@ -227,6 +264,8 @@ const canvasCursor = computed(() => {
       return 'url(/src/assets/eraser.svg) 16 44, crosshair'
     case 'bucket':
       return 'url(/src/assets/bucket.svg) 40 20, crosshair'
+    case 'text':
+      return 'text'
     case 'resource':
       return 'crosshair'
     default:
@@ -308,7 +347,7 @@ function getCanvasPos(e) {
 
 function startDraw(e) {
   // 检查当前选中的工具
-  if (tool.value === 'pencil' || tool.value === 'eraser' || tool.value === 'resource') {
+  if (tool.value === 'pencil' || tool.value === 'eraser') {
     // 铅笔工具：绘制线条
     drawingActive.value = true
     const { x, y } = getCanvasPos(e)
@@ -319,6 +358,11 @@ function startDraw(e) {
   } else if (tool.value === 'bucket') {
     // 油漆桶工具：填充
     fillBucket(e)
+  } else if (tool.value === 'text') {
+    // 文字工具：显示文字输入框
+    showTextInput(e)
+    // 阻止事件冒泡，防止触发 handleCanvasClick
+    e.stopPropagation()
   }
   // 其他工具（如 resource）不执行绘制操作
 }
@@ -558,6 +602,86 @@ function handleWheel(e) {
 function resetZoom() {
   scale.value = 1
 }
+
+// 显示文字输入框
+function showTextInput(e) {
+  // 获取画布的实际位置和尺寸
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+
+  // 计算鼠标相对于画布的位置
+  const mouseX = e.clientX - canvasRect.left
+  const mouseY = e.clientY - canvasRect.top
+
+  // 将画布坐标转换为容器坐标（考虑缩放）
+  const containerX = mouseX / scale.value
+  const containerY = mouseY / scale.value
+
+  textInputPosition.value = {
+    x: containerX,
+    y: containerY
+  }
+  textInputValue.value = ''
+  textInputVisible.value = true
+
+  // 确保输入框聚焦
+  nextTick(() => {
+    if (textInputRef.value) {
+      textInputRef.value.focus()
+      // 选中所有文本，方便用户直接输入
+      textInputRef.value.select()
+    }
+  })
+}
+
+// 确认文字输入
+function confirmTextInput() {
+  if (textInputValue.value.trim()) {
+    // 输入框位置已经是画布坐标，直接使用
+    const canvasX = textInputPosition.value.x
+    const canvasY = textInputPosition.value.y
+
+    drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
+  }
+  textInputVisible.value = false
+  textInputValue.value = ''
+}
+
+// 取消文字输入
+function cancelTextInput() {
+  textInputVisible.value = false
+  textInputValue.value = ''
+}
+
+// 点击其他地方时隐藏输入框
+function hideTextInput() {
+  if (textInputVisible.value) {
+    textInputVisible.value = false
+    textInputValue.value = ''
+  }
+}
+
+// 在画布上绘制文字
+function drawTextOnCanvas(text, x, y) {
+  const ctx = canvasRef.value.getContext('2d')
+  // 保存撤销栈
+  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
+
+  // 设置文字样式 - 固定12px字号
+  ctx.font = '12px Arial'
+  ctx.fillStyle = color.value
+  ctx.textBaseline = 'top'
+
+  // 绘制文字
+  ctx.fillText(text, x, y)
+}
+
+function handleCanvasClick() {
+  // 如果当前工具是文字工具，不要隐藏输入框
+  if (tool.value === 'text') {
+    return
+  }
+  hideTextInput()
+}
 </script>
 
 <style lang="scss" scoped>
@@ -668,6 +792,31 @@ function resetZoom() {
         z-index: 1;
         background: transparent;
         cursor: crosshair;
+      }
+
+      // 文字输入框样式
+      .text-input-overlay {
+        position: absolute;
+        z-index: 2;
+        pointer-events: auto;
+
+        .text-input {
+          background: transparent;
+          border: 1px dashed #ff4444;
+          border-radius: 2px;
+          padding: 2px 4px;
+          font-size: 12px;
+          outline: none;
+          min-width: 100px;
+          box-shadow: none;
+          color: var(--text-primary);
+          font-family: Arial, sans-serif;
+
+          &:focus {
+            border: 1px dashed #ff4444;
+            box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
+          }
+        }
       }
     }
   }
