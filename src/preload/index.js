@@ -11,6 +11,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', {
       ...electronAPI,
+      // --------- 书籍相关 ---------
       // 选择书籍目录
       selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
       // 创建书籍
@@ -31,6 +32,8 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('create-chapter', { bookName, volumeId }),
       // 加载章节数据
       loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
+
+      // --------- 节点相关 ---------
       // 编辑节点
       editNode: (bookName, payload) => ipcRenderer.invoke('edit-node', { bookName, ...payload }),
       // 删除节点
@@ -40,8 +43,8 @@ if (process.contextIsolated) {
       getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
       // 设置书籍排序
       setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
-      // 加载笔记数据
-      loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
+
+      // --------- 笔记本相关 ---------
       // 笔记本和笔记的增删改查
       createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
       // 删除笔记本
@@ -50,6 +53,10 @@ if (process.contextIsolated) {
       // 重命名笔记本
       renameNotebook: (bookName, oldName, newName) =>
         ipcRenderer.invoke('rename-notebook', { bookName, oldName, newName }),
+
+      // --------- 笔记相关 ---------
+      // 加载笔记数据
+      loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
       // 创建笔记
       createNote: (bookName, notebookName, noteName) =>
         ipcRenderer.invoke('create-note', { bookName, notebookName, noteName }),
@@ -64,11 +71,15 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
       // 编辑笔记内容
       editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+
+      // --------- 章节相关 ---------
       // 读取章节内容
       readChapter: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
       // 保存章节内容
       saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
+
+      // --------- 统计相关 ---------
       // 获取书籍字数统计
       getBookWordCount: (bookName) => ipcRenderer.invoke('get-book-word-count', bookName),
       // 获取每日码字统计
@@ -76,10 +87,14 @@ if (process.contextIsolated) {
       // 获取章节统计信息
       getChapterStats: (bookName, volumeName, chapterName) =>
         ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName }),
+
+      // --------- 时间线相关 ---------
       // 读取时间线数据
       readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', { bookName }),
       // 保存时间线数据
       writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data }),
+
+      // --------- 地图相关 ---------
       // 读取地图列表
       readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
       // 保存地图
@@ -91,6 +106,8 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-map-image', { bookName, mapName }),
       // 删除地图
       deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
+
+      // --------- 人物谱相关 ---------
       // 读取人物谱数据
       readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
       // 保存人物谱数据
