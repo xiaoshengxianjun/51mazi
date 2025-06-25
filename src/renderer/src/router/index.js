@@ -17,6 +17,11 @@ const routes = [
     component: () => import('@renderer/views/Timeline.vue')
   },
   {
+    path: '/character-profile',
+    name: 'CharacterProfile',
+    component: () => import('@renderer/views/CharacterProfile.vue')
+  },
+  {
     path: '/map-list',
     name: 'MapList',
     component: () => import('@renderer/views/MapList.vue')

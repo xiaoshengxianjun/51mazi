@@ -90,8 +90,12 @@ if (process.contextIsolated) {
       readMapImage: ({ bookName, mapName }) =>
         ipcRenderer.invoke('read-map-image', { bookName, mapName }),
       // 删除地图
-      deleteMap: ({ bookName, mapName }) =>
-        ipcRenderer.invoke('delete-map', { bookName, mapName })
+      deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
+      // 读取人物谱数据
+      readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
+      // 保存人物谱数据
+      writeCharacters: (bookName, data) =>
+        ipcRenderer.invoke('write-characters', { bookName, data })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

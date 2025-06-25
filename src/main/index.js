@@ -770,6 +770,39 @@ ipcMain.handle('write-timeline', async (event, { bookName, data }) => {
   }
 })
 
+// 人物谱数据读写
+ipcMain.handle('read-characters', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const charactersPath = join(bookPath, 'characters.json')
+  if (!fs.existsSync(charactersPath)) return []
+  try {
+    return JSON.parse(fs.readFileSync(charactersPath, 'utf-8'))
+  } catch {
+    return []
+  }
+})
+
+// 保存人物谱数据
+ipcMain.handle('write-characters', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const charactersPath = join(bookPath, 'characters.json')
+
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
+    fs.writeFileSync(charactersPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存人物谱失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 读取地图列表
 ipcMain.handle('read-maps', async (event, bookName) => {
   try {

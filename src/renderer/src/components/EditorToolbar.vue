@@ -15,6 +15,10 @@
         <el-icon><Timer /></el-icon>
         <span>时间线</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleEntryDictionary">
+        <el-icon><Collection /></el-icon>
+        <span>词条字典</span>
+      </el-button>
       <el-button class="tool-btn" @click="handleCharacterProfile">
         <el-icon><Avatar /></el-icon>
         <span>人物谱</span>
@@ -30,7 +34,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { User, Location, Timer, Avatar, Connection } from '@element-plus/icons-vue'
+import { User, Location, Timer, Avatar, Connection, Collection } from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -55,8 +59,16 @@ const handleTimeline = () => {
   router.push({ path: '/timeline', query: { name: bookName } })
 }
 
+const handleEntryDictionary = () => {
+  // 跳转到词条字典页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/entry-dictionary', query: { name: bookName } })
+}
+
 const handleCharacterProfile = () => {
-  ElMessage.info('人物谱功能开发中...')
+  // 跳转到人物谱页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/character-profile', query: { name: bookName } })
 }
 
 const handleRelationshipMap = () => {
