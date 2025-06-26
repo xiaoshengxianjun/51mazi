@@ -20,18 +20,12 @@
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         style="width: 100%"
       >
-        <el-table-column prop="name" label="名称" min-width="200">
+        <el-table-column prop="name" label="名称" min-width="100">
           <template #default="{ row }">
             <span class="entry-name">{{ row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="parentName" label="父级" min-width="150">
-          <template #default="{ row }">
-            <span v-if="row.parentId === 0" class="no-parent">无</span>
-            <span v-else class="parent-name">{{ row.parentName }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="introduction" label="介绍" min-width="300">
+        <el-table-column prop="introduction" label="介绍" min-width="250">
           <template #default="{ row }">
             <div class="entry-intro">{{ row.introduction }}</div>
           </template>
@@ -139,7 +133,7 @@ function handleBack() {
 async function loadDictionary() {
   try {
     const data = await window.electron.readDictionary(bookName)
-    dictionary.value = Array.isArray(data) ? data : []
+    dictionary.value = data || []
   } catch (error) {
     console.error('加载词条数据失败:', error)
     dictionary.value = []
@@ -160,46 +154,39 @@ async function saveDictionary() {
   }
 }
 
-// 构建树形结构数据
-function buildTreeData(data) {
-  const map = {}
+// 将树结构转换为扁平数组（用于查找和操作）
+function treeToArray(treeData) {
   const result = []
 
-  // 创建映射
-  data.forEach((item) => {
-    map[item.id] = { ...item, children: [] }
-  })
-
-  // 构建树形结构
-  data.forEach((item) => {
-    const node = map[item.id]
-    if (item.parentId === 0) {
-      result.push(node)
-    } else {
-      const parent = map[item.parentId]
-      if (parent) {
-        parent.children.push(node)
+  function traverse(nodes, parentId = 0) {
+    nodes.forEach((node) => {
+      const { children, ...item } = node
+      result.push({ ...item, parentId })
+      if (children && children.length > 0) {
+        traverse(children, item.id)
       }
-    }
-  })
+    })
+  }
 
+  traverse(treeData)
   return result
 }
 
-// 计算表格数据（树形结构）
+// 计算表格数据（直接使用树结构）
 const tableData = computed(() => {
-  return buildTreeData(
-    dictionary.value.map((item) => ({
-      ...item,
-      parentName: getParentName(item.parentId)
-    }))
-  )
+  return dictionary.value.map((item) => ({
+    ...item,
+    parentName: getParentName(item.id)
+  }))
 })
 
 // 获取父级名称
-function getParentName(parentId) {
-  if (parentId === 0) return ''
-  const parent = dictionary.value.find((item) => item.id === parentId)
+function getParentName(itemId) {
+  const flatData = treeToArray(dictionary.value)
+  const item = flatData.find((item) => item.id === itemId)
+  if (!item || item.parentId === 0) return ''
+
+  const parent = flatData.find((parent) => parent.id === item.parentId)
   return parent ? parent.name : ''
 }
 
@@ -208,10 +195,11 @@ const treeSelectData = computed(() => {
   if (isEdit.value) {
     // 编辑模式：排除当前项及其所有子项
     const excludeIds = getDescendantIds(entryForm.id)
-    const filteredData = dictionary.value.filter((item) => !excludeIds.includes(item.id))
+    const flatData = treeToArray(dictionary.value)
+    const filteredData = flatData.filter((item) => !excludeIds.includes(item.id))
     return buildTreeSelectData(filteredData)
   }
-  return buildTreeSelectData(dictionary.value)
+  return buildTreeSelectData(treeToArray(dictionary.value))
 })
 
 // 构建树形选择数据
@@ -253,13 +241,71 @@ function buildTreeSelectData(data) {
 // 获取所有后代ID
 function getDescendantIds(id) {
   const descendants = [id]
-  const children = dictionary.value.filter((item) => item.parentId === id)
+  const flatData = treeToArray(dictionary.value)
+  const children = flatData.filter((item) => item.parentId === id)
 
   children.forEach((child) => {
     descendants.push(...getDescendantIds(child.id))
   })
 
   return descendants
+}
+
+// 在树结构中查找并删除指定ID的节点
+function removeNodeFromTree(treeData, targetId) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      treeData.splice(i, 1)
+      return true
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      if (removeNodeFromTree(treeData[i].children, targetId)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// 在树结构中查找并更新指定ID的节点
+function updateNodeInTree(treeData, targetId, newData) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      treeData[i] = { ...treeData[i], ...newData }
+      return true
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      if (updateNodeInTree(treeData[i].children, targetId, newData)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// 在树结构中添加新节点
+function addNodeToTree(treeData, newNode) {
+  if (newNode.parentId === 0 || !newNode.parentId) {
+    treeData.push(newNode)
+  } else {
+    // 找到父节点并添加到其children中
+    function addToParent(nodes, parentId) {
+      for (let node of nodes) {
+        if (node.id === parentId) {
+          if (!node.children) node.children = []
+          node.children.push(newNode)
+          return true
+        }
+        if (node.children && node.children.length > 0) {
+          if (addToParent(node.children, parentId)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+    addToParent(treeData, newNode.parentId)
+  }
 }
 
 // 创建词条
@@ -285,11 +331,8 @@ async function handleDeleteEntry(entry) {
       type: 'warning'
     })
 
-    const index = dictionary.value.findIndex((item) => item.id === entry.id)
-    if (index > -1) {
-      dictionary.value.splice(index, 1)
-      ElMessage.success('删除成功')
-    }
+    removeNodeFromTree(dictionary.value, entry.id)
+    ElMessage.success('删除成功')
   } catch {
     // 用户取消，无需处理
   }
@@ -304,16 +347,39 @@ async function confirmSave() {
 
     if (isEdit.value) {
       // 编辑模式：更新现有关键词
-      const index = dictionary.value.findIndex((item) => item.id === entryForm.id)
-      if (index > -1) {
-        dictionary.value[index] = { ...entryForm }
+      const oldParentId = getCurrentParentId(entryForm.id)
+      const newParentId = entryForm.parentId
+
+      // 如果父级发生了变化，需要重新组织树结构
+      if (oldParentId !== newParentId) {
+        // 先删除原节点（保留子节点）
+        const nodeToMove = removeNodeFromTreeKeepChildren(dictionary.value, entryForm.id)
+        if (nodeToMove) {
+          // 更新节点信息
+          nodeToMove.name = entryForm.name
+          nodeToMove.introduction = entryForm.introduction
+          nodeToMove.parentId = newParentId
+
+          // 添加到新位置
+          addNodeToTree(dictionary.value, nodeToMove)
+        }
+      } else {
+        // 父级没有变化，只更新属性
+        updateNodeInTree(dictionary.value, entryForm.id, {
+          name: entryForm.name,
+          introduction: entryForm.introduction
+        })
       }
     } else {
       // 创建模式：添加新词条
-      dictionary.value.push({
-        ...entryForm,
-        id: genId()
-      })
+      const newNode = {
+        id: genId(),
+        name: entryForm.name,
+        introduction: entryForm.introduction,
+        parentId: entryForm.parentId,
+        children: []
+      }
+      addNodeToTree(dictionary.value, newNode)
     }
 
     dialogVisible.value = false
@@ -321,6 +387,32 @@ async function confirmSave() {
   } catch (error) {
     console.error('表单验证失败:', error)
   }
+}
+
+// 获取当前节点的父级ID
+function getCurrentParentId(nodeId) {
+  const flatData = treeToArray(dictionary.value)
+  const item = flatData.find((item) => item.id === nodeId)
+  return item ? item.parentId : 0
+}
+
+// 从树结构中删除节点但保留其子节点
+function removeNodeFromTreeKeepChildren(treeData, targetId) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      const nodeToRemove = treeData[i]
+      const children = nodeToRemove.children || []
+
+      // 将子节点提升到当前层级
+      treeData.splice(i, 1, ...children)
+      return nodeToRemove
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      const result = removeNodeFromTreeKeepChildren(treeData[i].children, targetId)
+      if (result) return result
+    }
+  }
+  return null
 }
 
 // 重置表单
