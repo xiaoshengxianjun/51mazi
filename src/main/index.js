@@ -803,6 +803,39 @@ ipcMain.handle('write-characters', async (event, { bookName, data }) => {
   }
 })
 
+// 词条字典数据读写
+ipcMain.handle('read-dictionary', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const dictionaryPath = join(bookPath, 'dictionary.json')
+  if (!fs.existsSync(dictionaryPath)) return []
+  try {
+    return JSON.parse(fs.readFileSync(dictionaryPath, 'utf-8'))
+  } catch {
+    return []
+  }
+})
+
+// 保存词条字典数据
+ipcMain.handle('write-dictionary', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const dictionaryPath = join(bookPath, 'dictionary.json')
+
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
+    fs.writeFileSync(dictionaryPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存词条字典失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 读取地图列表
 ipcMain.handle('read-maps', async (event, bookName) => {
   try {

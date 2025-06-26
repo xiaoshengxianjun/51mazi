@@ -22,6 +22,11 @@ const routes = [
     component: () => import('@renderer/views/CharacterProfile.vue')
   },
   {
+    path: '/dictionary',
+    name: 'Dictionary',
+    component: () => import('@renderer/views/Dictionary.vue')
+  },
+  {
     path: '/map-list',
     name: 'MapList',
     component: () => import('@renderer/views/MapList.vue')

@@ -291,7 +291,6 @@ onMounted(() => {
   background: var(--bg-base);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 12px 16px;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -321,6 +320,8 @@ onMounted(() => {
 }
 
 .character-info {
+  padding: 5px 0px;
+
   .character-name {
     font-size: 16px;
     font-weight: 600;
@@ -334,6 +335,8 @@ onMounted(() => {
     margin-bottom: 8px;
     color: var(--text-primary);
     font-size: 14px;
+    padding: 0 10px;
+    margin-bottom: 5px;
   }
 
   .character-intro {
@@ -341,6 +344,9 @@ onMounted(() => {
     color: var(--text-primary);
     line-height: 1.5;
     margin: 0;
+    padding: 0 10px;
+    max-height: 150px;
+    overflow-y: auto;
   }
 }
 

@@ -112,7 +112,14 @@ if (process.contextIsolated) {
       readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
       // 保存人物谱数据
       writeCharacters: (bookName, data) =>
-        ipcRenderer.invoke('write-characters', { bookName, data })
+        ipcRenderer.invoke('write-characters', { bookName, data }),
+
+      // --------- 词条字典相关 ---------
+      // 读取词条字典数据
+      readDictionary: (bookName) => ipcRenderer.invoke('read-dictionary', { bookName }),
+      // 保存词条字典数据
+      writeDictionary: (bookName, data) =>
+        ipcRenderer.invoke('write-dictionary', { bookName, data })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

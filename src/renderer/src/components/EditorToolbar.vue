@@ -62,7 +62,7 @@ const handleTimeline = () => {
 const handleEntryDictionary = () => {
   // 跳转到词条字典页面，带上当前书籍名
   const bookName = route.query.name
-  router.push({ path: '/entry-dictionary', query: { name: bookName } })
+  router.push({ path: '/dictionary', query: { name: bookName } })
 }
 
 const handleCharacterProfile = () => {
