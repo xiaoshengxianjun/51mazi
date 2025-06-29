@@ -27,6 +27,12 @@
               <!-- <span class="character-gender">{{ character.gender }}</span> -->
               <span class="character-height">{{ character.height }}cm</span>
             </div>
+            <!-- 标签显示区域 -->
+            <div v-if="character.tags && character.tags.length > 0" class="character-tags">
+              <el-tag v-for="tag in character.tags" :key="tag" size="small" class="tag-item">
+                {{ tag }}
+              </el-tag>
+            </div>
             <p class="character-intro">{{ character.introduction }}</p>
           </div>
           <div class="character-actions">
@@ -73,6 +79,26 @@
           style="width: 100%"
         />
       </el-form-item>
+      <el-form-item label="标签" prop="tags">
+        <el-tree-select
+          v-model="characterForm.tags"
+          :data="tagOptions"
+          multiple
+          filterable
+          default-first-option
+          placeholder="请选择标签"
+          style="width: 100%"
+          :props="{
+            children: 'children',
+            label: 'name',
+            value: 'name'
+          }"
+          node-key="name"
+          check-strictly
+          :render-after-expand="false"
+          clearable
+        />
+      </el-form-item>
       <el-form-item label="介绍" prop="introduction">
         <el-input
           v-model="characterForm.introduction"
@@ -91,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, toRaw } from 'vue'
+import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeftBold, Plus, Delete } from '@element-plus/icons-vue'
@@ -101,6 +127,7 @@ const route = useRoute()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const characters = ref([])
+const dictionary = ref([]) // 字典数据
 const bookName = route.query.name || ''
 const formRef = ref(null)
 
@@ -111,6 +138,7 @@ const characterForm = reactive({
   age: 18,
   gender: '男',
   height: 170,
+  tags: [], // 新增标签字段
   introduction: ''
 })
 
@@ -128,6 +156,24 @@ const formRules = {
     { min: 1, max: 500, message: '介绍长度在 1 到 500 个字符', trigger: 'blur' }
   ]
 }
+
+// 计算标签选项（从字典词条中获取，保持树形结构）
+const tagOptions = computed(() => {
+  // 深拷贝字典数据，避免修改原数据
+  const cloneDictionary = JSON.parse(JSON.stringify(dictionary.value))
+
+  // 递归处理树形结构，确保每个节点都有name属性
+  function processTreeData(nodes) {
+    return nodes
+      .map((node) => ({
+        ...node,
+        children: node.children && node.children.length > 0 ? processTreeData(node.children) : []
+      }))
+      .filter((node) => node.name && node.name.trim()) // 过滤掉没有名称的节点
+  }
+
+  return processTreeData(cloneDictionary)
+})
 
 // 生成唯一ID
 function genId() {
@@ -147,6 +193,17 @@ async function loadCharacters() {
   } catch (error) {
     console.error('加载人物数据失败:', error)
     characters.value = []
+  }
+}
+
+// 加载字典数据
+async function loadDictionary() {
+  try {
+    const data = await window.electron.readDictionary(bookName)
+    dictionary.value = data || []
+  } catch (error) {
+    console.error('加载字典数据失败:', error)
+    dictionary.value = []
   }
 }
 
@@ -240,6 +297,7 @@ function resetForm() {
     age: 18,
     gender: '男',
     height: 170,
+    tags: [], // 重置标签
     introduction: ''
   })
 }
@@ -250,6 +308,7 @@ watch(characters, saveCharacters, { deep: true })
 // 组件挂载时加载数据
 onMounted(() => {
   loadCharacters()
+  loadDictionary() // 加载字典数据
 })
 </script>
 
@@ -337,6 +396,21 @@ onMounted(() => {
     font-size: 14px;
     padding: 0 10px;
     margin-bottom: 5px;
+  }
+
+  // 标签样式
+  .character-tags {
+    padding: 0 10px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    .tag-item {
+      margin: 0;
+      font-size: 12px;
+      border-radius: 4px;
+    }
   }
 
   .character-intro {
