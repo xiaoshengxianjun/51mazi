@@ -50,6 +50,8 @@ declare module 'vue' {
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTree: typeof import('element-plus/es')['ElTree']
     ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
+    LayoutTool: typeof import('./src/components/LayoutTool.vue')['default']
+    LayoutToolPage: typeof import('./src/components/LayoutToolPage.vue')['default']
     NoteChapter: typeof import('./src/components/NoteChapter.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

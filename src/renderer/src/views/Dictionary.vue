@@ -1,17 +1,12 @@
 <template>
-  <div class="dictionary-manager">
-    <div class="dictionary-header">
-      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
-        <span>返回</span>
-      </el-button>
-      <h2 class="header-title">词条字典</h2>
+  <LayoutTool title="词条字典">
+    <template #headrAction>
       <el-button type="primary" @click="handleCreateEntry">
         <el-icon><Plus /></el-icon>
         <span>创建词条</span>
       </el-button>
-    </div>
-
-    <div class="dictionary-main">
+    </template>
+    <template #default>
       <el-table
         :data="tableData"
         row-key="id"
@@ -37,8 +32,8 @@
           </template>
         </el-table-column>
       </el-table>
-    </div>
-  </div>
+    </template>
+  </LayoutTool>
 
   <!-- 创建/编辑词条弹框 -->
   <el-dialog
@@ -87,11 +82,10 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeftBold, Plus } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 
-const router = useRouter()
 const route = useRoute()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -122,11 +116,6 @@ const formRules = {
 // 生成唯一ID
 function genId() {
   return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
-}
-
-// 返回上一页
-function handleBack() {
-  router.back()
 }
 
 // 加载词条数据
@@ -438,32 +427,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.dictionary-manager {
-  padding: 8px 16px;
-  background-color: var(--bg-primary);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.dictionary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-
-  .header-title {
-    margin: 0;
-    font-size: 20px;
-    color: var(--text-primary);
-  }
-}
-
-.dictionary-main {
-  flex: 1;
-  overflow-y: auto;
-}
-
 .entry-name {
   font-weight: 600;
   color: var(--text-primary);

@@ -1,159 +1,157 @@
 <template>
-  <div class="map-design">
-    <div class="header">
-      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
-        <span>返回</span>
-      </el-button>
-      <h2>{{ mapName }}</h2>
+  <LayoutTool :title="mapName || '地图设计'">
+    <template #headrAction>
       <el-button type="primary" @click="handleSave">保存地图</el-button>
-    </div>
-
-    <div class="content">
-      <div class="toolbar">
-        <el-tooltip content="铅笔" placement="bottom">
-          <div
-            :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
-            @click="selectTool('pencil')"
-          >
-            <img src="@renderer/assets/pencil.svg" alt="铅笔" />
-          </div>
-        </el-tooltip>
-        <el-tooltip content="橡皮擦" placement="bottom">
-          <div
-            :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
-            @click="selectTool('eraser')"
-          >
-            <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
-          </div>
-        </el-tooltip>
-        <el-tooltip content="油漆桶" placement="bottom">
-          <div
-            :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
-            @click="selectTool('bucket')"
-          >
-            <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
-          </div>
-        </el-tooltip>
-        <el-tooltip content="文字" placement="bottom">
-          <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
-            A
-          </div>
-        </el-tooltip>
-        <el-popover
-          v-model:visible="resourcePopoverVisible"
-          placement="bottom"
-          :width="420"
-          trigger="click"
-        >
-          <template #reference>
+    </template>
+    <template #default>
+      <div class="content">
+        <div class="toolbar">
+          <el-tooltip content="铅笔" placement="bottom">
             <div
-              :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
-              @click="selectTool('resource')"
+              :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
+              @click="selectTool('pencil')"
             >
-              <el-icon><PictureRounded /></el-icon>
+              <img src="@renderer/assets/pencil.svg" alt="铅笔" />
             </div>
-          </template>
-          <div class="resource-popover">
-            <div class="resource-grid">
+          </el-tooltip>
+          <el-tooltip content="橡皮擦" placement="bottom">
+            <div
+              :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
+              @click="selectTool('eraser')"
+            >
+              <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
+            </div>
+          </el-tooltip>
+          <el-tooltip content="油漆桶" placement="bottom">
+            <div
+              :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
+              @click="selectTool('bucket')"
+            >
+              <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
+            </div>
+          </el-tooltip>
+          <el-tooltip content="文字" placement="bottom">
+            <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
+              A
+            </div>
+          </el-tooltip>
+          <el-popover
+            v-model:visible="resourcePopoverVisible"
+            placement="bottom"
+            :width="420"
+            trigger="click"
+          >
+            <template #reference>
               <div
-                v-for="(resource, index) in resources"
-                :key="index"
-                class="resource-item"
-                @click="selectResource(resource)"
-                @mousedown="onResourceMouseDown(resource, $event)"
+                :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
+                @click="selectTool('resource')"
               >
-                <img :src="resource.url" :alt="resource.name" />
-                <span class="resource-name">{{ resource.name }}</span>
+                <el-icon><PictureRounded /></el-icon>
+              </div>
+            </template>
+            <div class="resource-popover">
+              <div class="resource-grid">
+                <div
+                  v-for="(resource, index) in resources"
+                  :key="index"
+                  class="resource-item"
+                  @click="selectResource(resource)"
+                  @mousedown="onResourceMouseDown(resource, $event)"
+                >
+                  <img :src="resource.url" :alt="resource.name" />
+                  <span class="resource-name">{{ resource.name }}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </el-popover>
-        <el-tooltip content="撤销" placement="bottom">
-          <div :class="['tool-btn', 'undo-btn']" @click="undo">
-            <img src="@renderer/assets/undo.svg" alt="撤销" />
-          </div>
-        </el-tooltip>
-        <el-divider direction="vertical" />
-        <el-tooltip content="颜色">
-          <div>
-            <el-color-picker v-model="color" />
-          </div>
-        </el-tooltip>
-        <el-divider direction="vertical" />
-        <el-tooltip content="重置缩放">
-          <div class="tool-btn" @click="resetZoom">
-            <el-icon><ZoomIn /></el-icon>
-          </div>
-        </el-tooltip>
-        <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
-        <el-divider direction="vertical" />
-        <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
-          <div class="slider-wrap">
-            <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
-          </div>
-        </el-tooltip>
-      </div>
+          </el-popover>
+          <el-tooltip content="撤销" placement="bottom">
+            <div :class="['tool-btn', 'undo-btn']" @click="undo">
+              <img src="@renderer/assets/undo.svg" alt="撤销" />
+            </div>
+          </el-tooltip>
+          <el-divider direction="vertical" />
+          <el-tooltip content="颜色">
+            <div>
+              <el-color-picker v-model="color" />
+            </div>
+          </el-tooltip>
+          <el-divider direction="vertical" />
+          <el-tooltip content="重置缩放">
+            <div class="tool-btn" @click="resetZoom">
+              <el-icon><ZoomIn /></el-icon>
+            </div>
+          </el-tooltip>
+          <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
+          <el-divider direction="vertical" />
+          <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
+            <div class="slider-wrap">
+              <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
+            </div>
+          </el-tooltip>
+        </div>
 
-      <div ref="editorContainerRef" class="editor-container" @wheel="handleWheel">
-        <div class="canvas-wrap" :style="canvasWrapStyle">
-          <img
-            v-if="mapImage"
-            ref="mapImageRef"
-            :src="mapImage"
-            :style="imageStyle"
-            class="map-bg"
-            @load="handleImageLoad"
-          />
-          <canvas
-            ref="canvasRef"
-            :width="canvasWidth"
-            :height="canvasHeight"
-            class="draw-canvas"
-            :style="{ cursor: canvasCursor }"
-            @mousedown="startDraw"
-            @mousemove="drawing"
-            @mouseup="endDraw"
-            @mouseleave="endDraw"
-            @touchstart.prevent="startDraw"
-            @touchmove.prevent="drawing"
-            @touchend.prevent="endDraw"
-            @click="handleCanvasClick"
-          ></canvas>
+        <div ref="editorContainerRef" class="editor-container" @wheel="handleWheel">
+          <div class="canvas-wrap" :style="canvasWrapStyle">
+            <img
+              v-if="mapImage"
+              ref="mapImageRef"
+              :src="mapImage"
+              :style="imageStyle"
+              class="map-bg"
+              @load="handleImageLoad"
+            />
+            <canvas
+              ref="canvasRef"
+              :width="canvasWidth"
+              :height="canvasHeight"
+              class="draw-canvas"
+              :style="{ cursor: canvasCursor }"
+              @mousedown="startDraw"
+              @mousemove="drawing"
+              @mouseup="endDraw"
+              @mouseleave="endDraw"
+              @touchstart.prevent="startDraw"
+              @touchmove.prevent="drawing"
+              @touchend.prevent="endDraw"
+              @click="handleCanvasClick"
+            ></canvas>
 
-          <!-- 文字输入框 -->
-          <div
-            v-if="textInputVisible"
-            class="text-input-overlay"
-            :style="{
-              left: textInputPosition.x + 'px',
-              top: textInputPosition.y + 'px',
-              transform: 'translateY(-50%)'
-            }"
-            @mousedown.stop
-            @click.stop
-          >
-            <input
-              ref="textInputRef"
-              v-model="textInputValue"
-              type="text"
-              class="text-input"
-              placeholder="输入文字..."
-              @keydown.enter="confirmTextInput"
-              @keydown.esc="cancelTextInput"
+            <!-- 文字输入框 -->
+            <div
+              v-if="textInputVisible"
+              class="text-input-overlay"
+              :style="{
+                left: textInputPosition.x + 'px',
+                top: textInputPosition.y + 'px',
+                transform: 'translateY(-50%)'
+              }"
               @mousedown.stop
               @click.stop
-            />
+            >
+              <input
+                ref="textInputRef"
+                v-model="textInputValue"
+                type="text"
+                class="text-input"
+                placeholder="输入文字..."
+                @keydown.enter="confirmTextInput"
+                @keydown.esc="cancelTextInput"
+                @mousedown.stop
+                @click.stop
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </LayoutTool>
 </template>
 
 <script setup>
+import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeftBold, PictureRounded, ZoomIn } from '@element-plus/icons-vue'
+import { PictureRounded, ZoomIn } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -478,10 +476,6 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-const handleBack = () => {
-  router.back()
-}
-
 const handleSave = async () => {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
@@ -685,137 +679,111 @@ function handleCanvasClick() {
 </script>
 
 <style lang="scss" scoped>
-.map-design {
-  height: 100%;
-  padding: 8px 16px 16px;
-  background-color: var(--bg-primary);
-  height: 100vh;
+.content {
+  flex: 1;
+  overflow: hidden;
   display: flex;
+  align-items: center;
   flex-direction: column;
 
-  .header {
+  .toolbar {
     display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-
-    .back-btn {
-      margin-right: 16px;
-    }
-
-    h2 {
-      margin: 0;
+    justify-content: center;
+    position: relative;
+    width: max-content;
+    .tool-btn {
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 6px;
+      color: #000;
       font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      &.active,
+      &:hover {
+        border: 1px solid var(--el-color-primary);
+      }
+    }
+    .slider-wrap {
+      position: absolute;
+      right: -170px;
+      top: 0;
+      z-index: 1;
+    }
+    .zoom-level {
+      font-size: 14px;
       color: var(--text-primary);
+      min-width: 60px;
+      text-align: center;
     }
   }
 
-  .content {
+  .editor-container {
     flex: 1;
-    overflow: hidden;
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 8px;
+    overflow: auto;
     display: flex;
     align-items: center;
-    flex-direction: column;
+    justify-content: center;
+    position: relative;
 
-    .toolbar {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 20px;
-      align-items: center;
-      justify-content: center;
+    .canvas-wrap {
       position: relative;
-      width: max-content;
-      .tool-btn {
-        width: 32px;
-        height: 32px;
-        cursor: pointer;
-        border-radius: 4px;
-        padding: 6px;
-        color: #000;
-        font-size: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid transparent;
-        img {
-          width: 100%;
-          height: 100%;
-          display: block;
-        }
-        &.active,
-        &:hover {
-          border: 1px solid var(--el-color-primary);
-        }
-      }
-      .slider-wrap {
-        position: absolute;
-        right: -170px;
-        top: 0;
-        z-index: 1;
-      }
-      .zoom-level {
-        font-size: 14px;
-        color: var(--text-primary);
-        min-width: 60px;
-        text-align: center;
-      }
+      background: #fff;
+      box-shadow: 0 2px 8px #0001;
+      will-change: transform; // 优化缩放性能
+    }
+    .map-bg {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .draw-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 1;
+      background: transparent;
+      cursor: crosshair;
     }
 
-    .editor-container {
-      flex: 1;
-      width: 100%;
-      background-color: #f3f3f3;
-      border-radius: 8px;
-      overflow: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
+    // 文字输入框样式
+    .text-input-overlay {
+      position: absolute;
+      z-index: 2;
+      pointer-events: auto;
 
-      .canvas-wrap {
-        position: relative;
-        background: #fff;
-        box-shadow: 0 2px 8px #0001;
-        will-change: transform; // 优化缩放性能
-      }
-      .map-bg {
-        position: absolute;
-        left: 0;
-        top: 0;
-        z-index: 0;
-        pointer-events: none;
-      }
-      .draw-canvas {
-        position: absolute;
-        left: 0;
-        top: 0;
-        z-index: 1;
+      .text-input {
         background: transparent;
-        cursor: crosshair;
-      }
+        border: 1px dashed #ff4444;
+        border-radius: 2px;
+        padding: 2px 4px;
+        font-size: 12px;
+        outline: none;
+        min-width: 100px;
+        box-shadow: none;
+        color: var(--text-primary);
+        font-family: Arial, sans-serif;
 
-      // 文字输入框样式
-      .text-input-overlay {
-        position: absolute;
-        z-index: 2;
-        pointer-events: auto;
-
-        .text-input {
-          background: transparent;
+        &:focus {
           border: 1px dashed #ff4444;
-          border-radius: 2px;
-          padding: 2px 4px;
-          font-size: 12px;
-          outline: none;
-          min-width: 100px;
-          box-shadow: none;
-          color: var(--text-primary);
-          font-family: Arial, sans-serif;
-
-          &:focus {
-            border: 1px dashed #ff4444;
-            box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
-          }
+          box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
         }
       }
     }

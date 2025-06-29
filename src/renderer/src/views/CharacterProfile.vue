@@ -1,17 +1,12 @@
 <template>
-  <div class="character-manager">
-    <div class="character-header">
-      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
-        <span>返回</span>
-      </el-button>
-      <h2 class="header-title">人物谱管理</h2>
+  <LayoutTool title="人物谱管理">
+    <template #headrAction>
       <el-button type="primary" @click="handleCreateCharacter">
         <el-icon><Plus /></el-icon>
         <span>创建人物</span>
       </el-button>
-    </div>
-
-    <div class="character-main">
+    </template>
+    <template #default>
       <div class="character-grid">
         <div
           v-for="character in characters"
@@ -41,8 +36,8 @@
         </div>
       </div>
       <el-empty v-if="characters.length === 0" :image-size="200" description="暂无人物" />
-    </div>
-  </div>
+    </template>
+  </LayoutTool>
 
   <!-- 创建/编辑人物弹框 -->
   <el-dialog
@@ -117,12 +112,12 @@
 </template>
 
 <script setup>
+import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeftBold, Plus, Delete } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 
-const router = useRouter()
 const route = useRoute()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -178,11 +173,6 @@ const tagOptions = computed(() => {
 // 生成唯一ID
 function genId() {
   return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
-}
-
-// 返回上一页
-function handleBack() {
-  router.back()
 }
 
 // 加载人物数据
@@ -313,32 +303,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.character-manager {
-  padding: 8px 16px;
-  background-color: var(--bg-primary);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.character-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-
-  .header-title {
-    margin: 0;
-    font-size: 20px;
-    color: var(--text-primary);
-  }
-}
-
-.character-main {
-  flex: 1;
-  overflow-y: auto;
-}
-
 .character-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -471,16 +435,6 @@ onMounted(() => {
 @media (max-width: 768px) {
   .character-grid {
     grid-template-columns: 1fr;
-  }
-
-  .character-header {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-
-    .back-btn {
-      align-self: flex-start;
-    }
   }
 }
 </style>

@@ -1,69 +1,71 @@
 <template>
-  <div class="timeline-manager">
-    <div class="timeline-header">
-      <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
-        <span>返回</span>
+  <LayoutTool title="时间线管理">
+    <template #headrAction>
+      <el-button type="primary" @click="addTimeline">
+        <el-icon><Plus /></el-icon>
+        <span>新增时间线</span>
       </el-button>
-    </div>
-    <div class="timeline-main">
-      <div class="timeline-list">
-        <div v-for="(timeline, idx) in timelines" :key="timeline.id" class="timeline-column">
-          <div class="timeline-title-wrap">
-            <h3
-              v-show="editTitleIdx !== idx"
-              class="timeline-title"
-              @mouseenter="hoverTitleIdx = idx"
-              @mouseleave="hoverTitleIdx = -1"
-              @click="
-                () => {
-                  editTitleIdx = idx
-                  editTitleValue = timeline.title
-                }
-              "
-            >
-              {{ timeline.title }}
-              <el-icon v-show="hoverTitleIdx === idx" class="edit-title-icon"><EditPen /></el-icon>
-            </h3>
-            <el-input
-              v-show="editTitleIdx === idx"
-              v-model="editTitleValue"
-              placeholder="时间线标题"
-              :maxlength="20"
-              :autofocus="true"
-              input-style="text-align: center"
-              @keyup.enter="confirmEditTitle(idx)"
-              @blur="cancelEditTitle"
-            />
-          </div>
-          <el-timeline>
-            <el-timeline-item
-              v-for="(node, nidx) in timeline.nodes"
-              :key="node.id"
-              :timestamp="node.title"
-              placement="top"
-            >
-              <div class="timeline-node-content">
-                <p>{{ node.desc }}</p>
-                <div class="timeline-node-actions">
-                  <el-icon @click="addNode(idx, nidx)"><EditPen /></el-icon>
-                  <el-icon @click="removeNode(idx, nidx)"><Delete /></el-icon>
+    </template>
+    <template #default>
+      <div class="timeline-main">
+        <div class="timeline-list">
+          <div v-for="(timeline, idx) in timelines" :key="timeline.id" class="timeline-column">
+            <div class="timeline-title-wrap">
+              <h3
+                v-show="editTitleIdx !== idx"
+                class="timeline-title"
+                @mouseenter="hoverTitleIdx = idx"
+                @mouseleave="hoverTitleIdx = -1"
+                @click="
+                  () => {
+                    editTitleIdx = idx
+                    editTitleValue = timeline.title
+                  }
+                "
+              >
+                {{ timeline.title }}
+                <el-icon v-show="hoverTitleIdx === idx" class="edit-title-icon"
+                  ><EditPen
+                /></el-icon>
+              </h3>
+              <el-input
+                v-show="editTitleIdx === idx"
+                v-model="editTitleValue"
+                placeholder="时间线标题"
+                :maxlength="20"
+                :autofocus="true"
+                input-style="text-align: center"
+                @keyup.enter="confirmEditTitle(idx)"
+                @blur="cancelEditTitle"
+              />
+            </div>
+            <el-timeline>
+              <el-timeline-item
+                v-for="(node, nidx) in timeline.nodes"
+                :key="node.id"
+                :timestamp="node.title"
+                placement="top"
+              >
+                <div class="timeline-node-content">
+                  <p>{{ node.desc }}</p>
+                  <div class="timeline-node-actions">
+                    <el-icon @click="addNode(idx, nidx)"><EditPen /></el-icon>
+                    <el-icon @click="removeNode(idx, nidx)"><Delete /></el-icon>
+                  </div>
                 </div>
-              </div>
-            </el-timeline-item>
-          </el-timeline>
-          <div class="timeline-actions">
-            <el-button class="add-node-btn" @click="addNode(idx)">新增节点</el-button>
-            <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
-              删除时间线
-            </el-button>
+              </el-timeline-item>
+            </el-timeline>
+            <div class="timeline-actions">
+              <el-button class="add-node-btn" @click="addNode(idx)">新增节点</el-button>
+              <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
+                删除时间线
+              </el-button>
+            </div>
           </div>
-        </div>
-        <div class="timeline-column add-timeline">
-          <el-button type="primary" @click="addTimeline">新增时间线</el-button>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </LayoutTool>
   <el-dialog
     v-model="dialogVisible"
     :title="nodeInfo.id === -1 ? '新增节点' : '编辑节点'"
@@ -92,12 +94,12 @@
 </template>
 
 <script setup>
+import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, onMounted, watch, reactive, toRaw } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeftBold, EditPen, Delete } from '@element-plus/icons-vue'
+import { EditPen, Delete, Plus } from '@element-plus/icons-vue'
 
-const router = useRouter()
 const route = useRoute()
 const dialogVisible = ref(false)
 const nodeInfo = reactive({
@@ -112,10 +114,6 @@ const currentNodeIdx = ref(-1)
 const hoverTitleIdx = ref(-1)
 const editTitleIdx = ref(-1)
 const editTitleValue = ref('')
-
-function handleBack() {
-  router.back()
-}
 
 function genId() {
   return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
@@ -230,19 +228,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.timeline-manager {
-  padding: 8px 16px;
-  background-color: var(--bg-primary);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-.timeline-header {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-bottom: 10px;
-}
 .timeline-main {
   flex: 1;
   width: 100%;
