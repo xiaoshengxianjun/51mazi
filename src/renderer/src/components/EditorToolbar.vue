@@ -33,7 +33,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { User, Location, Timer, Avatar, Connection, Collection } from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -72,7 +71,9 @@ const handleCharacterProfile = () => {
 }
 
 const handleRelationshipMap = () => {
-  ElMessage.info('关系图功能开发中...')
+  // 跳转到关系图列表页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/relationship-list', query: { name: bookName } })
 }
 </script>
 

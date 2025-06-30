@@ -35,6 +35,16 @@ const routes = [
     path: '/map-design',
     name: 'MapDesign',
     component: () => import('@renderer/views/MapDesign.vue')
+  },
+  {
+    path: '/relationship-list',
+    name: 'RelationshipList',
+    component: () => import('@renderer/views/RelationshipList.vue')
+  },
+  {
+    path: '/relationship-design',
+    name: 'RelationshipDesign',
+    component: () => import('@renderer/views/RelationshipDesign.vue')
   }
   // 在这里添加更多路由配置
 ]
