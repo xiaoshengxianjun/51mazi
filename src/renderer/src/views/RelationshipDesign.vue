@@ -20,42 +20,68 @@
         </div>
 
         <div class="design-canvas" ref="canvasRef">
-          <!-- 这里将集成关系图编辑组件 -->
-          <div class="canvas-placeholder">
-            <el-empty description="关系图编辑功能开发中..." :image-size="200">
-              <template #description>
-                <p>关系图编辑功能正在开发中</p>
-                <p>当前关系图: {{ relationshipName }}</p>
-              </template>
-            </el-empty>
-          </div>
+          <RelationGraph
+            ref="graphRef"
+            :options="graphOptions"
+            :data="graphData"
+            @node-click="onNodeClick"
+            @edge-click="onEdgeClick"
+            @canvas-click="onCanvasClick"
+          />
         </div>
       </div>
     </template>
   </LayoutTool>
 
   <!-- 添加节点弹框 -->
-  <el-dialog v-model="nodeDialogVisible" title="添加节点" width="400px">
+  <el-dialog v-model="nodeDialogVisible" title="添加节点" width="500px">
     <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="80px">
-      <el-form-item label="节点名称" prop="name">
-        <el-input v-model="nodeForm.name" placeholder="请输入节点名称" />
+      <el-form-item label="节点类型" prop="nodeType">
+        <el-radio-group v-model="nodeForm.nodeType">
+          <el-radio label="character">人物</el-radio>
+          <el-radio label="custom">自定义</el-radio>
+        </el-radio-group>
       </el-form-item>
-      <el-form-item label="节点类型" prop="type">
-        <el-select v-model="nodeForm.type" placeholder="请选择节点类型" style="width: 100%">
-          <el-option label="人物" value="character" />
-          <el-option label="地点" value="location" />
-          <el-option label="事件" value="event" />
-          <el-option label="物品" value="item" />
+
+      <!-- 人物选择 -->
+      <el-form-item v-if="nodeForm.nodeType === 'character'" label="选择人物" prop="characterId">
+        <el-select v-model="nodeForm.characterId" placeholder="请选择人物" style="width: 100%">
+          <el-option
+            v-for="character in characters"
+            :key="character.id"
+            :label="character.name"
+            :value="character.id"
+          >
+            <span>{{ character.name }}</span>
+            <span style="float: right; color: #8492a6; font-size: 13px">
+              {{ character.age }}岁 {{ character.gender }}
+            </span>
+          </el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="描述" prop="description">
-        <el-input
-          v-model="nodeForm.description"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入节点描述"
-        />
-      </el-form-item>
+
+      <!-- 自定义节点 -->
+      <template v-if="nodeForm.nodeType === 'custom'">
+        <el-form-item label="节点名称" prop="name">
+          <el-input v-model="nodeForm.name" placeholder="请输入节点名称" />
+        </el-form-item>
+        <el-form-item label="节点类型" prop="type">
+          <el-select v-model="nodeForm.type" placeholder="请选择节点类型" style="width: 100%">
+            <el-option label="人物" value="character" />
+            <el-option label="地点" value="location" />
+            <el-option label="事件" value="event" />
+            <el-option label="物品" value="item" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="nodeForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入节点描述"
+          />
+        </el-form-item>
+      </template>
     </el-form>
     <template #footer>
       <el-button @click="nodeDialogVisible = false">取消</el-button>
@@ -64,14 +90,14 @@
   </el-dialog>
 
   <!-- 添加连线弹框 -->
-  <el-dialog v-model="edgeDialogVisible" title="添加连线" width="400px">
+  <el-dialog v-model="edgeDialogVisible" title="添加连线" width="500px">
     <el-form ref="edgeFormRef" :model="edgeForm" :rules="edgeRules" label-width="80px">
       <el-form-item label="起始节点" prop="source">
         <el-select v-model="edgeForm.source" placeholder="请选择起始节点" style="width: 100%">
           <el-option
-            v-for="node in relationshipData.nodes"
+            v-for="node in graphData.nodes"
             :key="node.id"
-            :label="node.name"
+            :label="node.text"
             :value="node.id"
           />
         </el-select>
@@ -79,9 +105,9 @@
       <el-form-item label="目标节点" prop="target">
         <el-select v-model="edgeForm.target" placeholder="请选择目标节点" style="width: 100%">
           <el-option
-            v-for="node in relationshipData.nodes"
+            v-for="node in graphData.nodes"
             :key="node.id"
-            :label="node.name"
+            :label="node.text"
             :value="node.id"
           />
         </el-select>
@@ -103,14 +129,35 @@
       <el-button type="primary" @click="confirmAddEdge">确认</el-button>
     </template>
   </el-dialog>
+
+  <!-- 节点详情弹框 -->
+  <el-dialog v-model="nodeDetailVisible" title="节点详情" width="400px">
+    <div v-if="selectedNode" class="node-detail">
+      <h3>{{ selectedNode.text }}</h3>
+      <p v-if="selectedNode.description" class="node-description">
+        {{ selectedNode.description }}
+      </p>
+      <div class="node-info">
+        <p><strong>类型:</strong> {{ getNodeTypeName(selectedNode.type) }}</p>
+        <p v-if="selectedNode.characterId">
+          <strong>人物ID:</strong> {{ selectedNode.characterId }}
+        </p>
+      </div>
+    </div>
+    <template #footer>
+      <el-button @click="nodeDetailVisible = false">关闭</el-button>
+      <el-button type="danger" @click="deleteSelectedNode">删除节点</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Check, Plus, Connection, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import RelationGraph from 'relation-graph-vue3'
 
 const route = useRoute()
 const bookName = route.query.name
@@ -119,9 +166,14 @@ const relationshipName = route.query.id
 const saving = ref(false)
 const nodeDialogVisible = ref(false)
 const edgeDialogVisible = ref(false)
+const nodeDetailVisible = ref(false)
 const nodeFormRef = ref(null)
 const edgeFormRef = ref(null)
-const canvasRef = ref(null)
+const graphRef = ref(null)
+const selectedNode = ref(null)
+
+// 人物数据
+const characters = ref([])
 
 // 关系图数据
 const relationshipData = reactive({
@@ -134,8 +186,68 @@ const relationshipData = reactive({
   updatedAt: ''
 })
 
+// 图表配置
+const graphOptions = {
+  layouts: [
+    {
+      type: 'force',
+      options: {
+        strength: -1000,
+        distanceMin: 100,
+        distanceMax: 200
+      }
+    }
+  ],
+  defaultNodeWidth: 80,
+  defaultNodeHeight: 40,
+  defaultNodeColor: '#409eff',
+  defaultNodeFontColor: '#ffffff',
+  defaultNodeFontSize: 12,
+  defaultNodeBorderRadius: 4,
+  defaultNodePadding: 8,
+  defaultNodeBorderWidth: 0,
+  defaultLineColor: '#909399',
+  defaultLineWidth: 2,
+  defaultLineFontSize: 12,
+  defaultLineFontColor: '#666666',
+  defaultLineFontBackgroundColor: '#ffffff',
+  defaultLineFontBackgroundPadding: 4,
+  defaultLineFontBackgroundBorderRadius: 2,
+  defaultLineFontBackgroundBorderWidth: 1,
+  defaultLineFontBackgroundBorderColor: '#e4e7ed',
+  defaultLineFontBackgroundOpacity: 0.8,
+  defaultLineFontBackgroundZIndex: 1
+}
+
+// 图表数据
+const graphData = computed(() => {
+  return {
+    nodes: relationshipData.nodes.map((node) => ({
+      id: node.id,
+      text: node.name,
+      type: node.type,
+      description: node.description,
+      characterId: node.characterId,
+      color: getNodeColor(node.type),
+      width: 80,
+      height: 40
+    })),
+    edges: relationshipData.edges.map((edge) => ({
+      id: edge.id,
+      from: edge.source,
+      to: edge.target,
+      text: edge.type,
+      description: edge.description,
+      color: '#909399',
+      width: 2
+    }))
+  }
+})
+
 // 节点表单
 const nodeForm = reactive({
+  nodeType: 'character',
+  characterId: '',
   name: '',
   type: 'character',
   description: ''
@@ -151,6 +263,7 @@ const edgeForm = reactive({
 
 // 表单验证规则
 const nodeRules = {
+  characterId: [{ required: true, message: '请选择人物', trigger: 'change' }],
   name: [
     { required: true, message: '请输入节点名称', trigger: 'blur' },
     { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
@@ -167,6 +280,39 @@ const edgeRules = {
 // 生成唯一ID
 function genId() {
   return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
+}
+
+// 获取节点颜色
+function getNodeColor(type) {
+  const colors = {
+    character: '#409eff',
+    location: '#67c23a',
+    event: '#e6a23c',
+    item: '#f56c6c'
+  }
+  return colors[type] || '#909399'
+}
+
+// 获取节点类型名称
+function getNodeTypeName(type) {
+  const names = {
+    character: '人物',
+    location: '地点',
+    event: '事件',
+    item: '物品'
+  }
+  return names[type] || '未知'
+}
+
+// 加载人物数据
+const loadCharacters = async () => {
+  try {
+    const data = await window.electron.readCharacters(bookName)
+    characters.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('加载人物数据失败:', error)
+    characters.value = []
+  }
 }
 
 // 加载关系图数据
@@ -205,6 +351,8 @@ const addNode = () => {
   nodeDialogVisible.value = true
   // 重置表单
   Object.assign(nodeForm, {
+    nodeType: 'character',
+    characterId: '',
     name: '',
     type: 'character',
     description: ''
@@ -218,13 +366,32 @@ const confirmAddNode = async () => {
   try {
     await nodeFormRef.value.validate()
 
-    const newNode = {
+    let newNode = {
       id: genId(),
-      name: nodeForm.name,
-      type: nodeForm.type,
-      description: nodeForm.description,
-      x: Math.random() * 400 + 100, // 随机位置
-      y: Math.random() * 300 + 100
+      type: 'character',
+      description: ''
+    }
+
+    if (nodeForm.nodeType === 'character') {
+      // 从人物谱中选择
+      const character = characters.value.find((c) => c.id === nodeForm.characterId)
+      if (character) {
+        newNode = {
+          ...newNode,
+          name: character.name,
+          type: 'character',
+          description: character.introduction,
+          characterId: character.id
+        }
+      }
+    } else {
+      // 自定义节点
+      newNode = {
+        ...newNode,
+        name: nodeForm.name,
+        type: nodeForm.type,
+        description: nodeForm.description
+      }
     }
 
     relationshipData.nodes.push(newNode)
@@ -307,8 +474,59 @@ const clearCanvas = async () => {
   }
 }
 
+// 节点点击事件
+const onNodeClick = (node) => {
+  selectedNode.value = node
+  nodeDetailVisible.value = true
+}
+
+// 连线点击事件
+const onEdgeClick = (edge) => {
+  ElMessage.info(`关系: ${edge.text}`)
+}
+
+// 画布点击事件
+const onCanvasClick = () => {
+  // 可以在这里添加画布点击逻辑
+}
+
+// 删除选中节点
+const deleteSelectedNode = async () => {
+  if (!selectedNode.value) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除节点"${selectedNode.value.text}"吗？相关的连线也会被删除！`,
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 删除节点
+    const nodeIndex = relationshipData.nodes.findIndex((n) => n.id === selectedNode.value.id)
+    if (nodeIndex > -1) {
+      relationshipData.nodes.splice(nodeIndex, 1)
+    }
+
+    // 删除相关连线
+    relationshipData.edges = relationshipData.edges.filter(
+      (edge) => edge.source !== selectedNode.value.id && edge.target !== selectedNode.value.id
+    )
+
+    nodeDetailVisible.value = false
+    selectedNode.value = null
+    ElMessage.success('删除节点成功')
+  } catch {
+    // 用户取消，无需处理
+  }
+}
+
 onMounted(() => {
   loadRelationshipData()
+  loadCharacters()
 })
 </script>
 
@@ -341,12 +559,28 @@ onMounted(() => {
   overflow: hidden;
   position: relative;
 
-  .canvas-placeholder {
+  :deep(.relation-graph) {
+    width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  }
+
+  :deep(.relation-graph-canvas) {
+    background-color: var(--bg-base);
+  }
+}
+
+.node-detail {
+  .node-description {
     color: var(--text-secondary);
+    margin: 8px 0;
+    line-height: 1.5;
+  }
+
+  .node-info {
+    p {
+      margin: 4px 0;
+      color: var(--text-primary);
+    }
   }
 }
 

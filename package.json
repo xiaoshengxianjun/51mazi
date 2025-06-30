@@ -32,6 +32,7 @@
     "electron-updater": "^6.3.9",
     "element-plus": "^2.10.1",
     "pinia": "^3.0.1",
+    "relation-graph-vue3": "^2.2.11",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
