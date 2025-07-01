@@ -22,8 +22,12 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-defineProps({
+const props = defineProps({
   title: {
+    type: String,
+    default: ''
+  },
+  backTo: {
     type: String,
     default: ''
   }
@@ -31,7 +35,18 @@ defineProps({
 
 // 返回上一页
 function handleBack() {
-  router.back()
+  if (props.backTo) {
+    // 如果指定了返回路径，直接跳转
+    router.push(props.backTo)
+  } else {
+    // 检查是否有历史记录可以返回
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      // 如果没有历史记录，跳转到首页
+      router.push('/')
+    }
+  }
 }
 
 // 刷新页面

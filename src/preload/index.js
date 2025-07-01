@@ -141,7 +141,10 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('update-relationship-thumbnail', data),
       // 删除关系图
       deleteRelationship: ({ bookName, relationshipName }) =>
-        ipcRenderer.invoke('delete-relationship', { bookName, relationshipName })
+        ipcRenderer.invoke('delete-relationship', { bookName, relationshipName }),
+      // 读取关系图图片
+      readRelationshipImage: ({ bookName, imageName }) =>
+        ipcRenderer.invoke('read-relationship-image', { bookName, imageName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

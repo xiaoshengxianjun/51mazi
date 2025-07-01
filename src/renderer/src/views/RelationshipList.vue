@@ -16,7 +16,10 @@
         >
           <div class="relationship-item">
             <div class="relationship-image" @click="handleEditRelationship(relationship)">
-              <img :src="relationship.thumbnail" :alt="relationship.name" />
+              <img 
+                :src="relationshipImages[relationship.id] || getDefaultImage()" 
+                :alt="relationship.name" 
+              />
             </div>
             <div class="relationship-info">
               <span class="relationship-name">{{ relationship.name }}</span>
@@ -105,6 +108,7 @@ const creating = ref(false)
 const createFormRef = ref(null)
 const deleteDialogVisible = ref(false)
 const selectedRelationship = ref(null)
+const relationshipImages = ref({}) // 存储关系图图片的响应式数据
 
 const createForm = ref({
   name: '',
@@ -119,49 +123,29 @@ const rules = {
   description: [{ max: 200, message: '描述长度不能超过 200 个字符', trigger: 'blur' }]
 }
 
-// 更新关系图缩略图
-async function updateRelationshipThumbnail(relationshipName) {
-  try {
-    // 读取关系图数据
-    const data = await window.electron.readRelationshipData(bookName, relationshipName)
-    if (data && data.nodes) {
-      // 生成新的缩略图
-      const thumbnailData = createRelationshipThumbnail(data)
-
-      // 更新缩略图
-      await window.electron.updateRelationshipThumbnail({
-        bookName,
-        relationshipName,
-        thumbnailData
-      })
-    }
-  } catch (error) {
-    console.error('更新关系图缩略图失败:', error)
-  }
-}
-
 // 加载关系图列表
 const loadRelationships = async () => {
   try {
     const result = await window.electron.readRelationships(bookName)
     relationships.value = result || []
 
-    // 为每个关系图生成或更新缩略图
+    // 加载每个关系图的图片
     for (const relationship of relationships.value) {
-      if (
-        !relationship.thumbnail ||
-        relationship.thumbnail.includes(
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
-        )
-      ) {
-        // 如果缩略图为空或为空白图片，则更新
-        await updateRelationshipThumbnail(relationship.name)
+      if (relationship.thumbnail) {
+        try {
+          const imageData = await window.electron.readRelationshipImage({
+            bookName,
+            imageName: relationship.thumbnail
+          })
+          relationshipImages.value[relationship.id] = imageData
+        } catch (error) {
+          console.error('读取关系图缩略图失败:', error)
+          relationshipImages.value[relationship.id] = getDefaultImage()
+        }
+      } else {
+        relationshipImages.value[relationship.id] = getDefaultImage()
       }
     }
-
-    // 重新加载以获取更新后的缩略图
-    const updatedResult = await window.electron.readRelationships(bookName)
-    relationships.value = updatedResult || []
   } catch (error) {
     console.error('加载关系图列表失败:', error)
     ElMessage.error('加载关系图列表失败')
@@ -172,102 +156,6 @@ onMounted(() => {
   loadRelationships()
 })
 
-// 生成关系图缩略图
-function createRelationshipThumbnail(relationshipData) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 280
-  canvas.height = 210
-  const ctx = canvas.getContext('2d')
-
-  // 设置背景色
-  ctx.fillStyle = '#f5f7fa'
-  ctx.fillRect(0, 0, 280, 210)
-
-  // 绘制边框
-  ctx.strokeStyle = '#e4e7ed'
-  ctx.lineWidth = 1
-  ctx.strokeRect(0, 0, 280, 210)
-
-  // 如果没有节点数据，显示默认提示
-  if (!relationshipData.nodes || relationshipData.nodes.length === 0) {
-    ctx.fillStyle = '#909399'
-    ctx.font = '14px Arial'
-    ctx.textAlign = 'center'
-    ctx.fillText('关系图', 140, 105)
-    return canvas.toDataURL('image/png')
-  }
-
-  // 计算节点位置
-  const nodes = relationshipData.nodes
-  const edges = relationshipData.edges || []
-  const nodeRadius = 15
-  const centerX = 140
-  const centerY = 105
-  const radius = 60
-
-  // 绘制连线
-  ctx.strokeStyle = '#c0c4cc'
-  ctx.lineWidth = 1
-  edges.forEach((edge) => {
-    const sourceNode = nodes.find((n) => n.id === edge.source)
-    const targetNode = nodes.find((n) => n.id === edge.target)
-    if (sourceNode && targetNode) {
-      const sourceIndex = nodes.indexOf(sourceNode)
-      const targetIndex = nodes.indexOf(targetNode)
-      const sourceAngle = (sourceIndex / nodes.length) * 2 * Math.PI
-      const targetAngle = (targetIndex / nodes.length) * 2 * Math.PI
-
-      const x1 = centerX + Math.cos(sourceAngle) * radius
-      const y1 = centerY + Math.sin(sourceAngle) * radius
-      const x2 = centerX + Math.cos(targetAngle) * radius
-      const y2 = centerY + Math.sin(targetAngle) * radius
-
-      ctx.beginPath()
-      ctx.moveTo(x1, y1)
-      ctx.lineTo(x2, y2)
-      ctx.stroke()
-    }
-  })
-
-  // 绘制节点
-  nodes.forEach((node, index) => {
-    const angle = (index / nodes.length) * 2 * Math.PI
-    const x = centerX + Math.cos(angle) * radius
-    const y = centerY + Math.sin(angle) * radius
-
-    // 节点颜色
-    const colors = {
-      character: '#409eff',
-      location: '#67c23a',
-      event: '#e6a23c',
-      item: '#f56c6c'
-    }
-    const nodeColor = colors[node.type] || '#909399'
-
-    // 绘制节点圆圈
-    ctx.fillStyle = nodeColor
-    ctx.beginPath()
-    ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI)
-    ctx.fill()
-
-    // 绘制节点文字
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '10px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const displayText = node.name.length > 4 ? node.name.substring(0, 4) + '...' : node.name
-    ctx.fillText(displayText, x, y)
-  })
-
-  // 绘制标题
-  ctx.fillStyle = '#303133'
-  ctx.font = '12px Arial'
-  ctx.textAlign = 'center'
-  ctx.fillText(relationshipData.name || '关系图', 140, 20)
-
-  return canvas.toDataURL('image/png')
-}
-
 // 创建关系图
 const handleCreateRelationship = async () => {
   if (!createFormRef.value) return
@@ -276,21 +164,16 @@ const handleCreateRelationship = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    // 创建关系图数据
+    // 创建关系图数据（不包含缩略图）
     const relationshipData = {
       id: Date.now().toString(),
       name: createForm.value.name,
       description: createForm.value.description,
-      thumbnail: '',
       nodes: [],
       edges: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-
-    // 生成空白缩略图
-    const thumbnailData = createRelationshipThumbnail(relationshipData)
-    relationshipData.thumbnail = thumbnailData
 
     await window.electron.createRelationship({
       bookName,
@@ -359,6 +242,11 @@ const confirmDelete = async () => {
     console.error('删除关系图失败:', error)
     ElMessage.error('删除关系图失败')
   }
+}
+
+// 获取默认图片
+const getDefaultImage = () => {
+  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 }
 </script>
 

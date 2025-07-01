@@ -1,7 +1,7 @@
 <template>
-  <LayoutTool title="关系图编辑">
+  <LayoutTool :title="relationshipName || '关系图编辑'">
     <template #headrAction>
-      <el-button @click="handleSave" type="primary" :loading="saving">
+      <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
         <span>保存</span>
       </el-button>
@@ -14,9 +14,6 @@
             <el-button @click="addEdge" :icon="Connection" size="small">添加连线</el-button>
             <el-button @click="clearCanvas" :icon="Delete" size="small">清空画布</el-button>
           </el-button-group>
-          <div class="toolbar-info">
-            <span>关系图: {{ relationshipName }}</span>
-          </div>
         </div>
 
         <div class="design-canvas" ref="canvasRef">
@@ -188,61 +185,39 @@ const relationshipData = reactive({
 
 // 图表配置
 const graphOptions = {
-  layouts: [
-    {
-      type: 'force',
-      options: {
-        strength: -1000,
-        distanceMin: 100,
-        distanceMax: 200
-      }
-    }
-  ],
-  defaultNodeWidth: 80,
-  defaultNodeHeight: 40,
-  defaultNodeColor: '#409eff',
-  defaultNodeFontColor: '#ffffff',
-  defaultNodeFontSize: 12,
-  defaultNodeBorderRadius: 4,
-  defaultNodePadding: 8,
-  defaultNodeBorderWidth: 0,
-  defaultLineColor: '#909399',
-  defaultLineWidth: 2,
-  defaultLineFontSize: 12,
-  defaultLineFontColor: '#666666',
-  defaultLineFontBackgroundColor: '#ffffff',
-  defaultLineFontBackgroundPadding: 4,
-  defaultLineFontBackgroundBorderRadius: 2,
-  defaultLineFontBackgroundBorderWidth: 1,
-  defaultLineFontBackgroundBorderColor: '#e4e7ed',
-  defaultLineFontBackgroundOpacity: 0.8,
-  defaultLineFontBackgroundZIndex: 1
+  defaultExpandHolderPosition: 'right'
 }
 
 // 图表数据
-const graphData = computed(() => {
-  return {
-    nodes: relationshipData.nodes.map((node) => ({
-      id: node.id,
-      text: node.name,
-      type: node.type,
-      description: node.description,
-      characterId: node.characterId,
-      color: getNodeColor(node.type),
-      width: 80,
-      height: 40
-    })),
-    edges: relationshipData.edges.map((edge) => ({
-      id: edge.id,
-      from: edge.source,
-      to: edge.target,
-      text: edge.type,
-      description: edge.description,
-      color: '#909399',
-      width: 2
-    }))
-  }
-})
+const graphData = computed(() => ({
+  nodes: Array.isArray(relationshipData.nodes)
+    ? relationshipData.nodes
+        .filter(node => node && node.id != null && node.name != null)
+        .map(node => ({
+          id: String(node.id),
+          text: String(node.name),
+          type: node.type || '',
+          description: node.description || '',
+          characterId: node.characterId ? String(node.characterId) : '',
+          color: getNodeColor(node.type),
+          width: 80,
+          height: 40
+        }))
+    : [],
+  edges: Array.isArray(relationshipData.edges)
+    ? relationshipData.edges
+        .filter(edge => edge && edge.source != null && edge.target != null)
+        .map(edge => ({
+          id: String(edge.id),
+          from: String(edge.source),
+          to: String(edge.target),
+          text: edge.type ? String(edge.type) : '',
+          description: edge.description || '',
+          color: '#909399',
+          width: 2
+        }))
+    : []
+}))
 
 // 节点表单
 const nodeForm = reactive({
@@ -320,11 +295,22 @@ const loadRelationshipData = async () => {
   try {
     const data = await window.electron.readRelationshipData(bookName, relationshipName)
     if (data) {
-      Object.assign(relationshipData, data)
+      Object.assign(relationshipData, {
+        ...data,
+        nodes: Array.isArray(data.nodes) ? data.nodes : [],
+        edges: Array.isArray(data.edges) ? data.edges : []
+      })
+    } else {
+      // 保证nodes/edges为数组
+      relationshipData.nodes = []
+      relationshipData.edges = []
     }
   } catch (error) {
     console.error('加载关系图数据失败:', error)
     ElMessage.error('加载关系图数据失败')
+    // 保证nodes/edges为数组
+    relationshipData.nodes = []
+    relationshipData.edges = []
   }
 }
 
@@ -336,7 +322,19 @@ const handleSave = async () => {
     // 更新修改时间
     relationshipData.updatedAt = new Date().toISOString()
 
+    // 保存关系图数据
     await window.electron.saveRelationshipData(bookName, relationshipName, relationshipData)
+
+    // 生成并保存缩略图
+    if (relationshipData.nodes.length > 0) {
+      const thumbnailData = createRelationshipThumbnail(relationshipData)
+      await window.electron.updateRelationshipThumbnail({
+        bookName,
+        relationshipName,
+        thumbnailData
+      })
+    }
+
     ElMessage.success('保存成功')
   } catch (error) {
     console.error('保存关系图失败:', error)
@@ -344,6 +342,102 @@ const handleSave = async () => {
   } finally {
     saving.value = false
   }
+}
+
+// 生成关系图缩略图
+function createRelationshipThumbnail(relationshipData) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 280
+  canvas.height = 210
+  const ctx = canvas.getContext('2d')
+
+  // 设置背景色
+  ctx.fillStyle = '#f5f7fa'
+  ctx.fillRect(0, 0, 280, 210)
+
+  // 绘制边框
+  ctx.strokeStyle = '#e4e7ed'
+  ctx.lineWidth = 1
+  ctx.strokeRect(0, 0, 280, 210)
+
+  // 如果没有节点数据，显示默认提示
+  if (!relationshipData.nodes || relationshipData.nodes.length === 0) {
+    ctx.fillStyle = '#909399'
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('关系图', 140, 105)
+    return canvas.toDataURL('image/png')
+  }
+
+  // 计算节点位置
+  const nodes = relationshipData.nodes
+  const edges = relationshipData.edges || []
+  const nodeRadius = 15
+  const centerX = 140
+  const centerY = 105
+  const radius = 60
+
+  // 绘制连线
+  ctx.strokeStyle = '#c0c4cc'
+  ctx.lineWidth = 1
+  edges.forEach((edge) => {
+    const sourceNode = nodes.find((n) => n.id === edge.source)
+    const targetNode = nodes.find((n) => n.id === edge.target)
+    if (sourceNode && targetNode) {
+      const sourceIndex = nodes.indexOf(sourceNode)
+      const targetIndex = nodes.indexOf(targetNode)
+      const sourceAngle = (sourceIndex / nodes.length) * 2 * Math.PI
+      const targetAngle = (targetIndex / nodes.length) * 2 * Math.PI
+
+      const x1 = centerX + Math.cos(sourceAngle) * radius
+      const y1 = centerY + Math.sin(sourceAngle) * radius
+      const x2 = centerX + Math.cos(targetAngle) * radius
+      const y2 = centerY + Math.sin(targetAngle) * radius
+
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+    }
+  })
+
+  // 绘制节点
+  nodes.forEach((node, index) => {
+    const angle = (index / nodes.length) * 2 * Math.PI
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+
+    // 节点颜色
+    const colors = {
+      character: '#409eff',
+      location: '#67c23a',
+      event: '#e6a23c',
+      item: '#f56c6c'
+    }
+    const nodeColor = colors[node.type] || '#909399'
+
+    // 绘制节点圆圈
+    ctx.fillStyle = nodeColor
+    ctx.beginPath()
+    ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI)
+    ctx.fill()
+
+    // 绘制节点文字
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '10px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    const displayText = node.name.length > 4 ? node.name.substring(0, 4) + '...' : node.name
+    ctx.fillText(displayText, x, y)
+  })
+
+  // 绘制标题
+  ctx.fillStyle = '#303133'
+  ctx.font = '12px Arial'
+  ctx.textAlign = 'center'
+  ctx.fillText(relationshipData.name || '关系图', 140, 20)
+
+  return canvas.toDataURL('image/png')
 }
 
 // 添加节点
@@ -539,16 +633,11 @@ onMounted(() => {
 
 .design-toolbar {
   display: flex;
-  justify-content: space-between;
+  // justify-content: space-between;
   align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 16px;
-
-  .toolbar-info {
-    color: var(--text-secondary);
-    font-size: 14px;
-  }
 }
 
 .design-canvas {

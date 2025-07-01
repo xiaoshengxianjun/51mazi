@@ -1010,21 +1010,16 @@ ipcMain.handle('read-relationships', async (event, bookName) => {
           }
         }
 
-        // 读取PNG缩略图
+        // 检查PNG缩略图是否存在
         if (fs.existsSync(pngPath)) {
-          try {
-            const data = fs.readFileSync(pngPath)
-            thumbnail = `data:image/png;base64,${data.toString('base64')}`
-          } catch (error) {
-            console.error(`读取关系图缩略图失败: ${name}`, error)
-          }
+          thumbnail = `${name}.png`
         }
 
         return {
           id: relationshipData.id || name,
           name: relationshipData.name || name,
           description: relationshipData.description || '',
-          thumbnail: thumbnail || relationshipData.thumbnail || '',
+          thumbnail: thumbnail,
           nodes: relationshipData.nodes || [],
           edges: relationshipData.edges || [],
           createdAt: relationshipData.createdAt || new Date().toISOString(),
@@ -1079,21 +1074,13 @@ ipcMain.handle(
 
       // 检查同名文件
       const jsonPath = join(relationshipsDir, `${relationshipName}.json`)
-      const pngPath = join(relationshipsDir, `${relationshipName}.png`)
 
       if (fs.existsSync(jsonPath)) {
         throw new Error('已存在同名关系图')
       }
 
-      // 保存JSON数据
+      // 只保存JSON数据，不创建PNG文件
       fs.writeFileSync(jsonPath, JSON.stringify(relationshipData, null, 2), 'utf-8')
-
-      // 保存PNG缩略图
-      if (relationshipData.thumbnail) {
-        const base64Data = relationshipData.thumbnail.replace(/^data:image\/\w+;base64,/, '')
-        const buffer = Buffer.from(base64Data, 'base64')
-        fs.writeFileSync(pngPath, buffer)
-      }
 
       return { success: true }
     } catch (error) {
@@ -1189,6 +1176,29 @@ ipcMain.handle('delete-relationship', async (event, { bookName, relationshipName
     return { success: true }
   } catch (error) {
     console.error('删除关系图失败:', error)
+    throw error
+  }
+})
+
+// 读取关系图图片
+ipcMain.handle('read-relationship-image', async (event, { bookName, imageName }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const bookPath = join(booksDir, bookName)
+    const relationshipsDir = join(bookPath, 'relationships')
+    const imagePath = join(relationshipsDir, imageName)
+
+    if (!fs.existsSync(imagePath)) {
+      throw new Error('图片文件不存在')
+    }
+
+    const data = fs.readFileSync(imagePath)
+    return `data:image/png;base64,${data.toString('base64')}`
+  } catch (error) {
+    console.error('读取关系图图片失败:', error)
     throw error
   }
 })
