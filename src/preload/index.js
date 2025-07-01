@@ -119,7 +119,29 @@ if (process.contextIsolated) {
       readDictionary: (bookName) => ipcRenderer.invoke('read-dictionary', { bookName }),
       // 保存词条字典数据
       writeDictionary: (bookName, data) =>
-        ipcRenderer.invoke('write-dictionary', { bookName, data })
+        ipcRenderer.invoke('write-dictionary', { bookName, data }),
+
+      // --------- 关系图相关 ---------
+      // 读取关系图列表
+      readRelationships: (bookName) => ipcRenderer.invoke('read-relationships', bookName),
+      // 读取关系图数据
+      readRelationshipData: (bookName, relationshipName) =>
+        ipcRenderer.invoke('read-relationship-data', { bookName, relationshipName }),
+      // 创建关系图
+      createRelationship: (data) => ipcRenderer.invoke('create-relationship', data),
+      // 保存关系图数据
+      saveRelationshipData: (bookName, relationshipName, relationshipData) =>
+        ipcRenderer.invoke('save-relationship-data', {
+          bookName,
+          relationshipName,
+          relationshipData
+        }),
+      // 更新关系图缩略图
+      updateRelationshipThumbnail: (data) =>
+        ipcRenderer.invoke('update-relationship-thumbnail', data),
+      // 删除关系图
+      deleteRelationship: ({ bookName, relationshipName }) =>
+        ipcRenderer.invoke('delete-relationship', { bookName, relationshipName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

@@ -127,7 +127,7 @@ async function updateRelationshipThumbnail(relationshipName) {
     if (data && data.nodes) {
       // 生成新的缩略图
       const thumbnailData = createRelationshipThumbnail(data)
-      
+
       // 更新缩略图
       await window.electron.updateRelationshipThumbnail({
         bookName,
@@ -145,15 +145,20 @@ const loadRelationships = async () => {
   try {
     const result = await window.electron.readRelationships(bookName)
     relationships.value = result || []
-    
+
     // 为每个关系图生成或更新缩略图
     for (const relationship of relationships.value) {
-      if (!relationship.thumbnail || relationship.thumbnail.includes('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')) {
+      if (
+        !relationship.thumbnail ||
+        relationship.thumbnail.includes(
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+        )
+      ) {
         // 如果缩略图为空或为空白图片，则更新
         await updateRelationshipThumbnail(relationship.name)
       }
     }
-    
+
     // 重新加载以获取更新后的缩略图
     const updatedResult = await window.electron.readRelationships(bookName)
     relationships.value = updatedResult || []
@@ -203,20 +208,20 @@ function createRelationshipThumbnail(relationshipData) {
   // 绘制连线
   ctx.strokeStyle = '#c0c4cc'
   ctx.lineWidth = 1
-  edges.forEach(edge => {
-    const sourceNode = nodes.find(n => n.id === edge.source)
-    const targetNode = nodes.find(n => n.id === edge.target)
+  edges.forEach((edge) => {
+    const sourceNode = nodes.find((n) => n.id === edge.source)
+    const targetNode = nodes.find((n) => n.id === edge.target)
     if (sourceNode && targetNode) {
       const sourceIndex = nodes.indexOf(sourceNode)
       const targetIndex = nodes.indexOf(targetNode)
       const sourceAngle = (sourceIndex / nodes.length) * 2 * Math.PI
       const targetAngle = (targetIndex / nodes.length) * 2 * Math.PI
-      
+
       const x1 = centerX + Math.cos(sourceAngle) * radius
       const y1 = centerY + Math.sin(sourceAngle) * radius
       const x2 = centerX + Math.cos(targetAngle) * radius
       const y2 = centerY + Math.sin(targetAngle) * radius
-      
+
       ctx.beginPath()
       ctx.moveTo(x1, y1)
       ctx.lineTo(x2, y2)
@@ -271,20 +276,21 @@ const handleCreateRelationship = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    // 生成空白缩略图
-    const thumbnailData = createRelationshipThumbnail(relationshipData)
-
     // 创建关系图数据
     const relationshipData = {
       id: Date.now().toString(),
       name: createForm.value.name,
       description: createForm.value.description,
-      thumbnail: thumbnailData,
+      thumbnail: '',
       nodes: [],
       edges: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
+
+    // 生成空白缩略图
+    const thumbnailData = createRelationshipThumbnail(relationshipData)
+    relationshipData.thumbnail = thumbnailData
 
     await window.electron.createRelationship({
       bookName,
