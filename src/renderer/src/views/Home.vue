@@ -72,19 +72,19 @@
         @change="handleThemeChange"
       >
         <div class="theme-option">
-          <el-radio label="light">
+          <el-radio value="light">
             <div class="theme-preview light"></div>
             亮色
           </el-radio>
         </div>
         <div class="theme-option">
-          <el-radio label="dark">
+          <el-radio value="dark">
             <div class="theme-preview dark"></div>
             暗色
           </el-radio>
         </div>
         <div class="theme-option">
-          <el-radio label="yellow">
+          <el-radio value="yellow">
             <div class="theme-preview yellow"></div>
             黄色
           </el-radio>

@@ -61,8 +61,8 @@
       </el-form-item>
       <el-form-item label="性别" prop="gender">
         <el-radio-group v-model="characterForm.gender">
-          <el-radio label="男">男</el-radio>
-          <el-radio label="女">女</el-radio>
+          <el-radio value="男">男</el-radio>
+          <el-radio value="女">女</el-radio>
         </el-radio-group>
       </el-form-item>
       <el-form-item label="身高" prop="height">

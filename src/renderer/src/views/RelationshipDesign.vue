@@ -35,8 +35,8 @@
     <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="80px">
       <el-form-item label="节点类型" prop="nodeType">
         <el-radio-group v-model="nodeForm.nodeType">
-          <el-radio label="character">人物</el-radio>
-          <el-radio label="custom">自定义</el-radio>
+          <el-radio value="character">人物</el-radio>
+          <el-radio value="custom">自定义</el-radio>
         </el-radio-group>
       </el-form-item>
 
@@ -483,7 +483,7 @@ const confirmAddNode = async () => {
       if (character) {
         newNode = {
           ...newNode,
-          name: character.name,
+          text: character.name,
           type: 'character',
           description: character.introduction,
           characterId: character.id
@@ -493,13 +493,14 @@ const confirmAddNode = async () => {
       // 自定义节点
       newNode = {
         ...newNode,
-        name: nodeForm.name,
+        text: nodeForm.name,
         type: nodeForm.type,
         description: nodeForm.description
       }
     }
 
     relationshipData.nodes.push(newNode)
+    graphRef.value.setJsonData(relationshipData)
     nodeDialogVisible.value = false
     ElMessage.success('添加节点成功')
   } catch (error) {
@@ -555,6 +556,7 @@ const confirmAddEdge = async () => {
     }
 
     relationshipData.lines.push(newEdge)
+    graphRef.value.setJsonData(relationshipData)
     edgeDialogVisible.value = false
     ElMessage.success('添加连线成功')
   } catch (error) {
@@ -573,6 +575,7 @@ const clearCanvas = async () => {
 
     relationshipData.nodes = []
     relationshipData.lines = []
+    graphRef.value.setJsonData(relationshipData)
     ElMessage.success('画布已清空')
   } catch {
     // 用户取消，无需处理

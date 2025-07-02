@@ -30,14 +30,14 @@
             </el-form-item>
             <el-form-item label="性别">
               <el-radio-group v-model="gender">
-                <el-radio label="男">男</el-radio>
-                <el-radio label="女">女</el-radio>
+                <el-radio value="男">男</el-radio>
+                <el-radio value="女">女</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item v-if="showChineseOptions" label="字数">
               <el-radio-group v-model="nameLength">
-                <el-radio :label="2">二字名</el-radio>
-                <el-radio :label="3">三字名</el-radio>
+                <el-radio :value="2">二字名</el-radio>
+                <el-radio :value="3">三字名</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item v-if="showChineseOptions && nameLength === 3" label="中间字">
