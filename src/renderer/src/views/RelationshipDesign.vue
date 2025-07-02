@@ -178,22 +178,33 @@ const relationshipData = reactive({
   name: relationshipName,
   description: '',
   nodes: [],
-  edges: [],
+  lines: [],
   createdAt: '',
   updatedAt: ''
 })
 
 // 图表配置
 const graphOptions = {
-  defaultExpandHolderPosition: 'right'
+  // defaultExpandHolderPosition: 'right',
+  defaultNodeBorderWidth: 0,
+  defaultNodeColor: 'rgba(238, 178, 94, 1)',
+  allowSwitchLineShape: true,
+  allowSwitchJunctionPoint: true,
+  defaultLineShape: 1,
+  layouts: [
+    {
+      layoutName: 'center'
+    }
+  ],
+  defaultJunctionPoint: 'border'
 }
 
 // 图表数据
 const graphData = computed(() => ({
   nodes: Array.isArray(relationshipData.nodes)
     ? relationshipData.nodes
-        .filter(node => node && node.id != null && node.name != null)
-        .map(node => ({
+        .filter((node) => node && node.id != null && node.name != null)
+        .map((node) => ({
           id: String(node.id),
           text: String(node.name),
           type: node.type || '',
@@ -204,10 +215,10 @@ const graphData = computed(() => ({
           height: 40
         }))
     : [],
-  edges: Array.isArray(relationshipData.edges)
-    ? relationshipData.edges
-        .filter(edge => edge && edge.source != null && edge.target != null)
-        .map(edge => ({
+  lines: Array.isArray(relationshipData.lines)
+    ? relationshipData.lines
+        .filter((edge) => edge && edge.source != null && edge.target != null)
+        .map((edge) => ({
           id: String(edge.id),
           from: String(edge.source),
           to: String(edge.target),
@@ -298,19 +309,19 @@ const loadRelationshipData = async () => {
       Object.assign(relationshipData, {
         ...data,
         nodes: Array.isArray(data.nodes) ? data.nodes : [],
-        edges: Array.isArray(data.edges) ? data.edges : []
+        lines: Array.isArray(data.lines) ? data.lines : []
       })
     } else {
       // 保证nodes/edges为数组
       relationshipData.nodes = []
-      relationshipData.edges = []
+      relationshipData.lines = []
     }
   } catch (error) {
     console.error('加载关系图数据失败:', error)
     ElMessage.error('加载关系图数据失败')
     // 保证nodes/edges为数组
     relationshipData.nodes = []
-    relationshipData.edges = []
+    relationshipData.lines = []
   }
 }
 
@@ -371,7 +382,7 @@ function createRelationshipThumbnail(relationshipData) {
 
   // 计算节点位置
   const nodes = relationshipData.nodes
-  const edges = relationshipData.edges || []
+  const lines = relationshipData.lines || []
   const nodeRadius = 15
   const centerX = 140
   const centerY = 105
@@ -380,7 +391,7 @@ function createRelationshipThumbnail(relationshipData) {
   // 绘制连线
   ctx.strokeStyle = '#c0c4cc'
   ctx.lineWidth = 1
-  edges.forEach((edge) => {
+  lines.forEach((edge) => {
     const sourceNode = nodes.find((n) => n.id === edge.source)
     const targetNode = nodes.find((n) => n.id === edge.target)
     if (sourceNode && targetNode) {
@@ -526,7 +537,7 @@ const confirmAddEdge = async () => {
     }
 
     // 检查是否已存在相同的连线
-    const existingEdge = relationshipData.edges.find(
+    const existingEdge = relationshipData.lines.find(
       (edge) => edge.source === edgeForm.source && edge.target === edgeForm.target
     )
 
@@ -543,7 +554,7 @@ const confirmAddEdge = async () => {
       description: edgeForm.description
     }
 
-    relationshipData.edges.push(newEdge)
+    relationshipData.lines.push(newEdge)
     edgeDialogVisible.value = false
     ElMessage.success('添加连线成功')
   } catch (error) {
@@ -561,7 +572,7 @@ const clearCanvas = async () => {
     })
 
     relationshipData.nodes = []
-    relationshipData.edges = []
+    relationshipData.lines = []
     ElMessage.success('画布已清空')
   } catch {
     // 用户取消，无需处理
@@ -606,7 +617,7 @@ const deleteSelectedNode = async () => {
     }
 
     // 删除相关连线
-    relationshipData.edges = relationshipData.edges.filter(
+    relationshipData.lines = relationshipData.lines.filter(
       (edge) => edge.source !== selectedNode.value.id && edge.target !== selectedNode.value.id
     )
 

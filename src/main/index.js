@@ -1004,7 +1004,7 @@ ipcMain.handle('read-relationships', async (event, bookName) => {
             name: name,
             description: '',
             nodes: [],
-            edges: [],
+            lines: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }
@@ -1021,7 +1021,7 @@ ipcMain.handle('read-relationships', async (event, bookName) => {
           description: relationshipData.description || '',
           thumbnail: thumbnail,
           nodes: relationshipData.nodes || [],
-          edges: relationshipData.edges || [],
+          lines: relationshipData.lines || [],
           createdAt: relationshipData.createdAt || new Date().toISOString(),
           updatedAt: relationshipData.updatedAt || new Date().toISOString()
         }

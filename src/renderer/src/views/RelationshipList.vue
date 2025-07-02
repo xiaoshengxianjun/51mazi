@@ -170,7 +170,7 @@ const handleCreateRelationship = async () => {
       name: createForm.value.name,
       description: createForm.value.description,
       nodes: [],
-      edges: [],
+      lines: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
