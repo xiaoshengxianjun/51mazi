@@ -10,9 +10,9 @@
       <div class="relationship-design">
         <div class="design-toolbar">
           <el-button-group>
-            <el-button @click="addNode" :icon="Plus" size="small">添加节点</el-button>
-            <el-button @click="addEdge" :icon="Connection" size="small">添加连线</el-button>
-            <el-button @click="clearCanvas" :icon="Delete" size="small">清空画布</el-button>
+            <el-button :icon="Plus" size="medium" @click="addNode">添加节点</el-button>
+            <el-button :icon="Connection" size="medium" @click="addEdge">添加连线</el-button>
+            <el-button :icon="Delete" size="medium" @click="clearCanvas">清空画布</el-button>
           </el-button-group>
         </div>
 
@@ -561,9 +561,7 @@ onMounted(() => {
   display: flex;
   // justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .design-canvas {
