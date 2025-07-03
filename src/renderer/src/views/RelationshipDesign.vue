@@ -16,7 +16,7 @@
           </el-button-group>
         </div>
 
-        <div class="design-canvas" ref="canvasRef">
+        <div ref="canvasRef" class="design-canvas">
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
@@ -62,13 +62,11 @@
         <el-form-item label="节点名称" prop="name">
           <el-input v-model="nodeForm.name" placeholder="请输入节点名称" />
         </el-form-item>
-        <el-form-item label="节点类型" prop="type">
-          <el-select v-model="nodeForm.type" placeholder="请选择节点类型" style="width: 100%">
-            <el-option label="人物" value="character" />
-            <el-option label="地点" value="location" />
-            <el-option label="事件" value="event" />
-            <el-option label="物品" value="item" />
-          </el-select>
+        <el-form-item label="性别" prop="gender">
+          <el-radio-group v-model="nodeForm.gender">
+            <el-radio value="male">男</el-radio>
+            <el-radio value="female">女</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input
@@ -88,37 +86,29 @@
 
   <!-- 添加连线弹框 -->
   <el-dialog v-model="edgeDialogVisible" title="添加连线" width="500px">
-    <el-form ref="edgeFormRef" :model="edgeForm" :rules="edgeRules" label-width="80px">
-      <el-form-item label="起始节点" prop="source">
-        <el-select v-model="edgeForm.source" placeholder="请选择起始节点" style="width: 100%">
+    <el-form ref="edgeFormRef" :model="lineForm" :rules="edgeRules" label-width="80px">
+      <el-form-item label="起始节点" prop="from">
+        <el-select v-model="lineForm.from" placeholder="请选择起始节点" style="width: 100%">
           <el-option
-            v-for="node in graphData.nodes"
+            v-for="node in relationshipData.nodes"
             :key="node.id"
             :label="node.text"
             :value="node.id"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="目标节点" prop="target">
-        <el-select v-model="edgeForm.target" placeholder="请选择目标节点" style="width: 100%">
+      <el-form-item label="目标节点" prop="to">
+        <el-select v-model="lineForm.to" placeholder="请选择目标节点" style="width: 100%">
           <el-option
-            v-for="node in graphData.nodes"
+            v-for="node in relationshipData.nodes"
             :key="node.id"
             :label="node.text"
             :value="node.id"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="关系类型" prop="type">
-        <el-input v-model="edgeForm.type" placeholder="请输入关系类型" />
-      </el-form-item>
-      <el-form-item label="关系描述" prop="description">
-        <el-input
-          v-model="edgeForm.description"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入关系描述"
-        />
+      <el-form-item label="关系描述" prop="text">
+        <el-input v-model="lineForm.text" placeholder="请输入关系描述" />
       </el-form-item>
     </el-form>
     <template #footer>
@@ -136,6 +126,9 @@
       </p>
       <div class="node-info">
         <p><strong>类型:</strong> {{ getNodeTypeName(selectedNode.type) }}</p>
+        <p v-if="selectedNode.gender">
+          <strong>性别:</strong> {{ getGenderName(selectedNode.gender) }}
+        </p>
         <p v-if="selectedNode.characterId">
           <strong>人物ID:</strong> {{ selectedNode.characterId }}
         </p>
@@ -185,9 +178,9 @@ const relationshipData = reactive({
 
 // 图表配置
 const graphOptions = {
-  // defaultExpandHolderPosition: 'right',
+  // allowShowDownloadButton: false,
   defaultNodeBorderWidth: 0,
-  defaultNodeColor: 'rgba(238, 178, 94, 1)',
+  // defaultNodeColor: 'rgba(238, 178, 94, 1)',
   allowSwitchLineShape: true,
   allowSwitchJunctionPoint: true,
   defaultLineShape: 1,
@@ -210,18 +203,18 @@ const graphData = computed(() => ({
           type: node.type || '',
           description: node.description || '',
           characterId: node.characterId ? String(node.characterId) : '',
-          color: getNodeColor(node.type),
+          color: getNodeColor(node.type, node.gender),
           width: 80,
           height: 40
         }))
     : [],
   lines: Array.isArray(relationshipData.lines)
     ? relationshipData.lines
-        .filter((edge) => edge && edge.source != null && edge.target != null)
+        .filter((edge) => edge && edge.from != null && edge.to != null)
         .map((edge) => ({
           id: String(edge.id),
-          from: String(edge.source),
-          to: String(edge.target),
+          from: String(edge.from),
+          to: String(edge.to),
           text: edge.type ? String(edge.type) : '',
           description: edge.description || '',
           color: '#909399',
@@ -235,16 +228,15 @@ const nodeForm = reactive({
   nodeType: 'character',
   characterId: '',
   name: '',
-  type: 'character',
+  gender: 'male',
   description: ''
 })
 
 // 连线表单
-const edgeForm = reactive({
-  source: '',
-  target: '',
-  type: '',
-  description: ''
+const lineForm = reactive({
+  from: '',
+  to: '',
+  text: ''
 })
 
 // 表单验证规则
@@ -254,13 +246,13 @@ const nodeRules = {
     { required: true, message: '请输入节点名称', trigger: 'blur' },
     { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
   ],
-  type: [{ required: true, message: '请选择节点类型', trigger: 'change' }]
+  gender: [{ required: true, message: '请选择性别', trigger: 'change' }]
 }
 
 const edgeRules = {
-  source: [{ required: true, message: '请选择起始节点', trigger: 'change' }],
-  target: [{ required: true, message: '请选择目标节点', trigger: 'change' }],
-  type: [{ required: true, message: '请输入关系类型', trigger: 'blur' }]
+  from: [{ required: true, message: '请选择起始节点', trigger: 'change' }],
+  to: [{ required: true, message: '请选择目标节点', trigger: 'change' }],
+  text: [{ required: true, message: '请输入关系描述', trigger: 'blur' }]
 }
 
 // 生成唯一ID
@@ -269,14 +261,12 @@ function genId() {
 }
 
 // 获取节点颜色
-function getNodeColor(type) {
-  const colors = {
-    character: '#409eff',
-    location: '#67c23a',
-    event: '#e6a23c',
-    item: '#f56c6c'
+function getNodeColor(gender) {
+  if (gender === 'female' || gender === '女') {
+    return '#ff5819' // 女性为橙色
+  } else {
+    return '#409eff' // 男性为蓝色
   }
-  return colors[type] || '#909399'
 }
 
 // 获取节点类型名称
@@ -288,6 +278,15 @@ function getNodeTypeName(type) {
     item: '物品'
   }
   return names[type] || '未知'
+}
+
+// 获取性别名称
+function getGenderName(gender) {
+  const names = {
+    male: '男',
+    female: '女'
+  }
+  return names[gender] || '男'
 }
 
 // 加载人物数据
@@ -327,6 +326,8 @@ const loadRelationshipData = async () => {
 
 // 保存关系图
 const handleSave = async () => {
+  console.log(graphRef.value)
+
   try {
     saving.value = true
 
@@ -334,15 +335,20 @@ const handleSave = async () => {
     relationshipData.updatedAt = new Date().toISOString()
 
     // 保存关系图数据
-    await window.electron.saveRelationshipData(bookName, relationshipName, relationshipData)
+    await window.electron.saveRelationshipData(
+      bookName,
+      relationshipName,
+      JSON.parse(JSON.stringify(relationshipData))
+    )
 
     // 生成并保存缩略图
     if (relationshipData.nodes.length > 0) {
-      const thumbnailData = createRelationshipThumbnail(relationshipData)
+      // 获取图表实例, 获取图片base64
+      const imageBase64 = await graphRef.value.getInstance().getImageBase64()
       await window.electron.updateRelationshipThumbnail({
         bookName,
         relationshipName,
-        thumbnailData
+        thumbnailData: imageBase64
       })
     }
 
@@ -355,102 +361,6 @@ const handleSave = async () => {
   }
 }
 
-// 生成关系图缩略图
-function createRelationshipThumbnail(relationshipData) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 280
-  canvas.height = 210
-  const ctx = canvas.getContext('2d')
-
-  // 设置背景色
-  ctx.fillStyle = '#f5f7fa'
-  ctx.fillRect(0, 0, 280, 210)
-
-  // 绘制边框
-  ctx.strokeStyle = '#e4e7ed'
-  ctx.lineWidth = 1
-  ctx.strokeRect(0, 0, 280, 210)
-
-  // 如果没有节点数据，显示默认提示
-  if (!relationshipData.nodes || relationshipData.nodes.length === 0) {
-    ctx.fillStyle = '#909399'
-    ctx.font = '14px Arial'
-    ctx.textAlign = 'center'
-    ctx.fillText('关系图', 140, 105)
-    return canvas.toDataURL('image/png')
-  }
-
-  // 计算节点位置
-  const nodes = relationshipData.nodes
-  const lines = relationshipData.lines || []
-  const nodeRadius = 15
-  const centerX = 140
-  const centerY = 105
-  const radius = 60
-
-  // 绘制连线
-  ctx.strokeStyle = '#c0c4cc'
-  ctx.lineWidth = 1
-  lines.forEach((edge) => {
-    const sourceNode = nodes.find((n) => n.id === edge.source)
-    const targetNode = nodes.find((n) => n.id === edge.target)
-    if (sourceNode && targetNode) {
-      const sourceIndex = nodes.indexOf(sourceNode)
-      const targetIndex = nodes.indexOf(targetNode)
-      const sourceAngle = (sourceIndex / nodes.length) * 2 * Math.PI
-      const targetAngle = (targetIndex / nodes.length) * 2 * Math.PI
-
-      const x1 = centerX + Math.cos(sourceAngle) * radius
-      const y1 = centerY + Math.sin(sourceAngle) * radius
-      const x2 = centerX + Math.cos(targetAngle) * radius
-      const y2 = centerY + Math.sin(targetAngle) * radius
-
-      ctx.beginPath()
-      ctx.moveTo(x1, y1)
-      ctx.lineTo(x2, y2)
-      ctx.stroke()
-    }
-  })
-
-  // 绘制节点
-  nodes.forEach((node, index) => {
-    const angle = (index / nodes.length) * 2 * Math.PI
-    const x = centerX + Math.cos(angle) * radius
-    const y = centerY + Math.sin(angle) * radius
-
-    // 节点颜色
-    const colors = {
-      character: '#409eff',
-      location: '#67c23a',
-      event: '#e6a23c',
-      item: '#f56c6c'
-    }
-    const nodeColor = colors[node.type] || '#909399'
-
-    // 绘制节点圆圈
-    ctx.fillStyle = nodeColor
-    ctx.beginPath()
-    ctx.arc(x, y, nodeRadius, 0, 2 * Math.PI)
-    ctx.fill()
-
-    // 绘制节点文字
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '10px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const displayText = node.name.length > 4 ? node.name.substring(0, 4) + '...' : node.name
-    ctx.fillText(displayText, x, y)
-  })
-
-  // 绘制标题
-  ctx.fillStyle = '#303133'
-  ctx.font = '12px Arial'
-  ctx.textAlign = 'center'
-  ctx.fillText(relationshipData.name || '关系图', 140, 20)
-
-  return canvas.toDataURL('image/png')
-}
-
 // 添加节点
 const addNode = () => {
   nodeDialogVisible.value = true
@@ -459,7 +369,7 @@ const addNode = () => {
     nodeType: 'character',
     characterId: '',
     name: '',
-    type: 'character',
+    gender: 'male',
     description: ''
   })
 }
@@ -486,7 +396,8 @@ const confirmAddNode = async () => {
           text: character.name,
           type: 'character',
           description: character.introduction,
-          characterId: character.id
+          characterId: character.id,
+          color: getNodeColor(character.gender)
         }
       }
     } else {
@@ -494,8 +405,10 @@ const confirmAddNode = async () => {
       newNode = {
         ...newNode,
         text: nodeForm.name,
-        type: nodeForm.type,
-        description: nodeForm.description
+        type: 'character',
+        gender: nodeForm.gender,
+        description: nodeForm.description,
+        color: getNodeColor(nodeForm.gender)
       }
     }
 
@@ -517,9 +430,9 @@ const addEdge = () => {
 
   edgeDialogVisible.value = true
   // 重置表单
-  Object.assign(edgeForm, {
-    source: '',
-    target: '',
+  Object.assign(lineForm, {
+    from: '',
+    to: '',
     type: '',
     description: ''
   })
@@ -532,14 +445,14 @@ const confirmAddEdge = async () => {
   try {
     await edgeFormRef.value.validate()
 
-    if (edgeForm.source === edgeForm.target) {
+    if (lineForm.from === lineForm.to) {
       ElMessage.warning('起始节点和目标节点不能相同')
       return
     }
 
     // 检查是否已存在相同的连线
     const existingEdge = relationshipData.lines.find(
-      (edge) => edge.source === edgeForm.source && edge.target === edgeForm.target
+      (edge) => edge.from === lineForm.from && edge.to === lineForm.to
     )
 
     if (existingEdge) {
@@ -549,10 +462,9 @@ const confirmAddEdge = async () => {
 
     const newEdge = {
       id: genId(),
-      source: edgeForm.source,
-      target: edgeForm.target,
-      type: edgeForm.type,
-      description: edgeForm.description
+      from: lineForm.from,
+      to: lineForm.to,
+      text: lineForm.text
     }
 
     relationshipData.lines.push(newEdge)
@@ -621,7 +533,7 @@ const deleteSelectedNode = async () => {
 
     // 删除相关连线
     relationshipData.lines = relationshipData.lines.filter(
-      (edge) => edge.source !== selectedNode.value.id && edge.target !== selectedNode.value.id
+      (edge) => edge.from !== selectedNode.value.id && edge.to !== selectedNode.value.id
     )
 
     nodeDetailVisible.value = false
