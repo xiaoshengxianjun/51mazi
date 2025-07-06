@@ -20,7 +20,7 @@
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
-            :data="graphData"
+            :data="relationshipData"
             @node-click="onNodeClick"
             @edge-click="onEdgeClick"
             @canvas-click="onCanvasClick"
@@ -143,7 +143,7 @@
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Check, Plus, Connection, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -191,37 +191,6 @@ const graphOptions = {
   ],
   defaultJunctionPoint: 'border'
 }
-
-// 图表数据
-const graphData = computed(() => ({
-  nodes: Array.isArray(relationshipData.nodes)
-    ? relationshipData.nodes
-        .filter((node) => node && node.id != null && node.name != null)
-        .map((node) => ({
-          id: String(node.id),
-          text: String(node.name),
-          type: node.type || '',
-          description: node.description || '',
-          characterId: node.characterId ? String(node.characterId) : '',
-          color: getNodeColor(node.type, node.gender),
-          width: 80,
-          height: 40
-        }))
-    : [],
-  lines: Array.isArray(relationshipData.lines)
-    ? relationshipData.lines
-        .filter((edge) => edge && edge.from != null && edge.to != null)
-        .map((edge) => ({
-          id: String(edge.id),
-          from: String(edge.from),
-          to: String(edge.to),
-          text: edge.type ? String(edge.type) : '',
-          description: edge.description || '',
-          color: '#909399',
-          width: 2
-        }))
-    : []
-}))
 
 // 节点表单
 const nodeForm = reactive({
@@ -310,6 +279,7 @@ const loadRelationshipData = async () => {
         nodes: Array.isArray(data.nodes) ? data.nodes : [],
         lines: Array.isArray(data.lines) ? data.lines : []
       })
+      graphRef.value.setJsonData(relationshipData)
     } else {
       // 保证nodes/edges为数组
       relationshipData.nodes = []
