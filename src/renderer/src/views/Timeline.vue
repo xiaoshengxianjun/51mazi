@@ -99,6 +99,7 @@ import { ref, onMounted, watch, reactive, toRaw } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Delete, Plus } from '@element-plus/icons-vue'
+import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -114,10 +115,6 @@ const currentNodeIdx = ref(-1)
 const hoverTitleIdx = ref(-1)
 const editTitleIdx = ref(-1)
 const editTitleValue = ref('')
-
-function genId() {
-  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
-}
 
 async function loadTimelines() {
   try {

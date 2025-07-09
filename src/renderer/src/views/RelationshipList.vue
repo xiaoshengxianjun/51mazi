@@ -16,9 +16,9 @@
         >
           <div class="relationship-item">
             <div class="relationship-image" @click="handleEditRelationship(relationship)">
-              <img 
-                :src="relationshipImages[relationship.id] || getDefaultImage()" 
-                :alt="relationship.name" 
+              <img
+                :src="relationshipImages[relationship.id] || getDefaultImage()"
+                :alt="relationship.name"
               />
             </div>
             <div class="relationship-info">
@@ -97,6 +97,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { genId } from '@renderer/utils/utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -164,12 +165,20 @@ const handleCreateRelationship = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    // 创建关系图数据（不包含缩略图）
+    // 创建关系图数据（包含默认根节点）
+    const rootNode = {
+      id: genId(), // 唯一ID
+      text: '根节点', // 根节点文本
+      type: 'root', // 节点类型
+      color: '#666', // 根节点颜色
+      description: '关系图的起始根节点'
+      // 可扩展更多属性
+    }
     const relationshipData = {
       id: Date.now().toString(),
       name: createForm.value.name,
       description: createForm.value.description,
-      nodes: [],
+      nodes: [rootNode], // 默认包含根节点
       lines: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

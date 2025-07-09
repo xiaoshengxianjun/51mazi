@@ -85,6 +85,7 @@ import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -111,11 +112,6 @@ const formRules = {
     { required: true, message: '请输入词条介绍', trigger: 'blur' },
     { min: 1, max: 1000, message: '介绍长度在 1 到 1000 个字符', trigger: 'blur' }
   ]
-}
-
-// 生成唯一ID
-function genId() {
-  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
 }
 
 // 加载词条数据

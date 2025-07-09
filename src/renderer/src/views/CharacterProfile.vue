@@ -117,6 +117,7 @@ import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
+import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -169,11 +170,6 @@ const tagOptions = computed(() => {
 
   return processTreeData(cloneDictionary)
 })
-
-// 生成唯一ID
-function genId() {
-  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
-}
 
 // 加载人物数据
 async function loadCharacters() {

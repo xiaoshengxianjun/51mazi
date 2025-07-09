@@ -8,135 +8,83 @@
     </template>
     <template #default>
       <div class="relationship-design">
-        <div class="design-toolbar">
-          <el-button-group>
-            <el-button :icon="Plus" size="medium" @click="addNode">添加节点</el-button>
-            <el-button :icon="Connection" size="medium" @click="addEdge">添加连线</el-button>
-            <el-button :icon="Delete" size="medium" @click="clearCanvas">清空画布</el-button>
-          </el-button-group>
-        </div>
-
+        <!-- 移除顶部工具栏 -->
         <div ref="canvasRef" class="design-canvas">
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
-            :data="relationshipData"
             @node-click="onNodeClick"
             @edge-click="onEdgeClick"
             @canvas-click="onCanvasClick"
           />
+          <!-- 环绕菜单挂载点 -->
+          <div v-if="showRadialMenu" :style="radialMenuStyle" class="radial-menu-wrapper">
+            <RadialMenu
+              :is-root="radialMenuNodeIsRoot"
+              @info="handleNodeInfo"
+              @add="handleNodeAdd"
+              @link="handleNodeLink"
+              @delete="handleNodeDelete"
+            />
+          </div>
         </div>
       </div>
     </template>
   </LayoutTool>
-
-  <!-- 添加节点弹框 -->
-  <el-dialog v-model="nodeDialogVisible" title="添加节点" width="500px">
-    <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="80px">
-      <el-form-item label="节点类型" prop="nodeType">
-        <el-radio-group v-model="nodeForm.nodeType">
-          <el-radio value="character">人物</el-radio>
-          <el-radio value="custom">自定义</el-radio>
-        </el-radio-group>
-      </el-form-item>
-
-      <!-- 人物选择 -->
-      <el-form-item v-if="nodeForm.nodeType === 'character'" label="选择人物" prop="characterId">
-        <el-select v-model="nodeForm.characterId" placeholder="请选择人物" style="width: 100%">
+  <el-dialog v-model="infoDialogVisible" title="编辑节点信息" width="400px">
+    <el-form label-width="80px">
+      <el-form-item label="节点文本">
+        <el-select
+          v-model="infoForm.characterId"
+          placeholder="选择人物"
+          style="width: 100%"
+          @change="onCharacterChange"
+        >
           <el-option
             v-for="character in characters"
             :key="character.id"
             :label="character.name"
             :value="character.id"
-          >
-            <span>{{ character.name }}</span>
-            <span style="float: right; color: #8492a6; font-size: 13px">
-              {{ character.age }}岁 {{ character.gender }}
-            </span>
-          </el-option>
+          />
         </el-select>
+        <el-input v-model="infoForm.text" placeholder="自定义输入" style="margin-top: 8px" />
       </el-form-item>
-
-      <!-- 自定义节点 -->
-      <template v-if="nodeForm.nodeType === 'custom'">
-        <el-form-item label="节点名称" prop="name">
-          <el-input v-model="nodeForm.name" placeholder="请输入节点名称" />
-        </el-form-item>
-        <el-form-item label="性别" prop="gender">
-          <el-radio-group v-model="nodeForm.gender">
-            <el-radio value="male">男</el-radio>
-            <el-radio value="female">女</el-radio>
+      <el-form-item label="性别">
+        <el-radio-group v-model="infoForm.gender">
+          <el-radio value="male">男</el-radio>
+          <el-radio value="female">女</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="背景色">
+        <div style="display: flex; gap: 8px; align-items: center">
+          <el-radio-group v-model="infoForm.color">
+            <el-radio v-for="c in presetColors" :key="c.value" :label="c.value">
+              <span
+                :style="{
+                  background: c.value,
+                  display: 'inline-block',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%'
+                }"
+              ></span>
+            </el-radio>
           </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="nodeForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入节点描述"
-          />
-        </el-form-item>
-      </template>
-    </el-form>
-    <template #footer>
-      <el-button @click="nodeDialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmAddNode">确认</el-button>
-    </template>
-  </el-dialog>
-
-  <!-- 添加连线弹框 -->
-  <el-dialog v-model="edgeDialogVisible" title="添加连线" width="500px">
-    <el-form ref="edgeFormRef" :model="lineForm" :rules="edgeRules" label-width="80px">
-      <el-form-item label="起始节点" prop="from">
-        <el-select v-model="lineForm.from" placeholder="请选择起始节点" style="width: 100%">
-          <el-option
-            v-for="node in relationshipData.nodes"
-            :key="node.id"
-            :label="node.text"
-            :value="node.id"
-          />
-        </el-select>
+          <el-color-picker v-model="customColor" @change="onCustomColor" style="margin-left: 8px" />
+        </div>
       </el-form-item>
-      <el-form-item label="目标节点" prop="to">
-        <el-select v-model="lineForm.to" placeholder="请选择目标节点" style="width: 100%">
-          <el-option
-            v-for="node in relationshipData.nodes"
-            :key="node.id"
-            :label="node.text"
-            :value="node.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="关系描述" prop="text">
-        <el-input v-model="lineForm.text" placeholder="请输入关系描述" />
+      <el-form-item label="描述">
+        <el-input
+          v-model="infoForm.description"
+          type="textarea"
+          :rows="3"
+          placeholder="请输入描述"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="edgeDialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmAddEdge">确认</el-button>
-    </template>
-  </el-dialog>
-
-  <!-- 节点详情弹框 -->
-  <el-dialog v-model="nodeDetailVisible" title="节点详情" width="400px">
-    <div v-if="selectedNode" class="node-detail">
-      <h3>{{ selectedNode.text }}</h3>
-      <p v-if="selectedNode.description" class="node-description">
-        {{ selectedNode.description }}
-      </p>
-      <div class="node-info">
-        <p><strong>类型:</strong> {{ getNodeTypeName(selectedNode.type) }}</p>
-        <p v-if="selectedNode.gender">
-          <strong>性别:</strong> {{ getGenderName(selectedNode.gender) }}
-        </p>
-        <p v-if="selectedNode.characterId">
-          <strong>人物ID:</strong> {{ selectedNode.characterId }}
-        </p>
-      </div>
-    </div>
-    <template #footer>
-      <el-button @click="nodeDetailVisible = false">关闭</el-button>
-      <el-button type="danger" @click="deleteSelectedNode">删除节点</el-button>
+      <el-button @click="infoDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="saveNodeInfo">保存</el-button>
     </template>
   </el-dialog>
 </template>
@@ -145,20 +93,18 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Check, Plus, Connection, Delete } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { Check } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
+import RadialMenu from '@renderer/components/RadialMenu.vue'
+import { nextTick } from 'vue'
+import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
 const bookName = route.query.name
 const relationshipName = route.query.id
 
 const saving = ref(false)
-const nodeDialogVisible = ref(false)
-const edgeDialogVisible = ref(false)
-const nodeDetailVisible = ref(false)
-const nodeFormRef = ref(null)
-const edgeFormRef = ref(null)
 const graphRef = ref(null)
 const selectedNode = ref(null)
 
@@ -178,9 +124,8 @@ const relationshipData = reactive({
 
 // 图表配置
 const graphOptions = {
-  // allowShowDownloadButton: false,
+  allowShowDownloadButton: false,
   defaultNodeBorderWidth: 0,
-  // defaultNodeColor: 'rgba(238, 178, 94, 1)',
   allowSwitchLineShape: true,
   allowSwitchJunctionPoint: true,
   defaultLineShape: 1,
@@ -190,72 +135,6 @@ const graphOptions = {
     }
   ],
   defaultJunctionPoint: 'border'
-}
-
-// 节点表单
-const nodeForm = reactive({
-  nodeType: 'character',
-  characterId: '',
-  name: '',
-  gender: 'male',
-  description: ''
-})
-
-// 连线表单
-const lineForm = reactive({
-  from: '',
-  to: '',
-  text: ''
-})
-
-// 表单验证规则
-const nodeRules = {
-  characterId: [{ required: true, message: '请选择人物', trigger: 'change' }],
-  name: [
-    { required: true, message: '请输入节点名称', trigger: 'blur' },
-    { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
-  ],
-  gender: [{ required: true, message: '请选择性别', trigger: 'change' }]
-}
-
-const edgeRules = {
-  from: [{ required: true, message: '请选择起始节点', trigger: 'change' }],
-  to: [{ required: true, message: '请选择目标节点', trigger: 'change' }],
-  text: [{ required: true, message: '请输入关系描述', trigger: 'blur' }]
-}
-
-// 生成唯一ID
-function genId() {
-  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
-}
-
-// 获取节点颜色
-function getNodeColor(gender) {
-  if (gender === 'female' || gender === '女') {
-    return '#ff5819' // 女性为橙色
-  } else {
-    return '#409eff' // 男性为蓝色
-  }
-}
-
-// 获取节点类型名称
-function getNodeTypeName(type) {
-  const names = {
-    character: '人物',
-    location: '地点',
-    event: '事件',
-    item: '物品'
-  }
-  return names[type] || '未知'
-}
-
-// 获取性别名称
-function getGenderName(gender) {
-  const names = {
-    male: '男',
-    female: '女'
-  }
-  return names[gender] || '男'
 }
 
 // 加载人物数据
@@ -331,143 +210,38 @@ const handleSave = async () => {
   }
 }
 
-// 添加节点
-const addNode = () => {
-  nodeDialogVisible.value = true
-  // 重置表单
-  Object.assign(nodeForm, {
-    nodeType: 'character',
-    characterId: '',
-    name: '',
-    gender: 'male',
-    description: ''
-  })
-}
+// 环绕菜单相关响应式变量
+const showRadialMenu = ref(false)
+const radialMenuStyle = ref({})
+const radialMenuNodeIsRoot = ref(false)
 
-// 确认添加节点
-const confirmAddNode = async () => {
-  if (!nodeFormRef.value) return
-
-  try {
-    await nodeFormRef.value.validate()
-
-    let newNode = {
-      id: genId(),
-      type: 'character',
-      description: ''
-    }
-
-    if (nodeForm.nodeType === 'character') {
-      // 从人物谱中选择
-      const character = characters.value.find((c) => c.id === nodeForm.characterId)
-      if (character) {
-        newNode = {
-          ...newNode,
-          text: character.name,
-          type: 'character',
-          description: character.introduction,
-          characterId: character.id,
-          color: getNodeColor(character.gender)
-        }
-      }
-    } else {
-      // 自定义节点
-      newNode = {
-        ...newNode,
-        text: nodeForm.name,
-        type: 'character',
-        gender: nodeForm.gender,
-        description: nodeForm.description,
-        color: getNodeColor(nodeForm.gender)
-      }
-    }
-
-    relationshipData.nodes.push(newNode)
-    graphRef.value.setJsonData(relationshipData)
-    nodeDialogVisible.value = false
-    ElMessage.success('添加节点成功')
-  } catch (error) {
-    console.error('添加节点失败:', error)
+// 计算节点在画布上的位置
+function getNodePosition(node) {
+  // RelationGraph 提供的节点坐标为画布坐标，需转换为容器内绝对定位
+  // 这里假设graphRef.value.getInstance().getNodePosition(node.id)可用
+  if (!graphRef.value) return { left: 0, top: 0 }
+  const inst = graphRef.value.getInstance()
+  if (inst && inst.getNodePosition) {
+    const pos = inst.getNodePosition(node.id)
+    return { left: pos.x, top: pos.y }
   }
+  return { left: 0, top: 0 }
 }
 
-// 添加连线
-const addEdge = () => {
-  if (relationshipData.nodes.length < 2) {
-    ElMessage.warning('至少需要两个节点才能添加连线')
-    return
-  }
-
-  edgeDialogVisible.value = true
-  // 重置表单
-  Object.assign(lineForm, {
-    from: '',
-    to: '',
-    type: '',
-    description: ''
-  })
-}
-
-// 确认添加连线
-const confirmAddEdge = async () => {
-  if (!edgeFormRef.value) return
-
-  try {
-    await edgeFormRef.value.validate()
-
-    if (lineForm.from === lineForm.to) {
-      ElMessage.warning('起始节点和目标节点不能相同')
-      return
-    }
-
-    // 检查是否已存在相同的连线
-    const existingEdge = relationshipData.lines.find(
-      (edge) => edge.from === lineForm.from && edge.to === lineForm.to
-    )
-
-    if (existingEdge) {
-      ElMessage.warning('该连线已存在')
-      return
-    }
-
-    const newEdge = {
-      id: genId(),
-      from: lineForm.from,
-      to: lineForm.to,
-      text: lineForm.text
-    }
-
-    relationshipData.lines.push(newEdge)
-    graphRef.value.setJsonData(relationshipData)
-    edgeDialogVisible.value = false
-    ElMessage.success('添加连线成功')
-  } catch (error) {
-    console.error('添加连线失败:', error)
-  }
-}
-
-// 清空画布
-const clearCanvas = async () => {
-  try {
-    await ElMessageBox.confirm('确定要清空画布吗？此操作不可恢复！', '确认清空', {
-      confirmButtonText: '清空',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-
-    relationshipData.nodes = []
-    relationshipData.lines = []
-    graphRef.value.setJsonData(relationshipData)
-    ElMessage.success('画布已清空')
-  } catch {
-    // 用户取消，无需处理
-  }
-}
-
-// 节点点击事件
-const onNodeClick = (node) => {
+// 节点点击事件，显示环绕菜单
+const onNodeClick = async (node) => {
   selectedNode.value = node
-  nodeDetailVisible.value = true
+  radialMenuNodeIsRoot.value = node.type === 'root'
+  // 计算菜单位置
+  await nextTick()
+  const nodePos = getNodePosition(node)
+  radialMenuStyle.value = {
+    position: 'absolute',
+    left: `${nodePos.left - 60}px`, // 60为菜单半径
+    top: `${nodePos.top - 60}px`,
+    zIndex: 10
+  }
+  showRadialMenu.value = true
 }
 
 // 连线点击事件
@@ -475,43 +249,154 @@ const onEdgeClick = (edge) => {
   ElMessage.info(`关系: ${edge.text}`)
 }
 
-// 画布点击事件
+// 画布点击时隐藏菜单
 const onCanvasClick = () => {
-  // 可以在这里添加画布点击逻辑
+  showRadialMenu.value = false
 }
 
-// 删除选中节点
-const deleteSelectedNode = async () => {
+// 环绕菜单事件处理函数（预留实现）
+function handleNodeInfo() {
   if (!selectedNode.value) return
-
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除节点"${selectedNode.value.text}"吗？相关的连线也会被删除！`,
-      '确认删除',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-
-    // 删除节点
-    const nodeIndex = relationshipData.nodes.findIndex((n) => n.id === selectedNode.value.id)
-    if (nodeIndex > -1) {
-      relationshipData.nodes.splice(nodeIndex, 1)
-    }
-
-    // 删除相关连线
-    relationshipData.lines = relationshipData.lines.filter(
-      (edge) => edge.from !== selectedNode.value.id && edge.to !== selectedNode.value.id
-    )
-
-    nodeDetailVisible.value = false
-    selectedNode.value = null
-    ElMessage.success('删除节点成功')
-  } catch {
-    // 用户取消，无需处理
+  // 初始化表单
+  infoForm.text = selectedNode.value.text
+  infoForm.gender = selectedNode.value.gender || ''
+  infoForm.color = presetColors.find((c) => c.value === selectedNode.value.color)
+    ? selectedNode.value.color
+    : ''
+  customColor.value = !infoForm.color ? selectedNode.value.color || '' : ''
+  infoForm.description = selectedNode.value.description || ''
+  infoForm.characterId = selectedNode.value.characterId || ''
+  infoDialogVisible.value = true
+  showRadialMenu.value = false
+}
+function handleNodeAdd() {
+  // 新增一个名为“新节点”的节点，并自动连线
+  if (!selectedNode.value) return
+  const newNodeId = genId()
+  const newNode = {
+    id: newNodeId,
+    text: '新节点',
+    type: 'character',
+    color: '#409eff',
+    description: ''
   }
+  // appendJsonData方式添加节点
+  if (graphRef.value && graphRef.value.getInstance) {
+    graphRef.value.getInstance().appendJsonData({
+      nodes: [newNode],
+      lines: [
+        {
+          id: genId(),
+          from: selectedNode.value.id,
+          to: newNodeId,
+          text: ''
+        }
+      ]
+    })
+  }
+  // 同步到本地数据
+  relationshipData.nodes.push(newNode)
+  relationshipData.lines.push({
+    id: genId(),
+    from: selectedNode.value.id,
+    to: newNodeId,
+    text: ''
+  })
+  showRadialMenu.value = false
+  ElMessage.success('已添加新节点')
+}
+function handleNodeLink() {
+  // 进入连线模式，后续实现
+  showRadialMenu.value = false
+}
+function handleNodeDelete() {
+  if (!selectedNode.value) return
+  const nodeId = selectedNode.value.id
+
+  // 递归查找所有子节点id
+  function collectDescendants(id, nodes, lines, collected = new Set()) {
+    collected.add(id)
+    lines.forEach((line) => {
+      if (line.from === id && !collected.has(line.to)) {
+        collectDescendants(line.to, nodes, lines, collected)
+      }
+    })
+    return collected
+  }
+  const toDeleteIds = collectDescendants(nodeId, relationshipData.nodes, relationshipData.lines)
+
+  // 删除节点
+  relationshipData.nodes = relationshipData.nodes.filter((n) => !toDeleteIds.has(n.id))
+  // 删除相关连线
+  relationshipData.lines = relationshipData.lines.filter(
+    (l) => !toDeleteIds.has(l.from) && !toDeleteIds.has(l.to)
+  )
+
+  // 更新图表
+  if (graphRef.value && graphRef.value.setJsonData) {
+    graphRef.value.setJsonData(relationshipData)
+  }
+  showRadialMenu.value = false
+  ElMessage.success('节点及其子节点已删除')
+}
+
+// 信息编辑弹窗相关
+const infoDialogVisible = ref(false)
+const infoForm = reactive({
+  text: '',
+  gender: '',
+  color: '',
+  description: '',
+  characterId: '' // 选中的人物谱id
+})
+const presetColors = [
+  { label: '蓝色', value: '#409eff' },
+  { label: '橙色', value: '#ff5819' },
+  { label: '红色', value: '#f56c6c' },
+  { label: '绿色', value: '#67c23a' }
+]
+const customColor = ref('')
+
+// 选择人物谱时自动同步性别、描述、背景色
+function onCharacterChange(val) {
+  const character = characters.value.find((c) => c.id === val)
+  if (character) {
+    infoForm.text = character.name
+    infoForm.gender = character.gender
+    infoForm.description = character.introduction
+    infoForm.color = character.gender === 'female' ? '#ff5819' : '#409eff'
+    customColor.value = ''
+  }
+}
+
+// 选择预设色
+function onCustomColor(val) {
+  infoForm.color = val
+}
+
+// 保存节点信息
+function saveNodeInfo() {
+  if (!selectedNode.value) return
+  selectedNode.value.text = infoForm.text
+  selectedNode.value.gender = infoForm.gender
+  selectedNode.value.color = infoForm.color || customColor.value
+  selectedNode.value.description = infoForm.description
+  selectedNode.value.characterId = infoForm.characterId
+  // 同步到数据源
+  const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
+  if (node) {
+    node.text = selectedNode.value.text
+    node.gender = selectedNode.value.gender
+    node.color = selectedNode.value.color
+    node.description = selectedNode.value.description
+    node.characterId = selectedNode.value.characterId
+  }
+  // 刷新图表
+  if (graphRef.value && graphRef.value.setJsonData) {
+    graphRef.value.setJsonData(relationshipData)
+  }
+  infoDialogVisible.value = false
+  ElMessage.success('节点信息已更新')
 }
 
 onMounted(() => {
