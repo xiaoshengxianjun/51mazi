@@ -16,17 +16,24 @@
             @node-click="onNodeClick"
             @edge-click="onEdgeClick"
             @canvas-click="onCanvasClick"
-          />
-          <!-- 环绕菜单挂载点 -->
-          <div v-if="showRadialMenu" :style="radialMenuStyle" class="radial-menu-wrapper">
-            <RadialMenu
-              :is-root="radialMenuNodeIsRoot"
-              @info="handleNodeInfo"
-              @add="handleNodeAdd"
-              @link="handleNodeLink"
-              @delete="handleNodeDelete"
-            />
-          </div>
+          >
+            <template #graph-plug="{ node, x, y }">
+              <RadialMenu
+                v-if="showRadialMenu"
+                :style="{
+                  position: 'absolute',
+                  left: `${x - 60}px`,
+                  top: `${y - 60}px`,
+                  zIndex: 10
+                }"
+                :is-root="radialMenuNodeIsRoot"
+                @info="handleNodeInfo"
+                @add="handleNodeAdd"
+                @link="handleNodeLink"
+                @delete="handleNodeDelete"
+              />
+            </template>
+          </RelationGraph>
         </div>
       </div>
     </template>
@@ -97,7 +104,6 @@ import { Check } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
 import RadialMenu from '@renderer/components/RadialMenu.vue'
-import { nextTick } from 'vue'
 import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
@@ -212,35 +218,12 @@ const handleSave = async () => {
 
 // 环绕菜单相关响应式变量
 const showRadialMenu = ref(false)
-const radialMenuStyle = ref({})
 const radialMenuNodeIsRoot = ref(false)
-
-// 计算节点在画布上的位置
-function getNodePosition(node) {
-  // RelationGraph 提供的节点坐标为画布坐标，需转换为容器内绝对定位
-  // 这里假设graphRef.value.getInstance().getNodePosition(node.id)可用
-  if (!graphRef.value) return { left: 0, top: 0 }
-  const inst = graphRef.value.getInstance()
-  if (inst && inst.getNodePosition) {
-    const pos = inst.getNodePosition(node.id)
-    return { left: pos.x, top: pos.y }
-  }
-  return { left: 0, top: 0 }
-}
 
 // 节点点击事件，显示环绕菜单
 const onNodeClick = async (node) => {
   selectedNode.value = node
   radialMenuNodeIsRoot.value = node.type === 'root'
-  // 计算菜单位置
-  await nextTick()
-  const nodePos = getNodePosition(node)
-  radialMenuStyle.value = {
-    position: 'absolute',
-    left: `${nodePos.left - 60}px`, // 60为菜单半径
-    top: `${nodePos.top - 60}px`,
-    zIndex: 10
-  }
   showRadialMenu.value = true
 }
 

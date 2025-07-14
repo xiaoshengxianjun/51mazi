@@ -53,6 +53,7 @@ declare module 'vue' {
     LayoutTool: typeof import('./src/components/LayoutTool.vue')['default']
     LayoutToolPage: typeof import('./src/components/LayoutToolPage.vue')['default']
     NoteChapter: typeof import('./src/components/NoteChapter.vue')['default']
+    RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
