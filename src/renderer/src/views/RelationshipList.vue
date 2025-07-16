@@ -170,7 +170,7 @@ const handleCreateRelationship = async () => {
       id: genId(), // 唯一ID
       text: '根节点', // 根节点文本
       type: 'root', // 节点类型
-      color: '#666', // 根节点颜色
+      color: '#409eff', // 根节点颜色
       description: '关系图的起始根节点'
       // 可扩展更多属性
     }

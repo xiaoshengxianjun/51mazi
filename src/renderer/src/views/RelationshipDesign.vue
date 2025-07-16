@@ -17,16 +17,15 @@
             @edge-click="onEdgeClick"
             @canvas-click="onCanvasClick"
           >
-            <template #graph-plug="{ node, x, y }">
+            <template #graph-plug>
               <RadialMenu
                 v-if="showRadialMenu"
                 :style="{
-                  position: 'absolute',
-                  left: `${x - 60}px`,
-                  top: `${y - 60}px`,
-                  zIndex: 10
+                  width: nodeMenuPanel.width + 'px',
+                  height: nodeMenuPanel.height + 'px',
+                  left: nodeMenuPanel.x + 'px',
+                  top: nodeMenuPanel.y + 'px'
                 }"
-                :is-root="radialMenuNodeIsRoot"
                 @info="handleNodeInfo"
                 @add="handleNodeAdd"
                 @link="handleNodeLink"
@@ -218,13 +217,29 @@ const handleSave = async () => {
 
 // 环绕菜单相关响应式变量
 const showRadialMenu = ref(false)
-const radialMenuNodeIsRoot = ref(false)
+const nodeMenuPanel = ref({
+  width: 160,
+  height: 160,
+  x: 0,
+  y: 0
+})
 
 // 节点点击事件，显示环绕菜单
-const onNodeClick = async (node) => {
-  selectedNode.value = node
-  radialMenuNodeIsRoot.value = node.type === 'root'
-  showRadialMenu.value = true
+const onNodeClick = (nodeObject) => {
+  showRadialMenu.value = false
+  const t = setTimeout(() => {
+    const graphInstance = graphRef.value?.getInstance()
+    if (graphInstance) {
+      const viewCoordinate = graphInstance.getClientCoordinateByCanvasCoordinate({
+        x: nodeObject.x + nodeObject.el.offsetWidth / 2,
+        y: nodeObject.y + nodeObject.el.offsetHeight / 2
+      })
+      nodeMenuPanel.value.x = viewCoordinate.x - graphInstance.options.canvasOffset.x
+      nodeMenuPanel.value.y = viewCoordinate.y - graphInstance.options.canvasOffset.y
+      showRadialMenu.value = true
+    }
+    clearTimeout(t)
+  }, 100)
 }
 
 // 连线点击事件
