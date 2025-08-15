@@ -67,20 +67,17 @@
       </el-form-item>
       <el-form-item label="背景色">
         <div style="display: flex; gap: 8px; align-items: center">
-          <el-radio-group v-model="infoForm.color">
-            <el-radio v-for="c in presetColors" :key="c.value" :label="c.value">
-              <span
-                :style="{
-                  background: c.value,
-                  display: 'inline-block',
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '50%'
-                }"
-              ></span>
-            </el-radio>
-          </el-radio-group>
-          <el-color-picker v-model="customColor" @change="onCustomColor" style="margin-left: 8px" />
+          <div class="color-squares">
+            <div
+              v-for="c in presetColors"
+              :key="c.value"
+              class="color-square"
+              :class="{ 'color-square-selected': infoForm.color === c.value }"
+              :style="{ background: c.value }"
+              @click="selectPresetColor(c.value)"
+            ></div>
+          </div>
+          <el-color-picker v-model="customColor" style="margin-left: 8px" @change="onCustomColor" />
         </div>
       </el-form-item>
       <el-form-item label="描述">
@@ -93,7 +90,7 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="infoDialogVisible = false">取消</el-button>
+      <el-button @click="closeDialog">取消</el-button>
       <el-button type="primary" @click="saveNodeInfo">保存</el-button>
     </template>
   </el-dialog>
@@ -167,9 +164,32 @@ const loadRelationshipData = async () => {
   try {
     const data = await window.electron.readRelationshipData(bookName, relationshipName)
     if (data) {
+      // 数据格式迁移：将旧格式的属性迁移到 data 对象中
+      const migratedNodes = Array.isArray(data.nodes)
+        ? data.nodes.map((node) => {
+            if (!node.data) {
+              node.data = {}
+            }
+            // 迁移旧格式的属性到 data 中
+            if (node.gender !== undefined) {
+              node.data.gender = node.gender
+              delete node.gender
+            }
+            if (node.description !== undefined) {
+              node.data.description = node.description
+              delete node.description
+            }
+            if (node.characterId !== undefined) {
+              node.data.characterId = node.characterId
+              delete node.characterId
+            }
+            return node
+          })
+        : []
+
       Object.assign(relationshipData, {
         ...data,
-        nodes: Array.isArray(data.nodes) ? data.nodes : [],
+        nodes: migratedNodes,
         lines: Array.isArray(data.lines) ? data.lines : []
       })
       graphRef.value.setJsonData(relationshipData)
@@ -276,20 +296,29 @@ function handleNodeInfo() {
   if (!selectedNode.value) return
   // 初始化表单
   infoForm.text = selectedNode.value.text
-  infoForm.gender = selectedNode.value.gender || ''
+  infoForm.gender = selectedNode.value.data?.gender || 'male' // 如果没有性别信息，默认男性
   infoForm.color = presetColors.find((c) => c.value === selectedNode.value.color)
     ? selectedNode.value.color
     : ''
   customColor.value = !infoForm.color ? selectedNode.value.color || '' : ''
-  infoForm.description = selectedNode.value.description || ''
+  infoForm.description = selectedNode.value.data?.description || ''
 
   // 检查当前节点文本是否对应已存在的人物
   const existingCharacter = characters.value.find((c) => c.name === selectedNode.value.text)
   if (existingCharacter) {
     infoForm.characterId = existingCharacter.id
+    // 如果人物有性别信息，使用人物的性别，否则保持当前节点的性别
+    if (existingCharacter.gender) {
+      infoForm.gender = existingCharacter.gender
+    }
   } else {
     // 如果是新名称，设置为文本内容
     infoForm.characterId = selectedNode.value.text
+  }
+
+  // 如果节点有保存的 characterId，优先使用
+  if (selectedNode.value.data?.characterId) {
+    infoForm.characterId = selectedNode.value.data.characterId
   }
 
   // 重置过滤结果
@@ -307,7 +336,11 @@ function handleNodeAdd() {
     text: '新节点',
     type: 'character',
     color: '#409eff',
-    description: ''
+    data: {
+      description: '',
+      gender: 'male', // 新节点默认男性
+      characterId: ''
+    }
   }
   // 同步到本地数据
   relationshipData.nodes.push(newNode)
@@ -379,7 +412,7 @@ function handleNodeDelete() {
 const infoDialogVisible = ref(false)
 const infoForm = reactive({
   text: '',
-  gender: '',
+  gender: 'male', // 默认男性
   color: '',
   description: '',
   characterId: '' // 选中的人物谱id
@@ -410,14 +443,14 @@ function onCharacterChange(val) {
   if (character) {
     // 选择已存在的人物
     infoForm.text = character.name
-    infoForm.gender = character.gender
+    infoForm.gender = character.gender || 'male' // 如果没有性别信息，默认男性
     infoForm.description = character.introduction
     infoForm.color = character.gender === 'female' ? '#ff5819' : '#409eff'
     customColor.value = ''
   } else {
-    // 输入新名称，清空其他字段
+    // 输入新名称，设置默认值
     infoForm.text = val
-    infoForm.gender = ''
+    infoForm.gender = 'male' // 新名称默认男性
     infoForm.description = ''
     infoForm.color = '#409eff'
     customColor.value = ''
@@ -437,6 +470,28 @@ function onCustomColor(val) {
   infoForm.color = val
 }
 
+// 选择预设颜色
+function selectPresetColor(color) {
+  infoForm.color = color
+  customColor.value = '' // 清空自定义颜色
+}
+
+// 重置表单到默认值
+function resetForm() {
+  infoForm.text = ''
+  infoForm.gender = 'male' // 重置为默认男性
+  infoForm.color = ''
+  infoForm.description = ''
+  infoForm.characterId = ''
+  customColor.value = '#409eff'
+}
+
+// 关闭对话框并重置表单
+function closeDialog() {
+  infoDialogVisible.value = false
+  resetForm()
+}
+
 // 保存节点信息
 function saveNodeInfo() {
   if (!selectedNode.value) return
@@ -446,25 +501,42 @@ function saveNodeInfo() {
   if (existingCharacter) {
     // 选择已存在的人物
     selectedNode.value.text = existingCharacter.name
-    selectedNode.value.characterId = existingCharacter.id
+    // 确保 data 对象存在
+    if (!selectedNode.value.data) {
+      selectedNode.value.data = {}
+    }
+    selectedNode.value.data.characterId = existingCharacter.id
   } else {
     // 输入新名称
     selectedNode.value.text = infoForm.characterId
-    selectedNode.value.characterId = '' // 清空人物ID，表示是新数据
+    // 确保 data 对象存在
+    if (!selectedNode.value.data) {
+      selectedNode.value.data = {}
+    }
+    selectedNode.value.data.characterId = '' // 清空人物ID，表示是新数据
   }
 
-  selectedNode.value.gender = infoForm.gender
+  // 确保 data 对象存在
+  if (!selectedNode.value.data) {
+    selectedNode.value.data = {}
+  }
+
+  selectedNode.value.data.gender = infoForm.gender
   selectedNode.value.color = infoForm.color || customColor.value
-  selectedNode.value.description = infoForm.description
+  selectedNode.value.data.description = infoForm.description
 
   // 同步到数据源
   const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
   if (node) {
     node.text = selectedNode.value.text
-    node.gender = selectedNode.value.gender
     node.color = selectedNode.value.color
-    node.description = selectedNode.value.description
-    node.characterId = selectedNode.value.characterId
+    // 确保目标节点的 data 对象存在
+    if (!node.data) {
+      node.data = {}
+    }
+    node.data.gender = selectedNode.value.data.gender
+    node.data.description = selectedNode.value.data.description
+    node.data.characterId = selectedNode.value.data.characterId
   }
   // 刷新图表
   if (graphRef.value && graphRef.value.setJsonData) {
@@ -546,5 +618,44 @@ onMounted(async () => {
     gap: 12px;
     align-items: stretch;
   }
+}
+
+// 颜色方块样式
+.color-squares {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.color-square {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.color-square:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.color-square-selected {
+  border: 2px solid #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.color-square-selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 </style>
