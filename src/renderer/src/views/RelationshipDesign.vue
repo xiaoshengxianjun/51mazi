@@ -42,18 +42,22 @@
       <el-form-item label="节点文本">
         <el-select
           v-model="infoForm.characterId"
-          placeholder="选择人物"
+          placeholder="选择人物或输入新名称"
           style="width: 100%"
+          filterable
+          allow-create
+          default-first-option
+          :filter-method="filterCharacters"
           @change="onCharacterChange"
+          @visible-change="onSelectVisibleChange"
         >
           <el-option
-            v-for="character in characters"
+            v-for="character in filteredCharacters"
             :key="character.id"
             :label="character.name"
             :value="character.id"
           />
         </el-select>
-        <el-input v-model="infoForm.text" placeholder="自定义输入" style="margin-top: 8px" />
       </el-form-item>
       <el-form-item label="性别">
         <el-radio-group v-model="infoForm.gender">
@@ -97,7 +101,7 @@
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { Check } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -115,6 +119,8 @@ const selectedNode = ref(null)
 
 // 人物数据
 const characters = ref([])
+// 过滤后的人物数据
+const filteredCharacters = ref([])
 
 // 关系图数据
 const relationshipData = reactive({
@@ -147,9 +153,12 @@ const loadCharacters = async () => {
   try {
     const data = await window.electron.readCharacters(bookName)
     characters.value = Array.isArray(data) ? data : []
+    // 初始化过滤后的人物数据
+    filteredCharacters.value = [...characters.value]
   } catch (error) {
     console.error('加载人物数据失败:', error)
     characters.value = []
+    filteredCharacters.value = []
   }
 }
 
@@ -168,6 +177,10 @@ const loadRelationshipData = async () => {
       // 保证nodes/edges为数组
       relationshipData.nodes = []
       relationshipData.lines = []
+      // 初始化空图表
+      if (graphRef.value && graphRef.value.setJsonData) {
+        graphRef.value.setJsonData(relationshipData)
+      }
     }
   } catch (error) {
     console.error('加载关系图数据失败:', error)
@@ -175,6 +188,10 @@ const loadRelationshipData = async () => {
     // 保证nodes/edges为数组
     relationshipData.nodes = []
     relationshipData.lines = []
+    // 初始化空图表
+    if (graphRef.value && graphRef.value.setJsonData) {
+      graphRef.value.setJsonData(relationshipData)
+    }
   }
 }
 
@@ -226,6 +243,8 @@ const nodeMenuPanel = ref({
 
 // 节点点击事件，显示环绕菜单
 const onNodeClick = (nodeObject) => {
+  // 设置选中的节点
+  selectedNode.value = nodeObject
   showRadialMenu.value = false
   const t = setTimeout(() => {
     const graphInstance = graphRef.value?.getInstance()
@@ -263,7 +282,19 @@ function handleNodeInfo() {
     : ''
   customColor.value = !infoForm.color ? selectedNode.value.color || '' : ''
   infoForm.description = selectedNode.value.description || ''
-  infoForm.characterId = selectedNode.value.characterId || ''
+
+  // 检查当前节点文本是否对应已存在的人物
+  const existingCharacter = characters.value.find((c) => c.name === selectedNode.value.text)
+  if (existingCharacter) {
+    infoForm.characterId = existingCharacter.id
+  } else {
+    // 如果是新名称，设置为文本内容
+    infoForm.characterId = selectedNode.value.text
+  }
+
+  // 重置过滤结果
+  filteredCharacters.value = characters.value
+
   infoDialogVisible.value = true
   showRadialMenu.value = false
 }
@@ -278,20 +309,6 @@ function handleNodeAdd() {
     color: '#409eff',
     description: ''
   }
-  // appendJsonData方式添加节点
-  if (graphRef.value && graphRef.value.getInstance) {
-    graphRef.value.getInstance().appendJsonData({
-      nodes: [newNode],
-      lines: [
-        {
-          id: genId(),
-          from: selectedNode.value.id,
-          to: newNodeId,
-          text: ''
-        }
-      ]
-    })
-  }
   // 同步到本地数据
   relationshipData.nodes.push(newNode)
   relationshipData.lines.push({
@@ -300,6 +317,12 @@ function handleNodeAdd() {
     to: newNodeId,
     text: ''
   })
+
+  // 使用 setJsonData 重新设置整个图表数据，确保一致性
+  if (graphRef.value && graphRef.value.setJsonData) {
+    graphRef.value.setJsonData(relationshipData)
+  }
+
   showRadialMenu.value = false
   ElMessage.success('已添加新节点')
 }
@@ -330,10 +353,24 @@ function handleNodeDelete() {
     (l) => !toDeleteIds.has(l.from) && !toDeleteIds.has(l.to)
   )
 
-  // 更新图表
+  // 更新图表 - 使用 nextTick 确保 DOM 更新完成
   if (graphRef.value && graphRef.value.setJsonData) {
-    graphRef.value.setJsonData(relationshipData)
+    // 先清空图表，再重新设置数据
+    graphRef.value.setJsonData({
+      nodes: [],
+      lines: []
+    })
+
+    // 使用 nextTick 确保清空操作完成后再设置新数据
+    nextTick(() => {
+      if (graphRef.value && graphRef.value.setJsonData) {
+        graphRef.value.setJsonData(relationshipData)
+      }
+    })
   }
+
+  // 清空选中的节点
+  selectedNode.value = null
   showRadialMenu.value = false
   ElMessage.success('节点及其子节点已删除')
 }
@@ -355,15 +392,43 @@ const presetColors = [
 ]
 const customColor = ref('')
 
+// 过滤人物数据
+function filterCharacters(query) {
+  if (query === '') {
+    filteredCharacters.value = characters.value
+  } else {
+    filteredCharacters.value = characters.value.filter((character) =>
+      character.name.toLowerCase().includes(query.toLowerCase())
+    )
+  }
+}
+
 // 选择人物谱时自动同步性别、描述、背景色
 function onCharacterChange(val) {
+  // 检查是否是已存在的人物ID
   const character = characters.value.find((c) => c.id === val)
   if (character) {
+    // 选择已存在的人物
     infoForm.text = character.name
     infoForm.gender = character.gender
     infoForm.description = character.introduction
     infoForm.color = character.gender === 'female' ? '#ff5819' : '#409eff'
     customColor.value = ''
+  } else {
+    // 输入新名称，清空其他字段
+    infoForm.text = val
+    infoForm.gender = ''
+    infoForm.description = ''
+    infoForm.color = '#409eff'
+    customColor.value = ''
+  }
+}
+
+// 下拉框显示/隐藏时的处理
+function onSelectVisibleChange(visible) {
+  if (visible) {
+    // 显示时重置过滤结果
+    filteredCharacters.value = characters.value
   }
 }
 
@@ -375,11 +440,23 @@ function onCustomColor(val) {
 // 保存节点信息
 function saveNodeInfo() {
   if (!selectedNode.value) return
-  selectedNode.value.text = infoForm.text
+
+  // 检查是否是已存在的人物ID还是新名称
+  const existingCharacter = characters.value.find((c) => c.id === infoForm.characterId)
+  if (existingCharacter) {
+    // 选择已存在的人物
+    selectedNode.value.text = existingCharacter.name
+    selectedNode.value.characterId = existingCharacter.id
+  } else {
+    // 输入新名称
+    selectedNode.value.text = infoForm.characterId
+    selectedNode.value.characterId = '' // 清空人物ID，表示是新数据
+  }
+
   selectedNode.value.gender = infoForm.gender
   selectedNode.value.color = infoForm.color || customColor.value
   selectedNode.value.description = infoForm.description
-  selectedNode.value.characterId = infoForm.characterId
+
   // 同步到数据源
   const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
   if (node) {
@@ -391,15 +468,27 @@ function saveNodeInfo() {
   }
   // 刷新图表
   if (graphRef.value && graphRef.value.setJsonData) {
-    graphRef.value.setJsonData(relationshipData)
+    // 先清空图表，再重新设置数据，确保更新生效
+    graphRef.value.setJsonData({
+      nodes: [],
+      lines: []
+    })
+
+    nextTick(() => {
+      if (graphRef.value && graphRef.value.setJsonData) {
+        graphRef.value.setJsonData(relationshipData)
+      }
+    })
   }
   infoDialogVisible.value = false
   ElMessage.success('节点信息已更新')
 }
 
-onMounted(() => {
-  loadRelationshipData()
+onMounted(async () => {
+  // 等待下一个 tick 确保图表组件完全挂载
+  await nextTick()
   loadCharacters()
+  loadRelationshipData()
 })
 </script>
 
