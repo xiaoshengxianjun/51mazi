@@ -14,7 +14,7 @@
             ref="graphRef"
             :options="graphOptions"
             @node-click="onNodeClick"
-            @edge-click="onEdgeClick"
+            :onLineClick="onLineClick"
             @canvas-click="onCanvasClick"
           >
             <template #graph-plug>
@@ -92,6 +92,19 @@
     <template #footer>
       <el-button @click="closeDialog">取消</el-button>
       <el-button type="primary" @click="saveNodeInfo">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 连线编辑弹框 -->
+  <el-dialog v-model="edgeDialogVisible" title="编辑关系" width="400px">
+    <el-form label-width="80px">
+      <el-form-item label="关系描述">
+        <el-input v-model="edgeForm.text" placeholder="请输入关系描述" style="width: 100%" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="closeEdgeDialog">取消</el-button>
+      <el-button type="primary" @click="saveEdgeInfo">保存</el-button>
     </template>
   </el-dialog>
 </template>
@@ -281,9 +294,20 @@ const onNodeClick = (nodeObject) => {
   }, 100)
 }
 
-// 连线点击事件
-const onEdgeClick = (edge) => {
-  ElMessage.info(`关系: ${edge.text}`)
+// 连线点击事件处理
+const onLineClick = (line) => {
+  console.log('Line clicked:', line)
+
+  if (!line || !line.id) {
+    console.warn('Invalid line object:', line)
+    return
+  }
+
+  selectedEdge.value = line
+  edgeForm.text = line.text || ''
+  edgeDialogVisible.value = true
+
+  console.log('Edge dialog opened for line:', line.id, 'with text:', line.text)
 }
 
 // 画布点击时隐藏菜单
@@ -417,6 +441,13 @@ const infoForm = reactive({
   description: '',
   characterId: '' // 选中的人物谱id
 })
+
+// 连线编辑弹窗相关
+const edgeDialogVisible = ref(false)
+const selectedEdge = ref(null)
+const edgeForm = reactive({
+  text: ''
+})
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
   { label: '橙色', value: '#ff5819' },
@@ -492,6 +523,15 @@ function closeDialog() {
   resetForm()
 }
 
+// 关闭连线编辑对话框
+function closeEdgeDialog() {
+  edgeDialogVisible.value = false
+  selectedEdge.value = null
+  edgeForm.text = ''
+
+  console.log('Edge dialog closed, state cleared')
+}
+
 // 保存节点信息
 function saveNodeInfo() {
   if (!selectedNode.value) return
@@ -554,6 +594,53 @@ function saveNodeInfo() {
   }
   infoDialogVisible.value = false
   ElMessage.success('节点信息已更新')
+}
+
+// 保存连线信息
+function saveEdgeInfo() {
+  if (!selectedEdge.value) {
+    ElMessage.warning('没有选中的连线')
+    return
+  }
+
+  if (!edgeForm.text.trim()) {
+    ElMessage.warning('请输入关系描述')
+    return
+  }
+
+  try {
+    // 更新连线文本
+    selectedEdge.value.text = edgeForm.text.trim()
+
+    // 同步到本地数据
+    const line = relationshipData.lines.find((l) => l.id === selectedEdge.value.id)
+    if (line) {
+      line.text = edgeForm.text.trim()
+    }
+
+    // 刷新图表
+    if (graphRef.value && graphRef.value.setJsonData) {
+      // 先清空图表，再重新设置数据，确保更新生效
+      graphRef.value.setJsonData({
+        nodes: [],
+        lines: []
+      })
+
+      nextTick(() => {
+        if (graphRef.value && graphRef.value.setJsonData) {
+          graphRef.value.setJsonData(relationshipData)
+        }
+      })
+    }
+
+    edgeDialogVisible.value = false
+    ElMessage.success('关系信息已更新')
+
+    console.log('Edge updated:', selectedEdge.value.id, 'new text:', edgeForm.text.trim())
+  } catch (error) {
+    console.error('Error saving edge info:', error)
+    ElMessage.error('保存失败，请重试')
+  }
 }
 
 onMounted(async () => {
