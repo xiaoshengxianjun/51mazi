@@ -155,7 +155,8 @@ const graphOptions = {
       layoutName: 'center'
     }
   ],
-  defaultJunctionPoint: 'border'
+  defaultJunctionPoint: 'border',
+  defaultLineFontColor: '#409eff' // 设置默认线条文字颜色为蓝色
 }
 
 // 加载人物数据
@@ -200,10 +201,18 @@ const loadRelationshipData = async () => {
           })
         : []
 
+      // 确保所有连线都有正确的文字颜色
+      const migratedLines = Array.isArray(data.lines)
+        ? data.lines.map((line) => ({
+            ...line,
+            fontColor: line.fontColor || '#409eff' // 如果没有设置颜色，使用默认蓝色
+          }))
+        : []
+
       Object.assign(relationshipData, {
         ...data,
         nodes: migratedNodes,
-        lines: Array.isArray(data.lines) ? data.lines : []
+        lines: migratedLines
       })
       graphRef.value.setJsonData(relationshipData)
     } else {
@@ -230,8 +239,6 @@ const loadRelationshipData = async () => {
 
 // 保存关系图
 const handleSave = async () => {
-  console.log(graphRef.value)
-
   try {
     saving.value = true
 
@@ -296,8 +303,6 @@ const onNodeClick = (nodeObject) => {
 
 // 连线点击事件处理
 const onLineClick = (line) => {
-  console.log('Line clicked:', line)
-
   if (!line || !line.id) {
     console.warn('Invalid line object:', line)
     return
@@ -307,7 +312,7 @@ const onLineClick = (line) => {
   edgeForm.text = line.text || ''
   edgeDialogVisible.value = true
 
-  console.log('Edge dialog opened for line:', line.id, 'with text:', line.text)
+  // console.log('Edge dialog opened for line:', line.id, 'with text:', line.text)
 }
 
 // 画布点击时隐藏菜单
@@ -372,7 +377,8 @@ function handleNodeAdd() {
     id: genId(),
     from: selectedNode.value.id,
     to: newNodeId,
-    text: ''
+    text: '',
+    fontColor: '#409eff' // 设置线条文字颜色为蓝色
   })
 
   // 使用 setJsonData 重新设置整个图表数据，确保一致性
@@ -528,8 +534,6 @@ function closeEdgeDialog() {
   edgeDialogVisible.value = false
   selectedEdge.value = null
   edgeForm.text = ''
-
-  console.log('Edge dialog closed, state cleared')
 }
 
 // 保存节点信息
@@ -616,6 +620,8 @@ function saveEdgeInfo() {
     const line = relationshipData.lines.find((l) => l.id === selectedEdge.value.id)
     if (line) {
       line.text = edgeForm.text.trim()
+      // 确保文字颜色设置
+      line.fontColor = line.fontColor || '#409eff'
     }
 
     // 刷新图表
@@ -635,8 +641,6 @@ function saveEdgeInfo() {
 
     edgeDialogVisible.value = false
     ElMessage.success('关系信息已更新')
-
-    console.log('Edge updated:', selectedEdge.value.id, 'new text:', edgeForm.text.trim())
   } catch (error) {
     console.error('Error saving edge info:', error)
     ElMessage.error('保存失败，请重试')
