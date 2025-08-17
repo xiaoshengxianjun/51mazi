@@ -37,7 +37,11 @@
       </div>
     </template>
   </LayoutTool>
-  <el-dialog v-model="infoDialogVisible" title="编辑节点信息" width="400px">
+  <el-dialog
+    v-model="infoDialogVisible"
+    :title="isAddMode ? '新增节点' : '编辑节点信息'"
+    width="400px"
+  >
     <el-form label-width="80px">
       <el-form-item label="节点文本">
         <el-select
@@ -359,35 +363,15 @@ function handleNodeInfo() {
 function handleNodeAdd() {
   // 新增一个名为“新节点”的节点，并自动连线
   if (!selectedNode.value) return
-  const newNodeId = genId()
-  const newNode = {
-    id: newNodeId,
-    text: '新节点',
-    type: 'character',
-    color: '#409eff',
-    data: {
-      description: '',
-      gender: 'male', // 新节点默认男性
-      characterId: ''
-    }
-  }
-  // 同步到本地数据
-  relationshipData.nodes.push(newNode)
-  relationshipData.lines.push({
-    id: genId(),
-    from: selectedNode.value.id,
-    to: newNodeId,
-    text: '',
-    fontColor: '#409eff' // 设置线条文字颜色为蓝色
-  })
+  // 重置表单为默认值
+  resetForm()
 
-  // 使用 setJsonData 重新设置整个图表数据，确保一致性
-  if (graphRef.value && graphRef.value.setJsonData) {
-    graphRef.value.setJsonData(relationshipData)
-  }
+  // 设置新增模式标识
+  isAddMode.value = true
 
+  // 显示节点编辑弹框
+  infoDialogVisible.value = true
   showRadialMenu.value = false
-  ElMessage.success('已添加新节点')
 }
 function handleNodeLink() {
   // 进入连线模式，后续实现
@@ -488,6 +472,9 @@ const edgeForm = reactive({
   text: ''
 })
 
+// 新增/编辑模式标识
+const isAddMode = ref(false)
+
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
   { label: '橙色', value: '#ff5819' },
@@ -560,6 +547,7 @@ function resetForm() {
 // 关闭对话框并重置表单
 function closeDialog() {
   infoDialogVisible.value = false
+  isAddMode.value = false
   resetForm()
 }
 
@@ -572,66 +560,111 @@ function closeEdgeDialog() {
 
 // 保存节点信息
 function saveNodeInfo() {
-  if (!selectedNode.value) return
-
-  // 检查是否是已存在的人物ID还是新名称
-  const existingCharacter = characters.value.find((c) => c.id === infoForm.characterId)
-  if (existingCharacter) {
-    // 选择已存在的人物
-    selectedNode.value.text = existingCharacter.name
-    // 确保 data 对象存在
-    if (!selectedNode.value.data) {
-      selectedNode.value.data = {}
+  if (isAddMode.value) {
+    // 新增模式：创建新节点
+    if (!infoForm.characterId.trim()) {
+      ElMessage.warning('请输入节点名称')
+      return
     }
-    selectedNode.value.data.characterId = existingCharacter.id
-  } else {
-    // 输入新名称
-    selectedNode.value.text = infoForm.characterId
-    // 确保 data 对象存在
-    if (!selectedNode.value.data) {
-      selectedNode.value.data = {}
-    }
-    selectedNode.value.data.characterId = '' // 清空人物ID，表示是新数据
-  }
 
-  // 确保 data 对象存在
-  if (!selectedNode.value.data) {
-    selectedNode.value.data = {}
-  }
-
-  selectedNode.value.data.gender = infoForm.gender
-  selectedNode.value.color = infoForm.color || customColor.value
-  selectedNode.value.data.description = infoForm.description
-
-  // 同步到数据源
-  const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
-  if (node) {
-    node.text = selectedNode.value.text
-    node.color = selectedNode.value.color
-    // 确保目标节点的 data 对象存在
-    if (!node.data) {
-      node.data = {}
-    }
-    node.data.gender = selectedNode.value.data.gender
-    node.data.description = selectedNode.value.data.description
-    node.data.characterId = selectedNode.value.data.characterId
-  }
-  // 刷新图表
-  if (graphRef.value && graphRef.value.setJsonData) {
-    // 先清空图表，再重新设置数据，确保更新生效
-    graphRef.value.setJsonData({
-      nodes: [],
-      lines: []
-    })
-
-    nextTick(() => {
-      if (graphRef.value && graphRef.value.setJsonData) {
-        graphRef.value.setJsonData(relationshipData)
+    const newNodeId = genId()
+    const newNode = {
+      id: newNodeId,
+      text: infoForm.characterId.trim(),
+      type: 'character',
+      color: infoForm.color || customColor.value || '#409eff',
+      data: {
+        description: infoForm.description || '',
+        gender: infoForm.gender || 'male',
+        characterId: infoForm.characterId.trim()
       }
-    })
+    }
+
+    // 添加到数据源
+    relationshipData.nodes.push(newNode)
+
+    // 创建连线到当前选中的节点
+    if (selectedNode.value) {
+      relationshipData.lines.push({
+        id: genId(),
+        from: selectedNode.value.id,
+        to: newNodeId,
+        text: '',
+        fontColor: '#409eff'
+      })
+    }
+
+    // 刷新图表
+    if (graphRef.value && graphRef.value.setJsonData) {
+      graphRef.value.setJsonData(relationshipData)
+    }
+
+    infoDialogVisible.value = false
+    isAddMode.value = false
+    ElMessage.success('新节点已创建')
+  } else {
+    // 编辑模式：更新现有节点
+    if (!selectedNode.value) return
+
+    // 检查是否是已存在的人物ID还是新名称
+    const existingCharacter = characters.value.find((c) => c.id === infoForm.characterId)
+    if (existingCharacter) {
+      // 选择已存在的人物
+      selectedNode.value.text = existingCharacter.name
+      // 确保 data 对象存在
+      if (!selectedNode.value.data) {
+        selectedNode.value.data = {}
+      }
+      selectedNode.value.data.characterId = existingCharacter.id
+    } else {
+      // 输入新名称
+      selectedNode.value.text = infoForm.characterId
+      // 确保 data 对象存在
+      if (!selectedNode.value.data) {
+        selectedNode.value.data = {}
+      }
+      selectedNode.value.data.characterId = '' // 清空人物ID，表示是新数据
+    }
+
+    // 确保 data 对象存在
+    if (!selectedNode.value.data) {
+      selectedNode.value.data = {}
+    }
+
+    selectedNode.value.data.gender = infoForm.gender
+    selectedNode.value.color = infoForm.color || customColor.value
+    selectedNode.value.data.description = infoForm.description
+
+    // 同步到数据源
+    const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
+    if (node) {
+      node.text = selectedNode.value.text
+      node.color = selectedNode.value.color
+      // 确保目标节点的 data 对象存在
+      if (!node.data) {
+        node.data = {}
+      }
+      node.data.gender = selectedNode.value.data.gender
+      node.data.description = selectedNode.value.data.description
+      node.data.characterId = selectedNode.value.data.characterId
+    }
+    // 刷新图表
+    if (graphRef.value && graphRef.value.setJsonData) {
+      // 先清空图表，再重新设置数据，确保更新生效
+      graphRef.value.setJsonData({
+        nodes: [],
+        lines: []
+      })
+
+      nextTick(() => {
+        if (graphRef.value && graphRef.value.setJsonData) {
+          graphRef.value.setJsonData(relationshipData)
+        }
+      })
+    }
+    infoDialogVisible.value = false
+    ElMessage.success('节点信息已更新')
   }
-  infoDialogVisible.value = false
-  ElMessage.success('节点信息已更新')
 }
 
 // 保存连线信息
