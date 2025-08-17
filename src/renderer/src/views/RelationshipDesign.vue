@@ -13,8 +13,8 @@
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
-            @node-click="onNodeClick"
-            :onLineClick="onLineClick"
+            :on-line-click="onLineClick"
+            :on-node-click="onNodeClick"
             @canvas-click="onCanvasClick"
           >
             <template #graph-plug>
@@ -114,7 +114,7 @@ import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { Check } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
 import RadialMenu from '@renderer/components/RadialMenu.vue'
 import { genId } from '@renderer/utils/utils'
@@ -395,47 +395,80 @@ function handleNodeLink() {
 }
 function handleNodeDelete() {
   if (!selectedNode.value) return
-  const nodeId = selectedNode.value.id
 
-  // 递归查找所有子节点id
-  function collectDescendants(id, nodes, lines, collected = new Set()) {
-    collected.add(id)
-    lines.forEach((line) => {
-      if (line.from === id && !collected.has(line.to)) {
-        collectDescendants(line.to, nodes, lines, collected)
-      }
-    })
-    return collected
-  }
-  const toDeleteIds = collectDescendants(nodeId, relationshipData.nodes, relationshipData.lines)
+  const nodeName = selectedNode.value.text || '未知节点'
 
-  // 删除节点
-  relationshipData.nodes = relationshipData.nodes.filter((n) => !toDeleteIds.has(n.id))
-  // 删除相关连线
-  relationshipData.lines = relationshipData.lines.filter(
-    (l) => !toDeleteIds.has(l.from) && !toDeleteIds.has(l.to)
+  ElMessageBox.confirm(
+    `确定要删除节点"${nodeName}"吗？\n删除操作将同时删除当前节点和所有子节点，此操作不可恢复！`,
+    '确认删除',
+    {
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      dangerouslyUseHTMLString: false
+    }
   )
+    .then(() => {
+      // 用户确认删除
+      const nodeId = selectedNode.value.id
 
-  // 更新图表 - 使用 nextTick 确保 DOM 更新完成
-  if (graphRef.value && graphRef.value.setJsonData) {
-    // 先清空图表，再重新设置数据
-    graphRef.value.setJsonData({
-      nodes: [],
-      lines: []
-    })
+      // 递归查找所有子节点id
+      function collectDescendants(id, nodes, lines, collected = new Set()) {
+        collected.add(id)
+        lines.forEach((line) => {
+          if (line.from === id && !collected.has(line.to)) {
+            collectDescendants(line.to, nodes, lines, collected)
+          }
+        })
+        return collected
+      }
 
-    // 使用 nextTick 确保清空操作完成后再设置新数据
-    nextTick(() => {
-      if (graphRef.value && graphRef.value.setJsonData) {
-        graphRef.value.setJsonData(relationshipData)
+      const toDeleteIds = collectDescendants(nodeId, relationshipData.nodes, relationshipData.lines)
+      const deleteCount = toDeleteIds.size
+
+      try {
+        // 删除节点
+        relationshipData.nodes = relationshipData.nodes.filter((n) => !toDeleteIds.has(n.id))
+        // 删除相关连线
+        relationshipData.lines = relationshipData.lines.filter(
+          (l) => !toDeleteIds.has(l.from) && !toDeleteIds.has(l.to)
+        )
+
+        // 更新图表 - 使用 nextTick 确保 DOM 更新完成
+        if (graphRef.value && graphRef.value.setJsonData) {
+          // 先清空图表，再重新设置数据
+          graphRef.value.setJsonData({
+            nodes: [],
+            lines: []
+          })
+
+          // 使用 nextTick 确保清空操作完成后再设置新数据
+          nextTick(() => {
+            if (graphRef.value && graphRef.value.setJsonData) {
+              graphRef.value.setJsonData(relationshipData)
+            }
+          })
+        }
+
+        // 清空选中的节点
+        selectedNode.value = null
+        showRadialMenu.value = false
+
+        // 显示删除结果
+        if (deleteCount === 1) {
+          ElMessage.success('节点已删除')
+        } else {
+          ElMessage.success(`已删除 ${deleteCount} 个节点及其相关连线`)
+        }
+      } catch (error) {
+        console.error('删除节点失败:', error)
+        ElMessage.error('删除失败，请重试')
       }
     })
-  }
-
-  // 清空选中的节点
-  selectedNode.value = null
-  showRadialMenu.value = false
-  ElMessage.success('节点及其子节点已删除')
+    .catch(() => {
+      // 用户取消删除
+      showRadialMenu.value = false
+    })
 }
 
 // 信息编辑弹窗相关
@@ -454,6 +487,7 @@ const selectedEdge = ref(null)
 const edgeForm = reactive({
   text: ''
 })
+
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
   { label: '橙色', value: '#ff5819' },
