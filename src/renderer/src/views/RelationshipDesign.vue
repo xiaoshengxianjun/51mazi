@@ -10,6 +10,12 @@
       <div class="relationship-design">
         <!-- 移除顶部工具栏 -->
         <div ref="canvasRef" class="design-canvas">
+          <!-- 连线模式指示器 -->
+          <div v-if="isLinkMode" class="link-mode-indicator">
+            <el-icon><Link /></el-icon>
+            <span>连线模式 - 点击目标节点完成连线，按ESC退出</span>
+          </div>
+
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
@@ -117,7 +123,7 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Check } from '@element-plus/icons-vue'
+import { Check, Link } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
 import RadialMenu from '@renderer/components/RadialMenu.vue'
@@ -287,6 +293,9 @@ const nodeMenuPanel = ref({
 
 // 节点点击事件，显示环绕菜单
 const onNodeClick = (nodeObject) => {
+  // 如果在连线模式下，不显示环绕菜单
+  if (isLinkMode.value) return
+
   // 设置选中的节点
   selectedNode.value = nodeObject
   showRadialMenu.value = false
@@ -294,7 +303,7 @@ const onNodeClick = (nodeObject) => {
     const graphInstance = graphRef.value?.getInstance()
     if (graphInstance) {
       const viewCoordinate = graphInstance.getClientCoordinateByCanvasCoordinate({
-        x: nodeObject.x + nodeObject.el.offsetWidth / 2,
+        x: nodeObject.x + nodeObject.el.offsetHeight / 2,
         y: nodeObject.y + nodeObject.el.offsetHeight / 2
       })
       nodeMenuPanel.value.x = viewCoordinate.x - graphInstance.options.canvasOffset.x
@@ -322,6 +331,11 @@ const onLineClick = (line) => {
 // 画布点击时隐藏菜单
 const onCanvasClick = () => {
   showRadialMenu.value = false
+
+  // 如果在连线模式下，退出连线模式
+  if (isLinkMode.value) {
+    exitLinkMode()
+  }
 }
 
 // 环绕菜单事件处理函数（预留实现）
@@ -374,8 +388,21 @@ function handleNodeAdd() {
   showRadialMenu.value = false
 }
 function handleNodeLink() {
-  // 进入连线模式，后续实现
+  if (!selectedNode.value) return
+
+  // 进入连线模式
+  isLinkMode.value = true
+  linkStartNode.value = selectedNode.value
+
+  // 隐藏环绕菜单
   showRadialMenu.value = false
+
+  // 显示连线模式提示
+  ElMessage.info('连线模式已启动，请点击目标节点完成连线')
+
+  // 添加鼠标移动事件监听
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('click', handleGlobalClick)
 }
 function handleNodeDelete() {
   if (!selectedNode.value) return
@@ -475,6 +502,12 @@ const edgeForm = reactive({
 // 新增/编辑模式标识
 const isAddMode = ref(false)
 
+// 连线模式相关状态
+const isLinkMode = ref(false)
+const linkStartNode = ref(null)
+const linkPreviewLine = ref(null)
+const mousePosition = ref({ x: 0, y: 0 })
+
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
   { label: '橙色', value: '#ff5819' },
@@ -556,6 +589,129 @@ function closeEdgeDialog() {
   edgeDialogVisible.value = false
   selectedEdge.value = null
   edgeForm.text = ''
+}
+
+// 鼠标移动处理函数
+function handleMouseMove(event) {
+  if (!isLinkMode.value || !linkStartNode.value) return
+
+  mousePosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+
+  // 更新连线预览
+  updateLinkPreview()
+}
+
+// 全局点击处理函数
+function handleGlobalClick(event) {
+  if (!isLinkMode.value || !linkStartNode.value) return
+
+  // 检查是否点击了节点
+  const targetElement = event.target.closest('.relation-graph-node')
+  if (targetElement) {
+    // 获取目标节点数据
+    const targetNodeId = targetElement.getAttribute('data-node-id')
+    if (targetNodeId && targetNodeId !== linkStartNode.value.id) {
+      // 创建连线
+      createLink(linkStartNode.value.id, targetNodeId)
+    }
+  }
+
+  // 退出连线模式
+  exitLinkMode()
+}
+
+// 更新连线预览
+function updateLinkPreview() {
+  if (!isLinkMode.value || !linkStartNode.value) return
+
+  // 获取起始节点的位置
+  const graphInstance = graphRef.value?.getInstance()
+  if (!graphInstance) return
+
+  const startNodeEl = document.querySelector(`[data-node-id="${linkStartNode.value.id}"]`)
+  if (!startNodeEl) return
+
+  const startRect = startNodeEl.getBoundingClientRect()
+  const startX = startRect.left + startRect.width / 2
+  const startY = startRect.top + startRect.height / 2
+
+  // 创建或更新预览连线
+  if (!linkPreviewLine.value) {
+    linkPreviewLine.value = document.createElement('div')
+    linkPreviewLine.value.className = 'link-preview'
+    linkPreviewLine.value.style.position = 'fixed'
+    linkPreviewLine.value.style.pointerEvents = 'none'
+    linkPreviewLine.value.style.zIndex = '9999'
+    document.body.appendChild(linkPreviewLine.value)
+  }
+
+  // 计算连线角度和长度
+  const deltaX = mousePosition.value.x - startX
+  const deltaY = mousePosition.value.y - startY
+  const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+  const angle = (Math.atan2(deltaY, deltaX) * 180) / Math.PI
+
+  // 设置预览连线的样式
+  linkPreviewLine.value.style.left = startX + 'px'
+  linkPreviewLine.value.style.top = startY + 'px'
+  linkPreviewLine.value.style.width = length + 'px'
+  linkPreviewLine.value.style.transform = `rotate(${angle}deg)`
+  linkPreviewLine.value.style.transformOrigin = '0 50%'
+}
+
+// 创建连线
+function createLink(fromNodeId, toNodeId) {
+  // 检查是否已存在连线
+  const existingLink = relationshipData.lines.find(
+    (line) => line.from === fromNodeId && line.to === toNodeId
+  )
+
+  if (existingLink) {
+    ElMessage.warning('这两个节点之间已经存在连线')
+    return
+  }
+
+  // 创建新连线
+  const newLine = {
+    id: genId(),
+    from: fromNodeId,
+    to: toNodeId,
+    text: '',
+    fontColor: '#409eff',
+    lineShape: 1 // 带箭头的连线样式
+  }
+
+  // 添加到数据源
+  relationshipData.lines.push(newLine)
+
+  // 刷新图表
+  if (graphRef.value && graphRef.value.setJsonData) {
+    graphRef.value.setJsonData(relationshipData)
+  }
+
+  ElMessage.success('连线创建成功')
+}
+
+// 退出连线模式
+function exitLinkMode() {
+  isLinkMode.value = false
+  linkStartNode.value = null
+
+  // 移除预览连线
+  if (linkPreviewLine.value) {
+    document.body.removeChild(linkPreviewLine.value)
+    linkPreviewLine.value = null
+  }
+
+  // 移除事件监听
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('click', handleGlobalClick)
+
+  // 清除鼠标位置
+  mousePosition.value = { x: 0, y: 0 }
 }
 
 // 保存节点信息
@@ -719,7 +875,18 @@ onMounted(async () => {
   await nextTick()
   loadCharacters()
   loadRelationshipData()
+
+  // 添加键盘事件监听
+  document.addEventListener('keydown', handleKeyDown)
 })
+
+// 键盘事件处理
+function handleKeyDown(event) {
+  if (event.key === 'Escape' && isLinkMode.value) {
+    exitLinkMode()
+    ElMessage.info('已退出连线模式')
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -743,15 +910,49 @@ onMounted(async () => {
   border-radius: 8px;
   overflow: hidden;
   position: relative;
+}
 
-  :deep(.relation-graph) {
-    width: 100%;
-    height: 100%;
-  }
+/* 连线模式指示器 */
+.link-mode-indicator {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #409eff, #67c23a);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 25px;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  animation: slideInDown 0.3s ease-out;
+}
 
-  :deep(.relation-graph-canvas) {
-    background-color: var(--bg-base);
+.link-mode-indicator .el-icon {
+  font-size: 18px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+:deep(.relation-graph) {
+  width: 100%;
+  height: 100%;
+}
+
+:deep(.relation-graph-canvas) {
+  background-color: var(--bg-base);
 }
 
 .node-detail {
@@ -769,7 +970,7 @@ onMounted(async () => {
   }
 }
 
-// 响应式设计
+/* 响应式设计 */
 @media (max-width: 768px) {
   .design-toolbar {
     flex-direction: column;
@@ -778,7 +979,7 @@ onMounted(async () => {
   }
 }
 
-// 颜色方块样式
+/* 颜色方块样式 */
 .color-squares {
   display: flex;
   gap: 8px;
@@ -815,5 +1016,41 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 连线预览样式 */
+.link-preview {
+  height: 3px;
+  background: linear-gradient(90deg, #409eff 0%, #409eff 85%, transparent 85%);
+  position: relative;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.6);
+  animation: linkPreviewPulse 1.5s ease-in-out infinite;
+}
+
+.link-preview::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid #409eff;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  filter: drop-shadow(0 0 4px rgba(64, 158, 255, 0.8));
+}
+
+@keyframes linkPreviewPulse {
+  0%,
+  100% {
+    opacity: 0.8;
+    box-shadow: 0 0 8px rgba(64, 158, 255, 0.6);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(64, 158, 255, 0.9);
+  }
 }
 </style>
