@@ -10,12 +10,6 @@
       <div class="relationship-design">
         <!-- 移除顶部工具栏 -->
         <div ref="canvasRef" class="design-canvas">
-          <!-- 连线模式指示器 -->
-          <div v-if="isLinkMode" class="link-mode-indicator">
-            <el-icon><Link /></el-icon>
-            <span>连线模式 - 点击目标节点完成连线，按ESC退出</span>
-          </div>
-
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
@@ -37,6 +31,34 @@
                 @link="handleNodeLink"
                 @delete="handleNodeDelete"
               />
+
+              <!-- 连线预览线条 -->
+              <div
+                v-if="isLinkMode && linkPreviewLine"
+                class="link-preview"
+                :style="{
+                  left: linkPreviewLine.x + 'px',
+                  top: linkPreviewLine.y + 'px',
+                  width: linkPreviewLine.width + 'px',
+                  transform: `rotate(${linkPreviewLine.angle}deg)`
+                }"
+              ></div>
+
+              <!-- 调试信息 -->
+              <div
+                v-if="isLinkMode"
+                style="
+                  position: absolute;
+                  top: 10px;
+                  left: 10px;
+                  background: red;
+                  color: white;
+                  padding: 5px;
+                  z-index: 9999;
+                "
+              >
+                Debug: isLinkMode={{ isLinkMode }}, linkPreviewLine={{ linkPreviewLine }}
+              </div>
             </template>
           </RelationGraph>
         </div>
@@ -123,7 +145,7 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Check, Link } from '@element-plus/icons-vue'
+import { Check } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
 import RadialMenu from '@renderer/components/RadialMenu.vue'
@@ -397,8 +419,12 @@ function handleNodeLink() {
   // 隐藏环绕菜单
   showRadialMenu.value = false
 
-  // 显示连线模式提示
-  ElMessage.info('连线模式已启动，请点击目标节点完成连线')
+  // 延迟创建标记线条，等待RelationGraph渲染完成
+  setTimeout(() => {
+    createMarkLine()
+    console.log('createMarkLine called after delay, linkPreviewLine:', linkPreviewLine.value)
+    console.log('isLinkMode:', isLinkMode.value)
+  }, 100)
 
   // 添加鼠标移动事件监听
   document.addEventListener('mousemove', handleMouseMove)
@@ -505,7 +531,12 @@ const isAddMode = ref(false)
 // 连线模式相关状态
 const isLinkMode = ref(false)
 const linkStartNode = ref(null)
-const linkPreviewLine = ref(null)
+const linkPreviewLine = ref({
+  x: 0,
+  y: 0,
+  width: 0,
+  angle: 0
+})
 const mousePosition = ref({ x: 0, y: 0 })
 
 const presetColors = [
@@ -591,6 +622,56 @@ function closeEdgeDialog() {
   edgeForm.text = ''
 }
 
+// 创建标记线条
+function createMarkLine() {
+  console.log('createMarkLine function called')
+  console.log('isLinkMode:', isLinkMode.value)
+  console.log('linkStartNode:', linkStartNode.value)
+
+  if (!isLinkMode.value || !linkStartNode.value) {
+    console.log('Early return: isLinkMode or linkStartNode is falsy')
+    return
+  }
+
+  // 获取起始节点的位置
+  let startNodeEl = document.querySelector(`[data-node-id="${linkStartNode.value.id}"]`)
+  console.log('startNodeEl found with data-node-id:', startNodeEl)
+
+  if (!startNodeEl) {
+    console.log('No startNodeEl found with data-node-id, trying alternative selectors')
+    // 尝试其他选择器
+    startNodeEl = document.querySelector('.relation-graph-node')
+    console.log('Alternative element with .relation-graph-node:', startNodeEl)
+
+    if (!startNodeEl) {
+      startNodeEl = document.querySelector('[class*="node"]')
+      console.log('Alternative element with [class*="node"]:', startNodeEl)
+    }
+
+    if (!startNodeEl) {
+      console.log('No node element found with any selector')
+      return
+    }
+  }
+
+  const startRect = startNodeEl.getBoundingClientRect()
+  const startX = startRect.left + startRect.width / 2
+  const startY = startRect.top + startRect.height / 2
+
+  console.log('startRect:', startRect)
+  console.log('Calculated position:', startX, startY)
+
+  // 设置标记线条的位置信息
+  linkPreviewLine.value = {
+    x: startX,
+    y: startY,
+    width: 0,
+    angle: 0
+  }
+  console.log('Mark line created at:', startX, startY)
+  console.log('Final linkPreviewLine:', linkPreviewLine.value)
+}
+
 // 鼠标移动处理函数
 function handleMouseMove(event) {
   if (!isLinkMode.value || !linkStartNode.value) return
@@ -599,6 +680,8 @@ function handleMouseMove(event) {
     x: event.clientX,
     y: event.clientY
   }
+
+  console.log('Mouse moved to:', event.clientX, event.clientY)
 
   // 更新连线预览
   updateLinkPreview()
@@ -625,12 +708,9 @@ function handleGlobalClick(event) {
 
 // 更新连线预览
 function updateLinkPreview() {
-  if (!isLinkMode.value || !linkStartNode.value) return
+  if (!isLinkMode.value || !linkStartNode.value || !linkPreviewLine.value) return
 
   // 获取起始节点的位置
-  const graphInstance = graphRef.value?.getInstance()
-  if (!graphInstance) return
-
   const startNodeEl = document.querySelector(`[data-node-id="${linkStartNode.value.id}"]`)
   if (!startNodeEl) return
 
@@ -638,28 +718,24 @@ function updateLinkPreview() {
   const startX = startRect.left + startRect.width / 2
   const startY = startRect.top + startRect.height / 2
 
-  // 创建或更新预览连线
-  if (!linkPreviewLine.value) {
-    linkPreviewLine.value = document.createElement('div')
-    linkPreviewLine.value.className = 'link-preview'
-    linkPreviewLine.value.style.position = 'fixed'
-    linkPreviewLine.value.style.pointerEvents = 'none'
-    linkPreviewLine.value.style.zIndex = '9999'
-    document.body.appendChild(linkPreviewLine.value)
-  }
-
   // 计算连线角度和长度
   const deltaX = mousePosition.value.x - startX
   const deltaY = mousePosition.value.y - startY
   const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
   const angle = (Math.atan2(deltaY, deltaX) * 180) / Math.PI
 
-  // 设置预览连线的样式
-  linkPreviewLine.value.style.left = startX + 'px'
-  linkPreviewLine.value.style.top = startY + 'px'
-  linkPreviewLine.value.style.width = length + 'px'
-  linkPreviewLine.value.style.transform = `rotate(${angle}deg)`
-  linkPreviewLine.value.style.transformOrigin = '0 50%'
+  console.log('Mouse position:', mousePosition.value.x, mousePosition.value.y)
+  console.log('Start position:', startX, startY)
+  console.log('Delta:', deltaX, deltaY)
+  console.log('Calculated length:', length, 'angle:', angle)
+
+  // 更新标记线条的位置信息
+  linkPreviewLine.value.x = startX
+  linkPreviewLine.value.y = startY
+  linkPreviewLine.value.width = length
+  linkPreviewLine.value.angle = angle
+
+  console.log('Updated linkPreviewLine:', linkPreviewLine.value)
 }
 
 // 创建连线
@@ -692,7 +768,13 @@ function createLink(fromNodeId, toNodeId) {
     graphRef.value.setJsonData(relationshipData)
   }
 
-  ElMessage.success('连线创建成功')
+  // 清除标记线条
+  linkPreviewLine.value = {
+    x: 0,
+    y: 0,
+    width: 0,
+    angle: 0
+  }
 }
 
 // 退出连线模式
@@ -700,10 +782,12 @@ function exitLinkMode() {
   isLinkMode.value = false
   linkStartNode.value = null
 
-  // 移除预览连线
-  if (linkPreviewLine.value) {
-    document.body.removeChild(linkPreviewLine.value)
-    linkPreviewLine.value = null
+  // 清除标记线条
+  linkPreviewLine.value = {
+    x: 0,
+    y: 0,
+    width: 0,
+    angle: 0
   }
 
   // 移除事件监听
@@ -884,7 +968,6 @@ onMounted(async () => {
 function handleKeyDown(event) {
   if (event.key === 'Escape' && isLinkMode.value) {
     exitLinkMode()
-    ElMessage.info('已退出连线模式')
   }
 }
 </script>
@@ -910,40 +993,6 @@ function handleKeyDown(event) {
   border-radius: 8px;
   overflow: hidden;
   position: relative;
-}
-
-/* 连线模式指示器 */
-.link-mode-indicator {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(135deg, #409eff, #67c23a);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 25px;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  animation: slideInDown 0.3s ease-out;
-}
-
-.link-mode-indicator .el-icon {
-  font-size: 18px;
-}
-
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 :deep(.relation-graph) {
@@ -1021,36 +1070,12 @@ function handleKeyDown(event) {
 /* 连线预览样式 */
 .link-preview {
   height: 3px;
-  background: linear-gradient(90deg, #409eff 0%, #409eff 85%, transparent 85%);
-  position: relative;
-  border-radius: 2px;
-  box-shadow: 0 0 8px rgba(64, 158, 255, 0.6);
-  animation: linkPreviewPulse 1.5s ease-in-out infinite;
-}
-
-.link-preview::after {
-  content: '';
+  background: #333;
   position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-left: 10px solid #409eff;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  filter: drop-shadow(0 0 4px rgba(64, 158, 255, 0.8));
-}
-
-@keyframes linkPreviewPulse {
-  0%,
-  100% {
-    opacity: 0.8;
-    box-shadow: 0 0 8px rgba(64, 158, 255, 0.6);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 12px rgba(64, 158, 255, 0.9);
-  }
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+  transform-origin: 0 50%;
+  pointer-events: none;
+  z-index: 1000;
 }
 </style>
