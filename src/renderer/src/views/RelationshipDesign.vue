@@ -31,34 +31,6 @@
                 @link="handleNodeLink"
                 @delete="handleNodeDelete"
               />
-
-              <!-- 连线预览线条 -->
-              <div
-                v-if="isLinkMode && linkPreviewLine"
-                class="link-preview"
-                :style="{
-                  left: linkPreviewLine.x + 'px',
-                  top: linkPreviewLine.y + 'px',
-                  width: linkPreviewLine.width + 'px',
-                  transform: `rotate(${linkPreviewLine.angle}deg)`
-                }"
-              ></div>
-
-              <!-- 调试信息 -->
-              <div
-                v-if="isLinkMode"
-                style="
-                  position: absolute;
-                  top: 10px;
-                  left: 10px;
-                  background: red;
-                  color: white;
-                  padding: 5px;
-                  z-index: 9999;
-                "
-              >
-                Debug: isLinkMode={{ isLinkMode }}, linkPreviewLine={{ linkPreviewLine }}
-              </div>
             </template>
           </RelationGraph>
         </div>
@@ -182,6 +154,13 @@ const graphOptions = {
   allowSwitchLineShape: true,
   allowSwitchJunctionPoint: true,
   defaultLineShape: 1,
+  allowCreateLine: true, // 允许创建连线
+  allowLinkLine: true, // 允许连线模式
+  allowDragLine: true, // 允许拖拽连线
+  allowDragNode: true, // 允许拖拽节点
+  allowShowLineText: true, // 允许显示线条文字
+  allowShowLineIcon: true, // 允许显示线条图标
+  creatingLinePlot: false, // 连线创建模式
   layouts: [
     {
       layoutName: 'center'
@@ -189,6 +168,7 @@ const graphOptions = {
   ],
   defaultJunctionPoint: 'border',
   defaultLineFontColor: '#409eff' // 设置默认线条文字颜色为蓝色
+  // defaultLineColor: '#409eff' // 设置默认线条颜色
 }
 
 // 加载人物数据
@@ -353,11 +333,6 @@ const onLineClick = (line) => {
 // 画布点击时隐藏菜单
 const onCanvasClick = () => {
   showRadialMenu.value = false
-
-  // 如果在连线模式下，退出连线模式
-  if (isLinkMode.value) {
-    exitLinkMode()
-  }
 }
 
 // 环绕菜单事件处理函数（预留实现）
@@ -419,16 +394,75 @@ function handleNodeLink() {
   // 隐藏环绕菜单
   showRadialMenu.value = false
 
-  // 延迟创建标记线条，等待RelationGraph渲染完成
-  setTimeout(() => {
-    createMarkLine()
-    console.log('createMarkLine called after delay, linkPreviewLine:', linkPreviewLine.value)
-    console.log('isLinkMode:', isLinkMode.value)
-  }, 100)
+  // 使用RelationGraph的正确连线API
+  const graphInstance = graphRef.value?.getInstance()
+  if (graphInstance) {
+    // 使用startCreatingLinePlot方法启动连线创建模式
+    if (typeof graphInstance.startCreatingLinePlot === 'function') {
+      const creatingOptions = {
+        onCreateLine: (fromNode, toNode) => {
+          console.log('Line created from', fromNode.id, 'to', toNode.id)
 
-  // 添加鼠标移动事件监听
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('click', handleGlobalClick)
+          // 创建新连线数据
+          const newLine = {
+            id: genId(),
+            from: fromNode.id,
+            to: toNode.id,
+            text: '',
+            fontColor: '#409eff',
+            lineShape: 1
+          }
+
+          // 添加到数据源
+          relationshipData.lines.push(newLine)
+
+          // 刷新图表显示新连线
+          if (graphRef.value && graphRef.value.setJsonData) {
+            graphRef.value.setJsonData(relationshipData)
+          }
+
+          // 退出连线模式
+          isLinkMode.value = false
+          linkStartNode.value = null
+
+          // 停止连线创建模式
+          if (typeof graphInstance.stopCreatingLinePlot === 'function') {
+            graphInstance.stopCreatingLinePlot()
+          }
+
+          ElMessage.success('连线创建成功')
+        }
+      }
+
+      // 启动连线创建模式
+      graphInstance.startCreatingLinePlot(null, creatingOptions)
+      console.log('Started line creation mode with startCreatingLinePlot')
+
+      // 设置起始节点，这样预览连线就会从当前节点开始
+      if (graphInstance.options && graphInstance.options.editingLineController) {
+        // 设置起始节点位置
+        const startNode = graphInstance.getNodeById(selectedNode.value.id)
+        if (startNode) {
+          graphInstance.options.editingLineController.startPoint = {
+            x: startNode.x,
+            y: startNode.y
+          }
+          graphInstance.options.editingLineController.endPoint = {
+            x: startNode.x,
+            y: startNode.y
+          }
+          graphInstance.updateEditingLineView()
+        }
+      }
+    } else {
+      console.warn('startCreatingLinePlot method not found')
+      ElMessage.error('连线功能不可用')
+      return
+    }
+  }
+
+  // 显示连线模式提示
+  ElMessage.info('连线模式已启动，请点击目标节点完成连线')
 }
 function handleNodeDelete() {
   if (!selectedNode.value) return
@@ -531,13 +565,6 @@ const isAddMode = ref(false)
 // 连线模式相关状态
 const isLinkMode = ref(false)
 const linkStartNode = ref(null)
-const linkPreviewLine = ref({
-  x: 0,
-  y: 0,
-  width: 0,
-  angle: 0
-})
-const mousePosition = ref({ x: 0, y: 0 })
 
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
@@ -620,182 +647,6 @@ function closeEdgeDialog() {
   edgeDialogVisible.value = false
   selectedEdge.value = null
   edgeForm.text = ''
-}
-
-// 创建标记线条
-function createMarkLine() {
-  console.log('createMarkLine function called')
-  console.log('isLinkMode:', isLinkMode.value)
-  console.log('linkStartNode:', linkStartNode.value)
-
-  if (!isLinkMode.value || !linkStartNode.value) {
-    console.log('Early return: isLinkMode or linkStartNode is falsy')
-    return
-  }
-
-  // 获取起始节点的位置
-  let startNodeEl = document.querySelector(`[data-node-id="${linkStartNode.value.id}"]`)
-  console.log('startNodeEl found with data-node-id:', startNodeEl)
-
-  if (!startNodeEl) {
-    console.log('No startNodeEl found with data-node-id, trying alternative selectors')
-    // 尝试其他选择器
-    startNodeEl = document.querySelector('.relation-graph-node')
-    console.log('Alternative element with .relation-graph-node:', startNodeEl)
-
-    if (!startNodeEl) {
-      startNodeEl = document.querySelector('[class*="node"]')
-      console.log('Alternative element with [class*="node"]:', startNodeEl)
-    }
-
-    if (!startNodeEl) {
-      console.log('No node element found with any selector')
-      return
-    }
-  }
-
-  const startRect = startNodeEl.getBoundingClientRect()
-  const startX = startRect.left + startRect.width / 2
-  const startY = startRect.top + startRect.height / 2
-
-  console.log('startRect:', startRect)
-  console.log('Calculated position:', startX, startY)
-
-  // 设置标记线条的位置信息
-  linkPreviewLine.value = {
-    x: startX,
-    y: startY,
-    width: 0,
-    angle: 0
-  }
-  console.log('Mark line created at:', startX, startY)
-  console.log('Final linkPreviewLine:', linkPreviewLine.value)
-}
-
-// 鼠标移动处理函数
-function handleMouseMove(event) {
-  if (!isLinkMode.value || !linkStartNode.value) return
-
-  mousePosition.value = {
-    x: event.clientX,
-    y: event.clientY
-  }
-
-  console.log('Mouse moved to:', event.clientX, event.clientY)
-
-  // 更新连线预览
-  updateLinkPreview()
-}
-
-// 全局点击处理函数
-function handleGlobalClick(event) {
-  if (!isLinkMode.value || !linkStartNode.value) return
-
-  // 检查是否点击了节点
-  const targetElement = event.target.closest('.relation-graph-node')
-  if (targetElement) {
-    // 获取目标节点数据
-    const targetNodeId = targetElement.getAttribute('data-node-id')
-    if (targetNodeId && targetNodeId !== linkStartNode.value.id) {
-      // 创建连线
-      createLink(linkStartNode.value.id, targetNodeId)
-    }
-  }
-
-  // 退出连线模式
-  exitLinkMode()
-}
-
-// 更新连线预览
-function updateLinkPreview() {
-  if (!isLinkMode.value || !linkStartNode.value || !linkPreviewLine.value) return
-
-  // 获取起始节点的位置
-  const startNodeEl = document.querySelector(`[data-node-id="${linkStartNode.value.id}"]`)
-  if (!startNodeEl) return
-
-  const startRect = startNodeEl.getBoundingClientRect()
-  const startX = startRect.left + startRect.width / 2
-  const startY = startRect.top + startRect.height / 2
-
-  // 计算连线角度和长度
-  const deltaX = mousePosition.value.x - startX
-  const deltaY = mousePosition.value.y - startY
-  const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-  const angle = (Math.atan2(deltaY, deltaX) * 180) / Math.PI
-
-  console.log('Mouse position:', mousePosition.value.x, mousePosition.value.y)
-  console.log('Start position:', startX, startY)
-  console.log('Delta:', deltaX, deltaY)
-  console.log('Calculated length:', length, 'angle:', angle)
-
-  // 更新标记线条的位置信息
-  linkPreviewLine.value.x = startX
-  linkPreviewLine.value.y = startY
-  linkPreviewLine.value.width = length
-  linkPreviewLine.value.angle = angle
-
-  console.log('Updated linkPreviewLine:', linkPreviewLine.value)
-}
-
-// 创建连线
-function createLink(fromNodeId, toNodeId) {
-  // 检查是否已存在连线
-  const existingLink = relationshipData.lines.find(
-    (line) => line.from === fromNodeId && line.to === toNodeId
-  )
-
-  if (existingLink) {
-    ElMessage.warning('这两个节点之间已经存在连线')
-    return
-  }
-
-  // 创建新连线
-  const newLine = {
-    id: genId(),
-    from: fromNodeId,
-    to: toNodeId,
-    text: '',
-    fontColor: '#409eff',
-    lineShape: 1 // 带箭头的连线样式
-  }
-
-  // 添加到数据源
-  relationshipData.lines.push(newLine)
-
-  // 刷新图表
-  if (graphRef.value && graphRef.value.setJsonData) {
-    graphRef.value.setJsonData(relationshipData)
-  }
-
-  // 清除标记线条
-  linkPreviewLine.value = {
-    x: 0,
-    y: 0,
-    width: 0,
-    angle: 0
-  }
-}
-
-// 退出连线模式
-function exitLinkMode() {
-  isLinkMode.value = false
-  linkStartNode.value = null
-
-  // 清除标记线条
-  linkPreviewLine.value = {
-    x: 0,
-    y: 0,
-    width: 0,
-    angle: 0
-  }
-
-  // 移除事件监听
-  document.removeEventListener('mousemove', handleMouseMove)
-  document.removeEventListener('click', handleGlobalClick)
-
-  // 清除鼠标位置
-  mousePosition.value = { x: 0, y: 0 }
 }
 
 // 保存节点信息
@@ -967,7 +818,18 @@ onMounted(async () => {
 // 键盘事件处理
 function handleKeyDown(event) {
   if (event.key === 'Escape' && isLinkMode.value) {
-    exitLinkMode()
+    // 退出连线模式
+    isLinkMode.value = false
+    linkStartNode.value = null
+
+    // 停止RelationGraph的连线创建模式
+    const graphInstance = graphRef.value?.getInstance()
+    if (graphInstance && typeof graphInstance.stopCreatingLinePlot === 'function') {
+      graphInstance.stopCreatingLinePlot()
+      console.log('Stopped line creation mode with stopCreatingLinePlot')
+    }
+
+    ElMessage.info('已退出连线模式')
   }
 }
 </script>
@@ -1065,17 +927,5 @@ function handleKeyDown(event) {
   font-size: 12px;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-/* 连线预览样式 */
-.link-preview {
-  height: 3px;
-  background: #333;
-  position: absolute;
-  border-radius: 2px;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-  transform-origin: 0 50%;
-  pointer-events: none;
-  z-index: 1000;
 }
 </style>
