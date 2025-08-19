@@ -389,7 +389,6 @@ function handleNodeLink() {
 
   // 进入连线模式
   isLinkMode.value = true
-  linkStartNode.value = selectedNode.value
 
   // 隐藏环绕菜单
   showRadialMenu.value = false
@@ -416,14 +415,17 @@ function handleNodeLink() {
           // 添加到数据源
           relationshipData.lines.push(newLine)
 
-          // 刷新图表显示新连线
-          if (graphRef.value && graphRef.value.setJsonData) {
-            graphRef.value.setJsonData(relationshipData)
+          // 使用增量更新而不是重新设置整个数据
+          const graphInstance = graphRef.value?.getInstance()
+          if (graphInstance) {
+            // 添加新连线
+            graphInstance.addLines([newLine])
+            // 重新布局
+            // graphInstance.doLayout()
           }
 
           // 退出连线模式
           isLinkMode.value = false
-          linkStartNode.value = null
 
           // 停止连线创建模式
           if (typeof graphInstance.stopCreatingLinePlot === 'function') {
@@ -505,20 +507,17 @@ function handleNodeDelete() {
           (l) => !toDeleteIds.has(l.from) && !toDeleteIds.has(l.to)
         )
 
-        // 更新图表 - 使用 nextTick 确保 DOM 更新完成
-        if (graphRef.value && graphRef.value.setJsonData) {
-          // 先清空图表，再重新设置数据
-          graphRef.value.setJsonData({
-            nodes: [],
-            lines: []
+        // 使用增量更新而不是重新设置整个数据
+        const graphInstance = graphRef.value?.getInstance()
+        if (graphInstance) {
+          // 删除节点和连线
+          toDeleteIds.forEach((nodeId) => {
+            graphInstance.removeNodeById(nodeId)
           })
 
-          // 使用 nextTick 确保清空操作完成后再设置新数据
-          nextTick(() => {
-            if (graphRef.value && graphRef.value.setJsonData) {
-              graphRef.value.setJsonData(relationshipData)
-            }
-          })
+          // 重新布局并居中
+          graphInstance.doLayout()
+          graphInstance.moveToCenter()
         }
 
         // 清空选中的节点
@@ -564,7 +563,6 @@ const isAddMode = ref(false)
 
 // 连线模式相关状态
 const isLinkMode = ref(false)
-const linkStartNode = ref(null)
 
 const presetColors = [
   { label: '蓝色', value: '#409eff' },
@@ -657,7 +655,6 @@ function saveNodeInfo() {
       ElMessage.warning('请输入节点名称')
       return
     }
-
     const newNodeId = genId()
     const newNode = {
       id: newNodeId,
@@ -670,12 +667,9 @@ function saveNodeInfo() {
         characterId: infoForm.characterId.trim()
       }
     }
-
-    // 添加到数据源
     relationshipData.nodes.push(newNode)
-
-    // 创建连线到当前选中的节点
     if (selectedNode.value) {
+      // Create link to parent if a node was selected
       relationshipData.lines.push({
         id: genId(),
         from: selectedNode.value.id,
@@ -685,9 +679,21 @@ function saveNodeInfo() {
       })
     }
 
-    // 刷新图表
-    if (graphRef.value && graphRef.value.setJsonData) {
-      graphRef.value.setJsonData(relationshipData)
+    // 使用增量更新而不是重新设置整个数据
+    const graphInstance = graphRef.value?.getInstance()
+    if (graphInstance) {
+      // 添加新节点
+      graphInstance.addNodes([newNode])
+
+      // 如果有连线，也添加连线
+      if (selectedNode.value) {
+        const newLine = relationshipData.lines[relationshipData.lines.length - 1]
+        graphInstance.addLines([newLine])
+      }
+
+      // 重新布局并居中
+      // graphInstance.doLayout()
+      graphInstance.moveToCenter()
     }
 
     infoDialogVisible.value = false
@@ -695,9 +701,12 @@ function saveNodeInfo() {
     ElMessage.success('新节点已创建')
   } else {
     // 编辑模式：更新现有节点
-    if (!selectedNode.value) return
+    if (!infoForm.characterId.trim()) {
+      ElMessage.warning('请输入节点名称')
+      return
+    }
 
-    // 检查是否是已存在的人物ID还是新名称
+    // 检查是否是已存在的人物ID
     const existingCharacter = characters.value.find((c) => c.id === infoForm.characterId)
     if (existingCharacter) {
       // 选择已存在的人物
@@ -739,20 +748,14 @@ function saveNodeInfo() {
       node.data.description = selectedNode.value.data.description
       node.data.characterId = selectedNode.value.data.characterId
     }
-    // 刷新图表
-    if (graphRef.value && graphRef.value.setJsonData) {
-      // 先清空图表，再重新设置数据，确保更新生效
-      graphRef.value.setJsonData({
-        nodes: [],
-        lines: []
-      })
 
-      nextTick(() => {
-        if (graphRef.value && graphRef.value.setJsonData) {
-          graphRef.value.setJsonData(relationshipData)
-        }
-      })
+    // 使用增量更新而不是重新设置整个数据
+    const graphInstance = graphRef.value?.getInstance()
+    if (graphInstance) {
+      // 通知数据已更新，让RelationGraph重新渲染
+      graphInstance.dataUpdated()
     }
+
     infoDialogVisible.value = false
     ElMessage.success('节点信息已更新')
   }
@@ -782,19 +785,11 @@ function saveEdgeInfo() {
       line.fontColor = line.fontColor || '#409eff'
     }
 
-    // 刷新图表
-    if (graphRef.value && graphRef.value.setJsonData) {
-      // 先清空图表，再重新设置数据，确保更新生效
-      graphRef.value.setJsonData({
-        nodes: [],
-        lines: []
-      })
-
-      nextTick(() => {
-        if (graphRef.value && graphRef.value.setJsonData) {
-          graphRef.value.setJsonData(relationshipData)
-        }
-      })
+    // 使用增量更新而不是重新设置整个数据
+    const graphInstance = graphRef.value?.getInstance()
+    if (graphInstance) {
+      // 通知数据已更新，让RelationGraph重新渲染
+      graphInstance.dataUpdated()
     }
 
     edgeDialogVisible.value = false
@@ -810,28 +805,7 @@ onMounted(async () => {
   await nextTick()
   loadCharacters()
   loadRelationshipData()
-
-  // 添加键盘事件监听
-  document.addEventListener('keydown', handleKeyDown)
 })
-
-// 键盘事件处理
-function handleKeyDown(event) {
-  if (event.key === 'Escape' && isLinkMode.value) {
-    // 退出连线模式
-    isLinkMode.value = false
-    linkStartNode.value = null
-
-    // 停止RelationGraph的连线创建模式
-    const graphInstance = graphRef.value?.getInstance()
-    if (graphInstance && typeof graphInstance.stopCreatingLinePlot === 'function') {
-      graphInstance.stopCreatingLinePlot()
-      console.log('Stopped line creation mode with stopCreatingLinePlot')
-    }
-
-    ElMessage.info('已退出连线模式')
-  }
-}
 </script>
 
 <style lang="scss" scoped>
