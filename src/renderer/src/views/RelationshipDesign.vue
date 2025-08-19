@@ -226,7 +226,11 @@ const loadRelationshipData = async () => {
         nodes: migratedNodes,
         lines: migratedLines
       })
-      graphRef.value.setJsonData(relationshipData)
+      await graphRef.value.setJsonData(relationshipData)
+      // const graphInstance = graphRef.value.getInstance()
+      // await graphInstance.moveToCenter()
+      // await graphInstance.zoomToFit()
+      // applyNodeSizes() // 加载数据后应用节点大小
     } else {
       // 保证nodes/edges为数组
       relationshipData.nodes = []
@@ -422,6 +426,9 @@ function handleNodeLink() {
             graphInstance.addLines([newLine])
             // 重新布局
             // graphInstance.doLayout()
+
+            // 重新计算并应用节点大小（因为连线关系可能改变了层级）
+            applyNodeSizes()
           }
 
           // 退出连线模式
@@ -516,8 +523,11 @@ function handleNodeDelete() {
           })
 
           // 重新布局并居中
-          graphInstance.doLayout()
+          // graphInstance.doLayout()
           graphInstance.moveToCenter()
+
+          // 重新计算并应用节点大小（因为删除节点可能改变了层级关系）
+          applyNodeSizes()
         }
 
         // 清空选中的节点
@@ -656,11 +666,34 @@ function saveNodeInfo() {
       return
     }
     const newNodeId = genId()
+
+    // 计算新节点的层级
+    let newNodeLevel = 0
+    if (selectedNode.value) {
+      // 如果有选中的父节点，计算新节点的层级
+      const parentLevel = calculateNodeLevel(
+        selectedNode.value.id,
+        relationshipData.nodes,
+        relationshipData.lines
+      )
+      newNodeLevel = parentLevel + 1
+    }
+
+    // 根据层级计算节点大小
+    const nodeSize = calculateNodeSize(
+      newNodeId,
+      relationshipData.nodes,
+      relationshipData.lines,
+      newNodeLevel
+    )
+
     const newNode = {
       id: newNodeId,
       text: infoForm.characterId.trim(),
       type: 'character',
       color: infoForm.color || customColor.value || '#409eff',
+      width: nodeSize.width,
+      height: nodeSize.height,
       data: {
         description: infoForm.description || '',
         gender: infoForm.gender || 'male',
@@ -692,7 +725,7 @@ function saveNodeInfo() {
       }
 
       // 重新布局并居中
-      // graphInstance.doLayout()
+      graphInstance.doLayout()
       graphInstance.moveToCenter()
     }
 
@@ -798,6 +831,73 @@ function saveEdgeInfo() {
     console.error('Error saving edge info:', error)
     ElMessage.error('保存失败，请重试')
   }
+}
+
+// 根据节点层级计算节点大小
+function calculateNodeSize(nodeId, nodes, lines, level = 0) {
+  // 根节点最大
+  if (level === 0) {
+    return { width: 100, height: 100 }
+  }
+  // 第一级子节点中等
+  else if (level === 1) {
+    return { width: 90, height: 90 }
+  }
+  // 第二级子节点较小
+  else if (level === 2) {
+    return { width: 80, height: 80 }
+  }
+  // 第三级及以后节点最小且一致
+  else {
+    return { width: 70, height: 70 }
+  }
+}
+
+// 计算节点的层级
+function calculateNodeLevel(nodeId, nodes, lines, visited = new Set()) {
+  if (visited.has(nodeId)) return 0
+
+  visited.add(nodeId)
+
+  // 找到根节点（没有父节点的节点）
+  const hasParent = lines.some((line) => line.to === nodeId)
+  if (!hasParent) {
+    return 0
+  }
+
+  // 找到父节点
+  const parentLine = lines.find((line) => line.to === nodeId)
+  if (parentLine) {
+    const parentLevel = calculateNodeLevel(parentLine.from, nodes, lines, visited)
+    return parentLevel + 1
+  }
+
+  return 0
+}
+
+// 应用节点大小
+function applyNodeSizes() {
+  const graphInstance = graphRef.value?.getInstance()
+  if (!graphInstance) return
+
+  relationshipData.nodes.forEach((node) => {
+    const level = calculateNodeLevel(node.id, relationshipData.nodes, relationshipData.lines)
+    const size = calculateNodeSize(node.id, relationshipData.nodes, relationshipData.lines, level)
+
+    // 更新节点大小
+    node.width = size.width
+    node.height = size.height
+
+    // 更新RelationGraph中的节点
+    const graphNode = graphInstance.getNodeById(node.id)
+    if (graphNode) {
+      graphNode.width = size.width
+      graphNode.height = size.height
+    }
+  })
+
+  // 通知数据已更新
+  graphInstance.dataUpdated()
 }
 
 onMounted(async () => {
