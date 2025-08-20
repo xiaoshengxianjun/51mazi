@@ -154,12 +154,6 @@ const graphOptions = {
   allowSwitchLineShape: true,
   allowSwitchJunctionPoint: true,
   defaultLineShape: 1,
-  allowCreateLine: true, // 允许创建连线
-  allowLinkLine: true, // 允许连线模式
-  allowDragLine: true, // 允许拖拽连线
-  allowDragNode: true, // 允许拖拽节点
-  allowShowLineText: true, // 允许显示线条文字
-  allowShowLineIcon: true, // 允许显示线条图标
   creatingLinePlot: false, // 连线创建模式
   layouts: [
     {
