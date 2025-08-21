@@ -27,23 +27,44 @@ export const useEditorStore = defineStore('editor', () => {
     return content.value.length
   })
 
+  // 新增：计算实际内容字数（排除换行符等格式字符）
+  const contentWordCount = computed(() => {
+    if (!content.value) return 0
+    // 移除换行符、制表符等格式字符，只计算实际内容
+    return content.value.replace(/[\n\r\t]/g, '').length
+  })
+
   // 计算本次会话的字数变化
   const sessionWordChange = computed(() => {
     if (!sessionInitialContent.value) return 0
-    return chapterWords.value - sessionInitialContent.value.length
+    return contentWordCount.value - getContentWordCount(sessionInitialContent.value)
   })
 
   // 计算净增字数（以最低字数为基准）
   const netWordChange = computed(() => {
-    if (sessionMinWordCount.value === 0) return 0
-    return chapterWords.value - sessionMinWordCount.value
+    // 如果还没有开始编辑会话，返回0
+    if (!sessionStartTime.value) return 0
+    
+    // 如果最低字数等于初始字数，说明没有减少过，净增就是当前字数减去初始字数
+    if (sessionMinWordCount.value === getContentWordCount(sessionInitialContent.value)) {
+      return contentWordCount.value - getContentWordCount(sessionInitialContent.value)
+    }
+    
+    // 否则以最低字数为基准计算净增
+    return contentWordCount.value - sessionMinWordCount.value
   })
+
+  // 辅助函数：计算内容字数
+  function getContentWordCount(text) {
+    if (!text) return 0
+    return text.replace(/[\n\r\t]/g, '').length
+  }
 
   // 开始编辑会话
   function startEditingSession(initialContent) {
     sessionStartTime.value = Date.now()
     sessionInitialContent.value = initialContent || ''
-    const initialLength = initialContent ? initialContent.length : 0
+    const initialLength = getContentWordCount(initialContent)
     initialWordCount.value = initialLength
     currentWordCount.value = initialLength
     sessionMinWordCount.value = initialLength // 初始字数作为最低字数
@@ -78,8 +99,8 @@ export const useEditorStore = defineStore('editor', () => {
 
   // 记录字数变化
   function recordWordChange(oldContent, newContent) {
-    const oldLength = oldContent ? oldContent.length : 0
-    const newLength = newContent ? newContent.length : 0
+    const oldLength = getContentWordCount(oldContent)
+    const newLength = getContentWordCount(newContent)
     const delta = newLength - oldLength
 
     if (delta !== 0) {
@@ -145,9 +166,10 @@ export const useEditorStore = defineStore('editor', () => {
       netWords,
       totalChanges: wordCountHistory.value.length,
       sessionDuration: sessionStartTime.value ? Date.now() - sessionStartTime.value : 0,
-      minWordCount: sessionMinWordCount.value, // 新增：最低字数
-      currentWordCount: currentWordCount.value, // 新增：当前字数
-      initialWordCount: initialWordCount.value // 新增：初始字数
+      minWordCount: sessionMinWordCount.value, // 最低字数
+      currentWordCount: contentWordCount.value, // 当前内容字数
+      initialWordCount: getContentWordCount(sessionInitialContent.value), // 初始内容字数
+      rawCharacterCount: chapterWords.value // 原始字符数量（包含格式字符）
     }
   }
 
@@ -172,6 +194,7 @@ export const useEditorStore = defineStore('editor', () => {
     file,
     chapterTitle,
     chapterWords,
+    contentWordCount, // 内容字数（排除格式字符）
     typingSpeed,
     sessionWordChange,
     netWordChange,

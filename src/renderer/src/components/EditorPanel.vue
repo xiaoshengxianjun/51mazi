@@ -67,22 +67,9 @@
       <EditorContent :editor="editor" />
     </div>
     <div class="editor-stats">
-      <span class="word-count">章节字数：{{ chapterWords }}</span>
-      <span v-if="sessionWordChange !== 0" class="session-change">
-        本次变化：{{ sessionWordChange > 0 ? '+' : '' }}{{ sessionWordChange }}字
-      </span>
+      <span class="word-count">章节字数：{{ contentWordCount }}字</span>
       <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
-      </span>
-      <span v-if="sessionStats" class="session-stats">
-        净增：{{ sessionStats.netWords }}字 | 新增：{{ sessionStats.addWords }}字 | 删除：{{
-          sessionStats.deleteWords
-        }}字
-        <br />
-        <span class="stats-detail">
-          初始：{{ sessionStats.initialWordCount }}字 | 最低：{{ sessionStats.minWordCount }}字 |
-          当前：{{ sessionStats.currentWordCount }}字
-        </span>
       </span>
     </div>
   </div>
@@ -108,10 +95,8 @@ const props = defineProps({
 })
 
 // 计算属性
-const chapterWords = computed(() => editorStore.chapterWords)
 const typingSpeed = computed(() => editorStore.typingSpeed)
-const sessionWordChange = computed(() => editorStore.sessionWordChange)
-const sessionStats = computed(() => editorStore.getSessionStats())
+const contentWordCount = computed(() => editorStore.contentWordCount)
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -148,7 +133,26 @@ watch(
   () => editorStore.file,
   (newFile, oldFile) => {
     if (editor.value && newFile?.path !== oldFile?.path) {
-      editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
+      // 文件变化时，重新设置内容并开始编辑会话
+      const newContent = editorStore.content || ''
+      editor.value.commands.setContent(plainTextToHtml(newContent))
+
+      // 重新开始编辑会话
+      editorStore.startEditingSession(newContent)
+    }
+  }
+)
+
+// 监听内容变化，确保编辑会话正确初始化
+watch(
+  () => editorStore.content,
+  (newContent, oldContent) => {
+    // 如果编辑器已经初始化且内容发生变化
+    if (editor.value && newContent !== oldContent) {
+      // 如果还没有开始编辑会话，则开始
+      if (!editorStore.sessionStartTime) {
+        editorStore.startEditingSession(newContent)
+      }
     }
   }
 )
@@ -194,10 +198,14 @@ onMounted(() => {
     }
   })
 
-  // 设置初始内容并开始编辑会话
+  // 设置初始内容
   const initialContent = editorStore.content || ''
   editor.value.commands.setContent(plainTextToHtml(initialContent))
-  editorStore.startEditingSession(initialContent)
+
+  // 如果有初始内容，则开始编辑会话
+  if (initialContent) {
+    editorStore.startEditingSession(initialContent)
+  }
 })
 
 onBeforeUnmount(async () => {
@@ -401,29 +409,8 @@ watch(
     color: var(--primary-color);
   }
 
-  .session-change {
-    color: var(--success-color);
-    font-weight: 500;
-  }
-
   .typing-speed {
     color: var(--warning-color);
-  }
-
-  .session-stats {
-    color: var(--text-secondary);
-    font-size: 12px;
-    background: var(--bg-soft);
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    line-height: 1.4;
-
-    .stats-detail {
-      color: var(--text-muted);
-      font-size: 11px;
-      opacity: 0.8;
-    }
   }
 }
 ::v-deep(.tiptap) {
