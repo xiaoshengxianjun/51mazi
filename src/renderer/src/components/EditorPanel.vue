@@ -75,7 +75,14 @@
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
       </span>
       <span v-if="sessionStats" class="session-stats">
-        净增：{{ sessionStats.netWords }}字 | 新增：{{ sessionStats.addWords }}字 | 删除：{{ sessionStats.deleteWords }}字
+        净增：{{ sessionStats.netWords }}字 | 新增：{{ sessionStats.addWords }}字 | 删除：{{
+          sessionStats.deleteWords
+        }}字
+        <br />
+        <span class="stats-detail">
+          初始：{{ sessionStats.initialWordCount }}字 | 最低：{{ sessionStats.minWordCount }}字 |
+          当前：{{ sessionStats.currentWordCount }}字
+        </span>
       </span>
     </div>
   </div>
@@ -186,7 +193,7 @@ onMounted(() => {
       }, 1000)
     }
   })
-  
+
   // 设置初始内容并开始编辑会话
   const initialContent = editorStore.content || ''
   editor.value.commands.setContent(plainTextToHtml(initialContent))
@@ -195,13 +202,13 @@ onMounted(() => {
 
 onBeforeUnmount(async () => {
   if (saveTimer) clearTimeout(saveTimer)
-  
+
   // 保存最后的内容
   await autoSaveContent()
-  
+
   // 重置编辑会话
   editorStore.resetEditingSession()
-  
+
   // 销毁编辑器
   editor.value && editor.value.destroy()
 })
@@ -388,28 +395,35 @@ watch(
   gap: 20px;
   color: var(--text-primary);
   flex-wrap: wrap;
-  
+
   .word-count {
     font-weight: bold;
     color: var(--primary-color);
   }
-  
+
   .session-change {
     color: var(--success-color);
     font-weight: 500;
   }
-  
+
   .typing-speed {
     color: var(--warning-color);
   }
-  
+
   .session-stats {
     color: var(--text-secondary);
     font-size: 12px;
     background: var(--bg-soft);
-    padding: 2px 8px;
+    padding: 4px 8px;
     border-radius: 4px;
     border: 1px solid var(--border-color);
+    line-height: 1.4;
+
+    .stats-detail {
+      color: var(--text-muted);
+      font-size: 11px;
+      opacity: 0.8;
+    }
   }
 }
 ::v-deep(.tiptap) {

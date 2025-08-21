@@ -20,6 +20,7 @@ export const useEditorStore = defineStore('editor', () => {
   const wordCountHistory = ref([]) // 记录字数变化历史
   const sessionStartTime = ref(null) // 本次编辑会话开始时间
   const sessionInitialContent = ref('') // 本次编辑会话初始内容
+  const sessionMinWordCount = ref(0) // 本次编辑会话中的最低字数
 
   // 计算当前字数
   const chapterWords = computed(() => {
@@ -32,19 +33,22 @@ export const useEditorStore = defineStore('editor', () => {
     return chapterWords.value - sessionInitialContent.value.length
   })
 
-  // 计算净增字数（新增 - 删除）
+  // 计算净增字数（以最低字数为基准）
   const netWordChange = computed(() => {
-    return wordCountHistory.value.reduce((total, change) => total + change.delta, 0)
+    if (sessionMinWordCount.value === 0) return 0
+    return chapterWords.value - sessionMinWordCount.value
   })
 
   // 开始编辑会话
   function startEditingSession(initialContent) {
     sessionStartTime.value = Date.now()
     sessionInitialContent.value = initialContent || ''
-    initialWordCount.value = initialContent ? initialContent.length : 0
-    currentWordCount.value = initialWordCount.value
+    const initialLength = initialContent ? initialContent.length : 0
+    initialWordCount.value = initialLength
+    currentWordCount.value = initialLength
+    sessionMinWordCount.value = initialLength // 初始字数作为最低字数
     wordCountHistory.value = []
-    
+
     // 开始计时
     startTypingTimer()
   }
@@ -90,7 +94,12 @@ export const useEditorStore = defineStore('editor', () => {
 
     // 更新当前字数
     currentWordCount.value = newLength
-    
+
+    // 更新最低字数（如果当前字数更低）
+    if (newLength < sessionMinWordCount.value) {
+      sessionMinWordCount.value = newLength
+    }
+
     // 更新码字速度
     updateTypingSpeed()
   }
@@ -110,6 +119,7 @@ export const useEditorStore = defineStore('editor', () => {
   function resetEditingSession() {
     sessionStartTime.value = null
     sessionInitialContent.value = ''
+    sessionMinWordCount.value = 0
     wordCountHistory.value = []
     resetTypingTimer()
   }
@@ -117,28 +127,34 @@ export const useEditorStore = defineStore('editor', () => {
   // 获取本次编辑会话统计
   function getSessionStats() {
     const addWords = wordCountHistory.value
-      .filter(change => change.type === 'add')
+      .filter((change) => change.type === 'add')
       .reduce((total, change) => total + change.delta, 0)
-    
-    const deleteWords = Math.abs(wordCountHistory.value
-      .filter(change => change.type === 'delete')
-      .reduce((total, change) => total + change.delta, 0))
-    
-    const netWords = addWords - deleteWords
+
+    const deleteWords = Math.abs(
+      wordCountHistory.value
+        .filter((change) => change.type === 'delete')
+        .reduce((total, change) => total + change.delta, 0)
+    )
+
+    // 净增字数 = 当前字数 - 最低字数
+    const netWords = netWordChange.value
 
     return {
       addWords,
       deleteWords,
       netWords,
       totalChanges: wordCountHistory.value.length,
-      sessionDuration: sessionStartTime.value ? Date.now() - sessionStartTime.value : 0
+      sessionDuration: sessionStartTime.value ? Date.now() - sessionStartTime.value : 0,
+      minWordCount: sessionMinWordCount.value, // 新增：最低字数
+      currentWordCount: currentWordCount.value, // 新增：当前字数
+      initialWordCount: initialWordCount.value // 新增：初始字数
     }
   }
 
   function setContent(newContent) {
     const oldContent = content.value
     content.value = newContent
-    
+
     // 记录字数变化
     recordWordChange(oldContent, newContent)
   }
