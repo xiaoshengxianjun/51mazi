@@ -256,12 +256,12 @@ const imageStyle = computed(() => ({
 // 计算画布鼠标样式
 const canvasCursor = computed(() => {
   switch (tool.value) {
-    case 'pencil':
-      return 'url(/src/assets/pencil.svg) 8 44, crosshair'
-    case 'eraser':
-      return 'url(/src/assets/eraser.svg) 16 44, crosshair'
-    case 'bucket':
-      return 'url(/src/assets/bucket.svg) 40 20, crosshair'
+    // case 'pencil':
+    //   return 'url(/src/assets/pencil.svg) 8 44, crosshair'
+    // case 'eraser':
+    //   return 'url(/src/assets/eraser.svg) 16 44, crosshair'
+    // case 'bucket':
+    //   return 'url(/src/assets/bucket.svg) 40 20, crosshair'
     case 'text':
       return 'text'
     case 'resource':

@@ -66,30 +66,32 @@
 
     <!-- 主题设置弹框 -->
     <el-dialog v-model="showThemeDialog" title="主题设置" width="500" :close-on-click-modal="false">
-      <el-radio-group
-        v-model="themeStore.currentTheme"
-        style="display: flex; justify-content: center; gap: 50px"
-        @change="handleThemeChange"
-      >
-        <div class="theme-option">
-          <el-radio value="light">
-            <div class="theme-preview light"></div>
-            亮色
-          </el-radio>
+      <div class="theme-selector">
+        <div
+          class="theme-option"
+          :class="{ active: themeStore.currentTheme === 'light' }"
+          @click="handleThemeChange('light')"
+        >
+          <div class="theme-preview light"></div>
+          <span>亮色</span>
         </div>
-        <div class="theme-option">
-          <el-radio value="dark">
-            <div class="theme-preview dark"></div>
-            暗色
-          </el-radio>
+        <div
+          class="theme-option"
+          :class="{ active: themeStore.currentTheme === 'dark' }"
+          @click="handleThemeChange('dark')"
+        >
+          <div class="theme-preview dark"></div>
+          <span>暗色</span>
         </div>
-        <div class="theme-option">
-          <el-radio value="yellow">
-            <div class="theme-preview yellow"></div>
-            黄色
-          </el-radio>
+        <div
+          class="theme-option"
+          :class="{ active: themeStore.currentTheme === 'yellow' }"
+          @click="handleThemeChange('yellow')"
+        >
+          <div class="theme-preview yellow"></div>
+          <span>黄色</span>
         </div>
-      </el-radio-group>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -98,7 +100,7 @@
 import { ref, onMounted } from 'vue'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import { useThemeStore } from '@renderer/stores/theme'
-import { ElDialog, ElRadioGroup, ElRadio } from 'element-plus'
+import { ElDialog, ElButton, ElInput, ElForm, ElFormItem, ElMessage } from 'element-plus'
 
 const showDirDialog = ref(false)
 const bookDir = ref('')
@@ -133,10 +135,12 @@ async function handleConfirmDir() {
   showDirDialog.value = false
 }
 
-// 切换主题
-async function handleThemeChange(theme) {
-  await themeStore.setTheme(theme)
-  showThemeDialog.value = false
+// 处理主题切换
+const handleThemeChange = (theme) => {
+  themeStore.setTheme(theme)
+  ElMessage.success(
+    `已切换到${theme === 'light' ? '亮色' : theme === 'dark' ? '暗色' : '黄色'}主题`
+  )
 }
 </script>
 
@@ -193,28 +197,58 @@ async function handleThemeChange(theme) {
 }
 
 .theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 15px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: var(--bg-mute);
+  }
+
+  &.active {
+    border: 2px solid var(--primary-color);
+    background-color: var(--bg-mute);
+  }
+
+  span {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
 }
 
 .theme-preview {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  margin-right: 8px;
-  vertical-align: middle;
-  border: 1px solid var(--border-color);
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  transition: all 0.3s ease;
 
   &.light {
-    background-color: #f8f9fa;
+    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+    border-color: #e0e0e0;
   }
 
   &.dark {
-    background-color: #1a1a1a;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    border-color: #7f8c8d;
   }
 
   &.yellow {
-    background-color: #faf0e6;
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    border-color: #d68910;
   }
+}
+
+.theme-selector {
+  display: flex;
+  justify-content: center;
+  gap: 50px;
+  margin: 20px 0;
 }
 
 :deep(.el-radio) {
