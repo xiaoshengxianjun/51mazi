@@ -39,7 +39,7 @@ function initChart() {
   // 设置图表配置
   const option = {
     title: {
-      text: '最近30天码字统计',
+      text: '最近30天净增字数统计',
       left: 'center',
       textStyle: {
         // color: 'var(--text-primary)',
@@ -53,7 +53,9 @@ function initChart() {
       },
       formatter: (params) => {
         const data = params[0]
-        return `${data.name}<br/>${data.seriesName}：${data.value}字`
+        const value = data.value
+        const sign = value >= 0 ? '+' : ''
+        return `${data.name}<br/>${data.seriesName}：${sign}${value}字`
       }
     },
     grid: {
@@ -100,15 +102,26 @@ async function updateChartData() {
   if (!chart) return
 
   try {
-    const result = await window.electron.getDailyWordCount()
+    // 获取所有书籍的每日净增字数统计
+    const result = await window.electron.getAllBooksDailyStats()
     if (result.success) {
       const dates = getLast30Days()
-      const data = dates.map((date) => result.data[date] || 0)
+      const netWordsData = dates.map((date) => {
+        let totalNetWords = 0
+        // 累加所有书籍在该日期的净增字数
+        Object.values(result.data).forEach(bookStats => {
+          if (bookStats[date]) {
+            totalNetWords += bookStats[date].netWords || 0
+          }
+        })
+        return totalNetWords
+      })
 
       chart.setOption({
         series: [
           {
-            data: data
+            name: '日净增字数',
+            data: netWordsData
           }
         ]
       })

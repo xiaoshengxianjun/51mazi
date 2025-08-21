@@ -623,13 +623,13 @@ function getStatsFilePath() {
 function readStats() {
   const statsPath = getStatsFilePath()
   if (!fs.existsSync(statsPath)) {
-    return { dailyStats: {}, chapterStats: {} }
+    return { dailyStats: {}, chapterStats: {}, bookDailyStats: {} }
   }
   try {
     return JSON.parse(fs.readFileSync(statsPath, 'utf-8'))
   } catch (error) {
     console.error('读取统计文件失败:', error)
-    return { dailyStats: {}, chapterStats: {} }
+    return { dailyStats: {}, chapterStats: {}, bookDailyStats: {} }
   }
 }
 
@@ -651,8 +651,9 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   const today = new Date().toISOString().split('T')[0]
   const chapterKey = `${bookName}/${volumeName}/${chapterName}`
 
-  // const oldLength = oldContent ? oldContent.length : 0
+  const oldLength = oldContent ? oldContent.length : 0
   const newLength = newContent ? newContent.length : 0
+  const wordChange = newLength - oldLength
 
   // 章节上次统计信息
   const prev = stats.chapterStats[chapterKey]
@@ -671,8 +672,35 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   // 3. 更新章节统计
   stats.chapterStats[chapterKey] = {
     totalWords: newLength,
-    lastUpdate: today
+    lastUpdate: today,
+    wordChange: wordChange, // 记录本次字数变化
+    lastContentLength: oldLength // 记录上次内容长度
   }
+
+  // 4. 更新书籍每日净增字数统计
+  if (!stats.bookDailyStats) stats.bookDailyStats = {}
+  if (!stats.bookDailyStats[bookName]) stats.bookDailyStats[bookName] = {}
+  if (!stats.bookDailyStats[bookName][today]) {
+    stats.bookDailyStats[bookName][today] = {
+      netWords: 0,
+      addWords: 0,
+      deleteWords: 0,
+      totalWords: 0
+    }
+  }
+
+  // 计算净增字数
+  if (wordChange > 0) {
+    stats.bookDailyStats[bookName][today].addWords += wordChange
+  } else if (wordChange < 0) {
+    stats.bookDailyStats[bookName][today].deleteWords += Math.abs(wordChange)
+  }
+  
+  stats.bookDailyStats[bookName][today].netWords = 
+    stats.bookDailyStats[bookName][today].addWords - 
+    stats.bookDailyStats[bookName][today].deleteWords
+  
+  stats.bookDailyStats[bookName][today].totalWords = newLength
 
   saveStats(stats)
 }
@@ -721,6 +749,34 @@ ipcMain.handle('get-daily-word-count', async () => {
     return { success: true, data: stats.dailyStats }
   } catch (error) {
     console.error('获取每日码字统计失败:', error)
+    return { success: false, message: '获取统计失败' }
+  }
+})
+
+// 新增：获取书籍每日净增字数统计
+ipcMain.handle('get-book-daily-stats', async (event, bookName) => {
+  try {
+    const stats = readStats()
+    if (!stats.bookDailyStats || !stats.bookDailyStats[bookName]) {
+      return { success: true, data: {} }
+    }
+    return { success: true, data: stats.bookDailyStats[bookName] }
+  } catch (error) {
+    console.error('获取书籍每日统计失败:', error)
+    return { success: false, message: '获取统计失败' }
+  }
+})
+
+// 新增：获取所有书籍的每日净增字数统计
+ipcMain.handle('get-all-books-daily-stats', async () => {
+  try {
+    const stats = readStats()
+    if (!stats.bookDailyStats) {
+      return { success: true, data: {} }
+    }
+    return { success: true, data: stats.bookDailyStats }
+  } catch (error) {
+    console.error('获取所有书籍每日统计失败:', error)
     return { success: false, message: '获取统计失败' }
   }
 })

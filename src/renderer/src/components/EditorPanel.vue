@@ -68,8 +68,14 @@
     </div>
     <div class="editor-stats">
       <span class="word-count">章节字数：{{ chapterWords }}</span>
+      <span v-if="sessionWordChange !== 0" class="session-change">
+        本次变化：{{ sessionWordChange > 0 ? '+' : '' }}{{ sessionWordChange }}字
+      </span>
       <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
+      </span>
+      <span v-if="sessionStats" class="session-stats">
+        净增：{{ sessionStats.netWords }}字 | 新增：{{ sessionStats.addWords }}字 | 删除：{{ sessionStats.deleteWords }}字
       </span>
     </div>
   </div>
@@ -97,6 +103,8 @@ const props = defineProps({
 // 计算属性
 const chapterWords = computed(() => editorStore.chapterWords)
 const typingSpeed = computed(() => editorStore.typingSpeed)
+const sessionWordChange = computed(() => editorStore.sessionWordChange)
+const sessionStats = computed(() => editorStore.getSessionStats())
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -178,15 +186,23 @@ onMounted(() => {
       }, 1000)
     }
   })
-  editor.value.commands.setContent(plainTextToHtml(editorStore.content || ''))
+  
+  // 设置初始内容并开始编辑会话
+  const initialContent = editorStore.content || ''
+  editor.value.commands.setContent(plainTextToHtml(initialContent))
+  editorStore.startEditingSession(initialContent)
 })
 
 onBeforeUnmount(async () => {
   if (saveTimer) clearTimeout(saveTimer)
+  
   // 保存最后的内容
   await autoSaveContent()
-  // 重置码字统计
-  editorStore.resetTypingTimer()
+  
+  // 重置编辑会话
+  editorStore.resetEditingSession()
+  
+  // 销毁编辑器
   editor.value && editor.value.destroy()
 })
 
@@ -358,10 +374,11 @@ watch(
   }
 }
 .editor-stats {
-  height: 28px;
+  height: auto;
+  min-height: 28px;
   width: 100%;
   line-height: 28px;
-  padding: 0px 15px;
+  padding: 8px 15px;
   border-top: 1px solid var(--border-color);
   background-color: var(--bg-mute);
   font-size: 14px;
@@ -370,6 +387,30 @@ watch(
   justify-content: space-between;
   gap: 20px;
   color: var(--text-primary);
+  flex-wrap: wrap;
+  
+  .word-count {
+    font-weight: bold;
+    color: var(--primary-color);
+  }
+  
+  .session-change {
+    color: var(--success-color);
+    font-weight: 500;
+  }
+  
+  .typing-speed {
+    color: var(--warning-color);
+  }
+  
+  .session-stats {
+    color: var(--text-secondary);
+    font-size: 12px;
+    background: var(--bg-soft);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+  }
 }
 ::v-deep(.tiptap) {
   height: 100%;
