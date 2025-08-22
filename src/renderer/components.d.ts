@@ -57,6 +57,7 @@ declare module 'vue' {
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchPanel: typeof import('./src/components/SearchPanel.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
     WordCountChart: typeof import('./src/components/WordCountChart.vue')['default']
   }

@@ -48,6 +48,9 @@
       <el-button size="small" class="toolbar-item" @click="copyContent">
         <el-icon><DocumentCopy /></el-icon>
       </el-button>
+      <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
+        <el-icon><Search /></el-icon>
+      </el-button>
       <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
       <el-button size="small" class="toolbar-item" type="primary" @click="saveContent">
         保存
@@ -72,21 +75,26 @@
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
       </span>
     </div>
+
+    <!-- 搜索面板 -->
+    <SearchPanel :visible="searchPanelVisible" :editor="editor" @close="closeSearchPanel" />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { DocumentCopy } from '@element-plus/icons-vue'
+import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Bold from '@tiptap/extension-bold'
 import Italic from '@tiptap/extension-italic'
 import TextAlign from '@tiptap/extension-text-align'
+import Highlight from '@tiptap/extension-highlight'
 import { useEditorStore } from '@renderer/stores/editor'
 import { Extension } from '@tiptap/core'
 import { Collapsible } from '@renderer/extensions/Collapsible'
+import SearchPanel from './SearchPanel.vue'
 
 const editorStore = useEditorStore()
 
@@ -110,6 +118,9 @@ const align = ref('left')
 
 const editor = ref(null)
 let saveTimer = null
+
+// 搜索面板状态
+const searchPanelVisible = ref(false)
 
 function plainTextToHtml(text) {
   if (!text) return ''
@@ -170,6 +181,17 @@ const TabInsert = Extension.create({
   }
 })
 
+// 键盘快捷键处理
+function handleKeydown(event) {
+  // Cmd/Ctrl + F: 打开搜索面板
+  if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+    event.preventDefault()
+    if (!searchPanelVisible.value) {
+      searchPanelVisible.value = true
+    }
+  }
+}
+
 onMounted(() => {
   editor.value = new Editor({
     extensions: [
@@ -177,6 +199,12 @@ onMounted(() => {
       Bold,
       Italic,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Highlight.configure({
+        multicolor: true,
+        HTMLAttributes: {
+          class: 'search-highlight'
+        }
+      }),
       TabInsert,
       Collapsible
     ],
@@ -206,6 +234,9 @@ onMounted(() => {
   if (initialContent) {
     editorStore.startEditingSession(initialContent)
   }
+
+  // 添加键盘事件监听器
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(async () => {
@@ -216,6 +247,9 @@ onBeforeUnmount(async () => {
 
   // 重置编辑会话
   editorStore.resetEditingSession()
+
+  // 移除键盘事件监听器
+  document.removeEventListener('keydown', handleKeydown)
 
   // 销毁编辑器
   editor.value && editor.value.destroy()
@@ -265,6 +299,15 @@ async function saveContent() {
       ElMessage.error(result?.message || '保存失败')
     }
   }
+}
+
+// 搜索面板控制
+function toggleSearchPanel() {
+  searchPanelVisible.value = !searchPanelVisible.value
+}
+
+function closeSearchPanel() {
+  searchPanelVisible.value = false
 }
 
 // 自动保存内容
@@ -419,6 +462,35 @@ watch(
   font-family: inherit, monospace;
   &:focus {
     outline: none;
+  }
+
+  // 搜索高亮样式 - 使用选择高亮
+  ::selection {
+    background-color: #409eff;
+    color: white;
+  }
+
+  // 搜索匹配文本的高亮样式
+  .search-highlight {
+    background-color: #ffeb3b !important;
+    color: #000 !important;
+    padding: 1px 2px;
+    border-radius: 2px;
+    border: 1px solid #f4d03f;
+  }
+
+  .search-highlight-current {
+    background-color: #409eff !important;
+    color: white !important;
+    padding: 1px 2px;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(64, 158, 255, 0.5);
+  }
+
+  // Tiptap highlight扩展的样式
+  mark[data-color] {
+    padding: 1px 2px;
+    border-radius: 2px;
   }
 }
 </style>
