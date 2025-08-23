@@ -43,6 +43,12 @@ if (process.contextIsolated) {
       getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
       // 设置书籍排序
       setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
+      
+      // 获取章节设置
+      getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
+      
+      // 更新章节格式
+      updateChapterFormat: (bookName, settings) => ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
 
       // --------- 笔记本相关 ---------
       // 笔记本和笔记的增删改查

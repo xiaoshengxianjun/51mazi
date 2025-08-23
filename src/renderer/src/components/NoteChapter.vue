@@ -73,7 +73,7 @@
             <el-icon @click.stop="sortVolumes"><Sort /></el-icon>
           </el-tooltip>
           <el-tooltip content="正文设置" placement="bottom" :show-after="2000">
-            <el-icon><Setting /></el-icon>
+            <el-icon @click.stop="openChapterSettings"><Setting /></el-icon>
           </el-tooltip>
         </div>
       </div>
@@ -117,6 +117,14 @@
         </el-tree>
       </div>
     </div>
+
+    <!-- 章节设置弹框 -->
+    <ChapterSettingsDialog
+      v-model:visible="chapterSettingsVisible"
+      :book-name="bookName"
+      :current-settings="chapterSettings"
+      @settings-changed="handleSettingsChanged"
+    />
   </div>
 </template>
 
@@ -133,6 +141,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useEditorStore } from '@renderer/stores/editor'
+import ChapterSettingsDialog from './ChapterSettingsDialog.vue'
 
 const props = defineProps({
   bookName: {
@@ -181,6 +190,13 @@ const noteTreeRef = ref(null)
 // 记录上次展开的节点key
 const expandedChapterKeys = ref([])
 const expandedNoteKeys = ref([])
+
+// 章节设置相关
+const chapterSettingsVisible = ref(false)
+const chapterSettings = ref({
+  chapterFormat: 'number',
+  suffixType: '章'
+})
 
 function getAllExpandedKeysFromTreeData(treeData) {
   const keys = []
@@ -257,10 +273,10 @@ async function createVolume() {
       // 保存当前展开状态和选中状态
       const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
       const currentSelectedKey = currentChapterNodeKey.value
-      
+
       // 重新加载章节数据
       await loadChapters()
-      
+
       // 恢复展开状态和选中状态
       nextTick(() => {
         if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
@@ -287,10 +303,10 @@ async function createChapter(volumeId) {
       // 保存当前展开状态和选中状态
       const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
       const currentSelectedKey = currentChapterNodeKey.value
-      
+
       // 重新加载章节数据
       await loadChapters()
-      
+
       // 恢复展开状态和选中状态
       nextTick(() => {
         if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
@@ -371,10 +387,10 @@ async function confirmEdit(node) {
       // 保存当前展开状态和选中状态
       const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
       const currentSelectedKey = currentChapterNodeKey.value
-      
+
       // 重新加载章节数据
       await loadChapters()
-      
+
       // 恢复展开状态和选中状态
       nextTick(() => {
         if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
@@ -419,10 +435,10 @@ async function deleteNode(node) {
       // 保存当前展开状态和选中状态
       const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
       const currentSelectedKey = currentChapterNodeKey.value
-      
+
       // 重新加载章节数据
       await loadChapters()
-      
+
       // 恢复展开状态和选中状态
       nextTick(() => {
         if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
@@ -454,10 +470,10 @@ async function createNotebook() {
     ElMessage.success(`创建笔记本"${result.notebookName}"成功`)
     // 保存当前展开状态
     const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
-    
+
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-    
+
     // 恢复展开状态
     nextTick(() => {
       if (noteTreeRef.value && currentExpandedKeys.length > 0) {
@@ -480,10 +496,10 @@ async function createNote(node) {
     ElMessage.success('创建笔记成功')
     // 保存当前展开状态
     const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
-    
+
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-    
+
     // 恢复展开状态
     nextTick(() => {
       if (noteTreeRef.value && currentExpandedKeys.length > 0) {
@@ -537,10 +553,10 @@ async function confirmEditNote(node) {
     ElMessage.success('重命名成功')
     // 保存当前展开状态
     const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
-    
+
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-    
+
     // 恢复展开状态
     nextTick(() => {
       if (noteTreeRef.value && currentExpandedKeys.length > 0) {
@@ -581,10 +597,10 @@ async function deleteNoteNode(node) {
       ElMessage.success('删除成功')
       // 保存当前展开状态
       const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
-      
+
       // 重新加载笔记数据
       notesTree.value = await window.electron.loadNotes(props.bookName)
-      
+
       // 恢复展开状态
       nextTick(() => {
         if (noteTreeRef.value && currentExpandedKeys.length > 0) {
@@ -605,6 +621,8 @@ onMounted(async () => {
   await loadChapters(true) // 首次加载时自动选中最新章节
   // 加载笔记目录
   notesTree.value = await window.electron.loadNotes(props.bookName)
+  // 加载章节设置
+  await loadChapterSettings()
 })
 
 defineExpose({
@@ -619,6 +637,31 @@ async function reloadNotes() {
       noteTreeRef.value.setExpandedKeys(expandedNoteKeys.value)
     }
   })
+}
+
+// 打开章节设置弹框
+function openChapterSettings() {
+  chapterSettingsVisible.value = true
+}
+
+// 加载章节设置
+async function loadChapterSettings() {
+  try {
+    const settings = await window.electron.getChapterSettings(props.bookName)
+    if (settings) {
+      chapterSettings.value = settings
+    }
+  } catch {
+    // 使用默认设置
+    console.log('使用默认章节设置')
+  }
+}
+
+// 处理设置变更
+async function handleSettingsChanged(newSettings) {
+  chapterSettings.value = newSettings
+  // 重新加载章节数据以显示新的命名格式
+  await loadChapters()
 }
 </script>
 <style lang="scss" scoped>
