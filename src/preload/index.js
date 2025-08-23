@@ -49,6 +49,10 @@ if (process.contextIsolated) {
       
       // 更新章节格式
       updateChapterFormat: (bookName, settings) => ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
+      
+      // 重新格式化章节编号
+      reformatChapterNumbers: (bookName, volumeName, settings) => 
+        ipcRenderer.invoke('reformat-chapter-numbers', { bookName, volumeName, settings }),
 
       // --------- 笔记本相关 ---------
       // 笔记本和笔记的增删改查

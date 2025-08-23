@@ -86,7 +86,12 @@
           node-key="path"
           highlight-current
           :current-node-key="currentChapterNodeKey"
+          :default-expand-all="true"
+          :expand-on-click-node="false"
+          :check-strictly="true"
           @node-click="handleChapterClick"
+          @node-expand="handleNodeExpand"
+          @node-collapse="handleNodeCollapse"
         >
           <template #default="{ node }">
             <div class="custom-tree-node">
@@ -124,6 +129,7 @@
       :book-name="bookName"
       :current-settings="chapterSettings"
       @settings-changed="handleSettingsChanged"
+      @reformat-requested="handleReformatRequested"
     />
   </div>
 </template>
@@ -187,30 +193,12 @@ const currentChapterNodeKey = ref(null)
 const chapterTreeRef = ref(null)
 const noteTreeRef = ref(null)
 
-// 记录上次展开的节点key
-const expandedChapterKeys = ref([])
-const expandedNoteKeys = ref([])
-
 // 章节设置相关
 const chapterSettingsVisible = ref(false)
 const chapterSettings = ref({
   chapterFormat: 'number',
   suffixType: '章'
 })
-
-function getAllExpandedKeysFromTreeData(treeData) {
-  const keys = []
-  function traverse(nodes) {
-    nodes.forEach((node) => {
-      if (node.children && node.children.length > 0 && node.expanded !== false) {
-        keys.push(node.path)
-        traverse(node.children)
-      }
-    })
-  }
-  traverse(treeData)
-  return keys
-}
 
 // 切换笔记面板
 function toggleNotes() {
@@ -220,6 +208,16 @@ function toggleNotes() {
 // 切换章节面板
 function toggleChapters() {
   chaptersExpanded.value = !chaptersExpanded.value
+}
+
+// 处理节点展开事件（章节树使用 default-expand-all="true" 自动展开）
+function handleNodeExpand() {
+  // 章节树自动展开，无需手动管理
+}
+
+// 处理节点折叠事件（章节树使用 default-expand-all="true" 自动展开）
+function handleNodeCollapse() {
+  // 章节树自动展开，无需手动管理
 }
 
 // 处理笔记点击
@@ -270,22 +268,14 @@ async function createVolume() {
     const result = await window.electron.createVolume(props.bookName)
     if (result.success) {
       ElMessage.success('创建卷成功')
-      // 保存当前展开状态和选中状态
-      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
-      const currentSelectedKey = currentChapterNodeKey.value
+
+      // 等待一小段时间确保文件系统同步
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       // 重新加载章节数据
       await loadChapters()
 
-      // 恢复展开状态和选中状态
-      nextTick(() => {
-        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
-          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
-        }
-        if (currentSelectedKey) {
-          currentChapterNodeKey.value = currentSelectedKey
-        }
-      })
+      // 章节树会自动展开（使用 default-expand-all="true"）
     } else {
       ElMessage.error(result.message || '创建卷失败')
     }
@@ -300,22 +290,14 @@ async function createChapter(volumeId) {
     const result = await window.electron.createChapter(props.bookName, volumeId)
     if (result.success) {
       ElMessage.success('创建章节成功')
-      // 保存当前展开状态和选中状态
-      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
-      const currentSelectedKey = currentChapterNodeKey.value
+
+      // 等待一小段时间确保文件系统同步
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       // 重新加载章节数据
       await loadChapters()
 
-      // 恢复展开状态和选中状态
-      nextTick(() => {
-        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
-          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
-        }
-        if (currentSelectedKey) {
-          currentChapterNodeKey.value = currentSelectedKey
-        }
-      })
+      // 章节树会自动展开（使用 default-expand-all="true"）
     } else {
       ElMessage.error(result.message || '创建章节失败')
     }
@@ -328,15 +310,23 @@ async function createChapter(volumeId) {
 async function loadChapters(autoSelectLatest = false) {
   try {
     const chapters = await window.electron.loadChapters(props.bookName)
+
     if (sortOrder.value === 'desc') {
       chapters.reverse()
     }
-    chaptersTree.value = chapters
-    nextTick(() => {
-      if (chapterTreeRef.value && expandedChapterKeys.value.length > 0) {
-        chapterTreeRef.value.setExpandedKeys(expandedChapterKeys.value)
+
+    // 验证数据结构
+    if (Array.isArray(chapters) && chapters.length > 0) {
+      if (chapters[0].children) {
+        // 检查章节编号连续性
+        await checkChapterNumberingAndWarn(chapters[0])
       }
-    })
+    }
+
+    chaptersTree.value = chapters
+
+    // 使用 default-expand-all="true" 自动展开所有节点
+
     // 自动选中最新卷的最新章节
     if (autoSelectLatest && chapters.length > 0) {
       const latestVolume = chapters[chapters.length - 1]
@@ -357,7 +347,6 @@ async function loadChapters(autoSelectLatest = false) {
 
 // 编辑节点
 function editNode(node) {
-  expandedChapterKeys.value = getAllExpandedKeysFromTreeData(chaptersTree.value)
   editingNode.value = { ...node.data }
   editingName.value = node.data.name
 }
@@ -384,18 +373,14 @@ async function confirmEdit(node) {
     const result = await window.electron.editNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('编辑成功')
-      // 保存当前展开状态和选中状态
-      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      // 保存当前选中状态
       const currentSelectedKey = currentChapterNodeKey.value
 
       // 重新加载章节数据
       await loadChapters()
 
-      // 恢复展开状态和选中状态
+      // 恢复选中状态
       nextTick(() => {
-        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
-          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
-        }
         if (currentSelectedKey) {
           currentChapterNodeKey.value = currentSelectedKey
         }
@@ -432,18 +417,14 @@ async function deleteNode(node) {
     const result = await window.electron.deleteNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('删除成功')
-      // 保存当前展开状态和选中状态
-      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      // 保存当前选中状态
       const currentSelectedKey = currentChapterNodeKey.value
 
       // 重新加载章节数据
       await loadChapters()
 
-      // 恢复展开状态和选中状态
+      // 恢复选中状态
       nextTick(() => {
-        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
-          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
-        }
         if (currentSelectedKey) {
           currentChapterNodeKey.value = currentSelectedKey
         }
@@ -468,18 +449,9 @@ async function createNotebook() {
   const result = await window.electron.createNotebook(props.bookName)
   if (result.success) {
     ElMessage.success(`创建笔记本"${result.notebookName}"成功`)
-    // 保存当前展开状态
-    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
 
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-
-    // 恢复展开状态
-    nextTick(() => {
-      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
-        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
-      }
-    })
   } else {
     ElMessage.error(result.message || '创建笔记本失败')
   }
@@ -494,18 +466,9 @@ async function createNote(node) {
   const result = await window.electron.createNote(props.bookName, notebookName)
   if (result.success) {
     ElMessage.success('创建笔记成功')
-    // 保存当前展开状态
-    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
 
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-
-    // 恢复展开状态
-    nextTick(() => {
-      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
-        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
-      }
-    })
   } else {
     ElMessage.error(result.message || '创建笔记失败')
   }
@@ -513,7 +476,6 @@ async function createNote(node) {
 
 // 编辑笔记本/笔记名
 function editNoteNode(node) {
-  expandedNoteKeys.value = getAllExpandedKeysFromTreeData(notesTree.value)
   editingNoteNode.value = { ...node.data }
   editingNoteName.value = node.data.name
 }
@@ -551,18 +513,9 @@ async function confirmEditNote(node) {
   }
   if (result && result.success) {
     ElMessage.success('重命名成功')
-    // 保存当前展开状态
-    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
 
     // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
-
-    // 恢复展开状态
-    nextTick(() => {
-      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
-        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
-      }
-    })
   } else {
     ElMessage.error(result?.message || '重命名失败')
   }
@@ -595,18 +548,9 @@ async function deleteNoteNode(node) {
     }
     if (result && result.success) {
       ElMessage.success('删除成功')
-      // 保存当前展开状态
-      const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
 
       // 重新加载笔记数据
       notesTree.value = await window.electron.loadNotes(props.bookName)
-
-      // 恢复展开状态
-      nextTick(() => {
-        if (noteTreeRef.value && currentExpandedKeys.length > 0) {
-          noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
-        }
-      })
     } else {
       ElMessage.error(result?.message || '删除失败')
     }
@@ -617,12 +561,14 @@ async function deleteNoteNode(node) {
 
 // 组件挂载时加载书籍数据
 onMounted(async () => {
-  sortOrder.value = await window.electron.getSortOrder(props.bookName)
-  await loadChapters(true) // 首次加载时自动选中最新章节
-  // 加载笔记目录
-  notesTree.value = await window.electron.loadNotes(props.bookName)
-  // 加载章节设置
-  await loadChapterSettings()
+  try {
+    sortOrder.value = await window.electron.getSortOrder(props.bookName)
+    await loadChapters(true) // 首次加载时自动选中最新章节
+    notesTree.value = await window.electron.loadNotes(props.bookName)
+    await loadChapterSettings()
+  } catch {
+    ElMessage.error('加载书籍数据失败')
+  }
 })
 
 defineExpose({
@@ -632,11 +578,6 @@ defineExpose({
 
 async function reloadNotes() {
   notesTree.value = await window.electron.loadNotes(props.bookName)
-  nextTick(() => {
-    if (noteTreeRef.value && expandedNoteKeys.value.length > 0) {
-      noteTreeRef.value.setExpandedKeys(expandedNoteKeys.value)
-    }
-  })
 }
 
 // 打开章节设置弹框
@@ -653,7 +594,104 @@ async function loadChapterSettings() {
     }
   } catch {
     // 使用默认设置
-    console.log('使用默认章节设置')
+  }
+}
+
+// 检查章节编号连续性并提示用户
+async function checkChapterNumberingAndWarn(volume) {
+  if (!volume.children || volume.children.length === 0) return
+
+  // 简单的章节编号检查
+  const chapterNumbers = volume.children
+    .map((chapter) => {
+      const name = chapter.name
+      // 先尝试数字格式：第1章、第1集等
+      let match = name.match(/^第(\d+)(.+)$/)
+      if (match) {
+        return parseInt(match[1])
+      }
+      // 再尝试汉字格式：第一章、第一集等
+      match = name.match(/^第(.+?)(.+)$/)
+      if (match) {
+        // 简单的汉字转数字（只处理1-10）
+        const chineseNumbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+        const index = chineseNumbers.indexOf(match[1])
+        return index > 0 ? index : 0
+      }
+      return 0
+    })
+    .filter((num) => num > 0)
+    .sort((a, b) => a - b)
+
+  if (chapterNumbers.length === 0) return
+
+  const maxNumber = Math.max(...chapterNumbers)
+  const totalChapters = volume.children.length
+  const missingNumbers = []
+
+  // 检查缺失的编号
+  for (let i = 1; i <= maxNumber; i++) {
+    if (!chapterNumbers.includes(i)) {
+      missingNumbers.push(i)
+    }
+  }
+
+  const isSequential = missingNumbers.length === 0 && maxNumber === totalChapters
+
+  if (!isSequential) {
+    // 检查是否有 undefined 后缀问题
+    const hasUndefinedSuffix = volume.children.some((chapter) => chapter.name.includes('undefined'))
+
+    if (hasUndefinedSuffix) {
+      console.warn(
+        '🚨 检测到章节名包含 "undefined"，这是格式化错误！建议立即通过"正文设置" -> "重新格式化章节编号"来修复'
+      )
+    } else {
+      console.warn('⚠️ 章节编号不连续，建议通过"正文设置" -> "重新格式化章节编号"来修复')
+    }
+  }
+}
+
+// 重新格式化章节编号
+async function reformatChapterNumbers(volumeName) {
+  try {
+    // 转换为普通对象，避免 IPC 克隆问题
+    const cleanSettings = {
+      chapterFormat: chapterSettings.value.chapterFormat,
+      suffixType: chapterSettings.value.suffixType
+    }
+
+    const result = await window.electron.reformatChapterNumbers(
+      props.bookName,
+      volumeName,
+      cleanSettings
+    )
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      // 重新加载章节数据
+      await loadChapters()
+    } else {
+      ElMessage.error(result.message || '重新格式化失败')
+    }
+  } catch {
+    ElMessage.error('重新格式化失败')
+  }
+}
+
+// 处理重新格式化请求（来自设置对话框）
+async function handleReformatRequested() {
+  try {
+    // 找到第一个卷
+    if (chaptersTree.value && chaptersTree.value.length > 0) {
+      const firstVolume = chaptersTree.value[0]
+      // 调用重新格式化函数
+      await reformatChapterNumbers(firstVolume.name)
+    } else {
+      ElMessage.warning('没有找到可格式化的卷')
+    }
+  } catch {
+    ElMessage.error('重新格式化失败')
   }
 }
 

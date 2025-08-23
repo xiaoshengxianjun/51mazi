@@ -87,8 +87,6 @@ import { ElMessage } from 'element-plus'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
-import Bold from '@tiptap/extension-bold'
-import Italic from '@tiptap/extension-italic'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import { useEditorStore } from '@renderer/stores/editor'
@@ -196,8 +194,6 @@ onMounted(() => {
   editor.value = new Editor({
     extensions: [
       StarterKit,
-      Bold,
-      Italic,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Highlight.configure({
         multicolor: true,

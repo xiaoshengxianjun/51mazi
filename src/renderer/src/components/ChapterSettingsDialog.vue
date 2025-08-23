@@ -13,8 +13,8 @@
         <h4>章节名称格式</h4>
         <div class="format-options">
           <el-radio-group v-model="settings.chapterFormat">
-            <el-radio label="number">数字格式（第1章、第2章...）</el-radio>
-            <el-radio label="chinese">汉字格式（第一章、第二章...）</el-radio>
+            <el-radio value="number">数字格式（第1章、第2章...）</el-radio>
+            <el-radio value="chinese">汉字格式（第一章、第二章...）</el-radio>
           </el-radio-group>
         </div>
       </div>
@@ -24,12 +24,12 @@
         <h4>后缀类型</h4>
         <div class="suffix-options">
           <el-radio-group v-model="settings.suffixType">
-            <el-radio label="章">章</el-radio>
-            <el-radio label="集">集</el-radio>
-            <el-radio label="回">回</el-radio>
-            <el-radio label="节">节</el-radio>
-            <el-radio label="部">部</el-radio>
-            <el-radio label="卷">卷</el-radio>
+            <el-radio value="章">章</el-radio>
+            <el-radio value="集">集</el-radio>
+            <el-radio value="回">回</el-radio>
+            <el-radio value="节">节</el-radio>
+            <el-radio value="部">部</el-radio>
+            <el-radio value="卷">卷</el-radio>
           </el-radio-group>
         </div>
       </div>
@@ -67,9 +67,10 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" @click="handleConfirm" :loading="loading">
-          确认修改
-        </el-button>
+        <el-button @click="handleReformat" type="warning" :loading="reformatLoading"
+          >重新格式化章节编号</el-button
+        >
+        <el-button type="primary" @click="handleConfirm" :loading="loading"> 确认修改 </el-button>
       </div>
     </template>
   </el-dialog>
@@ -107,6 +108,7 @@ const settings = ref({
 
 // 加载状态
 const loading = ref(false)
+const reformatLoading = ref(false)
 
 // 监听弹框显示状态
 watch(
@@ -121,7 +123,10 @@ watch(
 
 // 获取预览文本
 function getPreviewText(number) {
-  const prefix = settings.value.chapterFormat === 'number' ? `第${number}${settings.value.suffixType}` : `第${getChineseNumber(number)}${settings.value.suffixType}`
+  const prefix =
+    settings.value.chapterFormat === 'number'
+      ? `第${number}${settings.value.suffixType}`
+      : `第${getChineseNumber(number)}${settings.value.suffixType}`
   return prefix
 }
 
@@ -163,10 +168,13 @@ async function handleConfirm() {
     loading.value = true
 
     // 调用主进程修改章节名称格式
-    const result = await window.electron.updateChapterFormat(
-      props.bookName,
-      settings.value
-    )
+    // 确保传递的是纯对象，避免序列化问题
+    const cleanSettings = {
+      chapterFormat: settings.value.chapterFormat,
+      suffixType: settings.value.suffixType
+    }
+
+    const result = await window.electron.updateChapterFormat(props.bookName, cleanSettings)
 
     if (result.success) {
       ElMessage.success('章节名称格式修改成功')
@@ -177,10 +185,50 @@ async function handleConfirm() {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('操作失败')
+      console.error('设置修改失败:', error)
+      ElMessage.error(`操作失败: ${error.message || '未知错误'}`)
     }
   } finally {
     loading.value = false
+  }
+}
+
+// 重新格式化章节编号
+async function handleReformat() {
+  try {
+    // 确认对话框
+    await ElMessageBox.confirm(
+      '确定要重新格式化章节编号吗？\n\n' +
+        '这将按照文件顺序重新编号所有章节，保持章节内容不变。\n' +
+        '此操作不可恢复！',
+      '确认重新格式化',
+      {
+        confirmButtonText: '确定格式化',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    reformatLoading.value = true
+
+    // 调用主进程重新格式化章节编号
+    const cleanSettings = {
+      chapterFormat: settings.value.chapterFormat,
+      suffixType: settings.value.suffixType
+    }
+
+    // 这里需要调用父组件的重新格式化方法
+    // 通过 emit 事件通知父组件
+    emit('reformat-requested', cleanSettings)
+
+    ElMessage.success('章节编号重新格式化请求已发送')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('重新格式化失败:', error)
+      ElMessage.error(`操作失败: ${error.message || '未知错误'}`)
+    }
+  } finally {
+    reformatLoading.value = false
   }
 }
 </script>
@@ -215,7 +263,7 @@ async function handleConfirm() {
   .el-radio {
     margin-right: 0;
     min-width: 70px;
-    
+
     &:last-child {
       margin-right: 0;
     }
@@ -265,11 +313,11 @@ async function handleConfirm() {
 .dialog-footer {
   text-align: right;
   padding-top: 12px;
-  
+
   .el-button {
     min-width: 90px;
     margin-left: 10px;
-    
+
     &:first-child {
       margin-left: 0;
     }
