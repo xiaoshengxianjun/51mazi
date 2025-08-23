@@ -254,8 +254,22 @@ async function createVolume() {
     const result = await window.electron.createVolume(props.bookName)
     if (result.success) {
       ElMessage.success('创建卷成功')
+      // 保存当前展开状态和选中状态
+      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      const currentSelectedKey = currentChapterNodeKey.value
+      
       // 重新加载章节数据
       await loadChapters()
+      
+      // 恢复展开状态和选中状态
+      nextTick(() => {
+        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
+          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
+        }
+        if (currentSelectedKey) {
+          currentChapterNodeKey.value = currentSelectedKey
+        }
+      })
     } else {
       ElMessage.error(result.message || '创建卷失败')
     }
@@ -270,8 +284,22 @@ async function createChapter(volumeId) {
     const result = await window.electron.createChapter(props.bookName, volumeId)
     if (result.success) {
       ElMessage.success('创建章节成功')
+      // 保存当前展开状态和选中状态
+      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      const currentSelectedKey = currentChapterNodeKey.value
+      
       // 重新加载章节数据
       await loadChapters()
+      
+      // 恢复展开状态和选中状态
+      nextTick(() => {
+        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
+          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
+        }
+        if (currentSelectedKey) {
+          currentChapterNodeKey.value = currentSelectedKey
+        }
+      })
     } else {
       ElMessage.error(result.message || '创建章节失败')
     }
@@ -340,7 +368,22 @@ async function confirmEdit(node) {
     const result = await window.electron.editNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('编辑成功')
+      // 保存当前展开状态和选中状态
+      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      const currentSelectedKey = currentChapterNodeKey.value
+      
+      // 重新加载章节数据
       await loadChapters()
+      
+      // 恢复展开状态和选中状态
+      nextTick(() => {
+        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
+          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
+        }
+        if (currentSelectedKey) {
+          currentChapterNodeKey.value = currentSelectedKey
+        }
+      })
     } else {
       ElMessage.error(result.message || '编辑失败')
     }
@@ -373,7 +416,22 @@ async function deleteNode(node) {
     const result = await window.electron.deleteNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('删除成功')
+      // 保存当前展开状态和选中状态
+      const currentExpandedKeys = getAllExpandedKeysFromTreeData(chaptersTree.value)
+      const currentSelectedKey = currentChapterNodeKey.value
+      
+      // 重新加载章节数据
       await loadChapters()
+      
+      // 恢复展开状态和选中状态
+      nextTick(() => {
+        if (chapterTreeRef.value && currentExpandedKeys.length > 0) {
+          chapterTreeRef.value.setExpandedKeys(currentExpandedKeys)
+        }
+        if (currentSelectedKey) {
+          currentChapterNodeKey.value = currentSelectedKey
+        }
+      })
     } else {
       ElMessage.error(result.message || '删除失败')
     }
@@ -394,7 +452,18 @@ async function createNotebook() {
   const result = await window.electron.createNotebook(props.bookName)
   if (result.success) {
     ElMessage.success(`创建笔记本"${result.notebookName}"成功`)
+    // 保存当前展开状态
+    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
+    
+    // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
+    
+    // 恢复展开状态
+    nextTick(() => {
+      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
+        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
+      }
+    })
   } else {
     ElMessage.error(result.message || '创建笔记本失败')
   }
@@ -409,7 +478,18 @@ async function createNote(node) {
   const result = await window.electron.createNote(props.bookName, notebookName)
   if (result.success) {
     ElMessage.success('创建笔记成功')
+    // 保存当前展开状态
+    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
+    
+    // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
+    
+    // 恢复展开状态
+    nextTick(() => {
+      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
+        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
+      }
+    })
   } else {
     ElMessage.error(result.message || '创建笔记失败')
   }
@@ -455,7 +535,18 @@ async function confirmEditNote(node) {
   }
   if (result && result.success) {
     ElMessage.success('重命名成功')
+    // 保存当前展开状态
+    const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
+    
+    // 重新加载笔记数据
     notesTree.value = await window.electron.loadNotes(props.bookName)
+    
+    // 恢复展开状态
+    nextTick(() => {
+      if (noteTreeRef.value && currentExpandedKeys.length > 0) {
+        noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
+      }
+    })
   } else {
     ElMessage.error(result?.message || '重命名失败')
   }
@@ -488,7 +579,18 @@ async function deleteNoteNode(node) {
     }
     if (result && result.success) {
       ElMessage.success('删除成功')
+      // 保存当前展开状态
+      const currentExpandedKeys = getAllExpandedKeysFromTreeData(notesTree.value)
+      
+      // 重新加载笔记数据
       notesTree.value = await window.electron.loadNotes(props.bookName)
+      
+      // 恢复展开状态
+      nextTick(() => {
+        if (noteTreeRef.value && currentExpandedKeys.length > 0) {
+          noteTreeRef.value.setExpandedKeys(currentExpandedKeys)
+        }
+      })
     } else {
       ElMessage.error(result?.message || '删除失败')
     }

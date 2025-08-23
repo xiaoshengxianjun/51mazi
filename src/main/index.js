@@ -282,32 +282,20 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   let nextChapterNumber = 1
 
   if (chapters.length > 0) {
-    // 从现有章节名中提取最大编号，并添加调试信息
+    // 从现有章节名中提取最大编号
     const chapterNumbers = chapters
       .map((file) => {
         const name = file.name.replace('.txt', '')
         const match = name.match(/^第(\d+)章/)
-        const number = match ? parseInt(match[1]) : 0
-        console.log(
-          `[DEBUG] 文件: ${file.name} -> 名称: ${name} -> 匹配: ${match ? match[1] : '无'} -> 数字: ${number}`
-        )
-        return number
+        return match ? parseInt(match[1]) : 0
       })
       .filter((num) => num > 0)
 
-    console.log(`[DEBUG] 提取的章节编号: [${chapterNumbers.join(', ')}]`)
-
     if (chapterNumbers.length > 0) {
       nextChapterNumber = Math.max(...chapterNumbers) + 1
-      console.log(
-        `[DEBUG] 最大编号: ${Math.max(...chapterNumbers)}, 下一个编号: ${nextChapterNumber}`
-      )
     } else {
       // 如果没有标准格式的章节名，使用文件数量+1
       nextChapterNumber = chapters.length + 1
-      console.log(
-        `[DEBUG] 无标准格式，使用文件数量+1: ${chapters.length} + 1 = ${nextChapterNumber}`
-      )
     }
   }
 
@@ -343,6 +331,26 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
           })
         }
       }
+
+      // 按照章节编号排序
+      volumeChapters.sort((a, b) => {
+        const aMatch = a.name.match(/^第(\d+)章/)
+        const bMatch = b.name.match(/^第(\d+)章/)
+
+        if (aMatch && bMatch) {
+          // 如果都是标准章节格式，按编号排序
+          return parseInt(aMatch[1]) - parseInt(bMatch[1])
+        } else if (aMatch) {
+          // 如果a是标准格式，b不是，a排在前面
+          return -1
+        } else if (bMatch) {
+          // 如果b是标准格式，a不是，b排在前面
+          return 1
+        } else {
+          // 都不是标准格式，按名称排序
+          return a.name.localeCompare(b.name)
+        }
+      })
       chapters.push({
         id: volumeName,
         name: volumeName,
