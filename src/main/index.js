@@ -278,8 +278,39 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   const files = fs.readdirSync(volumePath, { withFileTypes: true })
   const chapters = files.filter((file) => file.isFile() && file.name.endsWith('.txt'))
 
-  // 计算新的章节序号
-  const nextChapterNumber = chapters.length + 1
+  // 智能计算新的章节序号
+  let nextChapterNumber = 1
+
+  if (chapters.length > 0) {
+    // 从现有章节名中提取最大编号，并添加调试信息
+    const chapterNumbers = chapters
+      .map((file) => {
+        const name = file.name.replace('.txt', '')
+        const match = name.match(/^第(\d+)章/)
+        const number = match ? parseInt(match[1]) : 0
+        console.log(
+          `[DEBUG] 文件: ${file.name} -> 名称: ${name} -> 匹配: ${match ? match[1] : '无'} -> 数字: ${number}`
+        )
+        return number
+      })
+      .filter((num) => num > 0)
+
+    console.log(`[DEBUG] 提取的章节编号: [${chapterNumbers.join(', ')}]`)
+
+    if (chapterNumbers.length > 0) {
+      nextChapterNumber = Math.max(...chapterNumbers) + 1
+      console.log(
+        `[DEBUG] 最大编号: ${Math.max(...chapterNumbers)}, 下一个编号: ${nextChapterNumber}`
+      )
+    } else {
+      // 如果没有标准格式的章节名，使用文件数量+1
+      nextChapterNumber = chapters.length + 1
+      console.log(
+        `[DEBUG] 无标准格式，使用文件数量+1: ${chapters.length} + 1 = ${nextChapterNumber}`
+      )
+    }
+  }
+
   const chapterName = `第${nextChapterNumber}章`
 
   fs.writeFileSync(join(volumePath, `${chapterName}.txt`), '')
@@ -695,11 +726,11 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   } else if (wordChange < 0) {
     stats.bookDailyStats[bookName][today].deleteWords += Math.abs(wordChange)
   }
-  
-  stats.bookDailyStats[bookName][today].netWords = 
-    stats.bookDailyStats[bookName][today].addWords - 
+
+  stats.bookDailyStats[bookName][today].netWords =
+    stats.bookDailyStats[bookName][today].addWords -
     stats.bookDailyStats[bookName][today].deleteWords
-  
+
   stats.bookDailyStats[bookName][today].totalWords = newLength
 
   saveStats(stats)
