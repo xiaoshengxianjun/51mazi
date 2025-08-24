@@ -18,7 +18,7 @@
           <i class="el-icon-setting"></i>
           系统设置
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="goToUserGuide">
           <i class="el-icon-reading"></i>
           写作指南
         </div>
@@ -98,10 +98,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import { useThemeStore } from '@renderer/stores/theme'
 import { ElDialog, ElButton, ElInput, ElForm, ElFormItem, ElMessage } from 'element-plus'
 
+const router = useRouter()
 const showDirDialog = ref(false)
 const bookDir = ref('')
 const showThemeDialog = ref(false)
@@ -141,6 +143,11 @@ const handleThemeChange = (theme) => {
   ElMessage.success(
     `已切换到${theme === 'light' ? '亮色' : theme === 'dark' ? '暗色' : '黄色'}主题`
   )
+}
+
+// 跳转到写作指南
+const goToUserGuide = () => {
+  router.push('/user-guide')
 }
 </script>
 

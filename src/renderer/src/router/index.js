@@ -45,6 +45,11 @@ const routes = [
     path: '/relationship-design',
     name: 'RelationshipDesign',
     component: () => import('@renderer/views/RelationshipDesign.vue')
+  },
+  {
+    path: '/user-guide',
+    name: 'UserGuide',
+    component: () => import('@renderer/views/UserGuide.vue')
   }
   // 在这里添加更多路由配置
 ]
