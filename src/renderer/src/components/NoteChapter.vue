@@ -23,6 +23,7 @@
           empty-text="暂无笔记"
           node-key="path"
           highlight-current
+          :default-expand-all="true"
           :current-node-key="currentNoteNodeKey"
           @node-click="handleNoteClick"
         >
