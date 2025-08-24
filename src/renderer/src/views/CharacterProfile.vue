@@ -7,7 +7,20 @@
       </el-button>
     </template>
     <template #default>
-      <div class="character-grid">
+      <div class="view-toggle">
+        <el-radio-group v-model="viewMode" size="small">
+          <el-radio-button value="card">
+            <el-icon><Grid /></el-icon>
+            卡片模式
+          </el-radio-button>
+          <el-radio-button value="table">
+            <el-icon><List /></el-icon>
+            表格模式
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+      <!-- 卡片模式 -->
+      <div v-if="viewMode === 'card'" class="character-grid">
         <div
           v-for="character in characters"
           :key="character.id"
@@ -35,7 +48,56 @@
           </div>
         </div>
       </div>
-      <el-empty v-if="characters.length === 0" :image-size="200" description="暂无人物" />
+
+      <!-- 表格模式 -->
+      <div v-else-if="viewMode === 'table'" class="character-table">
+        <el-table :data="characters" border style="width: 100%" @row-click="handleEditCharacter">
+          <el-table-column prop="name" label="姓名" width="120" align="center" />
+          <el-table-column prop="age" label="年龄" width="80" align="center">
+            <template #default="{ row }"> {{ row.age }}岁 </template>
+          </el-table-column>
+          <el-table-column prop="gender" label="性别" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.gender === '男' ? 'primary' : 'danger'" size="small">
+                {{ row.gender }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="height" label="身高" width="100" align="center">
+            <template #default="{ row }"> {{ row.height }}cm </template>
+          </el-table-column>
+          <el-table-column prop="tags" label="标签" width="140" align="center">
+            <template #default="{ row }">
+              <div v-if="row.tags && row.tags.length > 0" class="table-tags">
+                <el-tag v-for="tag in row.tags" :key="tag" size="small" class="tag-item">
+                  {{ tag }}
+                </el-tag>
+              </div>
+              <span v-else class="no-tags">无标签</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="introduction" label="介绍" min-width="300" align="center" />
+          <el-table-column label="操作" width="160" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button type="primary" size="small" @click.stop="handleEditCharacter(row)">
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-button>
+              <el-button type="danger" size="small" @click.stop="handleDeleteCharacter(row)">
+                <el-icon><Delete /></el-icon>
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <el-empty
+        v-if="characters.length === 0"
+        :image-size="200"
+        description="暂无人物"
+        class="empty-state"
+      />
     </template>
   </LayoutTool>
 
@@ -115,13 +177,32 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete } from '@element-plus/icons-vue'
+import {
+  ElMessage,
+  ElMessageBox,
+  ElTable,
+  ElTableColumn,
+  ElButton,
+  ElTag,
+  ElRadioGroup,
+  ElRadioButton,
+  ElRadio,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElTreeSelect,
+  ElEmpty,
+  ElIcon
+} from 'element-plus'
+import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
 
 const route = useRoute()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
+const viewMode = ref('card') // 视图模式：card 或 table
 const characters = ref([])
 const dictionary = ref([]) // 字典数据
 const bookName = route.query.name || ''
@@ -299,6 +380,33 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.view-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.character-table {
+  .table-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .no-tags {
+    color: #999;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+}
+
 .character-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -413,24 +521,17 @@ onMounted(() => {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-
-  .empty-icon {
-    font-size: 48px;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-  }
-
-  p {
-    font-size: 16px;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-  }
 }
 
 // 响应式设计
 @media (max-width: 768px) {
   .character-grid {
     grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: 16px;
   }
 }
 </style>
