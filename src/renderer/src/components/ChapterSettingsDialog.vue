@@ -8,17 +8,6 @@
     @update:model-value="(val) => emit('update:visible', val)"
   >
     <div class="settings-content">
-      <!-- 章节名称格式设置 -->
-      <div class="setting-section">
-        <h4>章节名称格式</h4>
-        <div class="format-options">
-          <el-radio-group v-model="settings.chapterFormat">
-            <el-radio value="number">数字格式（第1章、第2章...）</el-radio>
-            <el-radio value="chinese">汉字格式（第一章、第二章...）</el-radio>
-          </el-radio-group>
-        </div>
-      </div>
-
       <!-- 后缀类型设置 -->
       <div class="setting-section">
         <h4>后缀类型</h4>
@@ -92,7 +81,6 @@ const props = defineProps({
   currentSettings: {
     type: Object,
     default: () => ({
-      chapterFormat: 'number',
       suffixType: '章'
     })
   }
@@ -102,7 +90,6 @@ const emit = defineEmits(['update:visible', 'settings-changed'])
 
 // 设置状态
 const settings = ref({
-  chapterFormat: 'number',
   suffixType: '章'
 })
 
@@ -123,27 +110,7 @@ watch(
 
 // 获取预览文本
 function getPreviewText(number) {
-  const prefix =
-    settings.value.chapterFormat === 'number'
-      ? `第${number}${settings.value.suffixType}`
-      : `第${getChineseNumber(number)}${settings.value.suffixType}`
-  return prefix
-}
-
-// 数字转汉字
-function getChineseNumber(num) {
-  const chineseNumbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
-  if (num <= 10) {
-    return chineseNumbers[num]
-  } else if (num < 20) {
-    return `十${num > 10 ? chineseNumbers[num - 10] : ''}`
-  } else if (num < 100) {
-    const tens = Math.floor(num / 10)
-    const ones = num % 10
-    return `${chineseNumbers[tens]}十${ones > 0 ? chineseNumbers[ones] : ''}`
-  } else {
-    return `第${num}`
-  }
+  return `第${number}${settings.value.suffixType}`
 }
 
 // 关闭弹框
@@ -170,7 +137,6 @@ async function handleConfirm() {
     // 调用主进程修改章节名称格式
     // 确保传递的是纯对象，避免序列化问题
     const cleanSettings = {
-      chapterFormat: settings.value.chapterFormat,
       suffixType: settings.value.suffixType
     }
 
@@ -213,7 +179,6 @@ async function handleReformat() {
 
     // 调用主进程重新格式化章节编号
     const cleanSettings = {
-      chapterFormat: settings.value.chapterFormat,
       suffixType: settings.value.suffixType
     }
 
