@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     Book: typeof import('./src/components/Book.vue')['default']
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
+    ChapterSettingsDialog: typeof import('./src/components/ChapterSettingsDialog.vue')['default']
     Editor: typeof import('./src/components/Editor.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
     EditorToolbar: typeof import('./src/components/EditorToolbar.vue')['default']
@@ -58,6 +59,7 @@ declare module 'vue' {
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchPanel: typeof import('./src/components/SearchPanel.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
     WordCountChart: typeof import('./src/components/WordCountChart.vue')['default']
   }
