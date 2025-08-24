@@ -33,3 +33,5 @@ lerna-debug.log*
 .eslintcache
 
 relation-graph-master
+tiptap-3.2.2
+element-plus-2.11.1

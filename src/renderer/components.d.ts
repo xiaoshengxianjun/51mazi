@@ -13,6 +13,7 @@ declare module 'vue' {
     Editor: typeof import('./src/components/Editor.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
     EditorToolbar: typeof import('./src/components/EditorToolbar.vue')['default']
+    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
     ElCard: typeof import('element-plus/es')['ElCard']
