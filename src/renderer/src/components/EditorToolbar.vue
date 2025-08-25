@@ -27,13 +27,30 @@
         <el-icon><Connection /></el-icon>
         <span>关系图</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleEventsSequence">
+        <el-icon><Guide /></el-icon>
+        <span>事序图</span>
+      </el-button>
+      <el-button class="tool-btn" @click="handleOrganization">
+        <el-icon><Organization /></el-icon>
+        <span>组织架构</span>
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { User, Location, Timer, Avatar, Connection, Collection } from '@element-plus/icons-vue'
+import {
+  User,
+  Location,
+  Timer,
+  Avatar,
+  Connection,
+  Collection,
+  Guide,
+  Organization
+} from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -74,6 +91,20 @@ const handleRelationshipMap = () => {
   // 跳转到关系图列表页面，带上当前书籍名
   const bookName = route.query.name
   router.push({ path: '/relationship-list', query: { name: bookName } })
+}
+
+const handleEventsSequence = () => {
+  // 跳转到事序图页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/events-sequence', query: { name: bookName } })
+}
+
+const handleOrganization = () => {
+  // 跳转到组织架构页面，带上当前书籍名
+  // const bookName = route.query.name
+  // router.push({ path: '/organization', query: { name: bookName } })
+  // TODO: 组织架构功能待开发，敬请期待
+  this.$message.info('组织架构功能正在开发中，敬请期待！')
 }
 </script>
 
