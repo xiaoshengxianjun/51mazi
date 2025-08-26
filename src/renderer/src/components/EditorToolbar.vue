@@ -32,7 +32,7 @@
         <span>事序图</span>
       </el-button>
       <el-button class="tool-btn" @click="handleOrganization">
-        <el-icon><Organization /></el-icon>
+        <el-icon><Grid /></el-icon>
         <span>组织架构</span>
       </el-button>
     </div>
@@ -49,7 +49,7 @@ import {
   Connection,
   Collection,
   Guide,
-  Organization
+  Grid
 } from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'

@@ -50,6 +50,11 @@ const routes = [
     path: '/user-guide',
     name: 'UserGuide',
     component: () => import('@renderer/views/UserGuide.vue')
+  },
+  {
+    path: '/events-sequence',
+    name: 'EventsSequence',
+    component: () => import('@renderer/views/EventsSequence.vue')
   }
   // 在这里添加更多路由配置
 ]
