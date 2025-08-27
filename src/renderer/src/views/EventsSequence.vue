@@ -56,15 +56,35 @@
                     </div>
                   </div>
                   <div class="right-content">
-                    <div v-for="event in chart.events" :key="event.id" class="event-row">
-                      <!-- 事件条 - 作为完整的横向组件 -->
+                    <!-- 背景单元格网格 -->
+                    <div class="grid-background">
                       <div
-                        v-if="event.startTime && event.endTime"
-                        class="event-bar-container"
-                        :style="getEventBarContainerStyle(event)"
-                        :title="`${event.introduction} (${event.startTime}-${event.endTime})`"
+                        v-for="rowIndex in chart.events.length"
+                        :key="`row-${rowIndex}`"
+                        class="grid-row"
                       >
-                        <div class="event-bar" :style="getEventBarStyle(event)">
+                        <div
+                          v-for="colIndex in 50"
+                          :key="`cell-${rowIndex}-${colIndex}`"
+                          class="grid-cell"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <!-- 事件条层 -->
+                    <div class="events-layer">
+                      <div
+                        v-for="event in chart.events"
+                        :key="event.id"
+                        class="event-bar-container"
+                      >
+                        <!-- 事件条 - 作为完整的横向组件 -->
+                        <div
+                          v-if="event.startTime && event.endTime"
+                          class="event-bar"
+                          :style="getEventBarStyle(event)"
+                          :title="`${event.introduction} (${event.startTime}-${event.endTime})`"
+                        >
                           <div class="event-label start-label">
                             {{ event.introduction.substring(0, 8) }}...
                           </div>
@@ -189,8 +209,8 @@ const debugEvents = (chart) => {
 
 // 此函数已废弃，事件条现在作为完整组件显示
 
-// 获取事件条容器的样式（定位和尺寸）
-const getEventBarContainerStyle = (event) => {
+// 获取事件条的样式（定位和尺寸）
+const getEventBarStyle = (event) => {
   if (!event.startTime || !event.endTime) return {}
 
   const startPosition = (event.startTime - 1) * 40 // 40px是每个时间单元格的宽度
@@ -203,30 +223,26 @@ const getEventBarContainerStyle = (event) => {
   return {
     position: 'absolute',
     left: `${startPosition}px`,
-    top: '0',
+    top: '2px', // 留出2px的顶部边距
     width: `${width}px`,
-    height: '40px', // 固定高度，与行高一致
-    zIndex: 100
-  }
-}
-
-// 获取事件条的样式
-const getEventBarStyle = (event) => {
-  return {
+    height: '36px', // 减少高度，留出上下边距，在40px单元格内居中
+    zIndex: 10,
     background: `linear-gradient(135deg, ${event.color || '#409EFF'} 0%, ${adjustBrightness(event.color || '#409EFF', -20)} 100%)`,
-    opacity: 0.8,
+    opacity: 0.7,
     borderRadius: '8px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
     border: '1px solid rgba(255, 255, 255, 0.2)',
-    width: '100%',
-    height: '100%',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     padding: '0 8px',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease'
   }
 }
+
+// 此函数已合并到上面的getEventBarStyle中
 
 // 调整颜色亮度的辅助函数
 const adjustBrightness = (hex, percent) => {
@@ -313,7 +329,7 @@ sequenceCharts.value.forEach((chart) => {
 
   // 输出每个事件的样式信息
   chart.events.forEach((event) => {
-    const style = getEventBarContainerStyle(event)
+    const style = getEventBarStyle(event)
     console.log(`事件 ${event.index} 样式:`, style)
   })
 })
@@ -519,63 +535,49 @@ sequenceCharts.value.forEach((chart) => {
     min-width: max-content; /* 确保内容不会被压缩 */
     overflow: visible; /* 确保事件条容器不被裁剪 */
 
-    .event-row {
-      display: flex;
-      border-bottom: 1px solid var(--border-color);
-      height: 40px;
-      position: relative; /* 为绝对定位的事件条容器提供定位上下文 */
-      z-index: 5;
-      min-width: max-content;
-      overflow: visible; /* 确保事件条容器不被裁剪 */
+    // 背景网格样式
+    .grid-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
 
-      .time-cell {
-        flex: 0 0 40px;
-        width: 40px;
-        height: 40px;
+      .grid-row {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        border-right: 1px solid var(--border-color);
-        background-color: var(--bg-base);
-        box-sizing: border-box;
-        position: relative;
-        z-index: 1;
-        min-width: 40px;
-        flex-shrink: 0;
-        white-space: nowrap;
-      }
+        height: 40px; // 与事件行高度保持一致
+        border-bottom: 1px solid #e4e7ed;
 
-      // 事件条容器样式
-      .event-bar-container {
-        position: absolute;
-        z-index: 100;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        pointer-events: auto;
-        background-color: rgba(255, 0, 0, 0.1); // 调试用，可以看到容器边界
-
-        &:hover {
-          z-index: 15;
-          transform: scale(1.02);
-
-          .event-bar {
-            opacity: 1 !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            transform: scale(1.05);
-          }
+        .grid-cell {
+          flex: 0 0 40px;
+          width: 40px;
+          height: 40px;
+          border-right: 1px solid #e4e7ed;
+          background-color: transparent;
+          box-sizing: border-box;
         }
+      }
+    }
+
+    // 事件条层样式
+    .events-layer {
+      position: relative;
+      z-index: 10;
+      height: 100%;
+
+      .event-bar-container {
+        position: relative;
+        height: 40px; // 保持容器高度与单元格一致
 
         .event-bar {
-          width: 100%;
-          height: 100%;
-          border-radius: 8px;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: flex-start; // 改为左对齐
-          padding: 0 8px;
-          box-sizing: border-box;
-          position: relative; // 确保定位正确
+          &:hover {
+            opacity: 1 !important;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 15;
+            // 悬停时保持在同一位置，不超出单元格边界
+          }
 
           .event-label {
             color: white;
@@ -590,7 +592,7 @@ sequenceCharts.value.forEach((chart) => {
             line-height: 1.2;
 
             &.start-label {
-              max-width: 100%; // 允许标签使用更多空间
+              max-width: 100%;
             }
           }
         }
