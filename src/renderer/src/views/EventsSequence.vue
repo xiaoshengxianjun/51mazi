@@ -23,10 +23,6 @@
                     <el-icon><Plus /></el-icon>
                     添加事件
                   </el-button>
-                  <el-button size="small" @click="debugEvents(chart)">
-                    <el-icon><InfoFilled /></el-icon>
-                    调试
-                  </el-button>
                 </div>
               </div>
 
@@ -194,21 +190,6 @@ const addEvent = (chartId) => {
   ElMessage.info('添加事件功能正在开发中')
 }
 
-// 调试事件显示
-const debugEvents = (chart) => {
-  console.log('调试图表:', chart.title)
-  chart.events.forEach((event) => {
-    console.log(`事件 ${event.index}: ${event.introduction}`)
-    console.log(`  时间范围: ${event.startTime} - ${event.endTime}`)
-    console.log(`  颜色: ${event.color}`)
-    console.log(
-      `  位置: left=${(event.startTime - 1) * 40}px, width=${(event.endTime - event.startTime + 1) * 40}px`
-    )
-  })
-}
-
-// 此函数已废弃，事件条现在作为完整组件显示
-
 // 获取事件条的样式（定位和尺寸）
 const getEventBarStyle = (event) => {
   if (!event.startTime || !event.endTime) return {}
@@ -216,9 +197,9 @@ const getEventBarStyle = (event) => {
   const startPosition = (event.startTime - 1) * 40 // 40px是每个时间单元格的宽度
   const width = (event.endTime - event.startTime + 1) * 40
 
-  console.log(
-    `事件 ${event.index}: start=${event.startTime}, end=${event.endTime}, left=${startPosition}px, width=${width}px`
-  )
+  // console.log(
+  //   `事件 ${event.index}: start=${event.startTime}, end=${event.endTime}, left=${startPosition}px, width=${width}px`
+  // )
 
   return {
     position: 'absolute',
