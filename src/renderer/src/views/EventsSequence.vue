@@ -23,6 +23,10 @@
                     <el-icon><Plus /></el-icon>
                     添加事件
                   </el-button>
+                  <el-button size="small" @click="debugEvents(chart)">
+                    <el-icon><InfoFilled /></el-icon>
+                    调试
+                  </el-button>
                 </div>
               </div>
 
@@ -53,13 +57,18 @@
                   </div>
                   <div class="right-content">
                     <div v-for="event in chart.events" :key="event.id" class="event-row">
+                      <!-- 事件条 - 作为完整的横向组件 -->
                       <div
-                        v-for="i in 50"
-                        :key="i"
-                        class="time-cell"
-                        :class="{ 'has-event': isEventAtTime(event, i) }"
+                        v-if="event.startTime && event.endTime"
+                        class="event-bar-container"
+                        :style="getEventBarContainerStyle(event)"
+                        :title="`${event.introduction} (${event.startTime}-${event.endTime})`"
                       >
-                        <span v-if="isEventAtTime(event, i)" class="event-marker">●</span>
+                        <div class="event-bar" :style="getEventBarStyle(event)">
+                          <div class="event-label start-label">
+                            {{ event.introduction.substring(0, 8) }}...
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -106,7 +115,7 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, InfoFilled } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 
 const route = useRoute()
@@ -165,21 +174,91 @@ const addEvent = (chartId) => {
   ElMessage.info('添加事件功能正在开发中')
 }
 
-// 判断事件在指定时间点是否存在
-const isEventAtTime = (event, timeIndex) => {
-  if (event.startTime && event.endTime) {
-    return timeIndex >= event.startTime && timeIndex <= event.endTime
+// 调试事件显示
+const debugEvents = (chart) => {
+  console.log('调试图表:', chart.title)
+  chart.events.forEach((event) => {
+    console.log(`事件 ${event.index}: ${event.introduction}`)
+    console.log(`  时间范围: ${event.startTime} - ${event.endTime}`)
+    console.log(`  颜色: ${event.color}`)
+    console.log(
+      `  位置: left=${(event.startTime - 1) * 40}px, width=${(event.endTime - event.startTime + 1) * 40}px`
+    )
+  })
+}
+
+// 此函数已废弃，事件条现在作为完整组件显示
+
+// 获取事件条容器的样式（定位和尺寸）
+const getEventBarContainerStyle = (event) => {
+  if (!event.startTime || !event.endTime) return {}
+
+  const startPosition = (event.startTime - 1) * 40 // 40px是每个时间单元格的宽度
+  const width = (event.endTime - event.startTime + 1) * 40
+
+  console.log(
+    `事件 ${event.index}: start=${event.startTime}, end=${event.endTime}, left=${startPosition}px, width=${width}px`
+  )
+
+  return {
+    position: 'absolute',
+    left: `${startPosition}px`,
+    top: '0',
+    width: `${width}px`,
+    height: '40px', // 固定高度，与行高一致
+    zIndex: 100
   }
-  return false
+}
+
+// 获取事件条的样式
+const getEventBarStyle = (event) => {
+  return {
+    background: `linear-gradient(135deg, ${event.color || '#409EFF'} 0%, ${adjustBrightness(event.color || '#409EFF', -20)} 100%)`,
+    opacity: 0.8,
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 8px',
+    boxSizing: 'border-box'
+  }
+}
+
+// 调整颜色亮度的辅助函数
+const adjustBrightness = (hex, percent) => {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const amt = Math.round(2.55 * percent)
+  const R = (num >> 16) + amt
+  const G = ((num >> 8) & 0x00ff) + amt
+  const B = (num & 0x0000ff) + amt
+  return (
+    '#' +
+    (
+      0x1000000 +
+      (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+      (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+      (B < 255 ? (B < 1 ? 0 : B) : 255)
+    )
+      .toString(16)
+      .slice(1)
+  )
 }
 
 // 为示例数据添加时间范围
 const addTimeRangeToEvents = () => {
   sequenceCharts.value.forEach((chart) => {
     chart.events.forEach((event, index) => {
-      // 为每个事件分配一个时间范围
+      // 为每个事件分配一个时间范围，确保事件之间有重叠
       event.startTime = index + 1
-      event.endTime = index + 3
+      event.endTime = index + 3 // 调整为3个时间单位的持续时间
+
+      // 为每个事件分配不同的颜色
+      const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3']
+      event.color = colors[index % colors.length]
     })
   })
 }
@@ -205,6 +284,16 @@ const addSampleData = () => {
           id: '3',
           index: 3,
           introduction: '面临第一个挑战，展现能力'
+        },
+        {
+          id: '4',
+          index: 4,
+          introduction: '探索神秘遗迹，发现宝藏'
+        },
+        {
+          id: '5',
+          index: 5,
+          introduction: '与反派首次交锋，险胜'
         }
       ],
       createdAt: new Date().toISOString()
@@ -216,6 +305,18 @@ const addSampleData = () => {
 // 页面加载时添加示例数据
 addSampleData()
 addTimeRangeToEvents()
+
+// 调试：输出事件数据
+console.log('事序图数据:', sequenceCharts.value)
+sequenceCharts.value.forEach((chart) => {
+  console.log(`图表 "${chart.title}" 的事件:`, chart.events)
+
+  // 输出每个事件的样式信息
+  chart.events.forEach((event) => {
+    const style = getEventBarContainerStyle(event)
+    console.log(`事件 ${event.index} 样式:`, style)
+  })
+})
 </script>
 
 <style lang="scss" scoped>
@@ -263,6 +364,7 @@ addTimeRangeToEvents()
   border-radius: 8px;
   overflow: hidden;
   // box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 0; /* 允许表格收缩 */
 }
 
 .table-header {
@@ -290,6 +392,7 @@ addTimeRangeToEvents()
   display: flex;
   min-height: 400px;
   background-color: var(--bg-base);
+  overflow: hidden; /* 防止整体出现滚动条 */
 }
 
 .table-left {
@@ -306,7 +409,7 @@ addTimeRangeToEvents()
     height: 40px;
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20; /* 确保头部在最上层 */
 
     .col-index {
       flex: 0 0 60px;
@@ -334,6 +437,8 @@ addTimeRangeToEvents()
       border-bottom: 1px solid var(--border-color);
       height: 40px;
       background-color: var(--bg-base);
+      position: relative;
+      z-index: 5; /* 确保内容行在表格线之上 */
 
       &:hover {
         background-color: var(--bg-soft);
@@ -387,7 +492,8 @@ addTimeRangeToEvents()
     height: 40px;
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20; /* 确保头部在最上层 */
+    min-width: max-content; /* 确保头部不会被压缩 */
 
     .time-cell {
       flex: 0 0 40px;
@@ -397,6 +503,7 @@ addTimeRangeToEvents()
       align-items: center;
       justify-content: center;
       border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
       font-size: 12px;
       color: var(--text-secondary);
       background-color: var(--bg-soft);
@@ -409,12 +516,17 @@ addTimeRangeToEvents()
 
   .right-content {
     position: relative;
+    min-width: max-content; /* 确保内容不会被压缩 */
+    overflow: visible; /* 确保事件条容器不被裁剪 */
 
     .event-row {
       display: flex;
       border-bottom: 1px solid var(--border-color);
       height: 40px;
-      position: relative;
+      position: relative; /* 为绝对定位的事件条容器提供定位上下文 */
+      z-index: 5;
+      min-width: max-content;
+      overflow: visible; /* 确保事件条容器不被裁剪 */
 
       .time-cell {
         flex: 0 0 40px;
@@ -427,17 +539,60 @@ addTimeRangeToEvents()
         background-color: var(--bg-base);
         box-sizing: border-box;
         position: relative;
+        z-index: 1;
         min-width: 40px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
 
-        &.has-event {
-          background-color: #e6f7ff;
-          border: 1px solid #91d5ff;
+      // 事件条容器样式
+      .event-bar-container {
+        position: absolute;
+        z-index: 100;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        background-color: rgba(255, 0, 0, 0.1); // 调试用，可以看到容器边界
+
+        &:hover {
+          z-index: 15;
+          transform: scale(1.02);
+
+          .event-bar {
+            opacity: 1 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transform: scale(1.05);
+          }
         }
 
-        .event-marker {
-          color: #1890ff;
-          font-size: 16px;
-          font-weight: bold;
+        .event-bar {
+          width: 100%;
+          height: 100%;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start; // 改为左对齐
+          padding: 0 8px;
+          box-sizing: border-box;
+          position: relative; // 确保定位正确
+
+          .event-label {
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            user-select: none;
+            pointer-events: none;
+            line-height: 1.2;
+
+            &.start-label {
+              max-width: 100%; // 允许标签使用更多空间
+            }
+          }
         }
       }
     }
