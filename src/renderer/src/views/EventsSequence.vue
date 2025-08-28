@@ -88,6 +88,8 @@
                           class="event-bar"
                           :style="getEventBarStyle(event)"
                           :title="`${event.introduction} (${event.startTime}-${event.endTime})`"
+                          @mousedown="startDrag($event, event)"
+                          :class="{ dragging: draggingEvent?.id === event.id }"
                         >
                           <div class="event-label start-label">
                             {{ event.introduction.substring(0, 8) }}...
@@ -189,6 +191,12 @@ const chartForm = ref({
 const expandForm = ref({
   cellCount: 100 // 扩展数量，不是总数量
 })
+
+// 拖拽相关数据
+const draggingEvent = ref(null)
+const dragStartX = ref(0)
+const dragStartLeft = ref(0)
+const isDragging = ref(false)
 
 // 表单验证规则
 const chartRules = {
@@ -299,6 +307,79 @@ const expandCells = async () => {
   } catch (error) {
     console.error('表单验证失败:', error)
   }
+}
+
+// 开始拖拽
+const startDrag = (event, eventData) => {
+  event.preventDefault()
+
+  draggingEvent.value = eventData
+  dragStartX.value = event.clientX
+  dragStartLeft.value = (eventData.startTime - 1) * 40 // 当前事件条的起始位置
+
+  // 添加全局鼠标事件监听
+  document.addEventListener('mousemove', handleDrag)
+  document.addEventListener('mouseup', stopDrag)
+
+  // 设置拖拽状态
+  isDragging.value = true
+
+  // 添加拖拽样式
+  document.body.style.cursor = 'grabbing'
+  document.body.style.userSelect = 'none'
+  document.body.classList.add('dragging')
+}
+
+// 处理拖拽移动
+const handleDrag = (event) => {
+  if (!isDragging.value || !draggingEvent.value) return
+
+  const deltaX = event.clientX - dragStartX.value
+  const newLeft = dragStartLeft.value + deltaX
+
+  // 计算新的时间位置（基于40px单元格宽度，对齐到最近的单元格）
+  const newStartTime = Math.round(newLeft / 40) + 1
+
+  // 边界检查
+  const chart = sequenceCharts.value.find((c) => c.events.includes(draggingEvent.value))
+  if (chart) {
+    const eventDuration = draggingEvent.value.endTime - draggingEvent.value.startTime + 1
+    const maxStartTime = chart.cellCount - eventDuration + 1
+
+    // 限制在有效范围内
+    const clampedStartTime = Math.max(1, Math.min(newStartTime, maxStartTime))
+    const clampedEndTime = clampedStartTime + eventDuration - 1
+
+    // 更新事件时间
+    draggingEvent.value.startTime = clampedStartTime
+    draggingEvent.value.endTime = clampedEndTime
+  }
+}
+
+// 停止拖拽
+const stopDrag = () => {
+  if (!isDragging.value || !draggingEvent.value) return
+
+  // 显示拖拽结果
+  const chart = sequenceCharts.value.find((c) => c.events.includes(draggingEvent.value))
+  if (chart) {
+    ElMessage.success(
+      `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
+    )
+  }
+
+  // 清理拖拽状态
+  isDragging.value = false
+  draggingEvent.value = null
+
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+
+  // 恢复样式
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  document.body.classList.remove('dragging')
 }
 
 // 添加事件
@@ -495,6 +576,12 @@ addTimeRangeToEvents()
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.4;
+}
+
+// 拖拽时的全局样式
+:global(body.dragging) {
+  cursor: grabbing !important;
+  user-select: none;
 }
 
 .sequence-charts {
@@ -720,12 +807,25 @@ addTimeRangeToEvents()
         height: 40px; // 保持容器高度与单元格一致
 
         .event-bar {
+          cursor: grab; // 显示拖拽光标
+          user-select: none; // 防止文本选择
+          transition: all 0.2s ease; // 平滑过渡效果
+
           &:hover {
             opacity: 1 !important;
             transform: scale(1.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             z-index: 15;
             // 悬停时保持在同一位置，不超出单元格边界
+          }
+
+          &.dragging {
+            cursor: grabbing !important;
+            opacity: 0.9;
+            transform: scale(1.05);
+            z-index: 20;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: none; // 拖拽时禁用过渡效果，确保响应性
           }
 
           .event-label {
