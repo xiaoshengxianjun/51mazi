@@ -148,9 +148,6 @@
           :min="100"
           :max="1000"
           :step="10"
-          :controls="true"
-          :controls-position="'right'"
-          :disabled="false"
           placeholder="请输入扩展数量"
         />
         <div class="form-tip">
@@ -454,17 +451,17 @@ const addSampleData = () => {
 addSampleData()
 addTimeRangeToEvents()
 
-// 调试：输出事件数据
-console.log('事序图数据:', sequenceCharts.value)
-sequenceCharts.value.forEach((chart) => {
-  console.log(`图表 "${chart.title}" 的事件:`, chart.events)
+// // 调试：输出事件数据
+// console.log('事序图数据:', sequenceCharts.value)
+// sequenceCharts.value.forEach((chart) => {
+//   console.log(`图表 "${chart.title}" 的事件:`, chart.events)
 
-  // 输出每个事件的样式信息
-  chart.events.forEach((event) => {
-    const style = getEventBarStyle(event)
-    console.log(`事件 ${event.index} 样式:`, style)
-  })
-})
+//   // 输出每个事件的样式信息
+//   chart.events.forEach((event) => {
+//     const style = getEventBarStyle(event)
+//     console.log(`事件 ${event.index} 样式:`, style)
+//   })
+// })
 </script>
 
 <style lang="scss" scoped>
@@ -639,6 +636,7 @@ sequenceCharts.value.forEach((chart) => {
   overflow-x: auto;
   position: relative;
   background-color: var(--bg-base);
+  overflow-y: hidden; /* 防止垂直滚动条 */
 
   .right-header {
     display: flex;
@@ -657,15 +655,19 @@ sequenceCharts.value.forEach((chart) => {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-right: 1px solid var(--border-color);
-      border-bottom: 1px solid var(--border-color);
+      border-right: 1px solid #e4e7ed; // 使用更明显的边框颜色
+      border-bottom: 1px solid #e4e7ed; // 使用更明显的边框颜色
       font-size: 12px;
       color: var(--text-secondary);
       background-color: var(--bg-soft);
       box-sizing: border-box;
       position: relative;
       min-width: 40px;
+      flex-shrink: 0; // 防止单元格被压缩
       font-weight: 500;
+      &:last-child {
+        border-right: none;
+      }
     }
   }
 
@@ -673,20 +675,23 @@ sequenceCharts.value.forEach((chart) => {
     position: relative;
     min-width: max-content; /* 确保内容不会被压缩 */
     overflow: visible; /* 确保事件条容器不被裁剪 */
+    width: max-content; /* 确保内容区域不会被压缩 */
 
     // 背景网格样式
     .grid-background {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
+      width: max-content; // 使用max-content确保网格不会被压缩
       height: 100%;
       z-index: 1;
+      pointer-events: none; // 防止网格干扰事件条交互
 
       .grid-row {
         display: flex;
         height: 40px; // 与事件行高度保持一致
         border-bottom: 1px solid #e4e7ed;
+        min-width: max-content; // 确保行不会被压缩
 
         .grid-cell {
           flex: 0 0 40px;
@@ -695,6 +700,11 @@ sequenceCharts.value.forEach((chart) => {
           border-right: 1px solid #e4e7ed;
           background-color: transparent;
           box-sizing: border-box;
+          flex-shrink: 0; // 防止单元格被压缩
+          position: relative; // 确保边框正确定位
+          &:last-child {
+            border-right: none;
+          }
         }
       }
     }
