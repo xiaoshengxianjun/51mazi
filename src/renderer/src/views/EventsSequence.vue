@@ -23,6 +23,10 @@
                     <el-icon><Plus /></el-icon>
                     添加事件
                   </el-button>
+                  <el-button type="warning" size="small" @click="openExpandDialog(chart.id)">
+                    <el-icon><Expand /></el-icon>
+                    扩展单元格
+                  </el-button>
                   <el-button type="danger" size="small" @click="deleteEvent(chart.id)">
                     <el-icon><Delete /></el-icon>
                     删除事件
@@ -51,7 +55,7 @@
 
                 <div class="table-right">
                   <div class="right-header">
-                    <div v-for="i in 50" :key="i" class="time-cell">
+                    <div v-for="i in chart.cellCount || 100" :key="i" class="time-cell">
                       {{ i }}
                     </div>
                   </div>
@@ -64,7 +68,7 @@
                         class="grid-row"
                       >
                         <div
-                          v-for="colIndex in 50"
+                          v-for="colIndex in chart.cellCount || 100"
                           :key="`cell-${rowIndex}-${colIndex}`"
                           class="grid-cell"
                         ></div>
@@ -129,13 +133,47 @@
       </span>
     </template>
   </el-dialog>
+
+  <!-- 扩展单元格弹框 -->
+  <el-dialog
+    v-model="showExpandDialog"
+    title="扩展单元格数量"
+    width="500px"
+    @close="resetExpandForm"
+  >
+    <el-form ref="expandFormRef" :model="expandForm" :rules="expandRules" label-width="120px">
+      <el-form-item label="扩展数量" prop="cellCount">
+        <el-input-number
+          v-model="expandForm.cellCount"
+          :min="100"
+          :max="1000"
+          :step="10"
+          :controls="true"
+          :controls-position="'right'"
+          :disabled="false"
+          placeholder="请输入扩展数量"
+        />
+        <div class="form-tip">
+          当前单元格数量：{{ getCurrentCellCount() }}，扩展后将达到：{{
+            getCurrentCellCount() + expandForm.cellCount
+          }}
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showExpandDialog = false">取消</el-button>
+        <el-button type="primary" @click="expandCells">确认</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete } from '@element-plus/icons-vue'
+import { Plus, Delete, Expand } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 
 const route = useRoute()
@@ -145,9 +183,14 @@ const bookName = ref(route.query.name || '未命名书籍')
 
 // 响应式数据
 const showCreateDialog = ref(false)
+const showExpandDialog = ref(false)
+const currentChartId = ref('')
 const sequenceCharts = ref([])
 const chartForm = ref({
   title: ''
+})
+const expandForm = ref({
+  cellCount: 100 // 扩展数量，不是总数量
 })
 
 // 表单验证规则
@@ -158,7 +201,21 @@ const chartRules = {
   ]
 }
 
+const expandRules = {
+  cellCount: [
+    { required: true, message: '请输入扩展数量', trigger: 'blur' },
+    {
+      type: 'number',
+      min: 100,
+      max: 1000,
+      message: '扩展数量必须在 100 到 1000 之间',
+      trigger: 'blur'
+    }
+  ]
+}
+
 const chartFormRef = ref(null)
+const expandFormRef = ref(null)
 
 // 创建事序图
 const createSequenceChart = async () => {
@@ -168,6 +225,7 @@ const createSequenceChart = async () => {
     const newChart = {
       id: Date.now().toString(),
       title: chartForm.value.title,
+      cellCount: 100, // 默认100个单元格
       events: [],
       createdAt: new Date().toISOString()
     }
@@ -186,6 +244,64 @@ const createSequenceChart = async () => {
 const resetForm = () => {
   chartForm.value.title = ''
   chartFormRef.value?.clearValidate()
+}
+
+// 重置扩展表单
+const resetExpandForm = () => {
+  expandForm.value.cellCount = 100 // 重置为默认扩展数量
+  expandFormRef.value?.clearValidate()
+  currentChartId.value = ''
+}
+
+// 获取当前单元格数量
+const getCurrentCellCount = () => {
+  if (!currentChartId.value) return 50
+  const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+  return chart ? chart.cellCount || 50 : 50
+}
+
+// 打开扩展单元格弹框
+const openExpandDialog = (chartId) => {
+  currentChartId.value = chartId
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (chart) {
+    // 设置扩展数量为100（默认扩展量）
+    expandForm.value.cellCount = 100
+  }
+  showExpandDialog.value = true
+}
+
+// 扩展单元格
+const expandCells = async () => {
+  try {
+    await expandFormRef.value.validate()
+
+    const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+    if (!chart) {
+      ElMessage.error('未找到对应的事序图')
+      return
+    }
+
+    // 计算新的总数量（当前数量 + 扩展数量）
+    const newTotal = (chart.cellCount || 100) + expandForm.value.cellCount
+
+    // 检查是否超过最大限制
+    if (newTotal > 1000) {
+      ElMessage.error(`扩展后总数量 ${newTotal} 超过最大限制 1000，请减少扩展数量`)
+      return
+    }
+
+    // 更新单元格数量（累加）
+    chart.cellCount = newTotal
+    showExpandDialog.value = false
+    resetExpandForm()
+
+    ElMessage.success(
+      `单元格数量已从 ${chart.cellCount - expandForm.value.cellCount} 扩展到 ${chart.cellCount}`
+    )
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  }
 }
 
 // 添加事件
@@ -300,6 +416,7 @@ const addSampleData = () => {
     const sampleChart = {
       id: '1',
       title: '主线剧情发展',
+      cellCount: 100, // 默认100个单元格
       events: [
         {
           id: '1',
@@ -374,6 +491,13 @@ sequenceCharts.value.forEach((chart) => {
       font-size: 14px;
     }
   }
+}
+
+.form-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .sequence-charts {
