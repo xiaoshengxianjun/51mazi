@@ -23,6 +23,10 @@
                     <el-icon><Plus /></el-icon>
                     添加事件
                   </el-button>
+                  <el-button type="danger" size="small" @click="deleteEvent(chart.id)">
+                    <el-icon><Delete /></el-icon>
+                    删除事件
+                  </el-button>
                 </div>
               </div>
 
@@ -108,7 +112,7 @@
 
   <!-- 创建事序图弹框 -->
   <el-dialog v-model="showCreateDialog" title="创建事序图" width="500px" @close="resetForm">
-    <el-form :model="chartForm" :rules="chartRules" ref="chartFormRef" label-width="100px">
+    <el-form ref="chartFormRef" :model="chartForm" :rules="chartRules" label-width="100px">
       <el-form-item label="主题名称" prop="title">
         <el-input
           v-model="chartForm.title"
@@ -130,8 +134,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Plus, InfoFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 
 const route = useRoute()
@@ -188,6 +192,36 @@ const resetForm = () => {
 const addEvent = (chartId) => {
   console.log('添加事件功能待开发，图表ID:', chartId)
   ElMessage.info('添加事件功能正在开发中')
+}
+
+// 删除事件
+const deleteEvent = (chartId) => {
+  // 找到对应的图表
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) {
+    ElMessage.error('未找到对应的事序图')
+    return
+  }
+
+  // 二次确认
+  ElMessageBox.confirm(`确定要删除事序图"${chart.title}"吗？此操作不可恢复。`, '删除确认', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+    confirmButtonClass: 'el-button--danger'
+  })
+    .then(() => {
+      // 执行删除操作
+      const index = sequenceCharts.value.findIndex((c) => c.id === chartId)
+      if (index > -1) {
+        sequenceCharts.value.splice(index, 1)
+        ElMessage.success('事序图删除成功')
+      }
+    })
+    .catch(() => {
+      // 用户取消删除
+      ElMessage.info('已取消删除操作')
+    })
 }
 
 // 获取事件条的样式（定位和尺寸）
