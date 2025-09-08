@@ -39,7 +39,8 @@
                 <div class="table-left">
                   <div class="left-header">
                     <div class="col-index">序号</div>
-                    <div class="col-intro">介绍</div>
+                    <div class="col-intro">简介</div>
+                    <div class="col-progress">进度</div>
                   </div>
                   <div class="left-content">
                     <div v-for="event in chart.events" :key="event.id" class="event-row">
@@ -49,6 +50,7 @@
                           <span class="intro-text">{{ event.introduction }}</span>
                         </el-tooltip>
                       </div>
+                      <div class="col-progress">{{ (event.progress ?? 0) + '%' }}</div>
                     </div>
                   </div>
                 </div>
@@ -83,18 +85,28 @@
                         class="event-bar-container"
                       >
                         <!-- 事件条 - 作为完整的横向组件 -->
-                        <div
+                        <el-popover
                           v-if="event.startTime && event.endTime"
-                          class="event-bar"
-                          :style="getEventBarStyle(event)"
-                          :title="`${event.introduction} (${event.startTime}-${event.endTime})`"
-                          @mousedown="startDrag($event, event)"
-                          :class="{ dragging: draggingEvent?.id === event.id }"
+                          :content="`${event.detail || event.introduction || ''}`"
+                          placement="top"
+                          trigger="hover"
+                          width="400"
+                          :show-after="300"
                         >
-                          <div class="event-label start-label">
-                            {{ event.introduction.substring(0, 8) }}...
-                          </div>
-                        </div>
+                          <template #reference>
+                            <div
+                              class="event-bar"
+                              :style="getEventBarStyle(event)"
+                              :class="{ dragging: draggingEvent?.id === event.id }"
+                              @mousedown="startDrag($event, event)"
+                              @click.stop="openEventEditor(chart.id, event)"
+                            >
+                              <div class="event-label start-label">
+                                {{ event.detail || event.introduction }}
+                              </div>
+                            </div>
+                          </template>
+                        </el-popover>
                       </div>
                     </div>
                   </div>
@@ -166,6 +178,57 @@
       </span>
     </template>
   </el-dialog>
+
+  <!-- 添加/编辑事件弹框 -->
+  <el-dialog
+    v-model="showEventDialog"
+    :title="eventDialogMode === 'create' ? '添加事件' : '编辑事件'"
+    width="560px"
+    @close="resetEventForm"
+  >
+    <el-form ref="eventFormRef" :model="eventForm" :rules="eventRules" label-width="100px">
+      <el-form-item label="简介" prop="introduction">
+        <el-input
+          v-model="eventForm.introduction"
+          maxlength="30"
+          show-word-limit
+          placeholder="请输入事件简介（不超过30字）"
+        />
+      </el-form-item>
+      <el-form-item label="详情" prop="detail">
+        <el-input
+          v-model="eventForm.detail"
+          type="textarea"
+          :rows="4"
+          maxlength="200"
+          show-word-limit
+          placeholder="请输入事件详情（不超过200字）"
+        />
+      </el-form-item>
+      <el-form-item label="进度" prop="progress">
+        <el-slider v-model="eventForm.progress" :min="0" :max="100" :step="1" />
+      </el-form-item>
+      <el-form-item label="起始点" prop="startTime">
+        <el-input-number v-model="eventForm.startTime" :min="1" :max="eventCellMax" :step="1" />
+        <span class="form-tip"> 范围 1 - {{ eventCellMax }} </span>
+      </el-form-item>
+      <el-form-item label="结束点" prop="endTime">
+        <el-input-number v-model="eventForm.endTime" :min="1" :max="eventCellMax" :step="1" />
+        <span class="form-tip"> 需 ≥ 起始点，且 ≤ {{ eventCellMax }} </span>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showEventDialog = false">取消</el-button>
+        <el-button v-if="eventDialogMode === 'edit'" type="danger" @click="confirmDeleteEvent">
+          删除
+        </el-button>
+        <el-button type="primary" @click="submitEventForm">
+          {{ eventDialogMode === 'create' ? '添加' : '保存' }}
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -197,6 +260,7 @@ const draggingEvent = ref(null)
 const dragStartX = ref(0)
 const dragStartLeft = ref(0)
 const isDragging = ref(false)
+const hasMovedWhileMouseDown = ref(false)
 
 // 表单验证规则
 const chartRules = {
@@ -316,6 +380,7 @@ const startDrag = (event, eventData) => {
   draggingEvent.value = eventData
   dragStartX.value = event.clientX
   dragStartLeft.value = (eventData.startTime - 1) * 40 // 当前事件条的起始位置
+  hasMovedWhileMouseDown.value = false
 
   // 添加全局鼠标事件监听
   document.addEventListener('mousemove', handleDrag)
@@ -335,6 +400,9 @@ const handleDrag = (event) => {
   if (!isDragging.value || !draggingEvent.value) return
 
   const deltaX = event.clientX - dragStartX.value
+  if (Math.abs(deltaX) > 3) {
+    hasMovedWhileMouseDown.value = true
+  }
   const newLeft = dragStartLeft.value + deltaX
 
   // 计算新的时间位置（基于40px单元格宽度，对齐到最近的单元格）
@@ -363,9 +431,11 @@ const stopDrag = () => {
   // 显示拖拽结果
   const chart = sequenceCharts.value.find((c) => c.events.includes(draggingEvent.value))
   if (chart) {
-    ElMessage.success(
-      `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
-    )
+    if (hasMovedWhileMouseDown.value) {
+      ElMessage.success(
+        `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
+      )
+    }
   }
 
   // 清理拖拽状态
@@ -384,8 +454,8 @@ const stopDrag = () => {
 
 // 添加事件
 const addEvent = (chartId) => {
-  console.log('添加事件功能待开发，图表ID:', chartId)
-  ElMessage.info('添加事件功能正在开发中')
+  currentChartId.value = chartId
+  openEventEditor(chartId)
 }
 
 // 删除事件
@@ -416,6 +486,189 @@ const deleteEvent = (chartId) => {
       // 用户取消删除
       ElMessage.info('已取消删除操作')
     })
+}
+// 事件弹框相关
+const showEventDialog = ref(false)
+const eventDialogMode = ref('create') // 'create' | 'edit'
+const eventCellMax = ref(100)
+const editingEventId = ref('')
+const eventFormRef = ref(null)
+const eventForm = ref({
+  introduction: '',
+  detail: '',
+  progress: 0,
+  startTime: 1,
+  endTime: 1
+})
+
+const eventRules = {
+  introduction: [
+    { required: true, message: '请输入简介', trigger: 'blur' },
+    { min: 1, max: 30, message: '简介长度 1-30 字符', trigger: 'blur' }
+  ],
+  detail: [{ min: 0, max: 200, message: '详情不超过 200 字符', trigger: 'blur' }],
+  progress: [
+    {
+      validator: (_, val, cb) => {
+        if (val < 0 || val > 100) return cb(new Error('进度需在 0-100 之间'))
+        cb()
+      },
+      trigger: 'change'
+    }
+  ],
+  startTime: [
+    {
+      validator: (_rule, value, callback) => {
+        if (value < 1) return callback(new Error('起始点不能小于 1'))
+        if (value > eventCellMax.value)
+          return callback(new Error(`起始点不能大于 ${eventCellMax.value}`))
+        if (eventForm.value.endTime && value > eventForm.value.endTime)
+          return callback(new Error('起始点不能大于结束点'))
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  endTime: [
+    {
+      validator: (_rule, value, callback) => {
+        if (value < 1) return callback(new Error('结束点不能小于 1'))
+        if (value > eventCellMax.value)
+          return callback(new Error(`结束点不能大于 ${eventCellMax.value}`))
+        if (eventForm.value.startTime && value < eventForm.value.startTime)
+          return callback(new Error('结束点不能小于起始点'))
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ]
+}
+
+const resetEventForm = () => {
+  eventForm.value = {
+    introduction: '',
+    detail: '',
+    progress: 0,
+    startTime: 1,
+    endTime: 1
+  }
+  editingEventId.value = ''
+  eventFormRef.value?.clearValidate()
+}
+
+const openEventEditor = (chartId, event = null) => {
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) return
+  currentChartId.value = chartId
+  eventCellMax.value = chart.cellCount || 100
+
+  if (event) {
+    // 编辑模式
+    eventDialogMode.value = 'edit'
+    editingEventId.value = event.id
+    eventForm.value = {
+      introduction: event.introduction || '',
+      detail: event.detail || '',
+      progress: typeof event.progress === 'number' ? event.progress : 0,
+      startTime: event.startTime || 1,
+      endTime: event.endTime || 1
+    }
+  } else {
+    // 新建模式
+    eventDialogMode.value = 'create'
+    editingEventId.value = ''
+    // 预设一个合理区间
+    eventForm.value.startTime = 1
+    eventForm.value.endTime = Math.min(3, eventCellMax.value)
+  }
+
+  showEventDialog.value = true
+}
+
+const submitEventForm = async () => {
+  try {
+    await eventFormRef.value.validate()
+    const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+    if (!chart) return
+
+    if (eventDialogMode.value === 'create') {
+      const newEvent = {
+        id: Date.now().toString(),
+        index: (chart.events?.length || 0) + 1,
+        introduction: eventForm.value.introduction,
+        detail: eventForm.value.detail,
+        progress: eventForm.value.progress,
+        startTime: eventForm.value.startTime,
+        endTime: eventForm.value.endTime,
+        color: generateEventColor(chart.events?.length || 0)
+      }
+      chart.events.push(newEvent)
+      ElMessage.success('添加事件成功')
+    } else if (eventDialogMode.value === 'edit') {
+      const targetIndex = chart.events.findIndex((e) => e.id === editingEventId.value)
+      if (targetIndex !== -1) {
+        const target = chart.events[targetIndex]
+        chart.events[targetIndex] = {
+          ...target,
+          introduction: eventForm.value.introduction,
+          detail: eventForm.value.detail,
+          progress: eventForm.value.progress,
+          startTime: eventForm.value.startTime,
+          endTime: eventForm.value.endTime
+        }
+        ElMessage.success('保存成功')
+      }
+    }
+
+    showEventDialog.value = false
+    resetEventForm()
+  } catch {
+    // 验证失败
+  }
+}
+
+const confirmDeleteEvent = () => {
+  const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+  if (!chart) return
+  ElMessageBox.confirm('确定删除该事件吗？此操作不可恢复。', '删除确认', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+    confirmButtonClass: 'el-button--danger'
+  })
+    .then(() => {
+      const idx = chart.events.findIndex((e) => e.id === editingEventId.value)
+      if (idx > -1) {
+        chart.events.splice(idx, 1)
+        // 重新编号 index
+        chart.events.forEach((e, i) => (e.index = i + 1))
+        ElMessage.success('删除成功')
+      }
+      showEventDialog.value = false
+      resetEventForm()
+    })
+    .catch(() => {})
+}
+
+// 生成事件颜色
+const generateEventColor = (index) => {
+  const colors = [
+    '#ff6b6b',
+    '#ff8e72',
+    '#ffa94d',
+    '#ffd93d',
+    '#6bcb77',
+    '#38a3a5',
+    '#00c2a8',
+    '#2d9cdb',
+    '#4d96ff',
+    '#6c5ce7',
+    '#845ec2',
+    '#b39cd0',
+    '#e056fd',
+    '#f368e0'
+  ]
+  return colors[index % colors.length]
 }
 
 // 获取事件条的样式（定位和尺寸）
@@ -478,11 +731,26 @@ const addTimeRangeToEvents = () => {
   sequenceCharts.value.forEach((chart) => {
     chart.events.forEach((event, index) => {
       // 为每个事件分配一个时间范围，确保事件之间有重叠
-      event.startTime = index + 1
-      event.endTime = index + 3 // 调整为3个时间单位的持续时间
+      event.startTime = index * 2 + 1
+      event.endTime = index * 2 + 3 // 调整为3个时间单位的持续时间
 
-      // 为每个事件分配不同的颜色
-      const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3']
+      // 为每个事件分配不同的颜色（扩展色板）
+      const colors = [
+        '#ff6b6b',
+        '#ff8e72',
+        '#ffa94d',
+        '#ffd93d',
+        '#6bcb77',
+        '#38a3a5',
+        '#00c2a8',
+        '#2d9cdb',
+        '#4d96ff',
+        '#6c5ce7',
+        '#845ec2',
+        '#b39cd0',
+        '#e056fd',
+        '#f368e0'
+      ]
       event.color = colors[index % colors.length]
     })
   })
@@ -499,27 +767,37 @@ const addSampleData = () => {
         {
           id: '1',
           index: 1,
-          introduction: '故事开始，主角踏上冒险之旅'
+          introduction: '故事开始，主角踏上冒险之旅',
+          detail: '主角离开家乡，获得初始线索并决定踏上旅程。',
+          progress: 20
         },
         {
           id: '2',
           index: 2,
-          introduction: '遇见重要角色，获得关键信息'
+          introduction: '遇见重要角色，获得关键信息',
+          detail: '与导师相遇，了解反派动机与目标地点。',
+          progress: 35
         },
         {
           id: '3',
           index: 3,
-          introduction: '面临第一个挑战，展现能力'
+          introduction: '面临第一个挑战，展现能力',
+          detail: '突破山口封锁，首次展示关键技能并建立伙伴信任。',
+          progress: 50
         },
         {
           id: '4',
           index: 4,
-          introduction: '探索神秘遗迹，发现宝藏'
+          introduction: '探索神秘遗迹，发现宝藏',
+          detail: '在遗迹中找到远古器物，揭示更大的阴谋。',
+          progress: 70
         },
         {
           id: '5',
           index: 5,
-          introduction: '与反派首次交锋，险胜'
+          introduction: '与反派首次交锋，险胜',
+          detail: '小规模冲突中试探彼此实力，主角暂时胜出但暴露弱点。',
+          progress: 85
         }
       ],
       createdAt: new Date().toISOString()
@@ -629,13 +907,13 @@ addTimeRangeToEvents()
 
 .table-body {
   display: flex;
-  min-height: 400px;
+  // min-height: 200px;
   background-color: var(--bg-base);
   overflow: hidden; /* 防止整体出现滚动条 */
 }
 
 .table-left {
-  flex: 0 0 300px;
+  flex: 0 0 380px;
   border-right: 1px solid var(--border-color);
   background-color: var(--bg-base);
 
@@ -655,6 +933,17 @@ addTimeRangeToEvents()
       padding: 8px;
       text-align: center;
       border-right: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg-primary);
+    }
+
+    .col-progress {
+      flex: 0 0 80px;
+      padding: 8px;
+      text-align: center;
+      border-left: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -694,6 +983,17 @@ addTimeRangeToEvents()
         align-items: center;
         justify-content: center;
         font-weight: 500;
+      }
+
+      .col-progress {
+        flex: 0 0 80px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-left: 1px solid var(--border-color);
+        background-color: transparent;
+        color: var(--text-secondary);
       }
 
       .col-intro {
@@ -829,10 +1129,10 @@ addTimeRangeToEvents()
           }
 
           .event-label {
-            color: white;
+            color: #000;
             font-size: 10px;
             font-weight: 600;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            // text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
