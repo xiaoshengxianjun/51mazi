@@ -916,6 +916,7 @@ addTimeRangeToEvents()
   flex: 0 0 380px;
   border-right: 1px solid var(--border-color);
   background-color: var(--bg-base);
+  font-size: 15px;
 
   .left-header {
     display: flex;
@@ -960,6 +961,7 @@ addTimeRangeToEvents()
   }
 
   .left-content {
+    font-size: 14px;
     .event-row {
       display: flex;
       border-bottom: 1px solid var(--border-color);
@@ -1001,8 +1003,6 @@ addTimeRangeToEvents()
         padding: 8px;
         background-color: transparent;
         color: var(--text-secondary);
-        font-size: 14px;
-        line-height: 1.4;
         display: flex;
         align-items: center;
         overflow: hidden;
@@ -1132,7 +1132,7 @@ addTimeRangeToEvents()
             color: #000;
             font-size: 10px;
             font-weight: 600;
-            // text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
