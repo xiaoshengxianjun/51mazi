@@ -43,15 +43,16 @@ if (process.contextIsolated) {
       getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
       // 设置书籍排序
       setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
-      
+
       // 获取章节设置
       getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
-      
+
       // 更新章节格式
-      updateChapterFormat: (bookName, settings) => ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
-      
+      updateChapterFormat: (bookName, settings) =>
+        ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
+
       // 重新格式化章节编号
-      reformatChapterNumbers: (bookName, volumeName, settings) => 
+      reformatChapterNumbers: (bookName, volumeName, settings) =>
         ipcRenderer.invoke('reformat-chapter-numbers', { bookName, volumeName, settings }),
 
       // --------- 笔记本相关 ---------
@@ -134,6 +135,13 @@ if (process.contextIsolated) {
       // 保存词条字典数据
       writeDictionary: (bookName, data) =>
         ipcRenderer.invoke('write-dictionary', { bookName, data }),
+
+      // --------- 事序图相关 ---------
+      // 读取事序图数据
+      readSequenceCharts: (bookName) => ipcRenderer.invoke('read-sequence-charts', { bookName }),
+      // 保存事序图数据
+      writeSequenceCharts: (bookName, data) =>
+        ipcRenderer.invoke('write-sequence-charts', { bookName, data }),
 
       // --------- 关系图相关 ---------
       // 读取关系图列表

@@ -20,16 +20,16 @@
                 </div>
                 <div class="header-right">
                   <el-button type="primary" size="small" @click="addEvent(chart.id)">
-                    <el-icon><Plus /></el-icon>
                     添加事件
                   </el-button>
                   <el-button type="warning" size="small" @click="openExpandDialog(chart.id)">
-                    <el-icon><Expand /></el-icon>
                     扩展单元格
                   </el-button>
-                  <el-button type="danger" size="small" @click="deleteEvent(chart.id)">
-                    <el-icon><Delete /></el-icon>
-                    删除事件
+                  <el-button type="success" size="small" @click="saveSequenceChart(chart.id)">
+                    保存事序图
+                  </el-button>
+                  <el-button type="danger" size="small" @click="deleteSequenceChart(chart.id)">
+                    删除事序图
                   </el-button>
                 </div>
               </div>
@@ -101,6 +101,10 @@
                               @mousedown="startDrag($event, event)"
                               @click.stop="openEventEditor(chart.id, event)"
                             >
+                              <div
+                                class="event-progress"
+                                :style="{ width: getEventProgressWidth(event) }"
+                              ></div>
                               <div class="event-label start-label">
                                 {{ event.detail || event.introduction }}
                               </div>
@@ -135,7 +139,7 @@
         <el-input
           v-model="chartForm.title"
           placeholder="请输入事序图的主题名称"
-          maxlength="50"
+          maxlength="20"
           show-word-limit
         />
       </el-form-item>
@@ -232,10 +236,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch, toRaw } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Expand } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 
 const route = useRoute()
@@ -266,7 +270,7 @@ const hasMovedWhileMouseDown = ref(false)
 const chartRules = {
   title: [
     { required: true, message: '请输入事序图主题名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '主题名称长度在 1 到 50 个字符', trigger: 'blur' }
+    { min: 1, max: 20, message: '主题名称长度在 1 到 20 个字符', trigger: 'blur' }
   ]
 }
 
@@ -300,6 +304,7 @@ const createSequenceChart = async () => {
     }
 
     sequenceCharts.value.push(newChart)
+    await saveSequenceCharts()
     showCreateDialog.value = false
     resetForm()
 
@@ -362,6 +367,7 @@ const expandCells = async () => {
 
     // 更新单元格数量（累加）
     chart.cellCount = newTotal
+    await saveSequenceCharts()
     showExpandDialog.value = false
     resetExpandForm()
 
@@ -425,7 +431,7 @@ const handleDrag = (event) => {
 }
 
 // 停止拖拽
-const stopDrag = () => {
+const stopDrag = async () => {
   if (!isDragging.value || !draggingEvent.value) return
 
   // 显示拖拽结果
@@ -435,6 +441,7 @@ const stopDrag = () => {
       ElMessage.success(
         `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
       )
+      await saveSequenceCharts()
     }
   }
 
@@ -451,6 +458,12 @@ const stopDrag = () => {
   document.body.style.userSelect = ''
   document.body.classList.remove('dragging')
 }
+// 事件条进度宽度
+const getEventProgressWidth = (event) => {
+  const p = typeof event.progress === 'number' ? event.progress : Number(event.progress) || 0
+  const clamped = Math.max(0, Math.min(100, p))
+  return `${clamped}%`
+}
 
 // 添加事件
 const addEvent = (chartId) => {
@@ -458,8 +471,25 @@ const addEvent = (chartId) => {
   openEventEditor(chartId)
 }
 
-// 删除事件
-const deleteEvent = (chartId) => {
+// 保存事序图
+const saveSequenceChart = (chartId) => {
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) {
+    ElMessage.error('未找到对应的事序图')
+    return
+  }
+  try {
+    const storageKey = `events-sequence-chart-${chartId}`
+    const dataToSave = JSON.stringify(chart)
+    localStorage.setItem(storageKey, dataToSave)
+    ElMessage.success('事序图已保存')
+  } catch {
+    ElMessage.error('保存失败，请稍后重试')
+  }
+}
+
+// 删除事序图
+const deleteSequenceChart = (chartId) => {
   // 找到对应的图表
   const chart = sequenceCharts.value.find((c) => c.id === chartId)
   if (!chart) {
@@ -620,6 +650,7 @@ const submitEventForm = async () => {
       }
     }
 
+    await saveSequenceCharts()
     showEventDialog.value = false
     resetEventForm()
   } catch {
@@ -636,7 +667,7 @@ const confirmDeleteEvent = () => {
     type: 'warning',
     confirmButtonClass: 'el-button--danger'
   })
-    .then(() => {
+    .then(async () => {
       const idx = chart.events.findIndex((e) => e.id === editingEventId.value)
       if (idx > -1) {
         chart.events.splice(idx, 1)
@@ -644,6 +675,7 @@ const confirmDeleteEvent = () => {
         chart.events.forEach((e, i) => (e.index = i + 1))
         ElMessage.success('删除成功')
       }
+      await saveSequenceCharts()
       showEventDialog.value = false
       resetEventForm()
     })
@@ -730,11 +762,8 @@ const adjustBrightness = (hex, percent) => {
 const addTimeRangeToEvents = () => {
   sequenceCharts.value.forEach((chart) => {
     chart.events.forEach((event, index) => {
-      // 为每个事件分配一个时间范围，确保事件之间有重叠
       event.startTime = index * 2 + 1
-      event.endTime = index * 2 + 3 // 调整为3个时间单位的持续时间
-
-      // 为每个事件分配不同的颜色（扩展色板）
+      event.endTime = index * 2 + 3
       const colors = [
         '#ff6b6b',
         '#ff8e72',
@@ -806,9 +835,46 @@ const addSampleData = () => {
   }
 }
 
-// 页面加载时添加示例数据
-addSampleData()
-addTimeRangeToEvents()
+// —— 本地化存储：读/写 ——
+async function loadSequenceCharts() {
+  try {
+    const data = await window.electron.readSequenceCharts(bookName.value)
+    if (Array.isArray(data) && data.length > 0) {
+      sequenceCharts.value = data
+    } else {
+      // 无数据则注入示例
+      addSampleData()
+      addTimeRangeToEvents()
+      await saveSequenceCharts()
+    }
+  } catch (error) {
+    console.error('加载事序图数据失败:', error)
+    // 加载失败也提供示例，避免页面空白
+    addSampleData()
+    addTimeRangeToEvents()
+  }
+}
+
+async function saveSequenceCharts() {
+  try {
+    const payload = JSON.parse(JSON.stringify(toRaw(sequenceCharts.value)))
+    const result = await window.electron.writeSequenceCharts(bookName.value, payload)
+    if (result && result.success === false) {
+      throw new Error(result.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存事序图数据失败:', error)
+    ElMessage.error('保存事序图数据失败')
+  }
+}
+
+// 自动保存
+watch(sequenceCharts, saveSequenceCharts, { deep: true })
+
+// 挂载时加载
+onMounted(() => {
+  loadSequenceCharts()
+})
 
 // // 调试：输出事件数据
 // console.log('事序图数据:', sequenceCharts.value)
@@ -901,7 +967,6 @@ addTimeRangeToEvents()
 
   .header-right {
     display: flex;
-    gap: 12px;
   }
 }
 
@@ -1110,6 +1175,8 @@ addTimeRangeToEvents()
           cursor: grab; // 显示拖拽光标
           user-select: none; // 防止文本选择
           transition: all 0.2s ease; // 平滑过渡效果
+          position: relative;
+          overflow: hidden;
 
           &:hover {
             opacity: 1 !important;
@@ -1143,6 +1210,15 @@ addTimeRangeToEvents()
             &.start-label {
               max-width: 100%;
             }
+          }
+
+          .event-progress {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.25);
+            width: 0%;
+            transition: width 0.3s ease;
+            pointer-events: none;
           }
         }
       }

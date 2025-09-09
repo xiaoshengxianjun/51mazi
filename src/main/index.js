@@ -1190,6 +1190,36 @@ ipcMain.handle('write-dictionary', async (event, { bookName, data }) => {
   }
 })
 
+// 事序图数据读写
+ipcMain.handle('read-sequence-charts', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const filePath = join(bookPath, 'sequence-charts.json')
+  if (!fs.existsSync(filePath)) return []
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('write-sequence-charts', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const filePath = join(bookPath, 'sequence-charts.json')
+
+  try {
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存事序图失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 读取地图列表
 ipcMain.handle('read-maps', async (event, bookName) => {
   try {
