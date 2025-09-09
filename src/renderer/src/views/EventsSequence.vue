@@ -758,82 +758,7 @@ const adjustBrightness = (hex, percent) => {
   )
 }
 
-// 为示例数据添加时间范围
-const addTimeRangeToEvents = () => {
-  sequenceCharts.value.forEach((chart) => {
-    chart.events.forEach((event, index) => {
-      event.startTime = index * 2 + 1
-      event.endTime = index * 2 + 3
-      const colors = [
-        '#ff6b6b',
-        '#ff8e72',
-        '#ffa94d',
-        '#ffd93d',
-        '#6bcb77',
-        '#38a3a5',
-        '#00c2a8',
-        '#2d9cdb',
-        '#4d96ff',
-        '#6c5ce7',
-        '#845ec2',
-        '#b39cd0',
-        '#e056fd',
-        '#f368e0'
-      ]
-      event.color = colors[index % colors.length]
-    })
-  })
-}
-
-// 添加示例数据用于测试
-const addSampleData = () => {
-  if (sequenceCharts.value.length === 0) {
-    const sampleChart = {
-      id: '1',
-      title: '主线剧情发展',
-      cellCount: 100, // 默认100个单元格
-      events: [
-        {
-          id: '1',
-          index: 1,
-          introduction: '故事开始，主角踏上冒险之旅',
-          detail: '主角离开家乡，获得初始线索并决定踏上旅程。',
-          progress: 20
-        },
-        {
-          id: '2',
-          index: 2,
-          introduction: '遇见重要角色，获得关键信息',
-          detail: '与导师相遇，了解反派动机与目标地点。',
-          progress: 35
-        },
-        {
-          id: '3',
-          index: 3,
-          introduction: '面临第一个挑战，展现能力',
-          detail: '突破山口封锁，首次展示关键技能并建立伙伴信任。',
-          progress: 50
-        },
-        {
-          id: '4',
-          index: 4,
-          introduction: '探索神秘遗迹，发现宝藏',
-          detail: '在遗迹中找到远古器物，揭示更大的阴谋。',
-          progress: 70
-        },
-        {
-          id: '5',
-          index: 5,
-          introduction: '与反派首次交锋，险胜',
-          detail: '小规模冲突中试探彼此实力，主角暂时胜出但暴露弱点。',
-          progress: 85
-        }
-      ],
-      createdAt: new Date().toISOString()
-    }
-    sequenceCharts.value.push(sampleChart)
-  }
-}
+// 已移除示例数据功能
 
 // —— 本地化存储：读/写 ——
 async function loadSequenceCharts() {
@@ -842,16 +767,11 @@ async function loadSequenceCharts() {
     if (Array.isArray(data) && data.length > 0) {
       sequenceCharts.value = data
     } else {
-      // 无数据则注入示例
-      addSampleData()
-      addTimeRangeToEvents()
-      await saveSequenceCharts()
+      sequenceCharts.value = []
     }
   } catch (error) {
     console.error('加载事序图数据失败:', error)
-    // 加载失败也提供示例，避免页面空白
-    addSampleData()
-    addTimeRangeToEvents()
+    sequenceCharts.value = []
   }
 }
 
