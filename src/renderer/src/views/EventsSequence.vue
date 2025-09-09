@@ -99,7 +99,7 @@
                               :style="getEventBarStyle(event)"
                               :class="{ dragging: draggingEvent?.id === event.id }"
                               @mousedown="startDrag($event, event)"
-                              @click.stop="openEventEditor(chart.id, event)"
+                              @click.stop="onEventBarMouseUp(chart.id, event)"
                             >
                               <div
                                 class="event-progress"
@@ -265,6 +265,8 @@ const dragStartX = ref(0)
 const dragStartLeft = ref(0)
 const isDragging = ref(false)
 const hasMovedWhileMouseDown = ref(false)
+const isPointerDown = ref(false)
+let clickSuppressTimer = null
 
 // 表单验证规则
 const chartRules = {
@@ -387,6 +389,7 @@ const startDrag = (event, eventData) => {
   dragStartX.value = event.clientX
   dragStartLeft.value = (eventData.startTime - 1) * 40 // 当前事件条的起始位置
   hasMovedWhileMouseDown.value = false
+  isPointerDown.value = true
 
   // 添加全局鼠标事件监听
   document.addEventListener('mousemove', handleDrag)
@@ -442,6 +445,12 @@ const stopDrag = async () => {
         `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
       )
       await saveSequenceCharts()
+      // 拖动结束后，短暂抑制 mouseup 触发编辑
+      if (clickSuppressTimer) clearTimeout(clickSuppressTimer)
+      clickSuppressTimer = setTimeout(() => {
+        hasMovedWhileMouseDown.value = false
+        clickSuppressTimer = null
+      }, 120)
     }
   }
 
@@ -457,6 +466,17 @@ const stopDrag = async () => {
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
   document.body.classList.remove('dragging')
+  // 重置 pointerDown 状态
+  isPointerDown.value = false
+}
+
+// mouseup 时决定是否打开弹框（仅未发生拖动）
+const onEventBarMouseUp = (chartId, event) => {
+  if (hasMovedWhileMouseDown.value) {
+    // 刚刚发生过拖动，不打开
+    return
+  }
+  openEventEditor(chartId, event)
 }
 // 事件条进度宽度
 const getEventProgressWidth = (event) => {
