@@ -142,8 +142,14 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   fs.mkdirSync(notesPath, { recursive: true })
 
   // 4. 默认创建一个正文卷
-  fs.mkdirSync(join(textPath, '正文'), { recursive: true })
-  // 5. 在笔记文件夹中创建大纲、设定、人物三个默认笔记本文件夹
+  const volumePath = join(textPath, '正文')
+  fs.mkdirSync(volumePath, { recursive: true })
+
+  // 5. 在默认卷中创建第1章文件
+  const chapterPath = join(volumePath, '第1章.txt')
+  fs.writeFileSync(chapterPath, '')
+
+  // 6. 在笔记文件夹中创建大纲、设定、人物三个默认笔记本文件夹
   fs.mkdirSync(join(notesPath, '大纲'), { recursive: true })
   fs.mkdirSync(join(notesPath, '设定'), { recursive: true })
   fs.mkdirSync(join(notesPath, '人物'), { recursive: true })
@@ -163,7 +169,17 @@ ipcMain.handle('read-books-dir', async () => {
       if (fs.existsSync(metaPath)) {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-          books.push({ ...meta })
+          // 只返回必要的字段，确保name是文件夹名称而不是路径
+          books.push({
+            id: meta.id,
+            name: file.name, // 使用文件夹名称作为书名
+            type: meta.type,
+            typeName: meta.typeName,
+            targetCount: meta.targetCount,
+            intro: meta.intro,
+            createdAt: meta.createdAt,
+            updatedAt: meta.updatedAt
+          })
         } catch (e) {
           // ignore parse error
           console.error('read-books-dir', e)
@@ -176,29 +192,74 @@ ipcMain.handle('read-books-dir', async () => {
 
 // 删除书籍
 ipcMain.handle('delete-book', async (event, { name }) => {
-  const booksDir = store.get('booksDir')
-  const bookPath = join(booksDir, name)
-  if (fs.existsSync(bookPath)) {
-    fs.rmSync(bookPath, { recursive: true })
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir) {
+      return false
+    }
+
+    const bookPath = join(booksDir, name)
+
+    if (!fs.existsSync(bookPath)) {
+      return false
+    }
+
+    // 删除整个书籍文件夹
+    fs.rmSync(bookPath, { recursive: true, force: true })
     return true
+  } catch (error) {
+    console.error('删除书籍失败:', error)
+    return false
   }
-  return false
 })
 
 // 编辑书籍
 ipcMain.handle('edit-book', async (event, bookInfo) => {
-  const booksDir = store.get('booksDir')
-  const bookPath = join(booksDir, bookInfo.name)
-  if (fs.existsSync(bookPath)) {
+  try {
+    const booksDir = store.get('booksDir')
+
+    // 如果传入了原始名称，使用原始名称定位文件夹
+    const originalName = bookInfo.originalName || bookInfo.name
+    const bookPath = join(booksDir, originalName)
+
+    if (!fs.existsSync(bookPath)) {
+      return { success: false, message: '书籍不存在' }
+    }
+
     const metaPath = join(bookPath, 'mazi.json')
+
     // 读取现有元数据
     const existingMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-    // 合并新旧数据，保留原有数据
-    const mergedMeta = { ...existingMeta, ...bookInfo }
-    fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
-    return true
+
+    // 如果书名发生变化，需要重命名文件夹
+    if (bookInfo.name !== originalName) {
+      const newBookPath = join(booksDir, bookInfo.name)
+
+      // 检查新名称是否已存在
+      if (fs.existsSync(newBookPath)) {
+        return { success: false, message: '已存在同名书籍' }
+      }
+
+      // 重命名文件夹
+      fs.renameSync(bookPath, newBookPath)
+
+      // 更新元数据路径
+      const newMetaPath = join(newBookPath, 'mazi.json')
+
+      // 合并新旧数据，保留原有数据
+      const mergedMeta = { ...existingMeta, ...bookInfo }
+      fs.writeFileSync(newMetaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
+    } else {
+      // 书名未变化，直接更新元数据
+      const mergedMeta = { ...existingMeta, ...bookInfo }
+      fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('编辑书籍失败:', error)
+    return { success: false, message: error.message }
   }
-  return false
 })
 
 // 打开书籍编辑窗口
@@ -316,10 +377,15 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
 
   fs.writeFileSync(filePath, '')
 
-  // 强制同步文件系统，确保文件立即可见
-  const fd = fs.openSync(filePath, 'r')
-  fs.fsyncSync(fd)
-  fs.closeSync(fd)
+  // 强制同步文件系统，确保文件立即可见（Windows兼容）
+  try {
+    const fd = fs.openSync(filePath, 'r')
+    fs.fsyncSync(fd)
+    fs.closeSync(fd)
+  } catch (error) {
+    // 如果同步失败，记录错误但不影响主流程
+    console.warn('文件同步失败:', error.message)
+  }
 
   return { success: true, chapterName, filePath }
 })

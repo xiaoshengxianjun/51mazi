@@ -113,7 +113,8 @@ const form = ref({
   name: '',
   type: '',
   targetCount: 10000,
-  intro: ''
+  intro: '',
+  originalName: ''
 })
 const rules = ref({
   name: [{ required: true, message: '请输入书籍名称', trigger: 'blur' }],
@@ -152,21 +153,33 @@ function onEdit(book) {
   form.value.type = book.type
   form.value.targetCount = book.targetCount
   form.value.intro = book.intro
+  // 保存原始书名，用于定位文件夹
+  form.value.originalName = book.name
 }
 
 async function onDelete(book) {
   try {
+    console.log('准备删除书籍:', book)
     await ElMessageBox.confirm(`确定要删除《${book.name}》吗？此操作不可恢复！`, '删除确认', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await deleteBook(book.name)
-    ElMessage.success('删除成功')
-    await readBooksDir()
+    console.log('调用删除函数，书名:', book.name)
+    const result = await deleteBook(book.name)
+    console.log('删除结果:', result)
+    if (result) {
+      ElMessage.success('删除成功')
+      await readBooksDir()
+    } else {
+      ElMessage.error('删除失败，书籍不存在或已被删除')
+    }
   } catch (e) {
-    // 用户取消
-    console.log(e)
+    // 用户取消或删除失败
+    if (e !== 'cancel') {
+      console.error('删除书籍失败:', e)
+      ElMessage.error('删除失败，请重试')
+    }
   }
 }
 
@@ -194,13 +207,20 @@ async function handleConfirm() {
       }
       if (isEdit.value && editBookId.value) {
         // 编辑模式，调用 updateBook
-        await updateBook({
+        const result = await updateBook({
           ...bookData,
-          id: editBookId.value
+          id: editBookId.value,
+          originalName: form.value.originalName
         })
+        if (!result.success) {
+          ElMessage.error(result.message || '编辑失败')
+          return
+        }
+        ElMessage.success('编辑成功')
       } else {
         // 新建模式
         await createBook(bookData)
+        ElMessage.success('创建成功')
       }
       dialogVisible.value = false
       isEdit.value = false
@@ -217,6 +237,7 @@ function handleNewBook() {
   form.value.type = ''
   form.value.targetCount = 10000
   form.value.intro = ''
+  form.value.originalName = ''
   dialogVisible.value = true
 }
 

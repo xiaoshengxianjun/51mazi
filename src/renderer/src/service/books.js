@@ -34,9 +34,7 @@ export function updateBook(bookInfo) {
  */
 export async function readBooksDir() {
   const mainStore = useMainStore()
-  const dir = await getBookDir()
-  if (!dir) return []
-  const books = await window.electron.readBooksDir(dir)
+  const books = await window.electron.readBooksDir()
   mainStore.setBooks(books)
   return books
 }
@@ -47,6 +45,5 @@ export async function readBooksDir() {
  * @returns {Promise<any>}
  */
 export async function deleteBook(name) {
-  const dir = await getBookDir()
-  return window.electron.deleteBook(dir, name)
+  return window.electron.deleteBook(name)
 }
