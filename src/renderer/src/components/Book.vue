@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     z-index: 3;
-    padding: 8px 0;
+    padding: 0;
   }
   .vertical-title {
     writing-mode: vertical-rl;
@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
     line-height: 1.2;
     font-weight: bold;
     color: #22345c;
-    letter-spacing: 1px;
+    // letter-spacing: 1px;
     // margin-bottom: 8px;
     text-align: center;
     font-family: 'STKaiti', 'KaiTi', serif;

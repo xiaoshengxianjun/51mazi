@@ -33,7 +33,12 @@
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑书籍' : '新建书籍'" width="500px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item prop="name" label="书名">
-          <el-input v-model="form.name" placeholder="请输入书籍名称" />
+          <el-input
+            v-model="form.name"
+            placeholder="请输入书籍名称（最多15个字符）"
+            maxlength="15"
+            show-word-limit
+          />
         </el-form-item>
         <el-form-item prop="type" label="类型">
           <el-select v-model="form.type" placeholder="请选择类型">
@@ -117,7 +122,10 @@ const form = ref({
   originalName: ''
 })
 const rules = ref({
-  name: [{ required: true, message: '请输入书籍名称', trigger: 'blur' }],
+  name: [
+    { required: true, message: '请输入书籍名称', trigger: 'blur' },
+    { max: 15, message: '书名不能超过15个字符', trigger: 'blur' }
+  ],
   type: [{ required: true, message: '请选择类型', trigger: 'blur' }],
   targetCount: [{ required: true, message: '请输入目标字数', trigger: 'blur' }],
   intro: [{ required: true, message: '请输入简介', trigger: 'blur' }]
