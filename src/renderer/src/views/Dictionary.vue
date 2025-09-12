@@ -14,6 +14,7 @@
         default-expand-all
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         style="width: 100%"
+        empty-text="暂无词条"
       >
         <el-table-column prop="name" label="名称" min-width="100">
           <template #default="{ row }">

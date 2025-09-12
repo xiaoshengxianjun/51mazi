@@ -31,10 +31,10 @@
         <el-icon><Guide /></el-icon>
         <span>事序图</span>
       </el-button>
-      <el-button class="tool-btn" @click="handleOrganization">
+      <!-- <el-button class="tool-btn" @click="handleOrganization">
         <el-icon><Grid /></el-icon>
         <span>组织架构</span>
-      </el-button>
+      </el-button> -->
     </div>
   </div>
 </template>
@@ -48,8 +48,7 @@ import {
   Avatar,
   Connection,
   Collection,
-  Guide,
-  Grid
+  Guide
 } from '@element-plus/icons-vue'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -97,14 +96,6 @@ const handleEventsSequence = () => {
   // 跳转到事序图页面，带上当前书籍名
   const bookName = route.query.name
   router.push({ path: '/events-sequence', query: { name: bookName } })
-}
-
-const handleOrganization = () => {
-  // 跳转到组织架构页面，带上当前书籍名
-  // const bookName = route.query.name
-  // router.push({ path: '/organization', query: { name: bookName } })
-  // TODO: 组织架构功能待开发，敬请期待
-  this.$message.info('组织架构功能正在开发中，敬请期待！')
 }
 </script>
 

@@ -170,16 +170,7 @@ ipcMain.handle('read-books-dir', async () => {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
           // 只返回必要的字段，确保name是文件夹名称而不是路径
-          books.push({
-            id: meta.id,
-            name: file.name, // 使用文件夹名称作为书名
-            type: meta.type,
-            typeName: meta.typeName,
-            targetCount: meta.targetCount,
-            intro: meta.intro,
-            createdAt: meta.createdAt,
-            updatedAt: meta.updatedAt
-          })
+          books.push(meta)
         } catch (e) {
           // ignore parse error
           console.error('read-books-dir', e)

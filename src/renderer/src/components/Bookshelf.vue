@@ -19,14 +19,14 @@
           "
         />
       </div>
-      <el-dropdown class="update-dropdown">
+      <!-- <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
           最近更新
           <el-icon class="el-icon--right">
             <ArrowDown />
           </el-icon>
         </span>
-      </el-dropdown>
+      </el-dropdown> -->
     </div>
 
     <!-- 新建/编辑书籍弹窗 -->
@@ -63,10 +63,53 @@
         <el-form-item prop="intro" label="简介">
           <el-input v-model="form.intro" type="textarea" :rows="5" placeholder="请输入简介" />
         </el-form-item>
+        <el-form-item prop="password" label="密码">
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="请输入4-8位数字或字母组合（可选）"
+            maxlength="8"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item prop="confirmPassword" label="确认密码">
+          <el-input
+            v-model="form.confirmPassword"
+            type="password"
+            placeholder="请再次输入密码"
+            maxlength="8"
+            show-password
+          />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleConfirm">{{ isEdit ? '保存' : '创建' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 密码验证弹框 -->
+    <el-dialog v-model="passwordDialogVisible" title="密码验证" width="400px">
+      <el-form
+        ref="passwordFormRef"
+        :model="passwordForm"
+        :rules="passwordRules"
+        label-width="80px"
+      >
+        <el-form-item prop="password" label="密码">
+          <el-input
+            v-model="passwordForm.password"
+            type="password"
+            placeholder="请输入书籍密码"
+            maxlength="8"
+            show-password
+            @keyup.enter="handlePasswordConfirm"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handlePasswordConfirm">确认</el-button>
       </template>
     </el-dialog>
 
@@ -99,7 +142,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
 import WordCountChart from './WordCountChart.vue'
-import { Plus, ArrowDown, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES } from '@renderer/constants/config'
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
@@ -119,7 +162,9 @@ const form = ref({
   type: '',
   targetCount: 10000,
   intro: '',
-  originalName: ''
+  originalName: '',
+  password: '',
+  confirmPassword: ''
 })
 const rules = ref({
   name: [
@@ -128,7 +173,31 @@ const rules = ref({
   ],
   type: [{ required: true, message: '请选择类型', trigger: 'blur' }],
   targetCount: [{ required: true, message: '请输入目标字数', trigger: 'blur' }],
-  intro: [{ required: true, message: '请输入简介', trigger: 'blur' }]
+  intro: [{ required: true, message: '请输入简介', trigger: 'blur' }],
+  password: [
+    {
+      validator: (rule, value, callback) => {
+        if (value && !/^[a-zA-Z0-9]{4,8}$/.test(value)) {
+          callback(new Error('密码必须是4-8位数字或字母组合'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  confirmPassword: [
+    {
+      validator: (rule, value, callback) => {
+        if (form.value.password && value !== form.value.password) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
 })
 
 // 书籍列表数据
@@ -136,8 +205,34 @@ const books = computed(() => mainStore.books)
 
 const chartRef = ref(null)
 
+// 密码验证相关
+const passwordDialogVisible = ref(false)
+const passwordFormRef = ref(null)
+const passwordForm = ref({
+  password: ''
+})
+const passwordRules = ref({
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+})
+const pendingAction = ref(null) // 存储待执行的操作
+const currentBook = ref(null) // 当前操作的书籍
+
 // 打开书籍
 function onOpen(book) {
+  if (book.password) {
+    // 有密码，需要验证
+    currentBook.value = book
+    pendingAction.value = 'open'
+    passwordForm.value.password = ''
+    passwordDialogVisible.value = true
+  } else {
+    // 无密码，直接打开
+    executeOpenBook(book)
+  }
+}
+
+// 执行打开书籍操作
+function executeOpenBook(book) {
   // 通过 Electron API 请求主进程打开新窗口
   if (window.electron && window.electron.openBookEditorWindow) {
     window.electron.openBookEditorWindow(book.id, book.name)
@@ -154,6 +249,20 @@ function onOpen(book) {
 
 // 右键菜单相关
 function onEdit(book) {
+  if (book.password) {
+    // 有密码，需要验证
+    currentBook.value = book
+    pendingAction.value = 'edit'
+    passwordForm.value.password = ''
+    passwordDialogVisible.value = true
+  } else {
+    // 无密码，直接编辑
+    executeEditBook(book)
+  }
+}
+
+// 执行编辑书籍操作
+function executeEditBook(book) {
   isEdit.value = true
   editBookId.value = book.id
   dialogVisible.value = true
@@ -161,11 +270,27 @@ function onEdit(book) {
   form.value.type = book.type
   form.value.targetCount = book.targetCount
   form.value.intro = book.intro
+  form.value.password = book.password || ''
+  form.value.confirmPassword = book.password || ''
   // 保存原始书名，用于定位文件夹
   form.value.originalName = book.name
 }
 
 async function onDelete(book) {
+  if (book.password) {
+    // 有密码，需要验证
+    currentBook.value = book
+    pendingAction.value = 'delete'
+    passwordForm.value.password = ''
+    passwordDialogVisible.value = true
+  } else {
+    // 无密码，直接删除
+    executeDeleteBook(book)
+  }
+}
+
+// 执行删除书籍操作
+async function executeDeleteBook(book) {
   try {
     console.log('准备删除书籍:', book)
     await ElMessageBox.confirm(`确定要删除《${book.name}》吗？此操作不可恢复！`, '删除确认', {
@@ -191,6 +316,38 @@ async function onDelete(book) {
   }
 }
 
+// 密码验证处理
+async function handlePasswordConfirm() {
+  try {
+    await passwordFormRef.value.validate()
+
+    if (passwordForm.value.password === currentBook.value.password) {
+      // 密码正确，执行对应操作
+      passwordDialogVisible.value = false
+
+      switch (pendingAction.value) {
+        case 'open':
+          executeOpenBook(currentBook.value)
+          break
+        case 'edit':
+          executeEditBook(currentBook.value)
+          break
+        case 'delete':
+          await executeDeleteBook(currentBook.value)
+          break
+      }
+
+      // 清理状态
+      pendingAction.value = null
+      currentBook.value = null
+    } else {
+      ElMessage.error('密码错误，请重新输入')
+    }
+  } catch (error) {
+    console.error('密码验证失败:', error)
+  }
+}
+
 async function handleConfirm() {
   formRef.value.validate(async (valid) => {
     if (valid) {
@@ -211,7 +368,8 @@ async function handleConfirm() {
         type: form.value.type,
         typeName: BOOK_TYPES.find((item) => item.value === form.value.type)?.label,
         targetCount: form.value.targetCount,
-        intro: form.value.intro
+        intro: form.value.intro,
+        password: form.value.password || null
       }
       if (isEdit.value && editBookId.value) {
         // 编辑模式，调用 updateBook
@@ -246,6 +404,8 @@ function handleNewBook() {
   form.value.targetCount = 10000
   form.value.intro = ''
   form.value.originalName = ''
+  form.value.password = ''
+  form.value.confirmPassword = ''
   dialogVisible.value = true
 }
 

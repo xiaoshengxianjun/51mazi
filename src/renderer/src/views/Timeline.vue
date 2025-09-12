@@ -7,7 +7,8 @@
       </el-button>
     </template>
     <template #default>
-      <div class="timeline-main">
+      <el-empty v-if="timelines.length === 0" :image-size="200" description="暂无时间线" />
+      <div v-else class="timeline-main">
         <div class="timeline-list">
           <div v-for="(timeline, idx) in timelines" :key="timeline.id" class="timeline-column">
             <div class="timeline-title-wrap">
