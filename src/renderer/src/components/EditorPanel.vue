@@ -188,6 +188,12 @@ function handleKeydown(event) {
       searchPanelVisible.value = true
     }
   }
+
+  // Cmd/Ctrl + S: 保存内容
+  if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+    event.preventDefault()
+    saveContent()
+  }
 }
 
 onMounted(() => {
