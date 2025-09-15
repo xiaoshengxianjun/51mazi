@@ -36,7 +36,7 @@
 
               <!-- 表格主体 -->
               <div class="table-body">
-                <div class="table-left">
+                <div class="table-left" :class="{ collapsed: isChartCollapsed(chart.id) }">
                   <div class="left-header">
                     <div class="col-index">序号</div>
                     <div class="col-intro">简介</div>
@@ -53,6 +53,14 @@
                       <div class="col-progress">{{ (event.progress ?? 0) + '%' }}</div>
                     </div>
                   </div>
+                </div>
+
+                <!-- 切换按钮 -->
+                <div class="toggle-button" @click="toggleLeftPanel(chart.id)">
+                  <el-icon>
+                    <DArrowLeft v-if="!isChartCollapsed(chart.id)" />
+                    <DArrowRight v-else />
+                  </el-icon>
                 </div>
 
                 <div class="table-right">
@@ -239,7 +247,7 @@
 import { ref, onMounted, watch, toRaw } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 
 const route = useRoute()
@@ -258,6 +266,9 @@ const chartForm = ref({
 const expandForm = ref({
   cellCount: 100 // 扩展数量，不是总数量
 })
+
+// 左侧区域收缩状态 - 每个事序图独立控制
+const collapsedCharts = ref(new Set())
 
 // 拖拽相关数据
 const draggingEvent = ref(null)
@@ -778,6 +789,20 @@ const adjustBrightness = (hex, percent) => {
   )
 }
 
+// 切换指定事序图的左侧面板收缩状态
+const toggleLeftPanel = (chartId) => {
+  if (collapsedCharts.value.has(chartId)) {
+    collapsedCharts.value.delete(chartId)
+  } else {
+    collapsedCharts.value.add(chartId)
+  }
+}
+
+// 检查指定事序图是否处于收缩状态
+const isChartCollapsed = (chartId) => {
+  return collapsedCharts.value.has(chartId)
+}
+
 // 已移除示例数据功能
 
 // —— 本地化存储：读/写 ——
@@ -875,7 +900,7 @@ onMounted(() => {
 }
 
 .sequence-chart {
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
   border-radius: 8px;
   // box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -902,7 +927,7 @@ onMounted(() => {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-base);
   }
 
   .header-right {
@@ -913,22 +938,31 @@ onMounted(() => {
 .table-body {
   display: flex;
   // min-height: 200px;
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
   overflow: hidden; /* 防止整体出现滚动条 */
+  position: relative; /* 为切换按钮提供定位上下文 */
 }
 
 .table-left {
   flex: 0 0 380px;
   border-right: 1px solid var(--border-color);
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
   font-size: 15px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  &.collapsed {
+    flex: 0 0 0;
+    width: 0;
+    border-right: none;
+  }
 
   .left-header {
     display: flex;
     background-color: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-base);
     height: 40px;
     position: sticky;
     top: 0;
@@ -971,7 +1005,7 @@ onMounted(() => {
       display: flex;
       border-bottom: 1px solid var(--border-color);
       height: 40px;
-      background-color: var(--bg-base);
+      background-color: var(--bg-primary);
       position: relative;
       z-index: 5; /* 确保内容行在表格线之上 */
 
@@ -985,7 +1019,7 @@ onMounted(() => {
         text-align: center;
         border-right: 1px solid var(--border-color);
         background-color: transparent;
-        color: var(--text-primary);
+        color: var(--text-base);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1023,11 +1057,47 @@ onMounted(() => {
   }
 }
 
+.toggle-button {
+  position: absolute;
+  left: 380px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 40px;
+  background-color: var(--bg-primary-a5);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: var(--bg-soft);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .el-icon {
+    font-size: 14px;
+    color: var(--text-base);
+  }
+}
+
+.table-left.collapsed + .toggle-button {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+  border-left: 1px solid var(--border-color);
+}
+
 .table-right {
   flex: 1;
   overflow-x: auto;
   position: relative;
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
   overflow-y: hidden; /* 防止垂直滚动条 */
 
   .right-header {
