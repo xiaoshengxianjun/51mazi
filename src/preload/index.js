@@ -14,6 +14,8 @@ if (process.contextIsolated) {
       // --------- 书籍相关 ---------
       // 选择书籍目录
       selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
+      // 选择图片文件
+      selectImage: () => ipcRenderer.invoke('select-image'),
       // 创建书籍
       createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
       // 读取书籍目录
