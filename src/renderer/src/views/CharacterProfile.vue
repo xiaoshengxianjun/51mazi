@@ -415,7 +415,7 @@ onMounted(() => {
 }
 
 .character-card {
-  background: var(--bg-base);
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
@@ -452,7 +452,7 @@ onMounted(() => {
   .character-name {
     font-size: 16px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-base);
   }
 
   .character-details {
@@ -460,7 +460,7 @@ onMounted(() => {
     align-items: center;
     gap: 16px;
     margin-bottom: 8px;
-    color: var(--text-primary);
+    color: var(--text-base);
     font-size: 14px;
     padding: 0 10px;
     margin-bottom: 5px;
@@ -483,7 +483,7 @@ onMounted(() => {
 
   .character-intro {
     font-size: 14px;
-    color: var(--text-primary);
+    color: var(--text-base);
     line-height: 1.5;
     margin: 0;
     padding: 0 10px;
@@ -501,7 +501,7 @@ onMounted(() => {
 
   .el-icon {
     font-size: 24px;
-    color: var(--text-primary);
+    color: var(--text-base);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;

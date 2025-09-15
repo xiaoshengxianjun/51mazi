@@ -294,7 +294,7 @@ const getDefaultImage = () => {
     .relationship-info {
       padding: 12px;
       text-align: center;
-      color: var(--text-primary);
+      color: var(--text-base);
 
       .relationship-name {
         font-size: 16px;

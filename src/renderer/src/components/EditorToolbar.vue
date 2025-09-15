@@ -113,7 +113,7 @@ const handleEventsSequence = () => {
   .toolbar-title {
     font-size: 16px;
     font-weight: 500;
-    color: var(--text-primary);
+    color: var(--text-base);
     margin-bottom: 8px;
   }
 
@@ -124,11 +124,14 @@ const handleEventsSequence = () => {
 
     .tool-btn {
       justify-content: flex-start;
-      background: var(--bg-base);
+      background: var(--bg-primary);
       border: 1px solid var(--border-color);
-      // color: var(--text-primary);
+      color: var(--text-base);
       text-align: left;
       margin: 0;
+      &:hover {
+        color: var(--el-color-primary);
+      }
     }
   }
 }

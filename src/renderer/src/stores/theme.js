@@ -19,9 +19,19 @@ export const useThemeStore = defineStore('theme', () => {
     switch (theme) {
       case 'dark':
         root.style.setProperty('--bg-primary', '#1A1A1A')
+        root.style.setProperty('--bg-primary-a5', 'rgba(26, 26, 26, 0.5)')
+        root.style.setProperty('--bg-primary-a7', 'rgba(26, 26, 26, 0.7)')
         root.style.setProperty('--bg-soft', '#242424')
+        root.style.setProperty('--bg-soft-a5', 'rgba(24, 24, 24, 0.5)')
+        root.style.setProperty('--bg-soft-a7', 'rgba(24, 24, 24, 0.7)')
         root.style.setProperty('--bg-mute', '#2c2c2c')
-        root.style.setProperty('--text-primary', '#CBD5E1')
+        root.style.setProperty('--bg-mute-a5', 'rgba(28, 28, 28, 0.5)')
+        root.style.setProperty('--bg-mute-a7', 'rgba(28, 28, 28, 0.7)')
+        root.style.setProperty('--text-base', '#E5E5E5')
+        root.style.setProperty('--text-gray', '#666666')
+        root.style.setProperty('--text-gray-light', '#999999')
+        root.style.setProperty('--text-gray-lighter', '#CCCCCC')
+        root.style.setProperty('--text-gray-lightest', '#F5F5F5')
         root.style.setProperty('--accent-color', '#64748B')
         root.style.setProperty('--border-color', '#2D4059')
         root.style.setProperty('--border-color-soft', '#374151')
@@ -29,9 +39,19 @@ export const useThemeStore = defineStore('theme', () => {
         break
       case 'yellow':
         root.style.setProperty('--bg-primary', '#FAF0E6')
+        root.style.setProperty('--bg-primary-a5', 'rgba(250, 240, 230, 0.5)')
+        root.style.setProperty('--bg-primary-a7', 'rgba(250, 240, 230, 0.7)')
         root.style.setProperty('--bg-soft', '#F5E6D3')
+        root.style.setProperty('--bg-soft-a5', 'rgba(250, 240, 230, 0.5)')
+        root.style.setProperty('--bg-soft-a7', 'rgba(250, 240, 230, 0.7)')
         root.style.setProperty('--bg-mute', '#F0DCC0')
-        root.style.setProperty('--text-primary', '#3A2F21')
+        root.style.setProperty('--bg-mute-a5', 'rgba(240, 220, 192, 0.5)')
+        root.style.setProperty('--bg-mute-a7', 'rgba(240, 220, 192, 0.7)')
+        root.style.setProperty('--text-base', '#3A2F21')
+        root.style.setProperty('--text-gray', '#666666')
+        root.style.setProperty('--text-gray-light', '#999999')
+        root.style.setProperty('--text-gray-lighter', '#CCCCCC')
+        root.style.setProperty('--text-gray-lightest', '#F5F5F5')
         root.style.setProperty('--accent-color', '#5D4037')
         root.style.setProperty('--border-color', '#BCAAA4')
         root.style.setProperty('--border-color-soft', '#D1C4B8')
@@ -39,9 +59,19 @@ export const useThemeStore = defineStore('theme', () => {
         break
       default: // light
         root.style.setProperty('--bg-primary', '#F8F9FA')
+        root.style.setProperty('--bg-primary-a5', 'rgba(248, 249, 250, 0.5)')
+        root.style.setProperty('--bg-primary-a7', 'rgba(248, 249, 250, 0.7)')
         root.style.setProperty('--bg-soft', '#FFFFFF')
+        root.style.setProperty('--bg-soft-a5', 'rgba(255, 255, 255, 0.5)')
+        root.style.setProperty('--bg-soft-a7', 'rgba(255, 255, 255, 0.7)')
         root.style.setProperty('--bg-mute', '#F1F3F5')
-        root.style.setProperty('--text-primary', '#2D2D2D')
+        root.style.setProperty('--bg-mute-a5', 'rgba(241, 243, 245, 0.5)')
+        root.style.setProperty('--bg-mute-a7', 'rgba(241, 243, 245, 0.7)')
+        root.style.setProperty('--text-base', '#121212')
+        root.style.setProperty('--text-gray', '#666666')
+        root.style.setProperty('--text-gray-light', '#999999')
+        root.style.setProperty('--text-gray-lighter', '#CCCCCC')
+        root.style.setProperty('--text-gray-lightest', '#F5F5F5')
         root.style.setProperty('--accent-color', '#4A90E2')
         root.style.setProperty('--border-color', '#E1E4E8')
         root.style.setProperty('--border-color-soft', '#E9ECEF')
@@ -66,4 +96,4 @@ export const useThemeStore = defineStore('theme', () => {
     initTheme,
     setTheme
   }
-}) 
+})

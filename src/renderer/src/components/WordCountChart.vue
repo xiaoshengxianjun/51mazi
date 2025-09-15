@@ -42,7 +42,7 @@ function initChart() {
       text: '最近30天净增字数统计',
       left: 'center',
       textStyle: {
-        // color: 'var(--text-primary)',
+        // color: 'var(--text-base)',
         fontSize: 15
       }
     },
@@ -68,7 +68,7 @@ function initChart() {
       type: 'category',
       data: dates,
       axisLabel: {
-        // color: 'var(--text-primary)',
+        // color: 'var(--text-base)',
         formatter: (value) => value.slice(5) // 只显示月-日
       }
     },
@@ -76,7 +76,7 @@ function initChart() {
       type: 'value',
       name: '字数',
       axisLabel: {
-        // color: 'var(--text-primary)'
+        // color: 'var(--text-base)'
       }
     },
     series: [

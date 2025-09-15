@@ -210,7 +210,7 @@ async function handleReformat() {
     margin: 0 0 12px 0;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-base);
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 6px;
   }
@@ -260,7 +260,7 @@ async function handleReformat() {
   .preview-text {
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-base);
     background: var(--bg-primary);
     padding: 6px 12px;
     border-radius: 6px;

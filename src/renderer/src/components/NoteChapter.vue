@@ -717,7 +717,7 @@ async function handleSettingsChanged(newSettings) {
   padding: 10px 0;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-base);
   cursor: pointer;
   display: flex;
   align-items: center;

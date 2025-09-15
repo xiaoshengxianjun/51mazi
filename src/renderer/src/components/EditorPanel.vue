@@ -397,7 +397,7 @@ watch(
   flex-direction: column;
   height: 100%;
   background-color: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--text-base);
   min-height: 0;
   overflow: hidden;
 }
@@ -446,7 +446,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  color: var(--text-primary);
+  color: var(--text-base);
   flex-wrap: wrap;
 
   .word-count {

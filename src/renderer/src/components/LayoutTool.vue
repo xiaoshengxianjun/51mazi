@@ -72,7 +72,7 @@ function handleRefresh() {
   .header-title {
     margin: 0;
     font-size: 20px;
-    color: var(--text-primary);
+    color: var(--text-base);
   }
   .header-action {
     display: flex;

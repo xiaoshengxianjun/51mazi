@@ -249,7 +249,7 @@ const confirmDelete = async () => {
     .map-info {
       padding: 12px;
       text-align: center;
-      color: var(--text-primary);
+      color: var(--text-base);
 
       .map-name {
         font-size: 16px;

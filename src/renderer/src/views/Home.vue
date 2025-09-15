@@ -193,7 +193,7 @@ const goToUserGuide = () => {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--text-base);
   transition: all 0.3s;
 }
 
@@ -224,7 +224,7 @@ const goToUserGuide = () => {
 
   span {
     font-size: 14px;
-    color: var(--text-primary);
+    color: var(--text-base);
   }
 }
 

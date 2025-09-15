@@ -426,7 +426,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .entry-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-base);
 }
 
 .parent-name {
@@ -441,7 +441,7 @@ onMounted(() => {
 }
 
 .entry-intro {
-  color: var(--text-primary);
+  color: var(--text-base);
   line-height: 1.5;
   max-height: 100px;
   overflow-y: auto;
@@ -450,7 +450,7 @@ onMounted(() => {
 
 // 表格样式优化
 :deep(.el-table) {
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
 
   .el-table__header {
     background-color: var(--bg-mute);

@@ -257,7 +257,7 @@ onMounted(() => {
   height: 32px;
   font-weight: bold;
   text-align: center;
-  color: var(--text-primary);
+  color: var(--text-base);
   margin-bottom: 0;
   cursor: pointer;
   user-select: none;
@@ -280,7 +280,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px #0002;
   position: relative;
   overflow: hidden;
-  color: var(--text-primary);
+  color: var(--text-base);
   &:hover {
     .timeline-node-actions {
       display: flex;

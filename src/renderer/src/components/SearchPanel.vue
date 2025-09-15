@@ -610,7 +610,7 @@ onBeforeUnmount(() => {
   }
 
   :deep(.el-input__inner) {
-    color: var(--text-primary);
+    color: var(--text-base);
 
     &::placeholder {
       color: var(--text-muted);
@@ -634,7 +634,7 @@ onBeforeUnmount(() => {
   &:not(.is-primary) {
     background: var(--bg-primary);
     border-color: var(--border-color);
-    color: var(--text-primary);
+    color: var(--text-base);
 
     &:hover {
       background: var(--bg-mute);
@@ -675,7 +675,7 @@ onBeforeUnmount(() => {
   min-width: auto;
   background: var(--bg-primary);
   border-color: var(--border-color);
-  color: var(--text-primary);
+  color: var(--text-base);
   border-radius: 4px;
   transition: all 0.2s ease;
 
@@ -695,7 +695,7 @@ onBeforeUnmount(() => {
   min-width: auto;
   background: var(--bg-primary);
   border-color: var(--border-color);
-  color: var(--text-primary);
+  color: var(--text-base);
   border-radius: 4px;
   transition: all 0.2s ease;
 

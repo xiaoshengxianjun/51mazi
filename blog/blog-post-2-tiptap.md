@@ -503,7 +503,7 @@ function getKeyCombination(event) {
 .editor-content {
   .ProseMirror {
     background-color: var(--bg-primary);
-    color: var(--text-primary);
+    color: var(--text-base);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     min-height: 500px;

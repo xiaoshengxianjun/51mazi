@@ -724,7 +724,7 @@ function handleCanvasClick() {
     }
     .zoom-level {
       font-size: 14px;
-      color: var(--text-primary);
+      color: var(--text-base);
       min-width: 60px;
       text-align: center;
     }
@@ -778,7 +778,7 @@ function handleCanvasClick() {
         outline: none;
         min-width: 100px;
         box-shadow: none;
-        color: var(--text-primary);
+        color: var(--text-base);
         font-family: Arial, sans-serif;
 
         &:focus {

@@ -918,7 +918,7 @@ onMounted(async () => {
 
 .design-canvas {
   flex: 1;
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
@@ -931,7 +931,7 @@ onMounted(async () => {
 }
 
 :deep(.relation-graph-canvas) {
-  background-color: var(--bg-base);
+  background-color: var(--bg-primary);
 }
 
 .node-detail {
@@ -944,7 +944,7 @@ onMounted(async () => {
   .node-info {
     p {
       margin: 4px 0;
-      color: var(--text-primary);
+      color: var(--text-base);
     }
   }
 }
