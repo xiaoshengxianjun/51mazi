@@ -32,6 +32,13 @@
                 @delete="handleNodeDelete"
               />
             </template>
+            <template #node="{ node }">
+              <div class="custom-node" :style="getNodeStyle(node)">
+                <div class="node-text">
+                  {{ node.text }}
+                </div>
+              </div>
+            </template>
           </RelationGraph>
         </div>
       </div>
@@ -40,7 +47,7 @@
   <el-dialog
     v-model="infoDialogVisible"
     :title="isAddMode ? '新增节点' : '编辑节点信息'"
-    width="400px"
+    width="500px"
   >
     <el-form label-width="80px">
       <el-form-item label="节点文本">
@@ -82,6 +89,20 @@
             ></div>
           </div>
           <el-color-picker v-model="customColor" style="margin-left: 8px" @change="onCustomColor" />
+        </div>
+      </el-form-item>
+      <el-form-item label="头像">
+        <div style="width: 100%; display: flex; gap: 8px; align-items: flex-start">
+          <el-input v-model="infoForm.avatar" placeholder="请输入图片链接或选择本地图片" />
+          <el-button @click="selectLocalImage">选择本地图片</el-button>
+          <div v-if="infoForm.avatar" class="avatar-preview">
+            <el-image
+              :src="getAvatarSrc(infoForm.avatar)"
+              alt="头像预览"
+              class="preview-image"
+              :fit="'cover'"
+            />
+          </div>
         </div>
       </el-form-item>
       <el-form-item label="描述">
@@ -161,8 +182,16 @@ const graphOptions = {
     }
   ],
   defaultJunctionPoint: 'border',
-  defaultLineFontColor: '#409eff' // 设置默认线条文字颜色为蓝色
-  // defaultLineColor: '#409eff' // 设置默认线条颜色
+  defaultLineFontColor: '#409eff', // 设置默认线条文字颜色为蓝色
+  // 自定义节点渲染
+  defaultNodeShape: 0, // 使用矩形节点
+  defaultNodeWidth: 100,
+  defaultNodeHeight: 100,
+  // 节点文字样式
+  defaultNodeFontColor: '#333333',
+  defaultNodeFontSize: 16,
+  // 允许自定义节点HTML
+  allowNodeCustomHTML: true
 }
 
 // 加载人物数据
@@ -202,6 +231,21 @@ const loadRelationshipData = async () => {
             if (node.characterId !== undefined) {
               node.data.characterId = node.characterId
               delete node.characterId
+            }
+            // 确保头像字段存在
+            if (!node.data.avatar) {
+              node.data.avatar = ''
+            }
+            // 确保字体大小字段存在并迁移到 data 中
+            if (!node.data.fontSize) {
+              const level = calculateNodeLevel(node.id, data.nodes, data.lines)
+              const size = calculateNodeSize(node.id, data.nodes, data.lines, level)
+              node.data.fontSize = size.fontSize
+            }
+            // 如果旧数据中有 fontSize 属性，迁移到 data 中
+            if (node.fontSize && !node.data.fontSize) {
+              node.data.fontSize = node.fontSize
+              delete node.fontSize
             }
             return node
           })
@@ -344,6 +388,9 @@ function handleNodeInfo() {
     : ''
   customColor.value = !infoForm.color ? selectedNode.value.color || '' : ''
   infoForm.description = selectedNode.value.data?.description || ''
+  // 如果有头像路径，转换为 file:// 协议以便预览
+  const avatarPath = selectedNode.value.data?.avatar || ''
+  infoForm.avatar = getAvatarSrc(avatarPath)
 
   // 检查当前节点文本是否对应已存在的人物
   const existingCharacter = characters.value.find((c) => c.name === selectedNode.value.text)
@@ -552,7 +599,8 @@ const infoForm = reactive({
   gender: 'male', // 默认男性
   color: '',
   description: '',
-  characterId: '' // 选中的人物谱id
+  characterId: '', // 选中的人物谱id
+  avatar: '' // 头像路径或链接
 })
 
 // 连线编辑弹窗相关
@@ -627,6 +675,21 @@ function selectPresetColor(color) {
   customColor.value = '' // 清空自定义颜色
 }
 
+// 选择本地图片
+async function selectLocalImage() {
+  try {
+    const result = await window.electron.selectImage()
+    if (result && result.filePath) {
+      // 将本地文件路径转换为 file:// 协议，以便在浏览器中正确显示
+      infoForm.avatar = `file://${result.filePath}`
+      ElMessage.success('图片选择成功')
+    }
+  } catch (error) {
+    console.error('选择图片失败:', error)
+    ElMessage.error('选择图片失败')
+  }
+}
+
 // 重置表单到默认值
 function resetForm() {
   infoForm.text = ''
@@ -634,6 +697,7 @@ function resetForm() {
   infoForm.color = ''
   infoForm.description = ''
   infoForm.characterId = ''
+  infoForm.avatar = ''
   customColor.value = '#409eff'
 }
 
@@ -691,7 +755,9 @@ function saveNodeInfo() {
       data: {
         description: infoForm.description || '',
         gender: infoForm.gender || 'male',
-        characterId: infoForm.characterId.trim()
+        characterId: infoForm.characterId.trim(),
+        avatar: infoForm.avatar ? infoForm.avatar.replace(/^file:\/\//, '') : '',
+        fontSize: nodeSize.fontSize
       }
     }
     relationshipData.nodes.push(newNode)
@@ -761,6 +827,9 @@ function saveNodeInfo() {
     selectedNode.value.data.gender = infoForm.gender
     selectedNode.value.color = infoForm.color || customColor.value
     selectedNode.value.data.description = infoForm.description
+    selectedNode.value.data.avatar = infoForm.avatar
+      ? infoForm.avatar.replace(/^file:\/\//, '')
+      : ''
 
     // 同步到数据源
     const node = relationshipData.nodes.find((n) => n.id === selectedNode.value.id)
@@ -774,6 +843,7 @@ function saveNodeInfo() {
       node.data.gender = selectedNode.value.data.gender
       node.data.description = selectedNode.value.data.description
       node.data.characterId = selectedNode.value.data.characterId
+      node.data.avatar = selectedNode.value.data.avatar
     }
 
     // 使用增量更新而不是重新设置整个数据
@@ -827,23 +897,23 @@ function saveEdgeInfo() {
   }
 }
 
-// 根据节点层级计算节点大小
+// 根据节点层级计算节点大小和字体大小
 function calculateNodeSize(nodeId, nodes, lines, level = 0) {
   // 根节点最大
   if (level === 0) {
-    return { width: 100, height: 100 }
+    return { width: 100, height: 100, fontSize: 20 }
   }
   // 第一级子节点中等
   else if (level === 1) {
-    return { width: 90, height: 90 }
+    return { width: 90, height: 90, fontSize: 18 }
   }
   // 第二级子节点较小
   else if (level === 2) {
-    return { width: 80, height: 80 }
+    return { width: 80, height: 80, fontSize: 16 }
   }
   // 第三级及以后节点最小且一致
   else {
-    return { width: 70, height: 70 }
+    return { width: 70, height: 70, fontSize: 14 }
   }
 }
 
@@ -878,20 +948,59 @@ function applyNodeSizes() {
     const level = calculateNodeLevel(node.id, relationshipData.nodes, relationshipData.lines)
     const size = calculateNodeSize(node.id, relationshipData.nodes, relationshipData.lines, level)
 
-    // 更新节点大小
+    // 更新节点大小和字体大小
     node.width = size.width
     node.height = size.height
+
+    // 确保 data 对象存在
+    if (!node.data) {
+      node.data = {}
+    }
+    node.data.fontSize = size.fontSize
 
     // 更新RelationGraph中的节点
     const graphNode = graphInstance.getNodeById(node.id)
     if (graphNode) {
       graphNode.width = size.width
       graphNode.height = size.height
+      if (!graphNode.data) {
+        graphNode.data = {}
+      }
+      graphNode.data.fontSize = size.fontSize
     }
   })
 
   // 通知数据已更新
   graphInstance.dataUpdated()
+}
+
+// 获取节点样式
+function getNodeStyle(node) {
+  return {
+    width: node.width + 'px',
+    height: node.height + 'px',
+    backgroundColor: node.data?.avatar ? 'transparent' : node.color || '#409eff',
+    backgroundImage: node.data?.avatar ? `url(${getAvatarSrc(node.data.avatar)})` : 'none',
+    fontSize: (node.data?.fontSize || 16) + 'px'
+  }
+}
+
+// 获取头像源地址
+function getAvatarSrc(avatarPath) {
+  if (!avatarPath) return ''
+
+  // 如果已经是完整的URL（包含协议），直接返回
+  if (
+    avatarPath.startsWith('http://') ||
+    avatarPath.startsWith('https://') ||
+    avatarPath.startsWith('file://') ||
+    avatarPath.startsWith('data:')
+  ) {
+    return avatarPath
+  }
+
+  // 如果是本地文件路径，添加 file:// 协议
+  return `file://${avatarPath}`
 }
 
 onMounted(async () => {
@@ -995,5 +1104,52 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 头像预览样式 */
+.avatar-preview {
+  width: 80px;
+  height: 80px;
+  position: absolute;
+  top: -100px;
+  right: 0;
+}
+.preview-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* 自定义节点样式 */
+.custom-node {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.node-text {
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  line-height: 1.2;
+  word-break: break-word;
+  padding: 4px;
 }
 </style>

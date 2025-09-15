@@ -50,7 +50,9 @@ function createWindow() {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
-      sandbox: false
+      sandbox: false,
+      webSecurity: false,
+      allowRunningInsecureContent: true
     }
   })
 
@@ -116,6 +118,23 @@ ipcMain.handle('select-books-dir', async () => {
     properties: ['openDirectory']
   })
   return result
+})
+
+// 选择图片文件
+ipcMain.handle('select-image', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+      { name: '所有文件', extensions: ['*'] }
+    ]
+  })
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return { filePath: result.filePaths[0] }
+  }
+
+  return null
 })
 
 // 创建书籍
@@ -276,6 +295,8 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
+      webSecurity: false,
+      allowRunningInsecureContent: true,
       additionalArguments: [`bookId=${id}`, `bookName=${encodeURIComponent(name)}`]
     }
   })
