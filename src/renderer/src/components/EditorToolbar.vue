@@ -3,16 +3,16 @@
     <div class="toolbar-title">写作助手</div>
     <div class="toolbar-buttons">
       <el-button class="tool-btn" @click="handleRandomName">
-        <el-icon><User /></el-icon>
+        <SvgIcon name="naming" :size="14" />
         <span>随机起名</span>
       </el-button>
       <RandomName ref="randomNameRef" />
       <el-button class="tool-btn" @click="handleWorldMap">
-        <el-icon><Location /></el-icon>
+        <SvgIcon name="map" :size="14" />
         <span>设计地图</span>
       </el-button>
       <el-button class="tool-btn" @click="handleTimeline">
-        <el-icon><Timer /></el-icon>
+        <SvgIcon name="timeline" :size="14" />
         <span>时间线</span>
       </el-button>
       <el-button class="tool-btn" @click="handleEntryDictionary">
@@ -20,38 +20,32 @@
         <span>词条字典</span>
       </el-button>
       <el-button class="tool-btn" @click="handleCharacterProfile">
-        <el-icon><Avatar /></el-icon>
+        <SvgIcon name="character" :size="14" />
         <span>人物谱</span>
       </el-button>
       <el-button class="tool-btn" @click="handleRelationshipMap">
-        <el-icon><Connection /></el-icon>
+        <SvgIcon name="relationship" :size="14" />
         <span>关系图</span>
       </el-button>
       <el-button class="tool-btn" @click="handleEventsSequence">
-        <el-icon><Guide /></el-icon>
+        <SvgIcon name="gantt" :size="14" />
         <span>事序图</span>
       </el-button>
-      <!-- <el-button class="tool-btn" @click="handleOrganization">
-        <el-icon><Grid /></el-icon>
+      <el-button class="tool-btn" @click="handleOrganization">
+        <SvgIcon name="organization" :size="14" />
         <span>组织架构</span>
-      </el-button> -->
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import {
-  User,
-  Location,
-  Timer,
-  Avatar,
-  Connection,
-  Collection,
-  Guide
-} from '@element-plus/icons-vue'
+import { Collection } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
+import SvgIcon from './SvgIcon.vue'
 
 const randomNameRef = ref(null)
 const router = useRouter()
@@ -97,6 +91,13 @@ const handleEventsSequence = () => {
   const bookName = route.query.name
   router.push({ path: '/events-sequence', query: { name: bookName } })
 }
+
+const handleOrganization = () => {
+  // // 跳转到组织架构页面，带上当前书籍名
+  // const bookName = route.query.name
+  // router.push({ path: '/organization', query: { name: bookName } })
+  ElMessage.warning('暂未开发,敬请期待')
+}
 </script>
 
 <style lang="scss" scoped>
@@ -131,6 +132,9 @@ const handleEventsSequence = () => {
       margin: 0;
       &:hover {
         color: var(--el-color-primary);
+      }
+      span {
+        margin-left: 6px;
       }
     }
   }

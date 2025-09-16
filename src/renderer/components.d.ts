@@ -56,6 +56,7 @@ declare module 'vue' {
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTree: typeof import('element-plus/es')['ElTree']
     ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
+    IconFont: typeof import('./src/components/IconFont.vue')['default']
     LayoutTool: typeof import('./src/components/LayoutTool.vue')['default']
     LayoutToolPage: typeof import('./src/components/LayoutToolPage.vue')['default']
     NoteChapter: typeof import('./src/components/NoteChapter.vue')['default']
@@ -64,6 +65,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchPanel: typeof import('./src/components/SearchPanel.vue')['default']
+    SvgIcon: typeof import('./src/components/SvgIcon.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
     WordCountChart: typeof import('./src/components/WordCountChart.vue')['default']
   }

@@ -1,4 +1,5 @@
 import './assets/styles/variables.scss'
+import './assets/styles/icons.scss'
 import './assets/main.css'
 
 import { createApp } from 'vue'
@@ -8,6 +9,8 @@ import 'element-plus/dist/index.css'
 import router from './router'
 import App from './App.vue'
 import { useThemeStore } from './stores/theme'
+import IconFont from './components/IconFont.vue'
+import SvgIcon from './components/SvgIcon.vue'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -15,6 +18,10 @@ const pinia = createPinia()
 app.use(ElementPlus)
 app.use(pinia)
 app.use(router)
+
+// 全局注册图标组件
+app.component('IconFont', IconFont)
+app.component('SvgIcon', SvgIcon)
 
 // 初始化主题
 const themeStore = useThemeStore()
