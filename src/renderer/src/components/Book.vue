@@ -3,7 +3,9 @@
     <div class="spine"></div>
     <div class="cover-bg">
       <div class="title-block">
-        <div class="vertical-title">{{ name }}</div>
+        <div class="vertical-title" :style="{ fontSize: getTitleFontSize() + 'px' }">
+          {{ name }}
+        </div>
       </div>
       <div class="cover-illustration">
         <slot name="cover-illustration">
@@ -42,7 +44,7 @@ import { ref, onBeforeUnmount } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 
 const emit = defineEmits(['onOpen', 'onEdit', 'onDelete'])
-defineProps({
+const props = defineProps({
   id: String,
   name: String,
   type: String,
@@ -61,6 +63,22 @@ defineProps({
 const menuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
+
+// 根据书名长度动态计算字号
+function getTitleFontSize() {
+  const nameLength = props.name ? props.name.length : 0
+  if (nameLength <= 4) {
+    return 28
+  } else if (nameLength === 5) {
+    return 26
+  } else if (nameLength === 6) {
+    return 24
+  } else if (nameLength === 7) {
+    return 22
+  } else {
+    return 20
+  }
+}
 
 function showMenu(e) {
   menuX.value = e.clientX
@@ -154,14 +172,12 @@ onBeforeUnmount(() => {
   }
   .vertical-title {
     writing-mode: vertical-rl;
-    font-size: 22px;
     line-height: 1.2;
     font-weight: bold;
     color: #22345c;
-    // letter-spacing: 1px;
-    // margin-bottom: 8px;
     text-align: center;
     font-family: 'STKaiti', 'KaiTi', serif;
+    // 字号通过内联样式动态设置
   }
   .subtitle {
     writing-mode: vertical-rl;
