@@ -20,8 +20,8 @@
           :type="matchCase ? 'primary' : 'default'"
           size="small"
           class="option-btn"
-          @click="toggleMatchCase"
           title="区分大小写"
+          @click="toggleMatchCase"
         >
           Aa
         </el-button>
@@ -29,8 +29,8 @@
           :type="wholeWord ? 'primary' : 'default'"
           size="small"
           class="option-btn"
-          @click="toggleWholeWord"
           title="全字匹配"
+          @click="toggleWholeWord"
         >
           ab
         </el-button>
@@ -38,12 +38,12 @@
           :type="useRegex ? 'primary' : 'default'"
           size="small"
           class="option-btn"
-          @click="toggleRegex"
           title="正则表达式"
+          @click="toggleRegex"
         >
           .*
         </el-button>
-        <el-button size="small" class="option-btn" @click="performSearch" title="手动搜索">
+        <el-button size="small" class="option-btn" title="手动搜索" @click="performSearch">
           搜索
         </el-button>
       </div>
@@ -59,24 +59,24 @@
         <el-button
           size="small"
           class="nav-btn"
-          @click="findPrevious"
           :disabled="totalMatches === 0"
           title="上一个"
+          @click="findPrevious"
         >
           <el-icon><ArrowUp /></el-icon>
         </el-button>
         <el-button
           size="small"
           class="nav-btn"
-          @click="findNext"
           :disabled="totalMatches === 0"
           title="下一个"
+          @click="findNext"
         >
           <el-icon><ArrowDown /></el-icon>
         </el-button>
       </div>
 
-      <el-button size="small" class="close-btn" @click="closePanel" title="关闭">
+      <el-button size="small" class="close-btn" title="关闭" @click="closePanel">
         <el-icon><Close /></el-icon>
       </el-button>
     </div>
@@ -97,18 +97,18 @@
         <el-button
           size="small"
           class="option-btn"
-          @click="replaceCurrent"
           :disabled="totalMatches === 0"
           title="替换当前"
+          @click="replaceCurrent"
         >
           替换
         </el-button>
         <el-button
           size="small"
           class="option-btn"
-          @click="replaceAll"
           :disabled="totalMatches === 0"
           title="全部替换"
+          @click="replaceAll"
         >
           全部替换
         </el-button>
@@ -551,11 +551,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-// CSS变量定义，确保主题一致性
-:root {
-  --danger-color: #f56c6c;
-}
-
 .search-panel {
   position: fixed;
   z-index: 1000;
@@ -698,30 +693,5 @@ onBeforeUnmount(() => {
   color: var(--text-base);
   border-radius: 4px;
   transition: all 0.2s ease;
-
-  &:hover {
-    background: var(--danger-color);
-    border-color: var(--danger-color);
-    color: white;
-  }
-}
-
-// 响应式设计
-@media (max-width: 768px) {
-  .search-panel {
-    min-width: 320px;
-    max-width: 90vw;
-  }
-
-  .search-section,
-  .replace-section {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .search-input-wrapper,
-  .replace-input-wrapper {
-    min-width: 100px;
-  }
 }
 </style>

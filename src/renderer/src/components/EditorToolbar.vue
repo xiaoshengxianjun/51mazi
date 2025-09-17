@@ -16,7 +16,7 @@
         <span>时间线</span>
       </el-button>
       <el-button class="tool-btn" @click="handleEntryDictionary">
-        <el-icon><Collection /></el-icon>
+        <SvgIcon name="dictionary" :size="14" />
         <span>词条字典</span>
       </el-button>
       <el-button class="tool-btn" @click="handleCharacterProfile">
@@ -41,8 +41,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Collection } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import RandomName from './RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from './SvgIcon.vue'
@@ -93,10 +91,9 @@ const handleEventsSequence = () => {
 }
 
 const handleOrganization = () => {
-  // // 跳转到组织架构页面，带上当前书籍名
-  // const bookName = route.query.name
-  // router.push({ path: '/organization', query: { name: bookName } })
-  ElMessage.warning('暂未开发,敬请期待')
+  // 跳转到组织架构列表页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/organization-list', query: { name: bookName } })
 }
 </script>
 

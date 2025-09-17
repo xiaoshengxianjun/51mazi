@@ -55,6 +55,16 @@ const routes = [
     path: '/events-sequence',
     name: 'EventsSequence',
     component: () => import('@renderer/views/EventsSequence.vue')
+  },
+  {
+    path: '/organization-list',
+    name: 'OrganizationList',
+    component: () => import('@renderer/views/OrganizationList.vue')
+  },
+  {
+    path: '/organization-design',
+    name: 'OrganizationDesign',
+    component: () => import('@renderer/views/OrganizationDesign.vue')
   }
   // 在这里添加更多路由配置
 ]

@@ -168,7 +168,26 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('delete-relationship', { bookName, relationshipName }),
       // 读取关系图图片
       readRelationshipImage: ({ bookName, imageName }) =>
-        ipcRenderer.invoke('read-relationship-image', { bookName, imageName })
+        ipcRenderer.invoke('read-relationship-image', { bookName, imageName }),
+
+      // --------- 组织架构相关 ---------
+      // 读取组织架构列表
+      readOrganizations: (bookName) => ipcRenderer.invoke('read-organizations', { bookName }),
+      // 读取组织架构数据
+      readOrganization: (bookName, organizationName) =>
+        ipcRenderer.invoke('read-organization', { bookName, organizationName }),
+      // 创建组织架构
+      createOrganization: (data) => ipcRenderer.invoke('create-organization', data),
+      // 保存组织架构数据
+      writeOrganization: (bookName, organizationName, organizationData) =>
+        ipcRenderer.invoke('write-organization', {
+          bookName,
+          organizationName,
+          organizationData
+        }),
+      // 删除组织架构
+      deleteOrganization: ({ bookName, organizationName }) =>
+        ipcRenderer.invoke('delete-organization', { bookName, organizationName })
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储
