@@ -185,6 +185,9 @@ if (process.contextIsolated) {
           organizationName,
           organizationData
         }),
+      // 更新组织架构缩略图
+      updateOrganizationThumbnail: (data) =>
+        ipcRenderer.invoke('update-organization-thumbnail', data),
       // 删除组织架构
       deleteOrganization: ({ bookName, organizationName }) =>
         ipcRenderer.invoke('delete-organization', { bookName, organizationName })

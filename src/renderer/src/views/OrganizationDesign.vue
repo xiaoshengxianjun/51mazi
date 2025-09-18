@@ -123,9 +123,9 @@ const graphOptions = ref({
       nodeDistance: [120, 100, 80] // 同级节点水平间距
     }
   ],
-  defaultNodeType: 'rect',
+  defaultNodeShape: 1,
   defaultNodeWidth: 120,
-  defaultNodeHeight: 50,
+  defaultNodeHeight: 40,
   defaultNodeBorderWidth: 2,
   defaultLineWidth: 1,
   defaultNodeColor: '#409eff',
@@ -142,7 +142,7 @@ const graphOptions = ref({
   useAnimationWhenRefresh: true,
   placeSingleNode: true,
   useHorizontalView: false, // 禁用水平视图，使用垂直视图
-  defaultJunctionPoint: 'border' // 连接点位置
+  defaultJunctionPoint: 'tb' // 连接点位置
 })
 
 // 节点相关
@@ -311,7 +311,19 @@ const handleSave = async () => {
       updatedAt: new Date().toISOString()
     }
 
+    // 保存组织架构数据
     await window.electron.writeOrganization(bookName, organizationId, updatedData)
+
+    // 生成并保存缩略图
+    if (updatedData.nodes.length > 0) {
+      // 获取图表实例, 获取图片base64
+      const imageBase64 = await graphRef.value.getInstance().getImageBase64()
+      await window.electron.updateOrganizationThumbnail({
+        bookName,
+        organizationId,
+        thumbnailData: imageBase64
+      })
+    }
 
     ElMessage.success('保存成功')
   } catch (error) {
@@ -350,7 +362,11 @@ onMounted(async () => {
       console.log('数据为空，等待 500ms 后重试')
       setTimeout(async () => {
         await loadOrganizationData()
-        if (graphRef.value && organizationData.value.nodes && organizationData.value.nodes.length > 0) {
+        if (
+          graphRef.value &&
+          organizationData.value.nodes &&
+          organizationData.value.nodes.length > 0
+        ) {
           graphRef.value.setJsonData({
             rootId: organizationData.value.nodes[0].id,
             nodes: organizationData.value.nodes,

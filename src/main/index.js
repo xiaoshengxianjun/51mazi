@@ -1816,6 +1816,38 @@ ipcMain.handle(
   }
 )
 
+// 更新组织架构缩略图
+ipcMain.handle(
+  'update-organization-thumbnail',
+  async (event, { bookName, organizationId, thumbnailData }) => {
+    try {
+      const booksDir = await store.get('booksDir')
+      if (!booksDir) {
+        throw new Error('未设置书籍目录')
+      }
+      const bookPath = join(booksDir, bookName)
+      const organizationsDir = join(bookPath, 'organizations')
+      const pngPath = join(organizationsDir, `${organizationId}.png`)
+
+      if (!fs.existsSync(organizationsDir)) {
+        fs.mkdirSync(organizationsDir, { recursive: true })
+      }
+
+      // 保存PNG缩略图
+      if (thumbnailData) {
+        const base64Data = thumbnailData.replace(/^data:image\/\w+;base64,/, '')
+        const buffer = Buffer.from(base64Data, 'base64')
+        fs.writeFileSync(pngPath, buffer)
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('更新组织架构缩略图失败:', error)
+      throw error
+    }
+  }
+)
+
 // 删除组织架构
 ipcMain.handle('delete-organization', async (event, { bookName, organizationName }) => {
   try {
