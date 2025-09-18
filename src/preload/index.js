@@ -188,6 +188,9 @@ if (process.contextIsolated) {
       // 更新组织架构缩略图
       updateOrganizationThumbnail: (data) =>
         ipcRenderer.invoke('update-organization-thumbnail', data),
+      // 读取组织架构图片
+      readOrganizationImage: ({ bookName, imageName }) =>
+        ipcRenderer.invoke('read-organization-image', { bookName, imageName }),
       // 删除组织架构
       deleteOrganization: ({ bookName, organizationName }) =>
         ipcRenderer.invoke('delete-organization', { bookName, organizationName })

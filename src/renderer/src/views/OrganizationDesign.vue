@@ -12,7 +12,6 @@
           <RelationGraph
             ref="graphRef"
             :options="graphOptions"
-            :on-line-click="onLineClick"
             :on-node-click="onNodeClick"
             @canvas-click="onCanvasClick"
           >
@@ -51,37 +50,6 @@
       <span class="dialog-footer">
         <el-button @click="infoDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="saveNodeInfo">确定</el-button>
-      </span>
-    </template>
-  </el-dialog>
-
-  <!-- 连接线编辑弹框 -->
-  <el-dialog v-model="lineDialogVisible" title="编辑连接线" width="500px">
-    <el-form label-width="80px">
-      <el-form-item label="连接线描述">
-        <el-input v-model="lineForm.text" placeholder="请输入连接线描述" />
-      </el-form-item>
-      <el-form-item label="连接线颜色">
-        <el-color-picker v-model="lineForm.color" />
-      </el-form-item>
-      <el-form-item label="连接线宽度">
-        <el-slider v-model="lineForm.lineWidth" :min="1" :max="10" show-input />
-      </el-form-item>
-      <el-form-item label="线条样式">
-        <el-select v-model="lineForm.lineShape" placeholder="选择线条样式">
-          <el-option label="直线" :value="1" />
-          <el-option label="弧线" :value="2" />
-          <el-option label="折线" :value="3" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="显示箭头">
-        <el-switch v-model="lineForm.showEndArrow" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="lineDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveLineInfo">确定</el-button>
       </span>
     </template>
   </el-dialog>
@@ -147,11 +115,9 @@ const graphOptions = ref({
 
 // 节点相关
 const selectedNode = ref(null)
-const selectedLine = ref(null)
 
 // 弹框相关
 const infoDialogVisible = ref(false)
-const lineDialogVisible = ref(false)
 const isAddMode = ref(false)
 
 // 表单数据
@@ -160,14 +126,6 @@ const infoForm = ref({
   description: '',
   color: '#409eff',
   level: 1
-})
-
-const lineForm = ref({
-  text: '',
-  color: '#409eff',
-  lineWidth: 2,
-  lineShape: 2, // 默认弧线样式
-  showEndArrow: true // 默认显示箭头
 })
 
 // 画布点击事件
@@ -180,20 +138,6 @@ const onNodeClick = (node, event) => {
   event.stopPropagation()
   selectedNode.value = node
   handleNodeInfo()
-}
-
-// 连接线点击事件
-const onLineClick = (line, event) => {
-  event.stopPropagation()
-  selectedLine.value = line
-  lineForm.value = {
-    text: line.text || '',
-    color: line.color || '#409eff',
-    lineWidth: line.lineWidth || 2,
-    lineShape: line.lineShape || 2,
-    showEndArrow: line.showEndArrow !== false
-  }
-  lineDialogVisible.value = true
 }
 
 // 处理节点信息
@@ -226,8 +170,8 @@ const saveNodeInfo = () => {
       }
     }
 
-    // 添加节点
-    graphRef.value.addNode(newNode)
+    // 添加到本地数据
+    organizationData.value.nodes.push(newNode)
 
     // 如果选择了父节点，创建连接线
     if (selectedNode.value) {
@@ -241,8 +185,15 @@ const saveNodeInfo = () => {
         lineShape: 2, // 弧线样式
         showEndArrow: true // 显示箭头
       }
-      graphRef.value.addLine(newLine)
+      organizationData.value.lines.push(newLine)
     }
+
+    // 重新设置图表数据
+    graphRef.value.setJsonData({
+      rootId: organizationData.value.nodes[0]?.id,
+      nodes: organizationData.value.nodes,
+      lines: organizationData.value.lines
+    })
 
     ElMessage.success('节点添加成功')
   } else {
@@ -256,6 +207,15 @@ const saveNodeInfo = () => {
         ...selectedNode.value.data,
         fontSize: 14
       }
+
+      // 同步到本地数据
+      const nodeIndex = organizationData.value.nodes.findIndex(
+        (n) => n.id === selectedNode.value.id
+      )
+      if (nodeIndex !== -1) {
+        organizationData.value.nodes[nodeIndex] = { ...selectedNode.value }
+      }
+
       graphRef.value.refresh()
       ElMessage.success('节点更新成功')
     }
@@ -263,31 +223,14 @@ const saveNodeInfo = () => {
   infoDialogVisible.value = false
 }
 
-// 保存连接线信息
-const saveLineInfo = () => {
-  if (selectedLine.value) {
-    selectedLine.value.text = lineForm.value.text
-    selectedLine.value.color = lineForm.value.color
-    selectedLine.value.lineWidth = lineForm.value.lineWidth
-    selectedLine.value.lineShape = lineForm.value.lineShape
-    selectedLine.value.showEndArrow = lineForm.value.showEndArrow
-    graphRef.value.refresh()
-    ElMessage.success('连接线更新成功')
-  }
-  lineDialogVisible.value = false
-}
-
 // 加载组织架构数据
 const loadOrganizationData = async () => {
   try {
-    console.log('开始加载组织架构数据:', { bookName, organizationId })
     const result = await window.electron.readOrganization(bookName, organizationId)
-    console.log('读取组织架构数据结果:', result)
 
     if (result.success && result.data) {
       organizationData.value = result.data
       organizationName.value = result.data.name || organizationId
-      console.log('组织架构数据加载成功:', organizationData.value)
     } else {
       console.error('组织架构数据加载失败:', result)
       ElMessage.error('加载组织架构数据失败')
@@ -303,19 +246,18 @@ const handleSave = async () => {
   try {
     saving.value = true
 
-    const graphData = graphRef.value.getJsonData()
-    const updatedData = {
-      ...organizationData.value,
-      nodes: graphData.nodes || [],
-      lines: graphData.lines || [],
-      updatedAt: new Date().toISOString()
-    }
+    // 更新修改时间
+    organizationData.value.updatedAt = new Date().toISOString()
 
-    // 保存组织架构数据
-    await window.electron.writeOrganization(bookName, organizationId, updatedData)
+    // 保存组织架构数据 - 使用深拷贝确保数据可序列化
+    await window.electron.writeOrganization(
+      bookName,
+      organizationId,
+      JSON.parse(JSON.stringify(organizationData.value))
+    )
 
     // 生成并保存缩略图
-    if (updatedData.nodes.length > 0) {
+    if (organizationData.value.nodes.length > 0) {
       // 获取图表实例, 获取图片base64
       const imageBase64 = await graphRef.value.getInstance().getImageBase64()
       await window.electron.updateOrganizationThumbnail({
@@ -335,8 +277,6 @@ const handleSave = async () => {
 }
 
 onMounted(async () => {
-  console.log('组件挂载，开始初始化:', { bookName, organizationId })
-
   // 加载数据
   await loadOrganizationData()
 
@@ -345,7 +285,6 @@ onMounted(async () => {
 
   // 设置图形数据
   if (graphRef.value && organizationData.value.nodes && organizationData.value.nodes.length > 0) {
-    console.log('设置图形数据:', organizationData.value)
     graphRef.value.setJsonData({
       rootId: organizationData.value.nodes[0].id,
       nodes: organizationData.value.nodes,

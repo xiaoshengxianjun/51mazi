@@ -127,7 +127,7 @@ const rules = {
 
 // 获取默认图片
 const getDefaultImage = () => {
-  return '/src/assets/images/organization-default.png'
+  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 }
 
 // 加载组织架构列表
@@ -136,6 +136,24 @@ const loadOrganizations = async () => {
     const result = await window.electron.readOrganizations(bookName)
     if (result.success) {
       organizations.value = result.data || []
+
+      // 加载每个组织架构的图片
+      for (const organization of organizations.value) {
+        if (organization.thumbnail) {
+          try {
+            const imageData = await window.electron.readOrganizationImage({
+              bookName,
+              imageName: organization.thumbnail
+            })
+            organizationImages.value[organization.id] = imageData
+          } catch (error) {
+            console.error('读取组织架构缩略图失败:', error)
+            organizationImages.value[organization.id] = getDefaultImage()
+          }
+        } else {
+          organizationImages.value[organization.id] = getDefaultImage()
+        }
+      }
     } else {
       console.error('加载组织架构失败:', result.error)
       ElMessage.error('加载组织架构失败')

@@ -1848,6 +1848,29 @@ ipcMain.handle(
   }
 )
 
+// 读取组织架构图片
+ipcMain.handle('read-organization-image', async (event, { bookName, imageName }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const bookPath = join(booksDir, bookName)
+    const organizationsDir = join(bookPath, 'organizations')
+    const imagePath = join(organizationsDir, imageName)
+
+    if (!fs.existsSync(imagePath)) {
+      throw new Error('图片文件不存在')
+    }
+
+    const data = fs.readFileSync(imagePath)
+    return `data:image/png;base64,${data.toString('base64')}`
+  } catch (error) {
+    console.error('读取组织架构图片失败:', error)
+    throw error
+  }
+})
+
 // 删除组织架构
 ipcMain.handle('delete-organization', async (event, { bookName, organizationName }) => {
   try {
