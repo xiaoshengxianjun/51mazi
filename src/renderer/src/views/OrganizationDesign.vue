@@ -104,7 +104,7 @@ const graphOptions = ref({
   draggable: true,
   zoomable: true,
   allowSwitchLineShape: true,
-  defaultLineShape: 2, // 使用弧线样式
+  defaultLineShape: 44, // 使用圆角折线样式
   lineUseTextPath: true,
   defaultExpandHolderPosition: 'bottom',
   useAnimationWhenRefresh: true,
@@ -182,7 +182,7 @@ const saveNodeInfo = () => {
         text: '',
         color: '#409eff',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true // 显示箭头
       }
       organizationData.value.lines.push(newLine)

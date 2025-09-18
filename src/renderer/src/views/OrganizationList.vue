@@ -292,7 +292,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#409eff',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true // 显示箭头
       },
       {
@@ -302,7 +302,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#409eff',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       },
       {
@@ -312,7 +312,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#409eff',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       },
       {
@@ -322,7 +322,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#67c23a',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       },
       {
@@ -332,7 +332,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#67c23a',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       },
       {
@@ -342,7 +342,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#e6a23c',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       },
       {
@@ -352,7 +352,7 @@ const handleCreateOrganization = async () => {
         text: '',
         color: '#f56c6c',
         lineWidth: 2,
-        lineShape: 2, // 弧线样式
+        lineShape: 44, // 圆角折线样式
         showEndArrow: true
       }
     ]
