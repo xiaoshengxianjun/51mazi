@@ -15,7 +15,24 @@
             :on-node-click="onNodeClick"
             @canvas-click="onCanvasClick"
           >
+            <!-- 自定义节点模板，支持鼠标悬停事件 -->
+            <template #node="{ node }">
+              <div
+                class="custom-node"
+                @mouseover="showNodeTooltip(node)"
+                @mouseout="hideNodeTooltip"
+              >
+                {{ node.text }}
+              </div>
+            </template>
           </RelationGraph>
+
+          <!-- 节点信息浮窗 -->
+          <div v-if="tooltipVisible" class="node-tooltip">
+            <div class="tooltip-title">{{ hoveredNode?.text }}</div>
+            <div class="tooltip-description">{{ hoveredNode?.description || '暂无描述' }}</div>
+            <div class="tooltip-level">级别: {{ hoveredNode?.level || 1 }}</div>
+          </div>
         </div>
       </div>
     </template>
@@ -116,6 +133,10 @@ const graphOptions = ref({
 // 节点相关
 const selectedNode = ref(null)
 
+// 浮窗相关
+const tooltipVisible = ref(false)
+const hoveredNode = ref(null)
+
 // 弹框相关
 const infoDialogVisible = ref(false)
 const isAddMode = ref(false)
@@ -131,6 +152,18 @@ const infoForm = ref({
 // 画布点击事件
 const onCanvasClick = () => {
   // 可以在这里添加画布点击逻辑
+}
+
+// 显示节点浮窗
+const showNodeTooltip = (node) => {
+  hoveredNode.value = node
+  tooltipVisible.value = true
+}
+
+// 隐藏节点浮窗
+const hideNodeTooltip = () => {
+  tooltipVisible.value = false
+  hoveredNode.value = null
 }
 
 // 节点点击事件
@@ -330,11 +363,76 @@ onMounted(async () => {
   background: var(--bg-primary);
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* 自定义节点样式 */
+.custom-node {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.custom-node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 节点浮窗样式 */
+.node-tooltip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px 16px;
+  min-width: 200px;
+  max-width: 300px;
+  font-size: 14px;
+  line-height: 1.5;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.tooltip-description {
+  color: #606266;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+}
+
+.tooltip-level {
+  color: #909399;
+  font-size: 12px;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
