@@ -430,7 +430,6 @@ onMounted(() => {
 }
 
 .parent-name {
-  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -463,7 +462,6 @@ onMounted(() => {
   }
 
   .el-table__expand-icon {
-    color: var(--text-secondary);
   }
 }
 

@@ -1045,7 +1045,6 @@ onMounted(async () => {
 
 .node-detail {
   .node-description {
-    color: var(--text-secondary);
     margin: 8px 0;
     line-height: 1.5;
   }

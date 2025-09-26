@@ -7,7 +7,7 @@
       </el-button>
     </template>
     <template #default>
-      <div class="relationship-grid">
+      <div class="relationship-flex">
         <el-dropdown
           v-for="relationship in relationships"
           :key="relationship.id"
@@ -23,6 +23,7 @@
             </div>
             <div class="relationship-info">
               <span class="relationship-name">{{ relationship.name }}</span>
+              <span class="relationship-description">{{ relationship.description }}</span>
             </div>
           </div>
           <template #dropdown>
@@ -259,53 +260,72 @@ const getDefaultImage = () => {
 }
 </script>
 
-<style lang="scss" scoped>
-.relationship-grid {
+<style scoped>
+.relationship-flex {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-
-  .relationship-item {
-    width: 280px;
-    cursor: pointer;
-
-    &:hover {
-      .relationship-image {
-        box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
-      }
-    }
-
-    .relationship-image {
-      width: 100%;
-      height: 210px;
-      border-radius: 8px;
-      overflow: hidden;
-      transition: box-shadow 0.2s;
-      background-color: #f5f7fa;
-      border: 1px solid #e4e7ed;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-      }
-    }
-
-    .relationship-info {
-      padding: 12px;
-      text-align: center;
-      color: var(--text-base);
-
-      .relationship-name {
-        font-size: 16px;
-        font-weight: 500;
-      }
-    }
-  }
+  padding: 20px;
 }
 
-:deep(.el-dialog__body) {
-  padding-top: 20px;
+.relationship-item {
+  width: 300px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+}
+
+.relationship-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.relationship-image {
+  width: 100%;
+  height: 200px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.relationship-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.relationship-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.relationship-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relationship-description {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* 最多显示3行 */
+  line-clamp: 3; /* 标准属性 */
+  -webkit-box-orient: vertical;
+  white-space: normal; /* 支持多行 */
+  word-break: break-all;
 }
 
 .dialog-footer {

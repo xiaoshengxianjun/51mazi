@@ -874,7 +874,6 @@ onMounted(() => {
   :deep(.el-empty__description) {
     p {
       margin: 8px 0;
-      color: var(--text-secondary);
       font-size: 14px;
     }
   }
@@ -883,7 +882,6 @@ onMounted(() => {
 .form-tip {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1034,14 +1032,12 @@ onMounted(() => {
         justify-content: center;
         border-left: 1px solid var(--border-color);
         background-color: transparent;
-        color: var(--text-secondary);
       }
 
       .col-intro {
         flex: 1;
         padding: 8px;
         background-color: transparent;
-        color: var(--text-secondary);
         display: flex;
         align-items: center;
         overflow: hidden;
@@ -1120,7 +1116,6 @@ onMounted(() => {
       border-right: 1px solid #e4e7ed; // 使用更明显的边框颜色
       border-bottom: 1px solid #e4e7ed; // 使用更明显的边框颜色
       font-size: 12px;
-      color: var(--text-secondary);
       background-color: var(--bg-soft);
       box-sizing: border-box;
       position: relative;

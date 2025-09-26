@@ -7,7 +7,7 @@
       </el-button>
     </template>
     <template #default>
-      <div class="organization-grid">
+      <div class="organization-flex">
         <el-dropdown
           v-for="organization in organizations"
           :key="organization.id"
@@ -447,17 +447,18 @@ const confirmDelete = async () => {
 </script>
 
 <style scoped>
-.organization-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+.organization-flex {
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   padding: 20px;
 }
 
 .organization-item {
+  width: 300px;
   background: var(--bg-primary);
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
   border: 1px solid var(--border-color);
@@ -470,7 +471,7 @@ const confirmDelete = async () => {
 
 .organization-image {
   width: 100%;
-  height: 120px;
+  height: 200px;
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -502,11 +503,14 @@ const confirmDelete = async () => {
 }
 
 .organization-description {
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* 最多显示3行 */
+  -webkit-box-orient: vertical;
+  white-space: normal; /* 支持多行 */
+  word-break: break-all;
 }
 
 .dialog-footer {

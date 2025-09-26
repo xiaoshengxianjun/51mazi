@@ -449,7 +449,6 @@ onBeforeUnmount(async () => {
   background-color: var(--bg-soft);
   border-top: 1px solid var(--border-color);
   font-size: 12px;
-  color: var(--text-secondary);
 }
 
 .word-count {

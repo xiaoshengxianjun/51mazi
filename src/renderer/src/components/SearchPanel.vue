@@ -652,7 +652,6 @@ onBeforeUnmount(() => {
 
 .results-text {
   font-size: 12px;
-  color: var(--text-secondary);
   font-weight: 500;
 
   &.no-results {

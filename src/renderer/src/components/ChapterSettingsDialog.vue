@@ -252,7 +252,6 @@ async function handleReformat() {
 
   .label {
     font-size: 13px;
-    color: var(--text-secondary);
     font-weight: 500;
     margin-bottom: 8px;
   }

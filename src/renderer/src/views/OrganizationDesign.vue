@@ -31,7 +31,6 @@
           <div v-if="tooltipVisible" class="node-tooltip">
             <div class="tooltip-title">{{ hoveredNode?.text }}</div>
             <div class="tooltip-description">{{ hoveredNode?.description || '暂无描述' }}</div>
-            <div class="tooltip-level">级别: {{ hoveredNode?.level || 1 }}</div>
           </div>
         </div>
       </div>
@@ -57,10 +56,18 @@
         />
       </el-form-item>
       <el-form-item label="节点颜色">
-        <el-color-picker v-model="infoForm.color" />
-      </el-form-item>
-      <el-form-item label="节点级别">
-        <el-input-number v-model="infoForm.level" :min="1" :max="10" placeholder="节点级别" />
+        <div class="color-picker-container">
+          <el-color-picker v-model="infoForm.color" />
+          <div class="color-presets">
+            <div
+              v-for="color in colorPresets"
+              :key="color"
+              class="color-preset-item"
+              :style="{ backgroundColor: color }"
+              @click="infoForm.color = color"
+            ></div>
+          </div>
+        </div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -145,9 +152,22 @@ const isAddMode = ref(false)
 const infoForm = ref({
   text: '',
   description: '',
-  color: '#409eff',
-  level: 1
+  color: '#409eff'
 })
+
+// 颜色预设 - 基于色轮的质感色彩方案
+const colorPresets = ref([
+  '#2E86AB', // 深海蓝 - 沉稳专业
+  '#A23B72', // 深玫瑰红 - 优雅神秘
+  '#F18F01', // 琥珀橙 - 温暖活力
+  '#C73E1D', // 深红 - 热情强烈
+  '#6A994E', // 森林绿 - 自然生机
+  '#7209B7', // 深紫 - 高贵典雅
+  '#F77F00', // 金橙 - 明亮温暖
+  '#D62828', // 勃艮第红 - 经典深沉
+  '#023047', // 深蓝灰 - 稳重可靠
+  '#8E44AD' // 紫罗兰 - 创意灵感
+])
 
 // 画布点击事件
 const onCanvasClick = () => {
@@ -179,8 +199,7 @@ const handleNodeInfo = () => {
     infoForm.value = {
       text: selectedNode.value.text || '',
       description: selectedNode.value.description || '',
-      color: selectedNode.value.color || '#409eff',
-      level: selectedNode.value.level || 1
+      color: selectedNode.value.color || '#409eff'
     }
     isAddMode.value = false
   }
@@ -196,7 +215,6 @@ const saveNodeInfo = () => {
       text: infoForm.value.text,
       description: infoForm.value.description,
       color: infoForm.value.color,
-      level: infoForm.value.level,
       type: 'normal',
       data: {
         fontSize: 14
@@ -221,35 +239,56 @@ const saveNodeInfo = () => {
       organizationData.value.lines.push(newLine)
     }
 
-    // 重新设置图表数据
+    // 重新设置图表数据 - 使用深拷贝避免污染原始数据
     graphRef.value.setJsonData({
       rootId: organizationData.value.nodes[0]?.id,
-      nodes: organizationData.value.nodes,
-      lines: organizationData.value.lines
+      nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
+      lines: JSON.parse(JSON.stringify(organizationData.value.lines))
     })
 
     ElMessage.success('节点添加成功')
   } else {
     // 更新现有节点
     if (selectedNode.value) {
+      const newColor = infoForm.value.color
+
       selectedNode.value.text = infoForm.value.text
       selectedNode.value.description = infoForm.value.description
-      selectedNode.value.color = infoForm.value.color
-      selectedNode.value.level = infoForm.value.level
+      selectedNode.value.color = newColor
       selectedNode.value.data = {
         ...selectedNode.value.data,
         fontSize: 14
       }
 
-      // 同步到本地数据
+      // 同步更新与该节点相连的连线颜色
+      organizationData.value.lines.forEach((line) => {
+        if (line.from === selectedNode.value.id) {
+          line.color = newColor
+        }
+      })
+
+      // 同步到本地数据 - 只更新必要的属性，避免循环引用
       const nodeIndex = organizationData.value.nodes.findIndex(
         (n) => n.id === selectedNode.value.id
       )
       if (nodeIndex !== -1) {
-        organizationData.value.nodes[nodeIndex] = { ...selectedNode.value }
+        organizationData.value.nodes[nodeIndex] = {
+          id: selectedNode.value.id,
+          text: selectedNode.value.text,
+          description: selectedNode.value.description,
+          color: selectedNode.value.color,
+          type: selectedNode.value.type,
+          data: selectedNode.value.data
+        }
       }
 
-      graphRef.value.refresh()
+      // 重新设置图表数据以确保连线颜色更新 - 使用深拷贝避免污染原始数据
+      graphRef.value.setJsonData({
+        rootId: organizationData.value.nodes[0]?.id,
+        nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
+        lines: JSON.parse(JSON.stringify(organizationData.value.lines))
+      })
+
       ElMessage.success('节点更新成功')
     }
   }
@@ -316,12 +355,12 @@ onMounted(async () => {
   // 等待下一个 tick 确保 DOM 更新
   await nextTick()
 
-  // 设置图形数据
+  // 设置图形数据 - 使用深拷贝避免污染原始数据
   if (graphRef.value && organizationData.value.nodes && organizationData.value.nodes.length > 0) {
     graphRef.value.setJsonData({
       rootId: organizationData.value.nodes[0].id,
-      nodes: organizationData.value.nodes,
-      lines: organizationData.value.lines
+      nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
+      lines: JSON.parse(JSON.stringify(organizationData.value.lines))
     })
   } else {
     console.warn('图形数据为空或图形组件未准备好:', {
@@ -341,8 +380,8 @@ onMounted(async () => {
         ) {
           graphRef.value.setJsonData({
             rootId: organizationData.value.nodes[0].id,
-            nodes: organizationData.value.nodes,
-            lines: organizationData.value.lines
+            nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
+            lines: JSON.parse(JSON.stringify(organizationData.value.lines))
           })
         }
       }, 500)
@@ -372,16 +411,47 @@ onMounted(async () => {
   gap: 12px;
 }
 
+/* 颜色选择器样式 */
+.color-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-preset-item {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.color-preset-item:hover {
+  transform: scale(1.1);
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 /* 自定义节点样式 */
 .custom-node {
   width: 100%;
   height: 100%;
+  line-height: 1.2;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s ease;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 .custom-node:hover {
@@ -416,13 +486,7 @@ onMounted(async () => {
 
 .tooltip-description {
   color: #606266;
-  margin-bottom: 6px;
   word-wrap: break-word;
-}
-
-.tooltip-level {
-  color: #909399;
-  font-size: 12px;
 }
 
 @keyframes tooltipFadeIn {
