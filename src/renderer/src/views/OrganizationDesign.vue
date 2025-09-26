@@ -37,44 +37,83 @@
     </template>
   </LayoutTool>
 
-  <!-- 节点信息编辑弹框 -->
+  <!-- 通用节点编辑弹框 -->
   <el-dialog
-    v-model="infoDialogVisible"
-    :title="isAddMode ? '新增节点' : '编辑节点信息'"
+    v-model="nodeDialogVisible"
+    :title="dialogConfig.title"
     width="500px"
+    :close-on-click-modal="false"
   >
     <el-form label-width="80px">
       <el-form-item label="节点名称">
-        <el-input v-model="infoForm.text" placeholder="请输入节点名称" />
+        <el-input v-model="currentForm.text" :placeholder="dialogConfig.namePlaceholder" />
       </el-form-item>
       <el-form-item label="节点描述">
         <el-input
-          v-model="infoForm.description"
+          v-model="currentForm.description"
           type="textarea"
           :rows="3"
-          placeholder="请输入节点描述"
+          :placeholder="dialogConfig.descPlaceholder"
         />
       </el-form-item>
       <el-form-item label="节点颜色">
         <div class="color-picker-container">
-          <el-color-picker v-model="infoForm.color" />
+          <el-color-picker v-model="currentForm.color" />
           <div class="color-presets">
             <div
               v-for="color in colorPresets"
               :key="color"
               class="color-preset-item"
               :style="{ backgroundColor: color }"
-              @click="infoForm.color = color"
+              @click="currentForm.color = color"
             ></div>
           </div>
         </div>
       </el-form-item>
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="infoDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveNodeInfo">确定</el-button>
-      </span>
+      <div class="dialog-footer">
+        <div class="dialog-footer-left">
+          <el-button
+            v-if="dialogConfig.showDelete && selectedNode?.type !== 'root'"
+            type="danger"
+            @click="showDeleteConfirm"
+          >
+            删除节点
+          </el-button>
+          <el-button v-if="dialogConfig.showAddChild" type="success" @click="switchToAddChildMode">
+            添加子节点
+          </el-button>
+        </div>
+        <div class="dialog-footer-right">
+          <el-button @click="closeNodeDialog">取消</el-button>
+          <el-button type="primary" @click="confirmNodeAction">确定</el-button>
+        </div>
+      </div>
+    </template>
+  </el-dialog>
+
+  <!-- 删除确认弹框 -->
+  <el-dialog
+    v-model="deleteConfirmVisible"
+    title="确认删除"
+    width="500px"
+    :close-on-click-modal="false"
+  >
+    <div class="delete-confirm-content">
+      <el-icon class="warning-icon"><Warning /></el-icon>
+      <div class="warning-text">
+        <p>
+          确定要删除节点 <strong>"{{ selectedNode?.text }}"</strong> 吗？
+        </p>
+        <p class="warning-detail">此操作将删除该节点及其所有子节点，且不可恢复。</p>
+      </div>
+    </div>
+    <template #footer>
+      <div class="dialog-footer delete-confirm-footer">
+        <el-button @click="deleteConfirmVisible = false">取消</el-button>
+        <el-button type="danger" @click="confirmDeleteNode">确认删除</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -82,9 +121,9 @@
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import RelationGraph from 'relation-graph-vue3'
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Check } from '@element-plus/icons-vue'
+import { Check, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
 
@@ -111,7 +150,7 @@ const graphOptions = ref({
       from: 'top', // 布局起始方向：top, bottom, left, right
       centerOffset_x: 0,
       centerOffset_y: 0,
-      levelDistance: [150, 120, 100], // 各级别垂直间距
+      levelDistance: [180, 150, 120], // 各级别垂直间距
       nodeDistance: [120, 100, 80] // 同级节点水平间距
     }
   ],
@@ -122,7 +161,7 @@ const graphOptions = ref({
   defaultLineWidth: 1,
   defaultNodeColor: '#409eff',
   defaultLineColor: '#409eff',
-  defaultNodeFontColor: '#333',
+  defaultNodeFontColor: '#ffffff',
   defaultNodeBorderColor: '#409eff',
   moveable: true,
   draggable: true,
@@ -145,14 +184,53 @@ const tooltipVisible = ref(false)
 const hoveredNode = ref(null)
 
 // 弹框相关
-const infoDialogVisible = ref(false)
-const isAddMode = ref(false)
+const nodeDialogVisible = ref(false)
+const deleteConfirmVisible = ref(false)
+const dialogMode = ref('edit') // 'edit', 'add', 'addChild'
 
 // 表单数据
-const infoForm = ref({
+const currentForm = ref({
   text: '',
   description: '',
   color: '#409eff'
+})
+
+// 弹框配置
+const dialogConfig = computed(() => {
+  switch (dialogMode.value) {
+    case 'edit':
+      return {
+        title: '编辑节点信息',
+        namePlaceholder: '请输入节点名称',
+        descPlaceholder: '请输入节点描述',
+        showDelete: true,
+        showAddChild: true
+      }
+    case 'add':
+      return {
+        title: '新增节点',
+        namePlaceholder: '请输入节点名称',
+        descPlaceholder: '请输入节点描述',
+        showDelete: false,
+        showAddChild: false
+      }
+    case 'addChild':
+      return {
+        title: '添加子节点',
+        namePlaceholder: '请输入子节点名称',
+        descPlaceholder: '请输入子节点描述',
+        showDelete: false,
+        showAddChild: false
+      }
+    default:
+      return {
+        title: '编辑节点信息',
+        namePlaceholder: '请输入节点名称',
+        descPlaceholder: '请输入节点描述',
+        showDelete: true,
+        showAddChild: true
+      }
+  }
 })
 
 // 颜色预设 - 基于色轮的质感色彩方案
@@ -172,6 +250,27 @@ const colorPresets = ref([
 // 画布点击事件
 const onCanvasClick = () => {
   // 可以在这里添加画布点击逻辑
+}
+
+// 显示删除确认弹框
+const showDeleteConfirm = () => {
+  deleteConfirmVisible.value = true
+}
+
+// 切换到添加子节点模式
+const switchToAddChildMode = () => {
+  dialogMode.value = 'addChild'
+  currentForm.value = {
+    text: '',
+    description: '',
+    color: '#409eff'
+  }
+}
+
+// 关闭节点弹框
+const closeNodeDialog = () => {
+  nodeDialogVisible.value = false
+  dialogMode.value = 'edit'
 }
 
 // 显示节点浮窗
@@ -196,103 +295,190 @@ const onNodeClick = (node, event) => {
 // 处理节点信息
 const handleNodeInfo = () => {
   if (selectedNode.value) {
-    infoForm.value = {
+    dialogMode.value = 'edit'
+    currentForm.value = {
       text: selectedNode.value.text || '',
       description: selectedNode.value.description || '',
       color: selectedNode.value.color || '#409eff'
     }
-    isAddMode.value = false
   }
-  infoDialogVisible.value = true
+  nodeDialogVisible.value = true
 }
 
-// 保存节点信息
-const saveNodeInfo = () => {
-  if (isAddMode.value) {
-    // 添加新节点
-    const newNode = {
-      id: genId(),
-      text: infoForm.value.text,
-      description: infoForm.value.description,
-      color: infoForm.value.color,
-      type: 'normal',
-      data: {
-        fontSize: 14
-      }
+// 确认节点操作（统一处理编辑、添加、添加子节点）
+const confirmNodeAction = () => {
+  if (!currentForm.value.text.trim()) {
+    ElMessage.warning('请输入节点名称')
+    return
+  }
+
+  switch (dialogMode.value) {
+    case 'edit':
+      updateNode()
+      break
+    case 'add':
+      addNode()
+      break
+    case 'addChild':
+      addChildNode()
+      break
+  }
+
+  closeNodeDialog()
+}
+
+// 更新节点
+const updateNode = () => {
+  if (!selectedNode.value) return
+
+  const newColor = currentForm.value.color
+
+  selectedNode.value.text = currentForm.value.text
+  selectedNode.value.description = currentForm.value.description
+  selectedNode.value.color = newColor
+  selectedNode.value.data = {
+    ...selectedNode.value.data,
+    fontSize: 14
+  }
+
+  // 同步更新与该节点相连的连线颜色
+  organizationData.value.lines.forEach((line) => {
+    if (line.from === selectedNode.value.id) {
+      line.color = newColor
     }
+  })
 
-    // 添加到本地数据
-    organizationData.value.nodes.push(newNode)
-
-    // 如果选择了父节点，创建连接线
-    if (selectedNode.value) {
-      const newLine = {
-        id: genId(),
-        from: selectedNode.value.id,
-        to: newNode.id,
-        text: '',
-        color: '#409eff',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true // 显示箭头
-      }
-      organizationData.value.lines.push(newLine)
-    }
-
-    // 重新设置图表数据 - 使用深拷贝避免污染原始数据
-    graphRef.value.setJsonData({
-      rootId: organizationData.value.nodes[0]?.id,
-      nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
-      lines: JSON.parse(JSON.stringify(organizationData.value.lines))
-    })
-
-    ElMessage.success('节点添加成功')
-  } else {
-    // 更新现有节点
-    if (selectedNode.value) {
-      const newColor = infoForm.value.color
-
-      selectedNode.value.text = infoForm.value.text
-      selectedNode.value.description = infoForm.value.description
-      selectedNode.value.color = newColor
-      selectedNode.value.data = {
-        ...selectedNode.value.data,
-        fontSize: 14
-      }
-
-      // 同步更新与该节点相连的连线颜色
-      organizationData.value.lines.forEach((line) => {
-        if (line.from === selectedNode.value.id) {
-          line.color = newColor
-        }
-      })
-
-      // 同步到本地数据 - 只更新必要的属性，避免循环引用
-      const nodeIndex = organizationData.value.nodes.findIndex(
-        (n) => n.id === selectedNode.value.id
-      )
-      if (nodeIndex !== -1) {
-        organizationData.value.nodes[nodeIndex] = {
-          id: selectedNode.value.id,
-          text: selectedNode.value.text,
-          description: selectedNode.value.description,
-          color: selectedNode.value.color,
-          type: selectedNode.value.type,
-          data: selectedNode.value.data
-        }
-      }
-
-      // 重新设置图表数据以确保连线颜色更新 - 使用深拷贝避免污染原始数据
-      graphRef.value.setJsonData({
-        rootId: organizationData.value.nodes[0]?.id,
-        nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
-        lines: JSON.parse(JSON.stringify(organizationData.value.lines))
-      })
-
-      ElMessage.success('节点更新成功')
+  // 同步到本地数据
+  const nodeIndex = organizationData.value.nodes.findIndex((n) => n.id === selectedNode.value.id)
+  if (nodeIndex !== -1) {
+    organizationData.value.nodes[nodeIndex] = {
+      id: selectedNode.value.id,
+      text: selectedNode.value.text,
+      description: selectedNode.value.description,
+      color: selectedNode.value.color,
+      type: selectedNode.value.type,
+      data: selectedNode.value.data
     }
   }
-  infoDialogVisible.value = false
+
+  refreshGraph()
+  ElMessage.success('节点更新成功')
+}
+
+// 添加节点
+const addNode = () => {
+  const newNode = {
+    id: genId(),
+    text: currentForm.value.text,
+    description: currentForm.value.description,
+    color: currentForm.value.color,
+    type: 'normal',
+    data: {
+      fontSize: 14
+    }
+  }
+
+  organizationData.value.nodes.push(newNode)
+
+  if (selectedNode.value) {
+    const newLine = {
+      id: genId(),
+      from: selectedNode.value.id,
+      to: newNode.id,
+      text: '',
+      color: currentForm.value.color,
+      lineWidth: 2,
+      lineShape: 44,
+      showEndArrow: true
+    }
+    organizationData.value.lines.push(newLine)
+  }
+
+  refreshGraph()
+  ElMessage.success('节点添加成功')
+}
+
+// 添加子节点
+const addChildNode = () => {
+  if (!selectedNode.value) return
+
+  const newChildNode = {
+    id: genId(),
+    text: currentForm.value.text,
+    description: currentForm.value.description,
+    color: currentForm.value.color,
+    type: 'normal',
+    data: {
+      fontSize: 14
+    }
+  }
+
+  organizationData.value.nodes.push(newChildNode)
+
+  const newLine = {
+    id: genId(),
+    from: selectedNode.value.id,
+    to: newChildNode.id,
+    text: '',
+    color: currentForm.value.color,
+    lineWidth: 2,
+    lineShape: 44,
+    showEndArrow: true
+  }
+  organizationData.value.lines.push(newLine)
+
+  refreshGraph()
+  ElMessage.success('子节点添加成功')
+}
+
+// 刷新图表数据
+const refreshGraph = () => {
+  graphRef.value.setJsonData({
+    rootId: organizationData.value.nodes[0]?.id,
+    nodes: JSON.parse(JSON.stringify(organizationData.value.nodes)),
+    lines: JSON.parse(JSON.stringify(organizationData.value.lines))
+  })
+}
+
+// 确认删除节点
+const confirmDeleteNode = () => {
+  if (!selectedNode.value) return
+
+  // 获取要删除的节点ID列表（包括当前节点及其所有子节点）
+  const nodesToDelete = getNodeAndChildrenIds(selectedNode.value.id)
+
+  // 删除节点
+  organizationData.value.nodes = organizationData.value.nodes.filter(
+    (node) => !nodesToDelete.includes(node.id)
+  )
+
+  // 删除相关的连线
+  organizationData.value.lines = organizationData.value.lines.filter(
+    (line) => !nodesToDelete.includes(line.from) && !nodesToDelete.includes(line.to)
+  )
+
+  refreshGraph()
+  deleteConfirmVisible.value = false
+  closeNodeDialog()
+  ElMessage.success('节点删除成功')
+}
+
+// 获取节点及其所有子节点的ID列表
+const getNodeAndChildrenIds = (nodeId) => {
+  const ids = [nodeId]
+
+  // 递归查找所有子节点
+  const findChildren = (parentId) => {
+    organizationData.value.lines.forEach((line) => {
+      if (line.from === parentId) {
+        ids.push(line.to)
+        findChildren(line.to) // 递归查找子节点的子节点
+      }
+    })
+  }
+
+  findChildren(nodeId)
+  return ids
 }
 
 // 加载组织架构数据
@@ -407,8 +593,54 @@ onMounted(async () => {
 
 .dialog-footer {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog-footer-left {
+  display: flex;
+  gap: 12px;
+}
+
+.dialog-footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+/* 删除确认弹框样式 */
+.delete-confirm-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 0;
+}
+
+.delete-confirm-footer {
+  display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.warning-icon {
+  font-size: 24px;
+  color: #f56c6c;
+  margin-top: 4px;
+}
+
+.warning-text {
+  flex: 1;
+}
+
+.warning-text p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.warning-detail {
+  color: #909399;
+  font-size: 13px;
 }
 
 /* 颜色选择器样式 */
