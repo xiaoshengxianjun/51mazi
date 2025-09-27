@@ -182,10 +182,10 @@ const handleCreateOrganization = async () => {
       text: '总部',
       type: 'root',
       color: '#409eff',
-      description: '公司总部',
       level: 1,
       position: { x: 400, y: 100 },
       data: {
+        description: '公司总部',
         fontSize: 16
       }
     }
@@ -196,10 +196,10 @@ const handleCreateOrganization = async () => {
       text: '技术部',
       type: 'normal',
       color: '#67c23a',
-      description: '负责技术研发',
       level: 2,
       position: { x: 200, y: 250 },
       data: {
+        description: '负责技术研发',
         fontSize: 14
       }
     }
@@ -209,10 +209,10 @@ const handleCreateOrganization = async () => {
       text: '市场部',
       type: 'normal',
       color: '#e6a23c',
-      description: '负责市场推广',
       level: 2,
       position: { x: 400, y: 250 },
       data: {
+        description: '负责市场推广',
         fontSize: 14
       }
     }
@@ -222,10 +222,10 @@ const handleCreateOrganization = async () => {
       text: '人事部',
       type: 'normal',
       color: '#f56c6c',
-      description: '负责人力资源',
       level: 2,
       position: { x: 600, y: 250 },
       data: {
+        description: '负责人力资源',
         fontSize: 14
       }
     }
@@ -236,10 +236,10 @@ const handleCreateOrganization = async () => {
       text: '前端团队',
       type: 'normal',
       color: '#67c23a',
-      description: '前端开发团队',
       level: 3,
       position: { x: 100, y: 400 },
       data: {
+        description: '前端开发团队',
         fontSize: 12
       }
     }
@@ -249,10 +249,10 @@ const handleCreateOrganization = async () => {
       text: '后端团队',
       type: 'normal',
       color: '#67c23a',
-      description: '后端开发团队',
       level: 3,
       position: { x: 300, y: 400 },
       data: {
+        description: '后端开发团队',
         fontSize: 12
       }
     }
@@ -262,10 +262,10 @@ const handleCreateOrganization = async () => {
       text: '销售团队',
       type: 'normal',
       color: '#e6a23c',
-      description: '产品销售团队',
       level: 3,
       position: { x: 500, y: 400 },
       data: {
+        description: '产品销售团队',
         fontSize: 12
       }
     }
@@ -275,10 +275,10 @@ const handleCreateOrganization = async () => {
       text: '招聘团队',
       type: 'normal',
       color: '#f56c6c',
-      description: '人才招聘团队',
       level: 3,
       position: { x: 700, y: 400 },
       data: {
+        description: '人才招聘团队',
         fontSize: 12
       }
     }

@@ -30,7 +30,9 @@
           <!-- 节点信息浮窗 -->
           <div v-if="tooltipVisible" class="node-tooltip">
             <div class="tooltip-title">{{ hoveredNode?.text }}</div>
-            <div class="tooltip-description">{{ hoveredNode?.description || '暂无描述' }}</div>
+            <div class="tooltip-description">
+              {{ hoveredNode?.data?.description || '暂无描述' }}
+            </div>
           </div>
         </div>
       </div>
@@ -298,7 +300,7 @@ const handleNodeInfo = () => {
     dialogMode.value = 'edit'
     currentForm.value = {
       text: selectedNode.value.text || '',
-      description: selectedNode.value.description || '',
+      description: selectedNode.value.data?.description || '',
       color: selectedNode.value.color || '#409eff'
     }
   }
@@ -334,10 +336,10 @@ const updateNode = () => {
   const newColor = currentForm.value.color
 
   selectedNode.value.text = currentForm.value.text
-  selectedNode.value.description = currentForm.value.description
   selectedNode.value.color = newColor
   selectedNode.value.data = {
     ...selectedNode.value.data,
+    description: currentForm.value.description,
     fontSize: 14
   }
 
@@ -354,7 +356,6 @@ const updateNode = () => {
     organizationData.value.nodes[nodeIndex] = {
       id: selectedNode.value.id,
       text: selectedNode.value.text,
-      description: selectedNode.value.description,
       color: selectedNode.value.color,
       type: selectedNode.value.type,
       data: selectedNode.value.data
@@ -370,10 +371,10 @@ const addNode = () => {
   const newNode = {
     id: genId(),
     text: currentForm.value.text,
-    description: currentForm.value.description,
     color: currentForm.value.color,
     type: 'normal',
     data: {
+      description: currentForm.value.description,
       fontSize: 14
     }
   }
@@ -386,7 +387,7 @@ const addNode = () => {
       from: selectedNode.value.id,
       to: newNode.id,
       text: '',
-      color: currentForm.value.color,
+      color: selectedNode.value.color, // 使用父节点的颜色
       lineWidth: 2,
       lineShape: 44,
       showEndArrow: true
@@ -405,10 +406,10 @@ const addChildNode = () => {
   const newChildNode = {
     id: genId(),
     text: currentForm.value.text,
-    description: currentForm.value.description,
     color: currentForm.value.color,
     type: 'normal',
     data: {
+      description: currentForm.value.description,
       fontSize: 14
     }
   }
@@ -420,7 +421,7 @@ const addChildNode = () => {
     from: selectedNode.value.id,
     to: newChildNode.id,
     text: '',
-    color: currentForm.value.color,
+    color: selectedNode.value.color, // 使用父节点的颜色
     lineWidth: 2,
     lineShape: 44,
     showEndArrow: true
