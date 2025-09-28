@@ -176,193 +176,24 @@ const handleCreateOrganization = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    // 创建三层组织架构示例数据（垂直布局）
+    // 创建根节点
     const rootNode = {
       id: genId(),
-      text: '总部',
+      text: createForm.value.name,
       type: 'root',
       color: '#409eff',
-      level: 1,
-      position: { x: 400, y: 100 },
       data: {
-        description: '公司总部',
+        description: createForm.value.description || '组织架构根节点',
         fontSize: 16
       }
     }
-
-    // 第二层：部门
-    const dept1 = {
-      id: genId(),
-      text: '技术部',
-      type: 'normal',
-      color: '#67c23a',
-      level: 2,
-      position: { x: 200, y: 250 },
-      data: {
-        description: '负责技术研发',
-        fontSize: 14
-      }
-    }
-
-    const dept2 = {
-      id: genId(),
-      text: '市场部',
-      type: 'normal',
-      color: '#e6a23c',
-      level: 2,
-      position: { x: 400, y: 250 },
-      data: {
-        description: '负责市场推广',
-        fontSize: 14
-      }
-    }
-
-    const dept3 = {
-      id: genId(),
-      text: '人事部',
-      type: 'normal',
-      color: '#f56c6c',
-      level: 2,
-      position: { x: 600, y: 250 },
-      data: {
-        description: '负责人力资源',
-        fontSize: 14
-      }
-    }
-
-    // 第三层：团队
-    const team1 = {
-      id: genId(),
-      text: '前端团队',
-      type: 'normal',
-      color: '#67c23a',
-      level: 3,
-      position: { x: 100, y: 400 },
-      data: {
-        description: '前端开发团队',
-        fontSize: 12
-      }
-    }
-
-    const team2 = {
-      id: genId(),
-      text: '后端团队',
-      type: 'normal',
-      color: '#67c23a',
-      level: 3,
-      position: { x: 300, y: 400 },
-      data: {
-        description: '后端开发团队',
-        fontSize: 12
-      }
-    }
-
-    const team3 = {
-      id: genId(),
-      text: '销售团队',
-      type: 'normal',
-      color: '#e6a23c',
-      level: 3,
-      position: { x: 500, y: 400 },
-      data: {
-        description: '产品销售团队',
-        fontSize: 12
-      }
-    }
-
-    const team4 = {
-      id: genId(),
-      text: '招聘团队',
-      type: 'normal',
-      color: '#f56c6c',
-      level: 3,
-      position: { x: 700, y: 400 },
-      data: {
-        description: '人才招聘团队',
-        fontSize: 12
-      }
-    }
-
-    // 创建连接线（使用弧线样式）
-    const lines = [
-      {
-        id: genId(),
-        from: rootNode.id,
-        to: dept1.id,
-        text: '',
-        color: '#409eff',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true // 显示箭头
-      },
-      {
-        id: genId(),
-        from: rootNode.id,
-        to: dept2.id,
-        text: '',
-        color: '#409eff',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      },
-      {
-        id: genId(),
-        from: rootNode.id,
-        to: dept3.id,
-        text: '',
-        color: '#409eff',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      },
-      {
-        id: genId(),
-        from: dept1.id,
-        to: team1.id,
-        text: '',
-        color: '#67c23a',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      },
-      {
-        id: genId(),
-        from: dept1.id,
-        to: team2.id,
-        text: '',
-        color: '#67c23a',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      },
-      {
-        id: genId(),
-        from: dept2.id,
-        to: team3.id,
-        text: '',
-        color: '#e6a23c',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      },
-      {
-        id: genId(),
-        from: dept3.id,
-        to: team4.id,
-        text: '',
-        color: '#f56c6c',
-        lineWidth: 2,
-        lineShape: 44, // 圆角折线样式
-        showEndArrow: true
-      }
-    ]
 
     const organizationData = {
       id: Date.now().toString(),
       name: createForm.value.name,
       description: createForm.value.description,
-      nodes: [rootNode, dept1, dept2, dept3, team1, team2, team3, team4],
-      lines: lines,
+      nodes: [rootNode],
+      lines: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -508,6 +339,7 @@ const confirmDelete = async () => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3; /* 最多显示3行 */
+  line-clamp: 3; /* 标准属性 */
   -webkit-box-orient: vertical;
   white-space: normal; /* 支持多行 */
   word-break: break-all;
