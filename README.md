@@ -100,17 +100,17 @@
 
 ### 现代化技术栈
 
-- **Electron 35.0.3**: 跨平台桌面应用框架
-- **Vue 3.5.13**: 渐进式 JavaScript 框架
-- **Vite 6.2.3**: 现代化构建工具
-- **Element Plus 2.10.1**: 企业级 UI 组件库
+- **Electron 38.3.0**: 跨平台桌面应用框架
+- **Vue 3.5.22**: 渐进式 JavaScript 框架
+- **Vite 6.4.0**: 现代化构建工具
+- **Element Plus 2.11.4**: 企业级 UI 组件库
 
 ### 核心功能库
 
-- **TipTap 2.12.0**: 基于 ProseMirror 的富文本编辑器
-- **ECharts 5.6.0**: 数据可视化图表库
+- **TipTap 3.7.0**: 基于 ProseMirror 的富文本编辑器
+- **ECharts 6.0.0**: 数据可视化图表库
 - **relation-graph-vue3 2.2.11**: 关系图谱可视化组件
-- **Pinia 3.0.1**: Vue 3 官方推荐的状态管理库
+- **Pinia 3.0.3**: Vue 3 官方推荐的状态管理库
 
 ## 🚀 软件优势
 
