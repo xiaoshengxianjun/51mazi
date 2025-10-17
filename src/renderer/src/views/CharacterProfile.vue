@@ -41,7 +41,16 @@
                 {{ tag }}
               </el-tag>
             </div>
-            <p class="character-intro">{{ character.introduction }}</p>
+            <!-- 形象介绍 -->
+            <div v-if="character.appearance" class="character-section">
+              <div class="section-title">形象介绍</div>
+              <p class="character-intro appearance-intro">{{ character.appearance }}</p>
+            </div>
+            <!-- 生平介绍 -->
+            <div v-if="character.biography" class="character-section">
+              <div class="section-title">生平介绍</div>
+              <p class="character-intro biography-intro">{{ character.biography }}</p>
+            </div>
           </div>
           <div class="character-actions">
             <el-icon @click.stop="handleDeleteCharacter(character)"><Delete /></el-icon>
@@ -76,17 +85,20 @@
               <span v-else class="no-tags">无标签</span>
             </template>
           </el-table-column>
-          <el-table-column prop="introduction" label="介绍" min-width="300" align="center" />
-          <el-table-column label="操作" width="160" fixed="right" align="center">
+          <el-table-column prop="appearance" label="形象介绍" min-width="200" align="center" />
+          <el-table-column prop="biography" label="生平介绍" min-width="300" align="center" />
+          <el-table-column label="操作" width="120" fixed="right" align="center">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click.stop="handleEditCharacter(row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button type="danger" size="small" @click.stop="handleDeleteCharacter(row)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="primary" size="small" @click.stop="handleEditCharacter(row)">
+                  <el-icon><Edit /></el-icon>
+                  编辑
+                </el-button>
+                <el-button type="danger" size="small" @click.stop="handleDeleteCharacter(row)">
+                  <el-icon><Delete /></el-icon>
+                  删除
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -105,37 +117,49 @@
   <el-dialog
     v-model="dialogVisible"
     :title="isEdit ? '编辑人物' : '创建人物'"
-    width="500px"
+    width="600px"
     @close="resetForm"
   >
     <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="80px">
-      <el-form-item label="姓名" prop="name">
-        <el-input v-model="characterForm.name" placeholder="请输入人物姓名" clearable />
-      </el-form-item>
-      <el-form-item label="年龄" prop="age">
-        <el-input-number
-          v-model="characterForm.age"
-          :min="1"
-          :max="99999"
-          placeholder="请输入年龄"
-          style="width: 100%"
-        />
-      </el-form-item>
-      <el-form-item label="性别" prop="gender">
-        <el-radio-group v-model="characterForm.gender">
-          <el-radio value="男">男</el-radio>
-          <el-radio value="女">女</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item label="身高" prop="height">
-        <el-input-number
-          v-model="characterForm.height"
-          :min="1"
-          :max="99999"
-          placeholder="请输入身高(cm)"
-          style="width: 100%"
-        />
-      </el-form-item>
+      <el-row :gutter="10">
+        <el-col :span="12">
+          <el-form-item label="姓名" prop="name">
+            <el-input v-model="characterForm.name" placeholder="请输入人物姓名" clearable />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="性别" prop="gender">
+            <el-radio-group v-model="characterForm.gender">
+              <el-radio value="男">男</el-radio>
+              <el-radio value="女">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row :gutter="10">
+        <el-col :span="12">
+          <el-form-item label="年龄" prop="age">
+            <el-input-number
+              v-model="characterForm.age"
+              :min="1"
+              :max="99999"
+              placeholder="请输入年龄"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="身高" prop="height">
+            <el-input-number
+              v-model="characterForm.height"
+              :min="1"
+              :max="99999"
+              placeholder="请输入身高(cm)"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
       <el-form-item label="标签" prop="tags">
         <el-tree-select
           v-model="characterForm.tags"
@@ -156,12 +180,21 @@
           clearable
         />
       </el-form-item>
-      <el-form-item label="介绍" prop="introduction">
+      <el-form-item label="形象介绍" prop="appearance">
         <el-input
-          v-model="characterForm.introduction"
-          placeholder="请输入人物介绍"
+          v-model="characterForm.appearance"
+          placeholder="请输入人物形象介绍（外貌、气质、穿着等）"
           type="textarea"
-          :rows="8"
+          :rows="4"
+          clearable
+        />
+      </el-form-item>
+      <el-form-item label="生平介绍" prop="biography">
+        <el-input
+          v-model="characterForm.biography"
+          placeholder="请输入人物生平介绍（经历、性格、背景故事等）"
+          type="textarea"
+          :rows="6"
           clearable
         />
       </el-form-item>
@@ -194,7 +227,9 @@ import {
   ElInputNumber,
   ElTreeSelect,
   ElEmpty,
-  ElIcon
+  ElIcon,
+  ElRow,
+  ElCol
 } from 'element-plus'
 import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
@@ -216,7 +251,8 @@ const characterForm = reactive({
   gender: '男',
   height: 170,
   tags: [], // 新增标签字段
-  introduction: ''
+  biography: '', // 生平介绍
+  appearance: '' // 形象介绍
 })
 
 // 表单验证规则
@@ -228,9 +264,13 @@ const formRules = {
   age: [{ required: true, message: '请输入年龄(岁)', trigger: 'blur' }],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   height: [{ required: true, message: '请输入身高(cm)', trigger: 'blur' }],
-  introduction: [
-    { required: true, message: '请输入人物介绍', trigger: 'blur' },
-    { min: 1, max: 500, message: '介绍长度在 1 到 500 个字符', trigger: 'blur' }
+  biography: [
+    { required: true, message: '请输入生平介绍', trigger: 'blur' },
+    { min: 1, max: 1000, message: '生平介绍长度在 1 到 1000 个字符', trigger: 'blur' }
+  ],
+  appearance: [
+    { required: true, message: '请输入形象介绍', trigger: 'blur' },
+    { min: 1, max: 500, message: '形象介绍长度在 1 到 500 个字符', trigger: 'blur' }
   ]
 }
 
@@ -256,7 +296,28 @@ const tagOptions = computed(() => {
 async function loadCharacters() {
   try {
     const data = await window.electron.readCharacters(bookName)
-    characters.value = Array.isArray(data) ? data : []
+    let loadedData = Array.isArray(data) ? data : []
+
+    // 数据兼容：将旧的 introduction 字段迁移到 biography 字段
+    loadedData = loadedData.map((character) => {
+      // 如果存在旧的 introduction 字段且没有 biography 字段，则迁移
+      if (character.introduction && !character.biography) {
+        return {
+          ...character,
+          biography: character.introduction,
+          appearance: character.appearance || '',
+          introduction: undefined // 移除旧字段
+        }
+      }
+      // 确保新字段存在
+      return {
+        ...character,
+        biography: character.biography || '',
+        appearance: character.appearance || ''
+      }
+    })
+
+    characters.value = loadedData
   } catch (error) {
     console.error('加载人物数据失败:', error)
     characters.value = []
@@ -365,7 +426,8 @@ function resetForm() {
     gender: '男',
     height: 170,
     tags: [], // 重置标签
-    introduction: ''
+    biography: '', // 生平介绍
+    appearance: '' // 形象介绍
   })
 }
 
@@ -404,6 +466,9 @@ onMounted(() => {
     flex-direction: column;
     gap: 4px;
     align-items: center;
+    ::v-deep(.el-button) {
+      margin: 0;
+    }
   }
 }
 
@@ -481,14 +546,46 @@ onMounted(() => {
     }
   }
 
-  .character-intro {
-    font-size: 14px;
-    color: var(--text-base);
-    line-height: 1.5;
-    margin: 0;
+  // 介绍区域样式
+  .character-section {
     padding: 0 10px;
-    max-height: 150px;
-    overflow-y: auto;
+    margin-bottom: 8px;
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+  }
+
+  .character-intro {
+    font-size: 13px;
+    color: var(--text-base);
+    line-height: 1.2;
+    margin: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  // 形象介绍：最多显示3行
+  .appearance-intro {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // 生平介绍：最多显示4行
+  .biography-intro {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
