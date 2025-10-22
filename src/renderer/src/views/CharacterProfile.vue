@@ -29,11 +29,24 @@
           @click="handleEditCharacter(character)"
         >
           <div class="character-info">
-            <div class="character-details">
-              <span class="character-name">{{ character.name }}</span>
-              <span class="character-age">{{ character.age }}岁</span>
-              <!-- <span class="character-gender">{{ character.gender }}</span> -->
-              <span class="character-height">{{ character.height }}cm</span>
+            <div class="character-header">
+              <div class="character-avatar" @click.stop="previewCharacterAvatar(character)">
+                <el-image
+                  v-if="character.avatar"
+                  :src="getAvatarSrc(character.avatar)"
+                  alt="头像"
+                  class="avatar-image"
+                  fit="cover"
+                />
+                <div v-else class="avatar-placeholder">
+                  {{ character.name.charAt(0) }}
+                </div>
+              </div>
+              <div class="character-details">
+                <span class="character-name">{{ character.name }}</span>
+                <span class="character-age">{{ character.age }}岁</span>
+                <span class="character-height">{{ character.height }}cm</span>
+              </div>
             </div>
             <!-- 标签显示区域 -->
             <div v-if="character.tags && character.tags.length > 0" class="character-tags">
@@ -61,6 +74,22 @@
       <!-- 表格模式 -->
       <div v-else-if="viewMode === 'table'" class="character-table">
         <el-table :data="characters" border style="width: 100%" @row-click="handleEditCharacter">
+          <el-table-column label="头像" width="80" align="center">
+            <template #default="{ row }">
+              <div class="table-avatar" @click.stop="previewCharacterAvatar(row)">
+                <el-image
+                  v-if="row.avatar"
+                  :src="getAvatarSrc(row.avatar)"
+                  alt="头像"
+                  class="table-avatar-image"
+                  fit="cover"
+                />
+                <div v-else class="table-avatar-placeholder">
+                  {{ row.name.charAt(0) }}
+                </div>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="name" label="姓名" width="120" align="center" />
           <el-table-column prop="age" label="年龄" width="80" align="center">
             <template #default="{ row }"> {{ row.age }}岁 </template>
@@ -117,10 +146,38 @@
   <el-dialog
     v-model="dialogVisible"
     :title="isEdit ? '编辑人物' : '创建人物'"
-    width="600px"
+    width="700px"
+    align-center
     @close="resetForm"
   >
     <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="80px">
+      <!-- 头像操作区域 -->
+      <el-form-item label="头像" class="avatar-form-item">
+        <div class="avatar-form-section">
+          <div class="avatar-preview" @click="previewFormAvatar">
+            <el-image
+              v-if="characterForm.avatar"
+              :src="getAvatarSrc(characterForm.avatar)"
+              alt="头像预览"
+              class="form-avatar-image"
+              fit="cover"
+            />
+            <div v-else class="form-avatar-placeholder">
+              {{ characterForm.name ? characterForm.name.charAt(0) : '头' }}
+            </div>
+          </div>
+          <div class="avatar-input-section">
+            <div class="input-row">
+              <el-input
+                v-model="characterForm.avatar"
+                placeholder="请输入图片链接或选择本地图片"
+                clearable
+              />
+              <el-button @click="selectLocalImage">选择本地图片</el-button>
+            </div>
+          </div>
+        </div>
+      </el-form-item>
       <el-row :gutter="10">
         <el-col :span="12">
           <el-form-item label="姓名" prop="name">
@@ -204,6 +261,14 @@
       <el-button type="primary" @click="confirmSave">确认</el-button>
     </template>
   </el-dialog>
+
+  <!-- 图片预览器 -->
+  <el-image-viewer
+    v-if="imageViewerVisible"
+    :url-list="imageViewerSrcList"
+    :initial-index="imageViewerInitialIndex"
+    @close="imageViewerVisible = false"
+  />
 </template>
 
 <script setup>
@@ -229,7 +294,9 @@ import {
   ElEmpty,
   ElIcon,
   ElRow,
-  ElCol
+  ElCol,
+  ElImage,
+  ElImageViewer
 } from 'element-plus'
 import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
@@ -243,6 +310,11 @@ const dictionary = ref([]) // 字典数据
 const bookName = route.query.name || ''
 const formRef = ref(null)
 
+// 图片预览相关
+const imageViewerVisible = ref(false)
+const imageViewerSrcList = ref([])
+const imageViewerInitialIndex = ref(0)
+
 // 表单数据
 const characterForm = reactive({
   id: '',
@@ -252,7 +324,8 @@ const characterForm = reactive({
   height: 170,
   tags: [], // 新增标签字段
   biography: '', // 生平介绍
-  appearance: '' // 形象介绍
+  appearance: '', // 形象介绍
+  avatar: '' // 头像路径或链接
 })
 
 // 表单验证规则
@@ -306,6 +379,7 @@ async function loadCharacters() {
           ...character,
           biography: character.introduction,
           appearance: character.appearance || '',
+          avatar: character.avatar || '',
           introduction: undefined // 移除旧字段
         }
       }
@@ -313,7 +387,8 @@ async function loadCharacters() {
       return {
         ...character,
         biography: character.biography || '',
-        appearance: character.appearance || ''
+        appearance: character.appearance || '',
+        avatar: character.avatar || ''
       }
     })
 
@@ -427,12 +502,68 @@ function resetForm() {
     height: 170,
     tags: [], // 重置标签
     biography: '', // 生平介绍
-    appearance: '' // 形象介绍
+    appearance: '', // 形象介绍
+    avatar: '' // 头像
   })
 }
 
 // 监听数据变化，自动保存
 watch(characters, saveCharacters, { deep: true })
+
+// 预览表单中的头像
+function previewFormAvatar() {
+  if (characterForm.avatar) {
+    imageViewerSrcList.value = [getAvatarSrc(characterForm.avatar)]
+    imageViewerInitialIndex.value = 0
+    imageViewerVisible.value = true
+  } else {
+    ElMessage.warning('暂无头像可预览')
+  }
+}
+
+// 预览人物头像
+function previewCharacterAvatar(character) {
+  if (character.avatar) {
+    imageViewerSrcList.value = [getAvatarSrc(character.avatar)]
+    imageViewerInitialIndex.value = 0
+    imageViewerVisible.value = true
+  } else {
+    ElMessage.warning(`${character.name} 暂无头像可预览`)
+  }
+}
+
+// 选择本地图片
+async function selectLocalImage() {
+  try {
+    const result = await window.electron.selectImage()
+    if (result && result.filePath) {
+      // 将本地文件路径转换为 file:// 协议，以便在浏览器中正确显示
+      characterForm.avatar = `file://${result.filePath}`
+      ElMessage.success('图片选择成功')
+    }
+  } catch (error) {
+    console.error('选择图片失败:', error)
+    ElMessage.error('选择图片失败')
+  }
+}
+
+// 获取头像源地址
+function getAvatarSrc(avatarPath) {
+  if (!avatarPath) return ''
+
+  // 如果已经是完整的URL（包含协议），直接返回
+  if (
+    avatarPath.startsWith('http://') ||
+    avatarPath.startsWith('https://') ||
+    avatarPath.startsWith('file://') ||
+    avatarPath.startsWith('data:')
+  ) {
+    return avatarPath
+  }
+
+  // 如果是本地文件路径，添加 file:// 协议
+  return `file://${avatarPath}`
+}
 
 // 组件挂载时加载数据
 onMounted(() => {
@@ -448,6 +579,39 @@ onMounted(() => {
   margin-bottom: 10px;
 }
 .character-table {
+  .table-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .table-avatar-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .table-avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+    }
+  }
+
   .table-tags {
     display: flex;
     flex-wrap: wrap;
@@ -514,21 +678,66 @@ onMounted(() => {
 .character-info {
   padding: 5px 0px;
 
+  .character-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 10px;
+    margin-bottom: 8px;
+  }
+
+  .character-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  }
+
+  .character-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
   .character-name {
     font-size: 16px;
     font-weight: 600;
     color: var(--text-base);
   }
 
-  .character-details {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 8px;
-    color: var(--text-base);
-    font-size: 14px;
-    padding: 0 10px;
-    margin-bottom: 5px;
+  .character-age,
+  .character-height {
+    font-size: 13px;
+    color: var(--text-secondary);
   }
 
   // 标签样式
@@ -620,15 +829,71 @@ onMounted(() => {
   text-align: center;
 }
 
-// 响应式设计
-@media (max-width: 768px) {
-  .character-grid {
-    grid-template-columns: 1fr;
+// 头像表单样式
+.avatar-form-item {
+  ::v-deep(.el-form-item__content) {
+    display: flex;
+    align-items: center;
+    min-height: 100px;
+  }
+}
+
+.avatar-form-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+
+  .avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .form-avatar-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .form-avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+    }
   }
 
-  .header-actions {
-    flex-direction: column;
-    gap: 16px;
+  .avatar-input-section {
+    flex: 1;
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+
+      .el-input {
+        flex: 1;
+      }
+
+      .el-button {
+        flex-shrink: 0;
+      }
+    }
   }
 }
 </style>
