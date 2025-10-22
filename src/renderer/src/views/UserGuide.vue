@@ -1,5 +1,13 @@
 <template>
   <div class="user-guide">
+    <!-- 顶部导航栏 -->
+    <div class="top-navigation">
+      <el-button class="back-button" type="primary" @click="goBack">
+        <el-icon><ArrowLeft /></el-icon>
+        返回首页
+      </el-button>
+    </div>
+
     <div class="guide-header">
       <h1>51码字 - 写作指南</h1>
       <p class="subtitle">专业的网络小说创作工具，助你轻松创作精彩故事</p>
@@ -231,6 +239,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -246,6 +255,31 @@ const goBack = () => {
   padding: 20px;
   background: #ffffff;
   min-height: 100vh;
+}
+
+.top-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 0px 0 16px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+  }
 }
 
 .guide-header {
@@ -386,6 +420,16 @@ const goBack = () => {
 @media (max-width: 768px) {
   .user-guide {
     padding: 16px;
+  }
+
+  .top-navigation {
+    padding: 12px 0;
+    margin-bottom: 16px;
+
+    .back-button {
+      font-size: 14px;
+      padding: 8px 16px;
+    }
   }
 
   .guide-header {
