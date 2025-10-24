@@ -275,29 +275,7 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  ElMessage,
-  ElMessageBox,
-  ElTable,
-  ElTableColumn,
-  ElButton,
-  ElTag,
-  ElRadioGroup,
-  ElRadioButton,
-  ElRadio,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElTreeSelect,
-  ElEmpty,
-  ElIcon,
-  ElRow,
-  ElCol,
-  ElImage,
-  ElImageViewer
-} from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
 
@@ -588,10 +566,10 @@ onMounted(() => {
     cursor: pointer;
     transition: all 0.3s ease;
 
-    &:hover {
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
+    // &:hover {
+    //   transform: scale(1.1);
+    //   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    // }
 
     .table-avatar-image {
       width: 100%;
