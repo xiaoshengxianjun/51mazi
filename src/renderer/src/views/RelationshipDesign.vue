@@ -405,9 +405,32 @@ function handleNodeInfo() {
     infoForm.characterId = selectedNode.value.text
   }
 
-  // 如果节点有保存的 characterId，优先使用
+  // 如果节点有保存的 characterId，优先使用，并回填人物信息
   if (selectedNode.value.data?.characterId) {
     infoForm.characterId = selectedNode.value.data.characterId
+    // 根据characterId查找对应的人物，回填头像等信息
+    const matchedCharacter = characters.value.find(
+      (c) => c.id === selectedNode.value.data.characterId
+    )
+    if (matchedCharacter) {
+      // 如果节点没有头像或人物有头像，使用人物的头像
+      if (!infoForm.avatar && matchedCharacter.avatar) {
+        infoForm.avatar = matchedCharacter.avatar
+      }
+      // 同步人物的描述信息（如果节点没有描述）
+      if (!infoForm.description && (matchedCharacter.biography || matchedCharacter.introduction)) {
+        infoForm.description = matchedCharacter.biography || matchedCharacter.introduction || ''
+      }
+      // 同步人物的性别（如果节点没有性别或人物有性别）
+      if (matchedCharacter.gender) {
+        infoForm.gender = matchedCharacter.gender === '女' ? 'female' : 'male'
+      }
+    }
+  } else if (existingCharacter && existingCharacter.avatar) {
+    // 如果通过名称匹配到人物且人物有头像，回填头像
+    if (!infoForm.avatar) {
+      infoForm.avatar = existingCharacter.avatar
+    }
   }
 
   // 重置过滤结果
@@ -635,7 +658,7 @@ function filterCharacters(query) {
   }
 }
 
-// 选择人物谱时自动同步性别、描述、背景色
+// 选择人物谱时自动同步性别、描述、背景色、头像
 function onCharacterChange(val) {
   // 检查是否是已存在的人物ID
   const character = characters.value.find((c) => c.id === val)
@@ -643,8 +666,10 @@ function onCharacterChange(val) {
     // 选择已存在的人物
     infoForm.text = character.name
     infoForm.gender = character.gender || 'male' // 如果没有性别信息，默认男性
-    infoForm.description = character.introduction
+    infoForm.description = character.introduction || character.biography || ''
     infoForm.color = character.gender === 'female' ? '#ff5819' : '#409eff'
+    // 如果人物有头像，回填头像信息
+    infoForm.avatar = character.avatar || ''
     customColor.value = ''
   } else {
     // 输入新名称，设置默认值
@@ -652,6 +677,7 @@ function onCharacterChange(val) {
     infoForm.gender = 'male' // 新名称默认男性
     infoForm.description = ''
     infoForm.color = '#409eff'
+    infoForm.avatar = '' // 清空头像
     customColor.value = ''
   }
 }
@@ -745,9 +771,19 @@ function saveNodeInfo() {
       newNodeLevel
     )
 
+    // 检查是否是已存在的人物ID
+    let nodeText = infoForm.characterId.trim()
+    let nodeCharacterId = nodeText
+    const matchedCharacter = characters.value.find((c) => c.id === nodeText)
+    if (matchedCharacter) {
+      // 如果是已存在的人物，使用人物名称作为节点文本，人物ID作为characterId
+      nodeText = matchedCharacter.name
+      nodeCharacterId = matchedCharacter.id
+    }
+
     const newNode = {
       id: newNodeId,
-      text: infoForm.characterId.trim(),
+      text: nodeText,
       type: 'character',
       color: infoForm.color || customColor.value || '#409eff',
       width: nodeSize.width,
@@ -755,7 +791,7 @@ function saveNodeInfo() {
       data: {
         description: infoForm.description || '',
         gender: infoForm.gender || 'male',
-        characterId: infoForm.characterId.trim(),
+        characterId: nodeCharacterId,
         avatar: infoForm.avatar ? infoForm.avatar.replace(/^file:\/\//, '') : '',
         fontSize: nodeSize.fontSize
       }
@@ -809,6 +845,17 @@ function saveNodeInfo() {
         selectedNode.value.data = {}
       }
       selectedNode.value.data.characterId = existingCharacter.id
+      // 如果表单中没有头像但人物有头像，使用人物的头像
+      if (!infoForm.avatar && existingCharacter.avatar) {
+        infoForm.avatar = existingCharacter.avatar
+      }
+      // 如果表单中没有描述但人物有描述，使用人物的描述
+      if (
+        !infoForm.description &&
+        (existingCharacter.biography || existingCharacter.introduction)
+      ) {
+        infoForm.description = existingCharacter.biography || existingCharacter.introduction || ''
+      }
     } else {
       // 输入新名称
       selectedNode.value.text = infoForm.characterId
