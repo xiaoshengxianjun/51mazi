@@ -101,7 +101,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import { useThemeStore } from '@renderer/stores/theme'
-import { ElDialog, ElButton, ElInput, ElForm, ElFormItem, ElMessage } from 'element-plus'
+import { ElDialog, ElMessage } from 'element-plus'
 
 const router = useRouter()
 const showDirDialog = ref(false)
