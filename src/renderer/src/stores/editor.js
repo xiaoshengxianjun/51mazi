@@ -44,12 +44,12 @@ export const useEditorStore = defineStore('editor', () => {
   const netWordChange = computed(() => {
     // 如果还没有开始编辑会话，返回0
     if (!sessionStartTime.value) return 0
-    
+
     // 如果最低字数等于初始字数，说明没有减少过，净增就是当前字数减去初始字数
     if (sessionMinWordCount.value === getContentWordCount(sessionInitialContent.value)) {
       return contentWordCount.value - getContentWordCount(sessionInitialContent.value)
     }
-    
+
     // 否则以最低字数为基准计算净增
     return contentWordCount.value - sessionMinWordCount.value
   })
@@ -189,6 +189,35 @@ export const useEditorStore = defineStore('editor', () => {
     chapterTitle.value = title
   }
 
+  // 编辑器设置相关
+  const editorSettings = ref({
+    fontFamily: 'inherit',
+    fontSize: '16px',
+    lineHeight: '1.6'
+  })
+
+  // 加载编辑器设置
+  async function loadEditorSettings() {
+    try {
+      const settings = await window.electronStore.get('editorSettings')
+      if (settings) {
+        editorSettings.value = { ...editorSettings.value, ...settings }
+      }
+    } catch (error) {
+      console.error('加载编辑器设置失败:', error)
+    }
+  }
+
+  // 保存编辑器设置
+  async function saveEditorSettings(settings) {
+    try {
+      editorSettings.value = { ...editorSettings.value, ...settings }
+      await window.electronStore.set('editorSettings', editorSettings.value)
+    } catch (error) {
+      console.error('保存编辑器设置失败:', error)
+    }
+  }
+
   return {
     content,
     file,
@@ -198,12 +227,15 @@ export const useEditorStore = defineStore('editor', () => {
     typingSpeed,
     sessionWordChange,
     netWordChange,
+    editorSettings,
     setContent,
     setFile,
     setChapterTitle,
     startEditingSession,
     resetTypingTimer,
     resetEditingSession,
-    getSessionStats
+    getSessionStats,
+    loadEditorSettings,
+    saveEditorSettings
   }
 })

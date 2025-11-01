@@ -2,12 +2,15 @@
   <div class="editor-panel">
     <!-- 菜单栏 -->
     <div class="editor-toolbar">
-      <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 100px">
+      <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
         <el-option label="默认" value="inherit" />
         <el-option label="宋体" value="SimSun" />
-        <el-option label="微软雅黑" value="Microsoft YaHei" />
-        <el-option label="楷体" value="KaiTi" />
         <el-option label="黑体" value="SimHei" />
+        <el-option label="楷体" value="KaiTi" />
+        <el-option label="仿宋" value="FangSong" />
+        <el-option label="思源黑体" value="SourceHanSans" />
+        <el-option label="思源宋体" value="SourceHanSerif" />
+        <el-option label="苹方" value="PingFang" />
       </el-select>
       <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
         <el-option label="12px" value="12px" />
@@ -82,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
@@ -109,6 +112,18 @@ const chapterTitle = computed({
   set: (val) => editorStore.setChapterTitle(val)
 })
 
+// 字体映射表：为每种字体提供完整的字体族配置（包含回退字体）
+const fontFamilyMap = {
+  inherit: '',
+  SimSun: "'STSong', 'SimSun', 'NSimSun', '宋体', serif",
+  SimHei: "'SimHei', '黑体', 'STHeiti', sans-serif",
+  KaiTi: "'STKaiti', 'KaiTi', '楷体', serif",
+  FangSong: "'FangSong', '仿宋', 'STFangsong', serif",
+  SourceHanSans: "'Noto Sans CJK SC', 'Source Han Sans SC', '思源黑体', 'PingFang SC', sans-serif",
+  SourceHanSerif: "'Noto Serif CJK SC', 'Source Han Serif SC', '思源宋体', 'SimSun', serif",
+  PingFang: "'PingFang SC', '苹方', 'Hiragino Sans GB', 'STHeiti', sans-serif"
+}
+
 const fontFamily = ref('inherit')
 const fontSize = ref('16px')
 const lineHeight = ref('1.6')
@@ -116,6 +131,7 @@ const align = ref('left')
 
 const editor = ref(null)
 let saveTimer = null
+let styleUpdateTimer = null
 
 // 搜索面板状态
 const searchPanelVisible = ref(false)
@@ -137,6 +153,36 @@ function plainTextToHtml(text) {
   return htmlLines.join('')
 }
 
+// 获取完整的字体族配置
+function getFontFamily(fontKey) {
+  if (fontKey === 'inherit' || !fontKey) {
+    return ''
+  }
+  // 从映射表中获取完整的字体族配置（包含多个字体选项和回退字体）
+  return fontFamilyMap[fontKey] || `'${fontKey}', sans-serif`
+}
+
+// 更新编辑器样式
+function updateEditorStyle() {
+  if (!editor.value) return
+
+  // TipTap的DOM结构：editor.view.dom 就是 .tiptap 元素
+  const editorElement = editor.value.view.dom
+  if (editorElement) {
+    // 使用setProperty with 'important' 确保样式优先级最高
+    if (fontFamily.value !== 'inherit') {
+      // 获取完整的字体族配置（包含回退字体）
+      const fullFontFamily = getFontFamily(fontFamily.value)
+      editorElement.style.setProperty('font-family', fullFontFamily, 'important')
+    } else {
+      editorElement.style.removeProperty('font-family')
+    }
+    editorElement.style.setProperty('font-size', fontSize.value, 'important')
+    editorElement.style.setProperty('line-height', lineHeight.value, 'important')
+    editorElement.style.setProperty('text-align', align.value, 'important')
+  }
+}
+
 // 监听 store 内容变化，回显到编辑器
 watch(
   () => editorStore.file,
@@ -148,6 +194,9 @@ watch(
 
       // 重新开始编辑会话
       editorStore.startEditingSession(newContent)
+
+      // 更新样式
+      updateEditorStyle()
     }
   }
 )
@@ -196,7 +245,17 @@ function handleKeydown(event) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载编辑器设置
+  await editorStore.loadEditorSettings()
+
+  // 应用加载的设置
+  if (editorStore.editorSettings) {
+    fontFamily.value = editorStore.editorSettings.fontFamily || 'inherit'
+    fontSize.value = editorStore.editorSettings.fontSize || '16px'
+    lineHeight.value = editorStore.editorSettings.lineHeight || '1.6'
+  }
+
   editor.value = new Editor({
     extensions: [
       StarterKit,
@@ -213,8 +272,15 @@ onMounted(() => {
     content: editorStore.content,
     editorProps: {
       attributes: {
-        style: () =>
-          `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value}; white-space: pre-wrap;`
+        class: 'tiptap-editor',
+        style: () => {
+          let fontFamilyStyle = ''
+          if (fontFamily.value !== 'inherit') {
+            const fullFontFamily = getFontFamily(fontFamily.value)
+            fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
+          }
+          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${fontSize.value} !important; line-height: ${lineHeight.value} !important; text-align: ${align.value} !important;`
+        }
       }
     },
     onUpdate: ({ editor }) => {
@@ -225,12 +291,23 @@ onMounted(() => {
       saveTimer = setTimeout(() => {
         autoSaveContent()
       }, 1000)
+    },
+    onSelectionUpdate: () => {
+      // 更新加粗和倾斜按钮状态
+      if (editor.value) {
+        isBold.value = editor.value.isActive('bold')
+        isItalic.value = editor.value.isActive('italic')
+      }
     }
   })
 
   // 设置初始内容
   const initialContent = editorStore.content || ''
   editor.value.commands.setContent(plainTextToHtml(initialContent))
+
+  // 等待DOM渲染完成后应用样式
+  await nextTick()
+  updateEditorStyle()
 
   // 如果有初始内容，则开始编辑会话
   if (initialContent) {
@@ -243,6 +320,14 @@ onMounted(() => {
 
 onBeforeUnmount(async () => {
   if (saveTimer) clearTimeout(saveTimer)
+  if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
+
+  // 保存编辑器设置
+  await editorStore.saveEditorSettings({
+    fontFamily: fontFamily.value,
+    fontSize: fontSize.value,
+    lineHeight: lineHeight.value
+  })
 
   // 保存最后的内容
   await autoSaveContent()
@@ -350,11 +435,13 @@ const isBold = ref(false)
 const isItalic = ref(false)
 
 function toggleBold() {
+  if (!editor.value) return
   editor.value.chain().focus().toggleBold().run()
   isBold.value = editor.value.isActive('bold')
 }
 
 function toggleItalic() {
+  if (!editor.value) return
   editor.value.chain().focus().toggleItalic().run()
   isItalic.value = editor.value.isActive('italic')
 }
@@ -368,10 +455,20 @@ function copyContent() {
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
 
 // 监听字体、字号、行高变化，动态应用样式
-watch([fontFamily, fontSize, lineHeight], () => {
+watch([fontFamily, fontSize, lineHeight, align], () => {
   if (editor.value) {
-    editor.value.options.editorProps.attributes.style = `font-family: ${fontFamily.value}; font-size: ${fontSize.value}; line-height: ${lineHeight.value}; text-align: ${align.value};`
-    editor.value.view.updateState(editor.value.state)
+    // 直接更新DOM样式，使用!important确保优先级
+    updateEditorStyle()
+
+    // 保存设置（防抖）- 保存简化的字体key，而不是完整的字体族
+    if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
+    styleUpdateTimer = setTimeout(() => {
+      editorStore.saveEditorSettings({
+        fontFamily: fontFamily.value, // 保存简化的key，如 'KaiTi'
+        fontSize: fontSize.value,
+        lineHeight: lineHeight.value
+      })
+    }, 500)
   }
 })
 
@@ -461,9 +558,22 @@ watch(
 ::v-deep(.tiptap) {
   height: 100%;
   white-space: pre-wrap; // 保证Tab缩进和换行显示
-  font-family: inherit, monospace;
+  // 字体、字号、行高通过动态样式设置，不在这里固定设置
+
   &:focus {
     outline: none;
+  }
+
+  // 加粗样式
+  strong,
+  b {
+    font-weight: bold !important;
+  }
+
+  // 倾斜样式
+  em,
+  i {
+    font-style: italic !important;
   }
 
   // 搜索高亮样式 - 使用选择高亮
