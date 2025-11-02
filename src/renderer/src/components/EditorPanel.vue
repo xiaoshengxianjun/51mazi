@@ -195,6 +195,35 @@ watch(
 
       // 更新样式
       updateEditorStyle()
+
+      // 如果全局格式模式开启，应用到新内容
+      nextTick(() => {
+        if (!editor.value) return
+        const docSize = editor.value.state.doc.content.size
+        if (docSize === 0) return
+
+        if (globalBoldMode.value || globalItalicMode.value) {
+          setTimeout(() => {
+            if (!editor.value) return
+            const currentDocSize = editor.value.state.doc.content.size
+            if (currentDocSize === 0) return
+
+            let chain = editor.value.chain().focus().selectAll()
+            if (globalBoldMode.value) {
+              chain = chain.setBold()
+            }
+            if (globalItalicMode.value) {
+              chain = chain.setItalic()
+            }
+            chain.run()
+
+            // 恢复光标到末尾
+            if (currentDocSize > 0) {
+              editor.value.chain().focus().setTextSelection(currentDocSize).run()
+            }
+          }, 100)
+        }
+      })
     }
   }
 )
@@ -243,15 +272,59 @@ function handleKeydown(event) {
   }
 }
 
+// 窗口关闭前保存设置
+function handleWindowClose() {
+  // 清除定时器
+  if (saveTimer) clearTimeout(saveTimer)
+  if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
+
+  // 同步保存编辑器设置（窗口关闭时无法使用 async/await）
+  editorStore
+    .saveEditorSettings({
+      fontFamily: fontFamily.value,
+      fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+      globalBoldMode: globalBoldMode.value,
+      globalItalicMode: globalItalicMode.value
+    })
+    .catch((error) => {
+      console.error('保存编辑器设置失败:', error)
+    })
+
+  // 保存最后的内容
+  autoSaveContent().catch((error) => {
+    console.error('自动保存失败:', error)
+  })
+}
+
 onMounted(async () => {
   // 加载编辑器设置
   await editorStore.loadEditorSettings()
 
   // 应用加载的设置
   if (editorStore.editorSettings) {
-    fontFamily.value = editorStore.editorSettings.fontFamily || 'inherit'
-    fontSize.value = editorStore.editorSettings.fontSize || '16px'
-    lineHeight.value = editorStore.editorSettings.lineHeight || '1.6'
+    const settings = editorStore.editorSettings
+    // 只在值为 undefined 或 null 时才使用默认值，避免覆盖空字符串等有效值
+    fontFamily.value =
+      settings.fontFamily !== undefined && settings.fontFamily !== null
+        ? settings.fontFamily
+        : 'inherit'
+    fontSize.value =
+      settings.fontSize !== undefined && settings.fontSize !== null ? settings.fontSize : '16px'
+    lineHeight.value =
+      settings.lineHeight !== undefined && settings.lineHeight !== null
+        ? settings.lineHeight
+        : '1.6'
+
+    // 加载加粗和倾斜状态
+    if (settings.globalBoldMode !== undefined) {
+      globalBoldMode.value = settings.globalBoldMode
+      isBold.value = globalBoldMode.value
+    }
+    if (settings.globalItalicMode !== undefined) {
+      globalItalicMode.value = settings.globalItalicMode
+      isItalic.value = globalItalicMode.value
+    }
   }
 
   editor.value = new Editor({
@@ -305,6 +378,46 @@ onMounted(async () => {
   await nextTick()
   updateEditorStyle()
 
+  // 如果加载了加粗或倾斜状态，应用到所有内容
+  if (globalBoldMode.value || globalItalicMode.value) {
+    if (initialContent) {
+      // 等待编辑器完全初始化后再应用格式
+      await nextTick()
+
+      // 给编辑器更多时间来渲染内容
+      setTimeout(() => {
+        if (!editor.value) return
+
+        // 确保有内容再应用格式
+        const docSize = editor.value.state.doc.content.size
+        if (docSize === 0) return
+
+        // 保存当前选择位置
+        const currentFrom = editor.value.state.selection.from
+        const currentTo = editor.value.state.selection.to
+
+        // 在同一个命令链中选择所有内容并应用格式
+        let chain = editor.value.chain().focus().selectAll()
+
+        if (globalBoldMode.value) {
+          chain = chain.setBold()
+        }
+        if (globalItalicMode.value) {
+          chain = chain.setItalic()
+        }
+
+        chain.run()
+
+        // 恢复之前的选择位置（如果有的话）
+        if (docSize > 0) {
+          const newFrom = Math.min(currentFrom, docSize - 1)
+          const newTo = Math.min(currentTo, docSize - 1)
+          editor.value.chain().focus().setTextSelection({ from: newFrom, to: newTo }).run()
+        }
+      }, 100)
+    }
+  }
+
   // 如果有初始内容，则开始编辑会话
   if (initialContent) {
     editorStore.startEditingSession(initialContent)
@@ -312,9 +425,15 @@ onMounted(async () => {
 
   // 添加键盘事件监听器
   document.addEventListener('keydown', handleKeydown)
+
+  // 监听窗口关闭事件，确保设置被保存
+  window.addEventListener('beforeunload', handleWindowClose)
 })
 
 onBeforeUnmount(async () => {
+  // 移除窗口关闭监听器
+  window.removeEventListener('beforeunload', handleWindowClose)
+
   if (saveTimer) clearTimeout(saveTimer)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
 
@@ -322,7 +441,9 @@ onBeforeUnmount(async () => {
   await editorStore.saveEditorSettings({
     fontFamily: fontFamily.value,
     fontSize: fontSize.value,
-    lineHeight: lineHeight.value
+    lineHeight: lineHeight.value,
+    globalBoldMode: globalBoldMode.value,
+    globalItalicMode: globalItalicMode.value
   })
 
   // 保存最后的内容
@@ -459,10 +580,26 @@ function toggleFormat(markType) {
     const newState = !globalBoldMode.value
     applyFormatToAll('bold', newState)
     isBold.value = newState
+    // 立即保存设置（包含所有设置，确保不丢失）
+    editorStore.saveEditorSettings({
+      fontFamily: fontFamily.value,
+      fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+      globalBoldMode: newState,
+      globalItalicMode: globalItalicMode.value
+    })
   } else if (markType === 'italic') {
     const newState = !globalItalicMode.value
     applyFormatToAll('italic', newState)
     isItalic.value = newState
+    // 立即保存设置（包含所有设置，确保不丢失）
+    editorStore.saveEditorSettings({
+      fontFamily: fontFamily.value,
+      fontSize: fontSize.value,
+      lineHeight: lineHeight.value,
+      globalBoldMode: globalBoldMode.value,
+      globalItalicMode: newState
+    })
   }
 }
 
@@ -494,7 +631,9 @@ watch([fontFamily, fontSize, lineHeight, align], () => {
       editorStore.saveEditorSettings({
         fontFamily: fontFamily.value, // 保存简化的key，如 'KaiTi'
         fontSize: fontSize.value,
-        lineHeight: lineHeight.value
+        lineHeight: lineHeight.value,
+        globalBoldMode: globalBoldMode.value,
+        globalItalicMode: globalItalicMode.value
       })
     }, 500)
   }

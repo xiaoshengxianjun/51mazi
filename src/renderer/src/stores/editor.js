@@ -193,7 +193,9 @@ export const useEditorStore = defineStore('editor', () => {
   const editorSettings = ref({
     fontFamily: 'inherit',
     fontSize: '16px',
-    lineHeight: '1.6'
+    lineHeight: '1.6',
+    globalBoldMode: false,
+    globalItalicMode: false
   })
 
   // 加载编辑器设置
@@ -212,7 +214,15 @@ export const useEditorStore = defineStore('editor', () => {
   async function saveEditorSettings(settings) {
     try {
       editorSettings.value = { ...editorSettings.value, ...settings }
-      await window.electronStore.set('editorSettings', editorSettings.value)
+      // 转换为纯对象，避免响应式代理导致的序列化问题
+      const plainSettings = {
+        fontFamily: editorSettings.value.fontFamily,
+        fontSize: editorSettings.value.fontSize,
+        lineHeight: editorSettings.value.lineHeight,
+        globalBoldMode: editorSettings.value.globalBoldMode,
+        globalItalicMode: editorSettings.value.globalItalicMode
+      }
+      await window.electronStore.set('editorSettings', plainSettings)
     } catch (error) {
       console.error('保存编辑器设置失败:', error)
     }

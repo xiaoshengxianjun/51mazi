@@ -113,6 +113,7 @@ const handleOrganization = () => {
     font-weight: 500;
     color: var(--text-base);
     margin-bottom: 8px;
+    text-align: center;
   }
 
   .toolbar-buttons {
