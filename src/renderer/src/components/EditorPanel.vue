@@ -155,11 +155,9 @@ function plainTextToHtml(text) {
 
 // 获取完整的字体族配置
 function getFontFamily(fontKey) {
-  if (fontKey === 'inherit' || !fontKey) {
-    return ''
-  }
-  // 从映射表中获取完整的字体族配置（包含多个字体选项和回退字体）
-  return fontFamilyMap[fontKey] || `'${fontKey}', sans-serif`
+  return fontKey === 'inherit' || !fontKey
+    ? ''
+    : fontFamilyMap[fontKey] || `'${fontKey}', sans-serif`
 }
 
 // 更新编辑器样式
@@ -293,11 +291,9 @@ onMounted(async () => {
       }, 1000)
     },
     onSelectionUpdate: () => {
-      // 更新加粗和倾斜按钮状态
-      if (editor.value) {
-        isBold.value = editor.value.isActive('bold')
-        isItalic.value = editor.value.isActive('italic')
-      }
+      // 更新按钮状态为全局模式状态
+      isBold.value = globalBoldMode.value
+      isItalic.value = globalItalicMode.value
     }
   })
 
@@ -342,50 +338,53 @@ onBeforeUnmount(async () => {
   editor.value && editor.value.destroy()
 })
 
-// 手动保存内容
-async function saveContent() {
+// 保存内容的通用函数
+async function saveFile(showMessage = false) {
   const file = editorStore.file
   if (!file) {
-    ElMessage.warning('未选择章节或笔记')
-    return
+    if (showMessage) ElMessage.warning('未选择章节或笔记')
+    return false
+  }
+
+  const saveParams = {
+    bookName: props.bookName,
+    newName: editorStore.chapterTitle,
+    content: editorStore.content
   }
 
   let result
   if (file.type === 'note') {
     result = await window.electron.editNote({
-      bookName: props.bookName,
+      ...saveParams,
       notebookName: file.notebook,
-      noteName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
+      noteName: file.name
     })
-    if (result.success) {
-      ElMessage.success('保存成功')
-      if (result.name && result.name !== file.name) {
-        editorStore.setFile({ ...file, name: result.name })
-      }
-      emit('refresh-notes')
-    } else {
-      ElMessage.error(result?.message || '保存失败')
-    }
+    if (showMessage && result.success) emit('refresh-notes')
   } else if (file.type === 'chapter') {
     result = await window.electron.saveChapter({
-      bookName: props.bookName,
+      ...saveParams,
       volumeName: file.volume,
-      chapterName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
+      chapterName: file.name
     })
-    if (result.success) {
-      ElMessage.success('保存成功')
-      if (result.name && result.name !== file.name) {
-        editorStore.setFile({ ...file, name: result.name })
-      }
-      emit('refresh-chapters')
-    } else {
-      ElMessage.error(result?.message || '保存失败')
-    }
+    if (showMessage && result.success) emit('refresh-chapters')
   }
+
+  if (result?.success) {
+    if (result.name && result.name !== file.name) {
+      editorStore.setFile({ ...file, name: result.name })
+    }
+    if (showMessage) ElMessage.success('保存成功')
+    return true
+  } else {
+    if (showMessage) ElMessage.error(result?.message || '保存失败')
+    else ElMessage.error(result?.message || '自动保存失败')
+    return false
+  }
+}
+
+// 手动保存内容
+async function saveContent() {
+  await saveFile(true)
 }
 
 // 搜索面板控制
@@ -399,51 +398,80 @@ function closeSearchPanel() {
 
 // 自动保存内容
 async function autoSaveContent() {
-  const file = editorStore.file
-  if (!file) return
-
-  let result
-  if (file.type === 'note') {
-    result = await window.electron.editNote({
-      bookName: props.bookName,
-      notebookName: file.notebook,
-      noteName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
-    })
-  } else if (file.type === 'chapter') {
-    result = await window.electron.saveChapter({
-      bookName: props.bookName,
-      volumeName: file.volume,
-      chapterName: file.name,
-      newName: editorStore.chapterTitle,
-      content: editorStore.content
-    })
-  }
-
-  if (result?.success) {
-    if (result.name && result.name !== file.name) {
-      editorStore.setFile({ ...file, name: result.name })
-    }
-  } else {
-    ElMessage.error(result?.message || '自动保存失败')
-  }
+  await saveFile(false)
 }
 
 // 菜单栏操作
 const isBold = ref(false)
 const isItalic = ref(false)
+const globalBoldMode = ref(false) // 全局加粗模式
+const globalItalicMode = ref(false) // 全局倾斜模式
+
+// 应用格式到整个编辑器内容
+function applyFormatToAll(markType, enable) {
+  if (!editor.value) return
+
+  const { from, to } = editor.value.state.selection
+  const docSize = editor.value.state.doc.content.size
+
+  try {
+    // 在同一个命令链中选择所有内容并应用格式
+    if (markType === 'bold') {
+      if (enable) {
+        editor.value.chain().focus().selectAll().setBold().run()
+        globalBoldMode.value = true
+      } else {
+        editor.value.chain().focus().selectAll().unsetBold().run()
+        globalBoldMode.value = false
+      }
+    } else if (markType === 'italic') {
+      if (enable) {
+        editor.value.chain().focus().selectAll().setItalic().run()
+        globalItalicMode.value = true
+      } else {
+        editor.value.chain().focus().selectAll().unsetItalic().run()
+        globalItalicMode.value = false
+      }
+    }
+
+    // 恢复之前的选择位置
+    if (docSize > 0) {
+      editor.value
+        .chain()
+        .focus()
+        .setTextSelection({ from: Math.min(from, docSize - 1), to: Math.min(to, docSize - 1) })
+        .run()
+    } else {
+      editor.value.chain().focus().setTextSelection(0).run()
+    }
+  } catch (error) {
+    console.error(`应用${markType}格式失败:`, error)
+  }
+}
+
+// 切换格式的通用函数
+function toggleFormat(markType) {
+  if (!editor.value) return
+
+  editor.value.commands.focus()
+
+  if (markType === 'bold') {
+    const newState = !globalBoldMode.value
+    applyFormatToAll('bold', newState)
+    isBold.value = newState
+  } else if (markType === 'italic') {
+    const newState = !globalItalicMode.value
+    applyFormatToAll('italic', newState)
+    isItalic.value = newState
+  }
+}
 
 function toggleBold() {
-  if (!editor.value) return
-  editor.value.chain().focus().toggleBold().run()
-  isBold.value = editor.value.isActive('bold')
+  toggleFormat('bold')
 }
 
 function toggleItalic() {
-  if (!editor.value) return
-  editor.value.chain().focus().toggleItalic().run()
-  isItalic.value = editor.value.isActive('italic')
+  toggleFormat('italic')
 }
 
 function copyContent() {
@@ -564,16 +592,33 @@ watch(
     outline: none;
   }
 
-  // 加粗样式
+  // 加粗样式 - 确保在所有情况下都生效
   strong,
-  b {
-    font-weight: bold !important;
+  b,
+  [data-type='bold'] {
+    font-weight: 700;
+    font-style: normal;
   }
 
-  // 倾斜样式
+  // 倾斜样式 - 确保在所有情况下都生效
   em,
-  i {
-    font-style: italic !important;
+  i,
+  [data-type='italic'] {
+    font-style: italic;
+    font-weight: inherit;
+  }
+
+  // 同时加粗和倾斜
+  strong em,
+  strong i,
+  b em,
+  b i,
+  em strong,
+  i strong,
+  em b,
+  i b {
+    font-weight: 700;
+    font-style: italic;
   }
 
   // 搜索高亮样式 - 使用选择高亮
