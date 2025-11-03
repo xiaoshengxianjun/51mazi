@@ -2,62 +2,69 @@
   <div class="editor-panel">
     <!-- 菜单栏 -->
     <div class="editor-toolbar">
-      <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
-        <el-option label="默认" value="inherit" />
-        <el-option label="宋体" value="SimSun" />
-        <el-option label="黑体" value="SimHei" />
-        <el-option label="楷体" value="KaiTi" />
-        <el-option label="仿宋" value="FangSong" />
-        <el-option label="思源黑体" value="SourceHanSans" />
-        <el-option label="思源宋体" value="SourceHanSerif" />
-        <el-option label="苹方" value="PingFang" />
-      </el-select>
-      <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
-        <el-option label="12px" value="12px" />
-        <el-option label="13px" value="13px" />
-        <el-option label="14px" value="14px" />
-        <el-option label="15px" value="15px" />
-        <el-option label="16px" value="16px" />
-        <el-option label="18px" value="18px" />
-        <el-option label="20px" value="20px" />
-        <el-option label="22px" value="22px" />
-        <el-option label="24px" value="24px" />
-      </el-select>
-      <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
-        <el-option label="1.2" value="1.2" />
-        <el-option label="1.3" value="1.3" />
-        <el-option label="1.4" value="1.4" />
-        <el-option label="1.5" value="1.5" />
-        <el-option label="1.6" value="1.6" />
-        <el-option label="1.8" value="1.8" />
-        <el-option label="2" value="2" />
-      </el-select>
-      <el-button
-        class="toolbar-item"
-        size="small"
-        :type="isBold ? 'primary' : 'default'"
-        @click="toggleBold"
-      >
-        <b>B</b>
-      </el-button>
-      <el-button
-        class="toolbar-item"
-        size="small"
-        :type="isItalic ? 'primary' : 'default'"
-        @click="toggleItalic"
-      >
-        <i>I</i>
-      </el-button>
-      <el-button size="small" class="toolbar-item" @click="copyContent">
-        <el-icon><DocumentCopy /></el-icon>
-      </el-button>
-      <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
-        <el-icon><Search /></el-icon>
-      </el-button>
-      <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
-      <el-button size="small" class="toolbar-item" type="primary" @click="saveContent">
-        保存
-      </el-button>
+      <div class="toolbar-left">
+        <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
+          <el-option label="默认" value="inherit" />
+          <el-option label="宋体" value="SimSun" />
+          <el-option label="黑体" value="SimHei" />
+          <el-option label="楷体" value="KaiTi" />
+          <el-option label="仿宋" value="FangSong" />
+          <el-option label="思源黑体" value="SourceHanSans" />
+          <el-option label="思源宋体" value="SourceHanSerif" />
+          <el-option label="苹方" value="PingFang" />
+        </el-select>
+        <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
+          <el-option label="12px" value="12px" />
+          <el-option label="13px" value="13px" />
+          <el-option label="14px" value="14px" />
+          <el-option label="15px" value="15px" />
+          <el-option label="16px" value="16px" />
+          <el-option label="18px" value="18px" />
+          <el-option label="20px" value="20px" />
+          <el-option label="22px" value="22px" />
+          <el-option label="24px" value="24px" />
+        </el-select>
+        <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
+          <el-option label="1.2" value="1.2" />
+          <el-option label="1.3" value="1.3" />
+          <el-option label="1.4" value="1.4" />
+          <el-option label="1.5" value="1.5" />
+          <el-option label="1.6" value="1.6" />
+          <el-option label="1.8" value="1.8" />
+          <el-option label="2" value="2" />
+        </el-select>
+        <el-button
+          class="toolbar-item"
+          size="small"
+          :type="isBold ? 'primary' : 'default'"
+          @click="toggleBold"
+        >
+          <b>B</b>
+        </el-button>
+        <el-button
+          class="toolbar-item"
+          size="small"
+          :type="isItalic ? 'primary' : 'default'"
+          @click="toggleItalic"
+        >
+          <i>I</i>
+        </el-button>
+        <el-button size="small" class="toolbar-item" @click="copyContent">
+          <el-icon><DocumentCopy /></el-icon>
+        </el-button>
+        <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
+          <el-icon><Search /></el-icon>
+        </el-button>
+      </div>
+      <div class="toolbar-right">
+        <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
+        <el-button size="small" class="toolbar-item" @click="saveContent">
+          <SvgIcon name="save" />
+        </el-button>
+        <el-button size="small" class="toolbar-item" @click="clickExport">
+          <SvgIcon name="export" />
+        </el-button>
+      </div>
     </div>
     <!-- 章节标题 -->
     <div class="chapter-title">
@@ -508,6 +515,11 @@ async function saveContent() {
   await saveFile(true)
 }
 
+// 导出书籍全部内容
+function clickExport() {
+  console.log('导出书籍全部内容')
+}
+
 // 搜索面板控制
 function toggleSearchPanel() {
   searchPanelVisible.value = !searchPanelVisible.value
@@ -668,10 +680,17 @@ watch(
 .editor-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 8px 15px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-soft);
+  .toolbar-left,
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 }
 .toolbar-item {
   margin: 0;
