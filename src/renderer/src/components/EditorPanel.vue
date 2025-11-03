@@ -3,67 +3,85 @@
     <!-- 菜单栏 -->
     <div class="editor-toolbar">
       <div class="toolbar-left">
-        <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
-          <el-option label="默认" value="inherit" />
-          <el-option label="宋体" value="SimSun" />
-          <el-option label="黑体" value="SimHei" />
-          <el-option label="楷体" value="KaiTi" />
-          <el-option label="仿宋" value="FangSong" />
-          <el-option label="思源黑体" value="SourceHanSans" />
-          <el-option label="思源宋体" value="SourceHanSerif" />
-          <el-option label="苹方" value="PingFang" />
-        </el-select>
-        <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
-          <el-option label="12px" value="12px" />
-          <el-option label="13px" value="13px" />
-          <el-option label="14px" value="14px" />
-          <el-option label="15px" value="15px" />
-          <el-option label="16px" value="16px" />
-          <el-option label="18px" value="18px" />
-          <el-option label="20px" value="20px" />
-          <el-option label="22px" value="22px" />
-          <el-option label="24px" value="24px" />
-        </el-select>
-        <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
-          <el-option label="1.2" value="1.2" />
-          <el-option label="1.3" value="1.3" />
-          <el-option label="1.4" value="1.4" />
-          <el-option label="1.5" value="1.5" />
-          <el-option label="1.6" value="1.6" />
-          <el-option label="1.8" value="1.8" />
-          <el-option label="2" value="2" />
-        </el-select>
-        <el-button
-          class="toolbar-item"
-          size="small"
-          :type="isBold ? 'primary' : 'default'"
-          @click="toggleBold"
-        >
-          <b>B</b>
-        </el-button>
-        <el-button
-          class="toolbar-item"
-          size="small"
-          :type="isItalic ? 'primary' : 'default'"
-          @click="toggleItalic"
-        >
-          <i>I</i>
-        </el-button>
-        <el-button size="small" class="toolbar-item" @click="copyContent">
-          <el-icon><DocumentCopy /></el-icon>
-        </el-button>
-        <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
-          <el-icon><Search /></el-icon>
-        </el-button>
+        <el-tooltip content="字体" placement="bottom" :show-after="2000">
+          <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
+            <el-option label="默认" value="inherit" />
+            <el-option label="宋体" value="SimSun" />
+            <el-option label="黑体" value="SimHei" />
+            <el-option label="楷体" value="KaiTi" />
+            <el-option label="仿宋" value="FangSong" />
+            <el-option label="思源黑体" value="SourceHanSans" />
+            <el-option label="思源宋体" value="SourceHanSerif" />
+            <el-option label="苹方" value="PingFang" />
+          </el-select>
+        </el-tooltip>
+        <el-tooltip content="字号" placement="bottom" :show-after="2000">
+          <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
+            <el-option label="12px" value="12px" />
+            <el-option label="13px" value="13px" />
+            <el-option label="14px" value="14px" />
+            <el-option label="15px" value="15px" />
+            <el-option label="16px" value="16px" />
+            <el-option label="18px" value="18px" />
+            <el-option label="20px" value="20px" />
+            <el-option label="22px" value="22px" />
+            <el-option label="24px" value="24px" />
+          </el-select>
+        </el-tooltip>
+        <el-tooltip content="行高" placement="bottom" :show-after="2000">
+          <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
+            <el-option label="1.2" value="1.2" />
+            <el-option label="1.3" value="1.3" />
+            <el-option label="1.4" value="1.4" />
+            <el-option label="1.5" value="1.5" />
+            <el-option label="1.6" value="1.6" />
+            <el-option label="1.8" value="1.8" />
+            <el-option label="2" value="2" />
+          </el-select>
+        </el-tooltip>
+        <el-tooltip content="加粗" placement="bottom" :show-after="2000">
+          <el-button
+            class="toolbar-item"
+            size="small"
+            :type="isBold ? 'primary' : 'default'"
+            @click="toggleBold"
+          >
+            <b>B</b>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="倾斜" placement="bottom" :show-after="2000">
+          <el-button
+            class="toolbar-item"
+            size="small"
+            :type="isItalic ? 'primary' : 'default'"
+            @click="toggleItalic"
+          >
+            <i>I</i>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="复制" placement="bottom" :show-after="2000">
+          <el-button size="small" class="toolbar-item" @click="copyContent">
+            <el-icon><DocumentCopy /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="搜索" placement="bottom" :show-after="2000">
+          <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
+            <el-icon><Search /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
       <div class="toolbar-right">
         <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
-        <el-button size="small" class="toolbar-item" @click="saveContent">
-          <SvgIcon name="save" />
-        </el-button>
-        <el-button size="small" class="toolbar-item" @click="clickExport">
-          <SvgIcon name="export" />
-        </el-button>
+        <el-tooltip content="保存" placement="bottom" :show-after="2000">
+          <el-button size="small" class="toolbar-item" @click="saveContent">
+            <SvgIcon name="save" />
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="导出" placement="bottom" :show-after="2000">
+          <el-button size="small" class="toolbar-item" @click="clickExport">
+            <SvgIcon name="export" />
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
     <!-- 章节标题 -->
