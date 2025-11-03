@@ -4,7 +4,7 @@
     <div class="editor-toolbar">
       <div class="toolbar-left">
         <el-tooltip content="字体" placement="bottom" :show-after="2000">
-          <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 110px">
+          <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 85px">
             <el-option label="默认" value="inherit" />
             <el-option label="宋体" value="SimSun" />
             <el-option label="黑体" value="SimHei" />
@@ -16,7 +16,7 @@
           </el-select>
         </el-tooltip>
         <el-tooltip content="字号" placement="bottom" :show-after="2000">
-          <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 80px">
+          <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 65px">
             <el-option label="12px" value="12px" />
             <el-option label="13px" value="13px" />
             <el-option label="14px" value="14px" />
@@ -29,7 +29,7 @@
           </el-select>
         </el-tooltip>
         <el-tooltip content="行高" placement="bottom" :show-after="2000">
-          <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 60px">
+          <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 50px">
             <el-option label="1.2" value="1.2" />
             <el-option label="1.3" value="1.3" />
             <el-option label="1.4" value="1.4" />
@@ -74,12 +74,12 @@
         <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
         <el-tooltip content="保存" placement="bottom" :show-after="2000">
           <el-button size="small" class="toolbar-item" @click="saveContent">
-            <SvgIcon name="save" />
+            <SvgIcon name="save" :size="12" />
           </el-button>
         </el-tooltip>
         <el-tooltip content="导出" placement="bottom" :show-after="2000">
           <el-button size="small" class="toolbar-item" @click="clickExport">
-            <SvgIcon name="export" />
+            <SvgIcon name="export" :size="12" />
           </el-button>
         </el-tooltip>
       </div>
