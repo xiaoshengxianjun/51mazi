@@ -99,7 +99,7 @@
     </div>
     <div class="editor-stats">
       <span class="word-count">章节字数：{{ contentWordCount }}字</span>
-      <span v-if="typingSpeed.perMinute > 0" class="typing-speed">
+      <span class="typing-speed">
         码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
       </span>
     </div>
@@ -158,6 +158,9 @@ const align = ref('left')
 const editor = ref(null)
 let saveTimer = null
 let styleUpdateTimer = null
+let isComposing = false // 是否正在进行输入法输入（composition）
+let compositionStartHandler = null
+let compositionEndHandler = null
 
 // 搜索面板状态
 const searchPanelVisible = ref(false)
@@ -382,8 +385,12 @@ onMounted(async () => {
     },
     onUpdate: ({ editor }) => {
       const content = editor.getText()
-      editorStore.setContent(content)
-      // 防抖保存
+      // 如果正在进行输入法输入（composition），不更新字数统计
+      // 等待compositionend事件后再更新
+      if (!isComposing) {
+        editorStore.setContent(content)
+      }
+      // 防抖保存（无论是否在composition状态都保存内容）
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(() => {
         autoSaveContent()
@@ -449,6 +456,28 @@ onMounted(async () => {
     editorStore.startEditingSession(initialContent)
   }
 
+  // 监听输入法事件，处理中文输入
+  if (editor.value && editor.value.view && editor.value.view.dom) {
+    const editorElement = editor.value.view.dom
+
+    // compositionstart: 开始输入法输入
+    compositionStartHandler = () => {
+      isComposing = true
+    }
+    editorElement.addEventListener('compositionstart', compositionStartHandler)
+
+    // compositionend: 输入法确认（回车或选择）
+    compositionEndHandler = () => {
+      isComposing = false
+      // 输入法确认后，立即更新字数统计
+      if (editor.value) {
+        const content = editor.value.getText()
+        editorStore.setContent(content)
+      }
+    }
+    editorElement.addEventListener('compositionend', compositionEndHandler)
+  }
+
   // 添加键盘事件监听器
   document.addEventListener('keydown', handleKeydown)
 
@@ -459,6 +488,17 @@ onMounted(async () => {
 onBeforeUnmount(async () => {
   // 移除窗口关闭监听器
   window.removeEventListener('beforeunload', handleWindowClose)
+
+  // 移除输入法事件监听器
+  if (editor.value && editor.value.view && editor.value.view.dom) {
+    const editorElement = editor.value.view.dom
+    if (compositionStartHandler) {
+      editorElement.removeEventListener('compositionstart', compositionStartHandler)
+    }
+    if (compositionEndHandler) {
+      editorElement.removeEventListener('compositionend', compositionEndHandler)
+    }
+  }
 
   if (saveTimer) clearTimeout(saveTimer)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
@@ -858,10 +898,10 @@ watch(
   min-height: 28px;
   width: 100%;
   line-height: 28px;
-  padding: 8px 15px;
+  padding: 0px 15px;
   border-top: 1px solid var(--border-color);
   background-color: var(--bg-mute);
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;

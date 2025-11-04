@@ -334,6 +334,10 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   editorWindow.on('closed', () => {
     bookEditorWindows.delete(id)
   })
+  // 页面加载完成后，确保窗口标题正确显示书籍名称
+  editorWindow.webContents.on('did-finish-load', () => {
+    editorWindow.setTitle(`${name} - 51码字`)
+  })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     // 直接跳转到编辑页
     editorWindow.loadURL(
