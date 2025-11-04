@@ -111,7 +111,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -119,6 +119,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import { useEditorStore } from '@renderer/stores/editor'
 import { Extension } from '@tiptap/core'
+import dayjs from 'dayjs'
 import { Collapsible } from '@renderer/extensions/Collapsible'
 import SearchPanel from './SearchPanel.vue'
 
@@ -534,8 +535,126 @@ async function saveContent() {
 }
 
 // 导出书籍全部内容
-function clickExport() {
-  console.log('导出书籍全部内容')
+async function clickExport() {
+  try {
+    // 显示确认对话框
+    await ElMessageBox.confirm('本操作会将正文下所有章节导出到一个文件，是否继续？', '导出确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    // 生成时间戳：YYMMDDHHmm（例如：2511041729 表示 2025年11月04日17点29分）
+    const timestamp = dayjs().format('YYMMDDHHmm')
+
+    // 用户确认后，显示保存文件对话框
+    const saveResult = await window.electron.showSaveDialog({
+      title: '导出章节',
+      defaultPath: `${props.bookName}_${timestamp}.txt`,
+      filters: [{ name: '文本文件', extensions: ['txt'] }],
+      buttonLabel: '保存'
+    })
+
+    if (!saveResult || !saveResult.filePath) {
+      // 用户取消了保存
+      return
+    }
+
+    // 显示加载提示
+    const loadingMessage = ElMessage({
+      message: '正在导出章节，请稍候...',
+      type: 'info',
+      duration: 0,
+      showClose: false
+    })
+
+    try {
+      // 加载所有章节数据
+      const chapters = await window.electron.loadChapters(props.bookName)
+
+      if (!chapters || chapters.length === 0) {
+        loadingMessage.close()
+        ElMessage.warning('没有找到任何章节')
+        return
+      }
+
+      // 收集所有章节内容
+      const allContent = []
+      let totalChapters = 0
+
+      // 遍历所有卷和章节
+      for (const volume of chapters) {
+        if (volume.type === 'volume' && volume.children && volume.children.length > 0) {
+          // 添加卷标题
+          allContent.push(`\n${'='.repeat(50)}`)
+          allContent.push(`【${volume.name}】`)
+          allContent.push(`${'='.repeat(50)}\n`)
+
+          // 遍历该卷下的所有章节
+          for (const chapter of volume.children) {
+            if (chapter.type === 'chapter') {
+              try {
+                // 读取章节内容
+                const result = await window.electron.readChapter(
+                  props.bookName,
+                  volume.name,
+                  chapter.name
+                )
+
+                if (result.success && result.content) {
+                  // 添加章节标题
+                  allContent.push(`\n${'-'.repeat(40)}`)
+                  allContent.push(`${chapter.name}`)
+                  allContent.push(`${'-'.repeat(40)}\n`)
+                  // 添加章节内容
+                  allContent.push(result.content)
+                  allContent.push('\n')
+                  totalChapters++
+                }
+              } catch (error) {
+                console.error(`读取章节 ${chapter.name} 失败:`, error)
+                // 继续处理其他章节
+              }
+            }
+          }
+        }
+      }
+
+      if (totalChapters === 0) {
+        loadingMessage.close()
+        ElMessage.warning('没有找到任何可导出的章节内容')
+        return
+      }
+
+      // 合并所有内容
+      const finalContent = allContent.join('\n')
+
+      // 写入文件（通过 IPC 调用主进程写入）
+      const writeResult = await window.electron.writeExportFile({
+        filePath: saveResult.filePath,
+        content: finalContent
+      })
+
+      if (!writeResult || !writeResult.success) {
+        loadingMessage.close()
+        ElMessage.error(writeResult?.message || '写入文件失败')
+        return
+      }
+
+      loadingMessage.close()
+      ElMessage.success(`导出成功！共导出 ${totalChapters} 个章节`)
+    } catch (error) {
+      loadingMessage.close()
+      console.error('导出失败:', error)
+      ElMessage.error('导出失败：' + (error.message || '未知错误'))
+    }
+  } catch (error) {
+    // 用户取消了确认对话框
+    if (error !== 'cancel') {
+      console.error('导出操作失败:', error)
+      ElMessage.error('导出操作失败：' + (error.message || '未知错误'))
+    }
+  }
 }
 
 // 搜索面板控制

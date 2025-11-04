@@ -137,6 +137,33 @@ ipcMain.handle('select-image', async () => {
   return null
 })
 
+// 选择保存文件路径
+ipcMain.handle('show-save-dialog', async (event, options) => {
+  const result = await dialog.showSaveDialog({
+    title: options.title || '保存文件',
+    defaultPath: options.defaultPath || '',
+    filters: options.filters || [{ name: '文本文件', extensions: ['txt'] }],
+    buttonLabel: options.buttonLabel || '保存'
+  })
+
+  if (!result.canceled && result.filePath) {
+    return { filePath: result.filePath }
+  }
+
+  return null
+})
+
+// 写入导出文件
+ipcMain.handle('write-export-file', async (event, { filePath, content }) => {
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('写入导出文件失败:', error)
+    return { success: false, message: error.message || '写入文件失败' }
+  }
+})
+
 // 创建书籍
 ipcMain.handle('create-book', async (event, bookInfo) => {
   // 1. 处理文件夹名合法性

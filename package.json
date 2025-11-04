@@ -29,6 +29,7 @@
     "@tiptap/extension-text-align": "^3.7.0",
     "@tiptap/starter-kit": "^3.7.0",
     "@tiptap/vue-3": "^3.7.0",
+    "dayjs": "^1.11.19",
     "echarts": "^6.0.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",

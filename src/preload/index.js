@@ -16,6 +16,10 @@ if (process.contextIsolated) {
       selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
       // 选择图片文件
       selectImage: () => ipcRenderer.invoke('select-image'),
+      // 显示保存文件对话框
+      showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+      // 写入导出文件
+      writeExportFile: (data) => ipcRenderer.invoke('write-export-file', data),
       // 创建书籍
       createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
       // 读取书籍目录
