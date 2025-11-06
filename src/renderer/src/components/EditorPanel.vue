@@ -215,12 +215,14 @@ watch(
   () => editorStore.file,
   (newFile, oldFile) => {
     if (editor.value && newFile?.path !== oldFile?.path) {
-      // 文件变化时，重新设置内容并开始编辑会话
+      // 文件变化时，先开始编辑会话（设置初始化标志），再设置内容
       const newContent = editorStore.content || ''
-      editor.value.commands.setContent(plainTextToHtml(newContent))
 
-      // 重新开始编辑会话
+      // 先开始编辑会话，设置 isInitializing = true，避免加载已有内容时被计入码字速度
       editorStore.startEditingSession(newContent)
+
+      // 然后设置内容（此时 isInitializing = true，不会记录到全局历史）
+      editor.value.commands.setContent(plainTextToHtml(newContent))
 
       // 更新样式
       updateEditorStyle()
@@ -388,7 +390,9 @@ onMounted(async () => {
       // 如果正在进行输入法输入（composition），不更新字数统计
       // 等待compositionend事件后再更新
       if (!isComposing) {
-        editorStore.setContent(content)
+        // 如果正在初始化，跳过记录（避免加载已有内容时被误计入码字速度）
+        const skipRecord = editorStore.isInitializing
+        editorStore.setContent(content, skipRecord)
       }
       // 防抖保存（无论是否在composition状态都保存内容）
       if (saveTimer) clearTimeout(saveTimer)
@@ -405,6 +409,12 @@ onMounted(async () => {
 
   // 设置初始内容
   const initialContent = editorStore.content || ''
+
+  // 如果有初始内容，先开始编辑会话（设置初始化标志），再设置内容
+  if (initialContent) {
+    editorStore.startEditingSession(initialContent)
+  }
+
   editor.value.commands.setContent(plainTextToHtml(initialContent))
 
   // 等待DOM渲染完成后应用样式
@@ -451,10 +461,7 @@ onMounted(async () => {
     }
   }
 
-  // 如果有初始内容，则开始编辑会话
-  if (initialContent) {
-    editorStore.startEditingSession(initialContent)
-  }
+  // 注意：startEditingSession 已经在上面调用过了，这里不需要重复调用
 
   // 监听输入法事件，处理中文输入
   if (editor.value && editor.value.view && editor.value.view.dom) {
@@ -472,7 +479,9 @@ onMounted(async () => {
       // 输入法确认后，立即更新字数统计
       if (editor.value) {
         const content = editor.value.getText()
-        editorStore.setContent(content)
+        // 如果正在初始化，跳过记录（避免加载已有内容时被误计入码字速度）
+        const skipRecord = editorStore.isInitializing
+        editorStore.setContent(content, skipRecord)
       }
     }
     editorElement.addEventListener('compositionend', compositionEndHandler)
