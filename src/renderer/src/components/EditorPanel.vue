@@ -98,10 +98,15 @@
       <EditorContent :editor="editor" />
     </div>
     <div class="editor-stats">
-      <span class="word-count">章节字数：{{ contentWordCount }}字</span>
-      <span class="typing-speed">
-        码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
-      </span>
+      <div class="editor-stats-left">
+        <span class="word-count">章节字数：{{ contentWordCount }}字</span>
+        <span class="book-word-count">书籍字数：{{ bookTotalWords }}字</span>
+      </div>
+      <div class="editor-stats-right">
+        <span class="typing-speed">
+          码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
+        </span>
+      </div>
     </div>
 
     <!-- 搜索面板 -->
@@ -130,8 +135,18 @@ const props = defineProps({
 })
 
 // 计算属性
-const typingSpeed = computed(() => editorStore.typingSpeed)
 const contentWordCount = computed(() => editorStore.contentWordCount)
+
+// 书籍总字数
+const bookTotalWords = ref(0)
+// 书籍总字数历史记录（用于计算码字速度）
+const bookWordCountHistory = ref([]) // 记录书籍总字数变化历史
+// 码字速度
+const typingSpeed = ref({
+  perMinute: 0,
+  perHour: 0
+})
+let typingSpeedTimer = null // 码字速度更新定时器
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -210,10 +225,111 @@ function updateEditorStyle() {
   }
 }
 
+// 加载书籍总字数
+async function loadBookTotalWords() {
+  if (!props.bookName) return
+  try {
+    // 通过读取书籍目录获取总字数
+    const books = await window.electron.readBooksDir()
+    const book = books.find((b) => b.name === props.bookName)
+    if (book && book.totalWords !== undefined) {
+      bookTotalWords.value = book.totalWords
+    } else {
+      // 如果找不到，尝试通过 getBookWordCount 获取
+      const totalWords = await window.electron.getBookWordCount(props.bookName)
+      if (totalWords !== undefined) {
+        bookTotalWords.value = totalWords
+      }
+    }
+  } catch (error) {
+    console.error('加载书籍总字数失败:', error)
+  }
+}
+
+// 更新书籍总字数（基于增量）
+function updateBookTotalWords(oldChapterWords, newChapterWords, isInitialLoad = false) {
+  const wordChange = newChapterWords - oldChapterWords
+  const oldTotalWords = bookTotalWords.value
+  bookTotalWords.value = Math.max(0, bookTotalWords.value + wordChange)
+  const newTotalWords = bookTotalWords.value
+
+  // 如果是章节，且字数有变化，且不是初始加载，记录到历史（用于计算码字速度）
+  if (editorStore.file?.type === 'chapter' && wordChange !== 0 && !isInitialLoad) {
+    const now = Date.now()
+    bookWordCountHistory.value.push({
+      timestamp: now,
+      oldTotalWords,
+      newTotalWords,
+      delta: wordChange,
+      type: wordChange > 0 ? 'add' : 'delete'
+    })
+
+    // 清理历史记录：只保留最近1小时的数据
+    const oneHourAgo = now - 3600000
+    bookWordCountHistory.value = bookWordCountHistory.value.filter(
+      (change) => change.timestamp >= oneHourAgo
+    )
+
+    // 防抖更新码字速度
+    debouncedUpdateTypingSpeed()
+  }
+}
+
+// 更新码字速度（基于书籍总字数变化）
+function updateTypingSpeed() {
+  const now = Date.now()
+
+  // 如果没有历史记录，返回0
+  if (bookWordCountHistory.value.length === 0) {
+    typingSpeed.value = {
+      perMinute: 0,
+      perHour: 0
+    }
+    return
+  }
+
+  // 计算最近1分钟（60秒）内的新增字数
+  const oneMinuteAgo = now - 60000
+  const recentOneMinuteChanges = bookWordCountHistory.value.filter(
+    (change) => change.timestamp >= oneMinuteAgo && change.type === 'add'
+  )
+  const wordsAddedInOneMinute = recentOneMinuteChanges.reduce(
+    (total, change) => total + change.delta,
+    0
+  )
+
+  // 计算最近1小时（3600秒）内的新增字数
+  const oneHourAgo = now - 3600000
+  const recentOneHourChanges = bookWordCountHistory.value.filter(
+    (change) => change.timestamp >= oneHourAgo && change.type === 'add'
+  )
+  const wordsAddedInOneHour = recentOneHourChanges.reduce(
+    (total, change) => total + change.delta,
+    0
+  )
+
+  // 最近1分钟的新增字数 = 每分钟速度
+  // 最近1小时的新增字数 = 每小时速度
+  typingSpeed.value = {
+    perMinute: wordsAddedInOneMinute > 0 ? wordsAddedInOneMinute : 0,
+    perHour: wordsAddedInOneHour > 0 ? wordsAddedInOneHour : 0
+  }
+}
+
+// 防抖更新码字速度
+function debouncedUpdateTypingSpeed() {
+  if (typingSpeedTimer) {
+    clearTimeout(typingSpeedTimer)
+  }
+  typingSpeedTimer = setTimeout(() => {
+    updateTypingSpeed()
+  }, 1000) // 1秒后更新
+}
+
 // 监听 store 内容变化，回显到编辑器
 watch(
   () => editorStore.file,
-  (newFile, oldFile) => {
+  async (newFile, oldFile) => {
     if (editor.value && newFile?.path !== oldFile?.path) {
       // 文件变化时，先开始编辑会话（设置初始化标志），再设置内容
       const newContent = editorStore.content || ''
@@ -223,6 +339,11 @@ watch(
 
       // 然后设置内容（此时 isInitializing = true，不会记录到全局历史）
       editor.value.commands.setContent(plainTextToHtml(newContent))
+
+      // 加载书籍总字数（如果是新文件）
+      if (newFile?.type === 'chapter') {
+        await loadBookTotalWords()
+      }
 
       // 更新样式
       updateEditorStyle()
@@ -259,19 +380,41 @@ watch(
   }
 )
 
-// 监听内容变化，确保编辑会话正确初始化
+// 监听内容变化，确保编辑会话正确初始化，并同步更新书籍总字数
 watch(
   () => editorStore.content,
   (newContent, oldContent) => {
     // 如果编辑器已经初始化且内容发生变化
     if (editor.value && newContent !== oldContent) {
+      // 在调用 startEditingSession 之前捕获 isInitializing 状态
+      // 因为 startEditingSession 会设置 isInitializing = true
+      const isInitialLoadBeforeSession = editorStore.isInitializing
+
       // 如果还没有开始编辑会话，则开始
       if (!editorStore.sessionStartTime) {
         editorStore.startEditingSession(newContent)
       }
+
+      // 如果是章节，同步更新书籍总字数
+      // 使用之前捕获的 isInitializing 状态，而不是调用 startEditingSession 后的状态
+      if (editorStore.file?.type === 'chapter') {
+        const oldChapterWords = getContentWordCount(oldContent)
+        const newChapterWords = contentWordCount.value
+
+        // 使用 nextTick 确保在 DOM 更新后执行，但状态已经在 watch 中捕获
+        nextTick(() => {
+          updateBookTotalWords(oldChapterWords, newChapterWords, isInitialLoadBeforeSession)
+        })
+      }
     }
   }
 )
+
+// 辅助函数：计算内容字数（排除换行符等格式字符）
+function getContentWordCount(text) {
+  if (!text) return 0
+  return text.replace(/[\n\r\t]/g, '').length
+}
 
 // 支持Tab键插入制表符
 const TabInsert = Extension.create({
@@ -329,6 +472,9 @@ function handleWindowClose() {
 }
 
 onMounted(async () => {
+  // 加载书籍总字数
+  await loadBookTotalWords()
+
   // 加载编辑器设置
   await editorStore.loadEditorSettings()
 
@@ -390,9 +536,7 @@ onMounted(async () => {
       // 如果正在进行输入法输入（composition），不更新字数统计
       // 等待compositionend事件后再更新
       if (!isComposing) {
-        // 如果正在初始化，跳过记录（避免加载已有内容时被误计入码字速度）
-        const skipRecord = editorStore.isInitializing
-        editorStore.setContent(content, skipRecord)
+        editorStore.setContent(content)
       }
       // 防抖保存（无论是否在composition状态都保存内容）
       if (saveTimer) clearTimeout(saveTimer)
@@ -479,9 +623,7 @@ onMounted(async () => {
       // 输入法确认后，立即更新字数统计
       if (editor.value) {
         const content = editor.value.getText()
-        // 如果正在初始化，跳过记录（避免加载已有内容时被误计入码字速度）
-        const skipRecord = editorStore.isInitializing
-        editorStore.setContent(content, skipRecord)
+        editorStore.setContent(content)
       }
     }
     editorElement.addEventListener('compositionend', compositionEndHandler)
@@ -562,7 +704,11 @@ async function saveFile(showMessage = false) {
       volumeName: file.volume,
       chapterName: file.name
     })
-    if (showMessage && result.success) emit('refresh-chapters')
+    if (showMessage && result.success) {
+      emit('refresh-chapters')
+      // 保存成功后，重新加载书籍总字数（确保与服务器同步）
+      await loadBookTotalWords()
+    }
   }
 
   if (result?.success) {
@@ -916,11 +1062,20 @@ watch(
   justify-content: space-between;
   gap: 20px;
   color: var(--text-base);
-  flex-wrap: wrap;
 
-  .word-count {
-    font-weight: bold;
-    color: var(--primary-color);
+  &-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    > span {
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+  }
+  &-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .typing-speed {
