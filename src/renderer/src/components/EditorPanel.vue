@@ -23,6 +23,12 @@
     <div class="editor-content">
       <EditorContent :editor="editor" />
     </div>
+    <!-- 码字进度 -->
+    <EditorProgress
+      v-if="editorStore.file?.type === 'chapter'"
+      :current-words="contentWordCount"
+      :target-words="2000"
+    />
     <!-- 编辑器统计 -->
     <EditorStats
       ref="editorStatsRef"
@@ -50,6 +56,7 @@ import { Collapsible } from '@renderer/extensions/Collapsible'
 import SearchPanel from './SearchPanel.vue'
 import EditorMenubar from './EditorMenubar.vue'
 import EditorStats from './EditorStats.vue'
+import EditorProgress from './EditorProgress.vue'
 
 const editorStore = useEditorStore()
 
