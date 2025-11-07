@@ -1,89 +1,15 @@
 <template>
   <div class="editor-panel">
     <!-- 菜单栏 -->
-    <div class="editor-toolbar">
-      <div class="toolbar-left">
-        <el-tooltip content="字体" placement="bottom" :show-after="2000">
-          <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 85px">
-            <el-option label="默认" value="inherit" />
-            <el-option label="宋体" value="SimSun" />
-            <el-option label="黑体" value="SimHei" />
-            <el-option label="楷体" value="KaiTi" />
-            <el-option label="仿宋" value="FangSong" />
-            <el-option label="思源黑体" value="SourceHanSans" />
-            <el-option label="思源宋体" value="SourceHanSerif" />
-            <el-option label="苹方" value="PingFang" />
-          </el-select>
-        </el-tooltip>
-        <el-tooltip content="字号" placement="bottom" :show-after="2000">
-          <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 65px">
-            <el-option label="12px" value="12px" />
-            <el-option label="13px" value="13px" />
-            <el-option label="14px" value="14px" />
-            <el-option label="15px" value="15px" />
-            <el-option label="16px" value="16px" />
-            <el-option label="18px" value="18px" />
-            <el-option label="20px" value="20px" />
-            <el-option label="22px" value="22px" />
-            <el-option label="24px" value="24px" />
-          </el-select>
-        </el-tooltip>
-        <el-tooltip content="行高" placement="bottom" :show-after="2000">
-          <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 50px">
-            <el-option label="1.2" value="1.2" />
-            <el-option label="1.3" value="1.3" />
-            <el-option label="1.4" value="1.4" />
-            <el-option label="1.5" value="1.5" />
-            <el-option label="1.6" value="1.6" />
-            <el-option label="1.8" value="1.8" />
-            <el-option label="2" value="2" />
-          </el-select>
-        </el-tooltip>
-        <el-tooltip content="加粗" placement="bottom" :show-after="2000">
-          <el-button
-            class="toolbar-item"
-            size="small"
-            :type="isBold ? 'primary' : 'default'"
-            @click="toggleBold"
-          >
-            <b>B</b>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="倾斜" placement="bottom" :show-after="2000">
-          <el-button
-            class="toolbar-item"
-            size="small"
-            :type="isItalic ? 'primary' : 'default'"
-            @click="toggleItalic"
-          >
-            <i>I</i>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="复制" placement="bottom" :show-after="2000">
-          <el-button size="small" class="toolbar-item" @click="copyContent">
-            <el-icon><DocumentCopy /></el-icon>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="搜索" placement="bottom" :show-after="2000">
-          <el-button size="small" class="toolbar-item" @click="toggleSearchPanel">
-            <el-icon><Search /></el-icon>
-          </el-button>
-        </el-tooltip>
-      </div>
-      <div class="toolbar-right">
-        <!-- <el-button size="small" class="toolbar-item" @click="undo"> 撤销 </el-button> -->
-        <el-tooltip content="保存" placement="bottom" :show-after="2000">
-          <el-button size="small" class="toolbar-item" @click="saveContent">
-            <SvgIcon name="save" :size="12" />
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="导出" placement="bottom" :show-after="2000">
-          <el-button size="small" class="toolbar-item" @click="clickExport">
-            <SvgIcon name="export" :size="12" />
-          </el-button>
-        </el-tooltip>
-      </div>
-    </div>
+    <EditorMenubar
+      v-model="menubarState"
+      :editor="editor"
+      :book-name="bookName"
+      @toggle-search="toggleSearchPanel"
+      @save="saveContent"
+      @export="handleExport"
+      @update-style="handleStyleUpdate"
+    />
     <!-- 章节标题 -->
     <div class="chapter-title">
       <el-input
@@ -97,17 +23,14 @@
     <div class="editor-content">
       <EditorContent :editor="editor" />
     </div>
-    <div class="editor-stats">
-      <div class="editor-stats-left">
-        <span class="word-count">章节字数：{{ contentWordCount }}字</span>
-        <span class="book-word-count">书籍字数：{{ bookTotalWords }}字</span>
-      </div>
-      <div class="editor-stats-right">
-        <span class="typing-speed">
-          码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
-        </span>
-      </div>
-    </div>
+    <!-- 编辑器统计 -->
+    <EditorStats
+      ref="editorStatsRef"
+      :book-name="bookName"
+      :content-word-count="contentWordCount"
+      :file-type="editorStore.file?.type"
+      @update-book-words="handleBookWordsUpdate"
+    />
 
     <!-- 搜索面板 -->
     <SearchPanel :visible="searchPanelVisible" :editor="editor" @close="closeSearchPanel" />
@@ -116,17 +39,17 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { DocumentCopy, Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import { useEditorStore } from '@renderer/stores/editor'
 import { Extension } from '@tiptap/core'
-import dayjs from 'dayjs'
 import { Collapsible } from '@renderer/extensions/Collapsible'
 import SearchPanel from './SearchPanel.vue'
+import EditorMenubar from './EditorMenubar.vue'
+import EditorStats from './EditorStats.vue'
 
 const editorStore = useEditorStore()
 
@@ -137,16 +60,8 @@ const props = defineProps({
 // 计算属性
 const contentWordCount = computed(() => editorStore.contentWordCount)
 
-// 书籍总字数
-const bookTotalWords = ref(0)
-// 书籍总字数历史记录（用于计算码字速度）
-const bookWordCountHistory = ref([]) // 记录书籍总字数变化历史
-// 码字速度
-const typingSpeed = ref({
-  perMinute: 0,
-  perHour: 0
-})
-let typingSpeedTimer = null // 码字速度更新定时器
+// EditorStats 组件引用
+const editorStatsRef = ref(null)
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -165,9 +80,15 @@ const fontFamilyMap = {
   PingFang: "'PingFang SC', '苹方', 'Hiragino Sans GB', 'STHeiti', sans-serif"
 }
 
-const fontFamily = ref('inherit')
-const fontSize = ref('16px')
-const lineHeight = ref('1.6')
+// 菜单栏状态
+const menubarState = ref({
+  fontFamily: 'inherit',
+  fontSize: '16px',
+  lineHeight: '1.6',
+  isBold: false,
+  isItalic: false
+})
+
 const align = ref('left')
 
 const editor = ref(null)
@@ -212,118 +133,43 @@ function updateEditorStyle() {
   const editorElement = editor.value.view.dom
   if (editorElement) {
     // 使用setProperty with 'important' 确保样式优先级最高
-    if (fontFamily.value !== 'inherit') {
+    if (menubarState.value.fontFamily !== 'inherit') {
       // 获取完整的字体族配置（包含回退字体）
-      const fullFontFamily = getFontFamily(fontFamily.value)
+      const fullFontFamily = getFontFamily(menubarState.value.fontFamily)
       editorElement.style.setProperty('font-family', fullFontFamily, 'important')
     } else {
       editorElement.style.removeProperty('font-family')
     }
-    editorElement.style.setProperty('font-size', fontSize.value, 'important')
-    editorElement.style.setProperty('line-height', lineHeight.value, 'important')
+    editorElement.style.setProperty('font-size', menubarState.value.fontSize, 'important')
+    editorElement.style.setProperty('line-height', menubarState.value.lineHeight, 'important')
     editorElement.style.setProperty('text-align', align.value, 'important')
   }
 }
 
-// 加载书籍总字数
-async function loadBookTotalWords() {
-  if (!props.bookName) return
-  try {
-    // 通过读取书籍目录获取总字数
-    const books = await window.electron.readBooksDir()
-    const book = books.find((b) => b.name === props.bookName)
-    if (book && book.totalWords !== undefined) {
-      bookTotalWords.value = book.totalWords
-    } else {
-      // 如果找不到，尝试通过 getBookWordCount 获取
-      const totalWords = await window.electron.getBookWordCount(props.bookName)
-      if (totalWords !== undefined) {
-        bookTotalWords.value = totalWords
-      }
-    }
-  } catch (error) {
-    console.error('加载书籍总字数失败:', error)
-  }
-}
-
-// 更新书籍总字数（基于增量）
-function updateBookTotalWords(oldChapterWords, newChapterWords, isInitialLoad = false) {
-  const wordChange = newChapterWords - oldChapterWords
-  const oldTotalWords = bookTotalWords.value
-  bookTotalWords.value = Math.max(0, bookTotalWords.value + wordChange)
-  const newTotalWords = bookTotalWords.value
-
-  // 如果是章节，且字数有变化，且不是初始加载，记录到历史（用于计算码字速度）
-  if (editorStore.file?.type === 'chapter' && wordChange !== 0 && !isInitialLoad) {
-    const now = Date.now()
-    bookWordCountHistory.value.push({
-      timestamp: now,
-      oldTotalWords,
-      newTotalWords,
-      delta: wordChange,
-      type: wordChange > 0 ? 'add' : 'delete'
+// 处理样式更新
+function handleStyleUpdate() {
+  updateEditorStyle()
+  // 防抖保存设置
+  if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
+  styleUpdateTimer = setTimeout(() => {
+    editorStore.saveEditorSettings({
+      fontFamily: menubarState.value.fontFamily,
+      fontSize: menubarState.value.fontSize,
+      lineHeight: menubarState.value.lineHeight,
+      globalBoldMode: menubarState.value.isBold,
+      globalItalicMode: menubarState.value.isItalic
     })
-
-    // 清理历史记录：只保留最近1小时的数据
-    const oneHourAgo = now - 3600000
-    bookWordCountHistory.value = bookWordCountHistory.value.filter(
-      (change) => change.timestamp >= oneHourAgo
-    )
-
-    // 防抖更新码字速度
-    debouncedUpdateTypingSpeed()
-  }
+  }, 500)
 }
 
-// 更新码字速度（基于书籍总字数变化）
-function updateTypingSpeed() {
-  const now = Date.now()
-
-  // 如果没有历史记录，返回0
-  if (bookWordCountHistory.value.length === 0) {
-    typingSpeed.value = {
-      perMinute: 0,
-      perHour: 0
-    }
-    return
-  }
-
-  // 计算最近1分钟（60秒）内的新增字数
-  const oneMinuteAgo = now - 60000
-  const recentOneMinuteChanges = bookWordCountHistory.value.filter(
-    (change) => change.timestamp >= oneMinuteAgo && change.type === 'add'
-  )
-  const wordsAddedInOneMinute = recentOneMinuteChanges.reduce(
-    (total, change) => total + change.delta,
-    0
-  )
-
-  // 计算最近1小时（3600秒）内的新增字数
-  const oneHourAgo = now - 3600000
-  const recentOneHourChanges = bookWordCountHistory.value.filter(
-    (change) => change.timestamp >= oneHourAgo && change.type === 'add'
-  )
-  const wordsAddedInOneHour = recentOneHourChanges.reduce(
-    (total, change) => total + change.delta,
-    0
-  )
-
-  // 最近1分钟的新增字数 = 每分钟速度
-  // 最近1小时的新增字数 = 每小时速度
-  typingSpeed.value = {
-    perMinute: wordsAddedInOneMinute > 0 ? wordsAddedInOneMinute : 0,
-    perHour: wordsAddedInOneHour > 0 ? wordsAddedInOneHour : 0
-  }
+// 处理导出事件
+function handleExport() {
+  // 导出功能已在 EditorMenubar 组件中实现，这里只需要处理事件
 }
 
-// 防抖更新码字速度
-function debouncedUpdateTypingSpeed() {
-  if (typingSpeedTimer) {
-    clearTimeout(typingSpeedTimer)
-  }
-  typingSpeedTimer = setTimeout(() => {
-    updateTypingSpeed()
-  }, 1000) // 1秒后更新
+// 处理书籍总字数更新
+function handleBookWordsUpdate() {
+  // 书籍总字数由 EditorStats 组件管理，这里可以处理其他逻辑
 }
 
 // 监听 store 内容变化，回显到编辑器
@@ -340,10 +186,7 @@ watch(
       // 然后设置内容（此时 isInitializing = true，不会记录到全局历史）
       editor.value.commands.setContent(plainTextToHtml(newContent))
 
-      // 加载书籍总字数（如果是新文件）
-      if (newFile?.type === 'chapter') {
-        await loadBookTotalWords()
-      }
+      // 书籍总字数由 EditorStats 组件通过 watch fileType 自动加载
 
       // 更新样式
       updateEditorStyle()
@@ -354,17 +197,17 @@ watch(
         const docSize = editor.value.state.doc.content.size
         if (docSize === 0) return
 
-        if (globalBoldMode.value || globalItalicMode.value) {
+        if (menubarState.value.isBold || menubarState.value.isItalic) {
           setTimeout(() => {
             if (!editor.value) return
             const currentDocSize = editor.value.state.doc.content.size
             if (currentDocSize === 0) return
 
             let chain = editor.value.chain().focus().selectAll()
-            if (globalBoldMode.value) {
+            if (menubarState.value.isBold) {
               chain = chain.setBold()
             }
-            if (globalItalicMode.value) {
+            if (menubarState.value.isItalic) {
               chain = chain.setItalic()
             }
             chain.run()
@@ -386,35 +229,15 @@ watch(
   (newContent, oldContent) => {
     // 如果编辑器已经初始化且内容发生变化
     if (editor.value && newContent !== oldContent) {
-      // 在调用 startEditingSession 之前捕获 isInitializing 状态
-      // 因为 startEditingSession 会设置 isInitializing = true
-      const isInitialLoadBeforeSession = editorStore.isInitializing
-
       // 如果还没有开始编辑会话，则开始
       if (!editorStore.sessionStartTime) {
         editorStore.startEditingSession(newContent)
       }
 
-      // 如果是章节，同步更新书籍总字数
-      // 使用之前捕获的 isInitializing 状态，而不是调用 startEditingSession 后的状态
-      if (editorStore.file?.type === 'chapter') {
-        const oldChapterWords = getContentWordCount(oldContent)
-        const newChapterWords = contentWordCount.value
-
-        // 使用 nextTick 确保在 DOM 更新后执行，但状态已经在 watch 中捕获
-        nextTick(() => {
-          updateBookTotalWords(oldChapterWords, newChapterWords, isInitialLoadBeforeSession)
-        })
-      }
+      // 书籍总字数更新由 EditorStats 组件通过 watch contentWordCount 自动处理
     }
   }
 )
-
-// 辅助函数：计算内容字数（排除换行符等格式字符）
-function getContentWordCount(text) {
-  if (!text) return 0
-  return text.replace(/[\n\r\t]/g, '').length
-}
 
 // 支持Tab键插入制表符
 const TabInsert = Extension.create({
@@ -455,11 +278,11 @@ function handleWindowClose() {
   // 同步保存编辑器设置（窗口关闭时无法使用 async/await）
   editorStore
     .saveEditorSettings({
-      fontFamily: fontFamily.value,
-      fontSize: fontSize.value,
-      lineHeight: lineHeight.value,
-      globalBoldMode: globalBoldMode.value,
-      globalItalicMode: globalItalicMode.value
+      fontFamily: menubarState.value.fontFamily,
+      fontSize: menubarState.value.fontSize,
+      lineHeight: menubarState.value.lineHeight,
+      globalBoldMode: menubarState.value.isBold,
+      globalItalicMode: menubarState.value.isItalic
     })
     .catch((error) => {
       console.error('保存编辑器设置失败:', error)
@@ -472,8 +295,7 @@ function handleWindowClose() {
 }
 
 onMounted(async () => {
-  // 加载书籍总字数
-  await loadBookTotalWords()
+  // 书籍总字数由 EditorStats 组件通过 watch fileType 自动加载
 
   // 加载编辑器设置
   await editorStore.loadEditorSettings()
@@ -482,25 +304,19 @@ onMounted(async () => {
   if (editorStore.editorSettings) {
     const settings = editorStore.editorSettings
     // 只在值为 undefined 或 null 时才使用默认值，避免覆盖空字符串等有效值
-    fontFamily.value =
-      settings.fontFamily !== undefined && settings.fontFamily !== null
-        ? settings.fontFamily
-        : 'inherit'
-    fontSize.value =
-      settings.fontSize !== undefined && settings.fontSize !== null ? settings.fontSize : '16px'
-    lineHeight.value =
-      settings.lineHeight !== undefined && settings.lineHeight !== null
-        ? settings.lineHeight
-        : '1.6'
-
-    // 加载加粗和倾斜状态
-    if (settings.globalBoldMode !== undefined) {
-      globalBoldMode.value = settings.globalBoldMode
-      isBold.value = globalBoldMode.value
-    }
-    if (settings.globalItalicMode !== undefined) {
-      globalItalicMode.value = settings.globalItalicMode
-      isItalic.value = globalItalicMode.value
+    menubarState.value = {
+      fontFamily:
+        settings.fontFamily !== undefined && settings.fontFamily !== null
+          ? settings.fontFamily
+          : 'inherit',
+      fontSize:
+        settings.fontSize !== undefined && settings.fontSize !== null ? settings.fontSize : '16px',
+      lineHeight:
+        settings.lineHeight !== undefined && settings.lineHeight !== null
+          ? settings.lineHeight
+          : '1.6',
+      isBold: settings.globalBoldMode !== undefined ? settings.globalBoldMode : false,
+      isItalic: settings.globalItalicMode !== undefined ? settings.globalItalicMode : false
     }
   }
 
@@ -523,11 +339,11 @@ onMounted(async () => {
         class: 'tiptap-editor',
         style: () => {
           let fontFamilyStyle = ''
-          if (fontFamily.value !== 'inherit') {
-            const fullFontFamily = getFontFamily(fontFamily.value)
+          if (menubarState.value.fontFamily !== 'inherit') {
+            const fullFontFamily = getFontFamily(menubarState.value.fontFamily)
             fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
           }
-          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${fontSize.value} !important; line-height: ${lineHeight.value} !important; text-align: ${align.value} !important;`
+          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${menubarState.value.fontSize} !important; line-height: ${menubarState.value.lineHeight} !important; text-align: ${align.value} !important;`
         }
       }
     },
@@ -545,9 +361,7 @@ onMounted(async () => {
       }, 1000)
     },
     onSelectionUpdate: () => {
-      // 更新按钮状态为全局模式状态
-      isBold.value = globalBoldMode.value
-      isItalic.value = globalItalicMode.value
+      // 按钮状态由 EditorMenubar 组件管理
     }
   })
 
@@ -566,7 +380,7 @@ onMounted(async () => {
   updateEditorStyle()
 
   // 如果加载了加粗或倾斜状态，应用到所有内容
-  if (globalBoldMode.value || globalItalicMode.value) {
+  if (menubarState.value.isBold || menubarState.value.isItalic) {
     if (initialContent) {
       // 等待编辑器完全初始化后再应用格式
       await nextTick()
@@ -586,10 +400,10 @@ onMounted(async () => {
         // 在同一个命令链中选择所有内容并应用格式
         let chain = editor.value.chain().focus().selectAll()
 
-        if (globalBoldMode.value) {
+        if (menubarState.value.isBold) {
           chain = chain.setBold()
         }
-        if (globalItalicMode.value) {
+        if (menubarState.value.isItalic) {
           chain = chain.setItalic()
         }
 
@@ -656,11 +470,11 @@ onBeforeUnmount(async () => {
 
   // 保存编辑器设置
   await editorStore.saveEditorSettings({
-    fontFamily: fontFamily.value,
-    fontSize: fontSize.value,
-    lineHeight: lineHeight.value,
-    globalBoldMode: globalBoldMode.value,
-    globalItalicMode: globalItalicMode.value
+    fontFamily: menubarState.value.fontFamily,
+    fontSize: menubarState.value.fontSize,
+    lineHeight: menubarState.value.lineHeight,
+    globalBoldMode: menubarState.value.isBold,
+    globalItalicMode: menubarState.value.isItalic
   })
 
   // 保存最后的内容
@@ -707,7 +521,9 @@ async function saveFile(showMessage = false) {
     if (showMessage && result.success) {
       emit('refresh-chapters')
       // 保存成功后，重新加载书籍总字数（确保与服务器同步）
-      await loadBookTotalWords()
+      if (editorStatsRef.value) {
+        await editorStatsRef.value.loadBookTotalWords()
+      }
     }
   }
 
@@ -729,129 +545,6 @@ async function saveContent() {
   await saveFile(true)
 }
 
-// 导出书籍全部内容
-async function clickExport() {
-  try {
-    // 显示确认对话框
-    await ElMessageBox.confirm('本操作会将正文下所有章节导出到一个文件，是否继续？', '导出确认', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-
-    // 生成时间戳：YYMMDDHHmm（例如：2511041729 表示 2025年11月04日17点29分）
-    const timestamp = dayjs().format('YYMMDDHHmm')
-
-    // 用户确认后，显示保存文件对话框
-    const saveResult = await window.electron.showSaveDialog({
-      title: '导出章节',
-      defaultPath: `${props.bookName}_${timestamp}.txt`,
-      filters: [{ name: '文本文件', extensions: ['txt'] }],
-      buttonLabel: '保存'
-    })
-
-    if (!saveResult || !saveResult.filePath) {
-      // 用户取消了保存
-      return
-    }
-
-    // 显示加载提示
-    const loadingMessage = ElMessage({
-      message: '正在导出章节，请稍候...',
-      type: 'info',
-      duration: 0,
-      showClose: false
-    })
-
-    try {
-      // 加载所有章节数据
-      const chapters = await window.electron.loadChapters(props.bookName)
-
-      if (!chapters || chapters.length === 0) {
-        loadingMessage.close()
-        ElMessage.warning('没有找到任何章节')
-        return
-      }
-
-      // 收集所有章节内容
-      const allContent = []
-      let totalChapters = 0
-
-      // 遍历所有卷和章节
-      for (const volume of chapters) {
-        if (volume.type === 'volume' && volume.children && volume.children.length > 0) {
-          // 添加卷标题
-          allContent.push(`\n${'='.repeat(50)}`)
-          allContent.push(`【${volume.name}】`)
-          allContent.push(`${'='.repeat(50)}\n`)
-
-          // 遍历该卷下的所有章节
-          for (const chapter of volume.children) {
-            if (chapter.type === 'chapter') {
-              try {
-                // 读取章节内容
-                const result = await window.electron.readChapter(
-                  props.bookName,
-                  volume.name,
-                  chapter.name
-                )
-
-                if (result.success && result.content) {
-                  // 添加章节标题
-                  allContent.push(`\n${'-'.repeat(40)}`)
-                  allContent.push(`${chapter.name}`)
-                  allContent.push(`${'-'.repeat(40)}\n`)
-                  // 添加章节内容
-                  allContent.push(result.content)
-                  allContent.push('\n')
-                  totalChapters++
-                }
-              } catch (error) {
-                console.error(`读取章节 ${chapter.name} 失败:`, error)
-                // 继续处理其他章节
-              }
-            }
-          }
-        }
-      }
-
-      if (totalChapters === 0) {
-        loadingMessage.close()
-        ElMessage.warning('没有找到任何可导出的章节内容')
-        return
-      }
-
-      // 合并所有内容
-      const finalContent = allContent.join('\n')
-
-      // 写入文件（通过 IPC 调用主进程写入）
-      const writeResult = await window.electron.writeExportFile({
-        filePath: saveResult.filePath,
-        content: finalContent
-      })
-
-      if (!writeResult || !writeResult.success) {
-        loadingMessage.close()
-        ElMessage.error(writeResult?.message || '写入文件失败')
-        return
-      }
-
-      loadingMessage.close()
-      ElMessage.success(`导出成功！共导出 ${totalChapters} 个章节`)
-    } catch (error) {
-      loadingMessage.close()
-      console.error('导出失败:', error)
-      ElMessage.error('导出失败：' + (error.message || '未知错误'))
-    }
-  } catch (error) {
-    // 用户取消了确认对话框
-    if (error !== 'cancel') {
-      console.error('导出操作失败:', error)
-      ElMessage.error('导出操作失败：' + (error.message || '未知错误'))
-    }
-  }
-}
-
 // 搜索面板控制
 function toggleSearchPanel() {
   searchPanelVisible.value = !searchPanelVisible.value
@@ -866,120 +559,12 @@ async function autoSaveContent() {
   await saveFile(false)
 }
 
-// 菜单栏操作
-const isBold = ref(false)
-const isItalic = ref(false)
-const globalBoldMode = ref(false) // 全局加粗模式
-const globalItalicMode = ref(false) // 全局倾斜模式
-
-// 应用格式到整个编辑器内容
-function applyFormatToAll(markType, enable) {
-  if (!editor.value) return
-
-  const { from, to } = editor.value.state.selection
-  const docSize = editor.value.state.doc.content.size
-
-  try {
-    // 在同一个命令链中选择所有内容并应用格式
-    if (markType === 'bold') {
-      if (enable) {
-        editor.value.chain().focus().selectAll().setBold().run()
-        globalBoldMode.value = true
-      } else {
-        editor.value.chain().focus().selectAll().unsetBold().run()
-        globalBoldMode.value = false
-      }
-    } else if (markType === 'italic') {
-      if (enable) {
-        editor.value.chain().focus().selectAll().setItalic().run()
-        globalItalicMode.value = true
-      } else {
-        editor.value.chain().focus().selectAll().unsetItalic().run()
-        globalItalicMode.value = false
-      }
-    }
-
-    // 恢复之前的选择位置
-    if (docSize > 0) {
-      editor.value
-        .chain()
-        .focus()
-        .setTextSelection({ from: Math.min(from, docSize - 1), to: Math.min(to, docSize - 1) })
-        .run()
-    } else {
-      editor.value.chain().focus().setTextSelection(0).run()
-    }
-  } catch (error) {
-    console.error(`应用${markType}格式失败:`, error)
-  }
-}
-
-// 切换格式的通用函数
-function toggleFormat(markType) {
-  if (!editor.value) return
-
-  editor.value.commands.focus()
-
-  if (markType === 'bold') {
-    const newState = !globalBoldMode.value
-    applyFormatToAll('bold', newState)
-    isBold.value = newState
-    // 立即保存设置（包含所有设置，确保不丢失）
-    editorStore.saveEditorSettings({
-      fontFamily: fontFamily.value,
-      fontSize: fontSize.value,
-      lineHeight: lineHeight.value,
-      globalBoldMode: newState,
-      globalItalicMode: globalItalicMode.value
-    })
-  } else if (markType === 'italic') {
-    const newState = !globalItalicMode.value
-    applyFormatToAll('italic', newState)
-    isItalic.value = newState
-    // 立即保存设置（包含所有设置，确保不丢失）
-    editorStore.saveEditorSettings({
-      fontFamily: fontFamily.value,
-      fontSize: fontSize.value,
-      lineHeight: lineHeight.value,
-      globalBoldMode: globalBoldMode.value,
-      globalItalicMode: newState
-    })
-  }
-}
-
-function toggleBold() {
-  toggleFormat('bold')
-}
-
-function toggleItalic() {
-  toggleFormat('italic')
-}
-
-function copyContent() {
-  const html = editor.value.getHTML()
-  navigator.clipboard.writeText(html)
-  ElMessage.success('已复制内容')
-}
-
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
 
-// 监听字体、字号、行高变化，动态应用样式
-watch([fontFamily, fontSize, lineHeight, align], () => {
+// 监听对齐方式变化
+watch([align], () => {
   if (editor.value) {
-    // 直接更新DOM样式，使用!important确保优先级
     updateEditorStyle()
-
-    // 保存设置（防抖）- 保存简化的字体key，而不是完整的字体族
-    if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
-    styleUpdateTimer = setTimeout(() => {
-      editorStore.saveEditorSettings({
-        fontFamily: fontFamily.value, // 保存简化的key，如 'KaiTi'
-        fontSize: fontSize.value,
-        lineHeight: lineHeight.value,
-        globalBoldMode: globalBoldMode.value,
-        globalItalicMode: globalItalicMode.value
-      })
-    }, 500)
   }
 })
 
@@ -1009,24 +594,6 @@ watch(
   min-height: 0;
   overflow: hidden;
 }
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 15px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-soft);
-  .toolbar-left,
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-}
-.toolbar-item {
-  margin: 0;
-}
 .chapter-title {
   padding: 8px 15px;
   border-bottom: 1px solid var(--border-color);
@@ -1048,40 +615,7 @@ watch(
     height: 100%;
   }
 }
-.editor-stats {
-  height: auto;
-  min-height: 28px;
-  width: 100%;
-  line-height: 28px;
-  padding: 0px 15px;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--bg-mute);
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  color: var(--text-base);
 
-  &-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    > span {
-      font-weight: bold;
-      color: var(--primary-color);
-    }
-  }
-  &-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .typing-speed {
-    color: var(--warning-color);
-  }
-}
 ::v-deep(.tiptap) {
   height: 100%;
   white-space: pre-wrap; // 保证Tab缩进和换行显示
