@@ -612,7 +612,7 @@ watch(
   white-space: pre-wrap; // 保证Tab缩进和换行显示
   font-family: inherit, monospace;
   > div {
-    height: 100%;
+    height: max-content;
   }
 }
 
