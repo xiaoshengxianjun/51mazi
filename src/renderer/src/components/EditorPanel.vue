@@ -529,7 +529,7 @@ async function saveFile(showMessage = false) {
       emit('refresh-chapters')
       // 保存成功后，重新加载书籍总字数（确保与服务器同步）
       if (editorStatsRef.value) {
-        await editorStatsRef.value.loadBookTotalWords()
+        await editorStatsRef.value.loadBookTotalWords(true)
       }
     }
   }

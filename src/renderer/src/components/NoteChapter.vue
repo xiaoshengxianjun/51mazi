@@ -233,7 +233,7 @@ async function handleNoteClick(data, node) {
         path: data.path,
         notebook: parent.name
       })
-      editorStore.setContent(res.content)
+      editorStore.setContent(res.content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 笔记名作为标题
       currentNoteNodeKey.value = data.path // 保持选中态
     } else {
@@ -254,7 +254,7 @@ async function handleChapterClick(data, node) {
         path: data.path,
         volume: node.parent.data.name
       })
-      editorStore.setContent(res.content)
+      editorStore.setContent(res.content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 章节名作为标题
       currentChapterNodeKey.value = data.path // 保持选中态
     } else {

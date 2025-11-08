@@ -6,6 +6,7 @@ export const useEditorStore = defineStore('editor', () => {
   const content = ref('')
   const file = ref(null)
   const chapterTitle = ref('')
+  const currentBookName = ref('')
 
   // 码字统计相关
   const typingStartTime = ref(null)
@@ -18,6 +19,13 @@ export const useEditorStore = defineStore('editor', () => {
   const sessionInitialContent = ref('') // 本次编辑会话初始内容
   const sessionMinWordCount = ref(0) // 本次编辑会话中的最低字数
   const isInitializing = ref(false) // 是否正在初始化（加载已有内容）
+
+  // 书籍总字数相关
+  const bookTotalWords = ref(0)
+  const bookWordsLoaded = ref(false)
+  const chapterWordBaseline = ref(0) // 当前章节初始字数（用于增量计算）
+  const lastSyncedChapterWords = ref(0) // 上一次同步到书籍总字数的章节字数
+  const pendingBookWordDelta = ref(0)
 
   // 计算当前字数
   const chapterWords = computed(() => {
@@ -65,6 +73,9 @@ export const useEditorStore = defineStore('editor', () => {
     initialWordCount.value = initialLength
     currentWordCount.value = initialLength
     sessionMinWordCount.value = initialLength // 初始字数作为最低字数
+    // 初始化章节字数基线
+    chapterWordBaseline.value = initialLength
+    lastSyncedChapterWords.value = initialLength
     wordCountHistory.value = [] // 章节维度的历史记录，切换章节时重置
     isInitializing.value = true // 标记为初始化状态
 
@@ -80,10 +91,26 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   // 记录字数变化
-  function recordWordChange(oldContent, newContent) {
+  function recordWordChange(oldContent, newContent, options = {}) {
+    const { isInitialLoad = false } = options
     const oldLength = getContentWordCount(oldContent)
     const newLength = getContentWordCount(newContent)
     const delta = newLength - oldLength
+
+    const previousChapterWords = lastSyncedChapterWords.value
+    // 无论是否计入书籍字数，都需要更新当前章节字数
+    lastSyncedChapterWords.value = newLength
+
+    if (isInitialLoad) {
+      currentWordCount.value = newLength
+      if (isInitializing.value) {
+        sessionMinWordCount.value = newLength
+      }
+      if (file.value?.type === 'chapter') {
+        chapterWordBaseline.value = newLength
+      }
+      return
+    }
 
     if (delta !== 0) {
       const now = Date.now()
@@ -99,13 +126,17 @@ export const useEditorStore = defineStore('editor', () => {
       wordCountHistory.value.push(changeRecord)
 
       // 判断是否是加载已有内容（从空内容或较小内容加载到较大内容，且处于初始化状态）
-      // 这种情况通常是加载已有章节内容，不应该计入码字速度
       const isLoadingExistingContent =
         isInitializing.value &&
         delta > 0 &&
         ((oldLength === 0 && newLength > 0) || (oldLength > 0 && delta > oldLength * 0.5))
-      // 如果增量超过原内容的一半，很可能是加载已有内容，而不是用户输入
 
+      // 在初始化状态下的第一次字数变化，如果是删除操作，同样视为用户行为
+      if (isInitializing.value && delta < 0) {
+        isInitializing.value = false
+      }
+
+      // 判断是否是加载已有内容（从空内容或较小内容加载到较大内容，且处于初始化状态）
       // 如果是在初始化状态下，且用户开始输入（delta > 0），则结束初始化状态
       // 但如果是加载已有内容（从空到有内容），不结束初始化状态
       // 只要不是加载已有内容，且是新增字数，就结束初始化状态（无论增量大小）
@@ -118,6 +149,24 @@ export const useEditorStore = defineStore('editor', () => {
       wordCountHistory.value = wordCountHistory.value.filter(
         (change) => change.timestamp >= fiveMinutesAgo
       )
+    }
+
+    // 更新书籍总字数：仅在章节类型、已加载书籍统计且不是章节初始加载场景时同步
+    if (
+      file.value?.type === 'chapter' &&
+      !isInitializing.value &&
+      previousChapterWords !== newLength
+    ) {
+      const bookDelta = newLength - previousChapterWords
+      if (bookDelta !== 0) {
+        if (bookWordsLoaded.value) {
+          const sanitizedTotal = Number.isFinite(bookTotalWords.value) ? bookTotalWords.value : 0
+          const nextTotal = sanitizedTotal + bookDelta
+          bookTotalWords.value = nextTotal > 0 ? nextTotal : 0
+        } else {
+          pendingBookWordDelta.value += bookDelta
+        }
+      }
     }
 
     // 更新当前字数
@@ -173,16 +222,25 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  function setContent(newContent) {
+  function setContent(newContent, options = {}) {
     const oldContent = content.value
     content.value = newContent
 
     // 记录字数变化
-    recordWordChange(oldContent, newContent)
+    recordWordChange(oldContent, newContent, options)
   }
 
   function setFile(newFile) {
     file.value = newFile
+    if (newFile?.type === 'chapter') {
+      isInitializing.value = true
+    } else if (!newFile) {
+      isInitializing.value = false
+    }
+    if (!newFile || newFile.type !== 'chapter') {
+      chapterWordBaseline.value = 0
+      lastSyncedChapterWords.value = 0
+    }
   }
 
   function setChapterTitle(title) {
@@ -228,6 +286,79 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function setBookTotalWords(total) {
+    const numeric = Number(total)
+    const sanitized = Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0
+    const adjusted = sanitized + pendingBookWordDelta.value
+    bookTotalWords.value = adjusted > 0 ? adjusted : 0
+    pendingBookWordDelta.value = 0
+    bookWordsLoaded.value = true
+  }
+
+  function resetBookWordStats() {
+    bookTotalWords.value = 0
+    chapterWordBaseline.value = 0
+    lastSyncedChapterWords.value = 0
+    bookWordsLoaded.value = false
+    currentBookName.value = ''
+    pendingBookWordDelta.value = 0
+  }
+
+  function setChapterWordBaseline(words) {
+    const sanitized = Math.max(0, Number.isFinite(Number(words)) ? Number(words) : 0)
+    chapterWordBaseline.value = sanitized
+    lastSyncedChapterWords.value = sanitized
+  }
+
+  function syncBookTotalWords(currentWords) {
+    const sanitized = Math.max(0, Number.isFinite(Number(currentWords)) ? Number(currentWords) : 0)
+    const delta = sanitized - lastSyncedChapterWords.value
+    if (delta === 0) return
+    if (!bookWordsLoaded.value) {
+      pendingBookWordDelta.value += delta
+      lastSyncedChapterWords.value = sanitized
+      return
+    }
+    const nextTotal = (Number.isFinite(bookTotalWords.value) ? bookTotalWords.value : 0) + delta
+    bookTotalWords.value = nextTotal > 0 ? nextTotal : 0
+    lastSyncedChapterWords.value = sanitized
+  }
+
+  async function fetchBookTotalWords(bookName, { force = false } = {}) {
+    const normalizedName = bookName ? String(bookName) : ''
+    if (!normalizedName) return bookTotalWords.value
+
+    if (!force && bookWordsLoaded.value && currentBookName.value === normalizedName) {
+      return bookTotalWords.value
+    }
+
+    try {
+      let totalWords
+      if (window?.electron?.getBookWordCount) {
+        totalWords = await window.electron.getBookWordCount(normalizedName)
+      }
+
+      if (totalWords === undefined && window?.electron?.readBooksDir) {
+        const books = await window.electron.readBooksDir()
+        if (Array.isArray(books)) {
+          const target = books.find((item) => item.name === normalizedName)
+          if (target && target.totalWords !== undefined) {
+            totalWords = target.totalWords
+          }
+        }
+      }
+
+      setBookTotalWords(totalWords ?? 0)
+      currentBookName.value = normalizedName
+    } catch (error) {
+      console.error('获取书籍总字数失败:', error)
+      resetBookWordStats()
+      throw error
+    }
+
+    return bookTotalWords.value
+  }
+
   return {
     content,
     file,
@@ -238,6 +369,8 @@ export const useEditorStore = defineStore('editor', () => {
     netWordChange,
     editorSettings,
     isInitializing, // 暴露 isInitializing，供外部判断
+    bookTotalWords,
+    bookWordsLoaded,
     setContent,
     setFile,
     setChapterTitle,
@@ -246,6 +379,11 @@ export const useEditorStore = defineStore('editor', () => {
     resetEditingSession,
     getSessionStats,
     loadEditorSettings,
-    saveEditorSettings
+    saveEditorSettings,
+    setBookTotalWords,
+    resetBookWordStats,
+    setChapterWordBaseline,
+    syncBookTotalWords,
+    fetchBookTotalWords
   }
 })

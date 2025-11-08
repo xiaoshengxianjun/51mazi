@@ -227,6 +227,31 @@ ipcMain.handle('read-books-dir', async () => {
   return books
 })
 
+ipcMain.handle('get-book-word-count', async (event, bookName) => {
+  if (!bookName) return 0
+  try {
+    const totalWords = await calculateBookWordCount(bookName)
+    const booksDir = store.get('booksDir')
+    if (booksDir) {
+      const metaPath = join(booksDir, bookName, 'mazi.json')
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          meta.totalWords = totalWords
+          meta.updatedAt = new Date().toLocaleString()
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+        } catch (error) {
+          console.error('更新书籍元数据失败:', error)
+        }
+      }
+    }
+    return totalWords
+  } catch (error) {
+    console.error('获取书籍总字数失败:', error)
+    throw error
+  }
+})
+
 // 删除书籍
 ipcMain.handle('delete-book', async (event, { name }) => {
   try {

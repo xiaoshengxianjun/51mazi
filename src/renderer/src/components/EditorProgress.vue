@@ -57,7 +57,7 @@ function getProgressColor(percentage) {
 <style lang="scss" scoped>
 .editor-progress {
   width: 100%;
-  padding: 8px 15px;
+  padding: 5px 15px;
   background-color: var(--bg-soft);
   border-top: 1px solid var(--border-color);
 }
