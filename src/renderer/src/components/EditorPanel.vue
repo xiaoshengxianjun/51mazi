@@ -27,7 +27,7 @@
     <EditorProgress
       v-if="editorStore.file?.type === 'chapter'"
       :current-words="contentWordCount"
-      :target-words="2000"
+      :target-words="editorStore.chapterTargetWords"
     />
     <!-- 编辑器统计 -->
     <EditorStats

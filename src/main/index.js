@@ -679,16 +679,18 @@ ipcMain.handle('get-sort-order', (event, bookName) => {
 // 获取章节设置
 ipcMain.handle('get-chapter-settings', (event, bookName) => {
   const settings = store.get(`chapterSettings:${bookName}`) || {
-    suffixType: '章'
+    suffixType: '章',
+    targetWords: 2000
   }
 
   return {
-    suffixType: settings.suffixType
+    suffixType: settings.suffixType || '章',
+    targetWords: Number.isFinite(Number(settings.targetWords)) ? Number(settings.targetWords) : 2000
   }
 })
 
 // 更新章节格式
-ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) => {
+ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawSettings }) => {
   try {
     const booksDir = store.get('booksDir')
     const bookPath = join(booksDir, bookName)
@@ -698,8 +700,15 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
       return { success: false, message: '正文目录不存在' }
     }
 
-    // 保存设置
-    store.set(`chapterSettings:${bookName}`, settings)
+    // 保存设置（补齐默认值）
+    const cleanSettings = {
+      suffixType: rawSettings?.suffixType || '章',
+      targetWords: Number.isFinite(Number(rawSettings?.targetWords))
+        ? Number(rawSettings.targetWords)
+        : 2000
+    }
+    store.set(`chapterSettings:${bookName}`, cleanSettings)
+    const appliedSettings = cleanSettings
 
     // 获取所有卷和章节
     const volumes = fs.readdirSync(volumePath, { withFileTypes: true })
@@ -729,7 +738,7 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
             // 如果找到了匹配的格式，则进行重命名
             if (chapterNumber && oldType && description !== undefined) {
               // 生成新的前缀（编号+类型），保留描述
-              const newPrefix = generateChapterName(chapterNumber, settings)
+              const newPrefix = generateChapterName(chapterNumber, appliedSettings)
               const newName = newPrefix + description
 
               if (newName !== oldName) {

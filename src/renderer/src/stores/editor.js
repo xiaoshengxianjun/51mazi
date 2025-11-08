@@ -17,6 +17,7 @@ export const useEditorStore = defineStore('editor', () => {
   const chapterWordBaseline = ref(0) // 当前章节初始字数（用于增量计算）
   const lastSyncedChapterWords = ref(0) // 上一次同步到书籍总字数的章节字数
   const pendingBookWordDelta = ref(0)
+  const chapterTargetWords = ref(2000)
 
   // 新增：计算实际内容字数（排除换行符等格式字符）
   const contentWordCount = computed(() => {
@@ -184,6 +185,11 @@ export const useEditorStore = defineStore('editor', () => {
     pendingBookWordDelta.value = 0
   }
 
+  function setChapterTargetWords(value) {
+    const numeric = Number(value)
+    chapterTargetWords.value = Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  }
+
   async function fetchBookTotalWords(bookName, { force = false } = {}) {
     const normalizedName = bookName ? String(bookName) : ''
     if (!normalizedName) return bookTotalWords.value
@@ -237,6 +243,8 @@ export const useEditorStore = defineStore('editor', () => {
     saveEditorSettings,
     setBookTotalWords,
     resetBookWordStats,
-    fetchBookTotalWords
+    fetchBookTotalWords,
+    chapterTargetWords,
+    setChapterTargetWords
   }
 })

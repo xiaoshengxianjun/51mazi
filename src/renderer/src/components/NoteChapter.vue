@@ -198,7 +198,8 @@ const noteTreeRef = ref(null)
 const chapterSettingsVisible = ref(false)
 const chapterSettings = ref({
   chapterFormat: 'number',
-  suffixType: '章'
+  suffixType: '章',
+  targetWords: 2000
 })
 
 // 切换笔记面板
@@ -591,10 +592,19 @@ async function loadChapterSettings() {
   try {
     const settings = await window.electron.getChapterSettings(props.bookName)
     if (settings) {
-      chapterSettings.value = settings
+      const targetValue = Number(settings.targetWords)
+      chapterSettings.value = {
+        chapterFormat: settings.chapterFormat || 'number',
+        suffixType: settings.suffixType || '章',
+        targetWords: Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
+      }
+      editorStore.setChapterTargetWords(chapterSettings.value.targetWords)
+    } else {
+      editorStore.setChapterTargetWords(2000)
     }
   } catch {
     // 使用默认设置
+    editorStore.setChapterTargetWords(2000)
   }
 }
 
@@ -698,7 +708,13 @@ async function handleReformatRequested() {
 
 // 处理设置变更
 async function handleSettingsChanged(newSettings) {
-  chapterSettings.value = newSettings
+  const targetValue = Number(newSettings.targetWords)
+  chapterSettings.value = {
+    chapterFormat: newSettings.chapterFormat || 'number',
+    suffixType: newSettings.suffixType || '章',
+    targetWords: Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
+  }
+  editorStore.setChapterTargetWords(chapterSettings.value.targetWords)
   // 重新加载章节数据以显示新的命名格式
   await loadChapters()
 }
