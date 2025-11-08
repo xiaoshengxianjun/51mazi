@@ -36,7 +36,6 @@ const emit = defineEmits(['update-book-words'])
 const editorStore = useEditorStore()
 
 const wordSnapshots = ref([])
-const needBaselineReset = ref(true)
 const isFetching = ref(false)
 
 const displayedBookWords = computed(() => editorStore.bookTotalWords ?? 0)
@@ -79,19 +78,12 @@ function recordSnapshot(wordCount) {
   const lastSnapshot = snapshots[snapshots.length - 1]
 
   if (lastSnapshot && lastSnapshot.count === sanitized) {
-    lastSnapshot.timestamp = now
-  } else {
-    snapshots.push({ timestamp: now, count: sanitized })
+    return
   }
 
-  // 只保留最近1小时的数据
+  const updatedSnapshots = [...snapshots, { timestamp: now, count: sanitized }]
   const oneHourAgo = now - 3600000
-  wordSnapshots.value = snapshots.filter((item) => item.timestamp >= oneHourAgo)
-}
-
-function resetSnapshots(wordCount) {
-  const sanitized = sanitizeWordCount(wordCount)
-  wordSnapshots.value = [{ timestamp: Date.now(), count: sanitized }]
+  wordSnapshots.value = updatedSnapshots.filter((item) => item.timestamp >= oneHourAgo)
 }
 
 async function loadBookTotalWords(force = false) {
@@ -104,16 +96,11 @@ async function loadBookTotalWords(force = false) {
   }
 }
 
-function prepareChapterBaseline(initialCount) {
-  const sanitized = sanitizeWordCount(initialCount)
-  editorStore.setChapterWordBaseline(sanitized)
-  resetSnapshots(sanitized)
-}
-
 watch(
   () => props.bookName,
   async (name, prevName) => {
     if (!name) return
+    wordSnapshots.value = []
     const force = name !== prevName
     await loadBookTotalWords(force)
   },
@@ -121,48 +108,13 @@ watch(
 )
 
 watch(
-  () => editorStore.file,
-  (currentFile) => {
-    if (currentFile?.type === 'chapter') {
-      needBaselineReset.value = true
-    } else {
-      needBaselineReset.value = false
-      wordSnapshots.value = []
-    }
-  },
-  { immediate: true }
-)
-
-watch(
-  () => props.contentWordCount,
-  (newCount, oldCount) => {
-    if (props.fileType !== 'chapter') return
-    const sanitizedNew = sanitizeWordCount(newCount)
-    const sanitizedOld = sanitizeWordCount(oldCount)
-
-    if (needBaselineReset.value || editorStore.isInitializing) {
-      prepareChapterBaseline(sanitizedNew)
-      if (!editorStore.isInitializing) {
-        needBaselineReset.value = false
-        if (sanitizedNew !== sanitizedOld) {
-          recordSnapshot(sanitizedNew)
-        }
-      }
-      return
-    }
-
-    if (sanitizedNew === sanitizedOld) {
-      return
-    }
-
-    recordSnapshot(sanitizedNew)
-  },
-  { immediate: true }
-)
-
-watch(
   () => editorStore.bookTotalWords,
   (total) => {
+    if (!editorStore.bookWordsLoaded) {
+      emit('update-book-words', sanitizeWordCount(total))
+      return
+    }
+    recordSnapshot(total)
     emit('update-book-words', sanitizeWordCount(total))
   },
   { immediate: true }

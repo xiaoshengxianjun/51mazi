@@ -230,22 +230,6 @@ watch(
   }
 )
 
-// 监听内容变化，确保编辑会话正确初始化，并同步更新书籍总字数
-watch(
-  () => editorStore.content,
-  (newContent, oldContent) => {
-    // 如果编辑器已经初始化且内容发生变化
-    if (editor.value && newContent !== oldContent) {
-      // 如果还没有开始编辑会话，则开始
-      if (!editorStore.sessionStartTime) {
-        editorStore.startEditingSession(newContent)
-      }
-
-      // 书籍总字数更新由 EditorStats 组件通过 watch contentWordCount 自动处理
-    }
-  }
-)
-
 // 支持Tab键插入制表符
 const TabInsert = Extension.create({
   name: 'tabInsert',
