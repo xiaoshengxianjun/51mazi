@@ -227,6 +227,31 @@ ipcMain.handle('read-books-dir', async () => {
   return books
 })
 
+ipcMain.handle('get-book-word-count', async (event, bookName) => {
+  if (!bookName) return 0
+  try {
+    const totalWords = await calculateBookWordCount(bookName)
+    const booksDir = store.get('booksDir')
+    if (booksDir) {
+      const metaPath = join(booksDir, bookName, 'mazi.json')
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          meta.totalWords = totalWords
+          meta.updatedAt = new Date().toLocaleString()
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+        } catch (error) {
+          console.error('更新书籍元数据失败:', error)
+        }
+      }
+    }
+    return totalWords
+  } catch (error) {
+    console.error('获取书籍总字数失败:', error)
+    throw error
+  }
+})
+
 // 删除书籍
 ipcMain.handle('delete-book', async (event, { name }) => {
   try {
@@ -654,16 +679,42 @@ ipcMain.handle('get-sort-order', (event, bookName) => {
 // 获取章节设置
 ipcMain.handle('get-chapter-settings', (event, bookName) => {
   const settings = store.get(`chapterSettings:${bookName}`) || {
-    suffixType: '章'
+    suffixType: '章',
+    targetWords: 2000
   }
 
   return {
-    suffixType: settings.suffixType
+    suffixType: settings.suffixType || '章',
+    targetWords: Number.isFinite(Number(settings.targetWords)) ? Number(settings.targetWords) : 2000
+  }
+})
+
+// 设置章节目标字数
+ipcMain.handle('set-chapter-target-words', (event, { bookName, targetWords }) => {
+  if (!bookName) {
+    return { success: false, message: '书籍名称不能为空' }
+  }
+  const numeric = Number(targetWords)
+  const sanitized = Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  const existing = store.get(`chapterSettings:${bookName}`) || {
+    suffixType: '章',
+    targetWords: 2000
+  }
+  const updated = {
+    ...existing,
+    targetWords: sanitized
+  }
+  try {
+    store.set(`chapterSettings:${bookName}`, updated)
+    return { success: true, settings: updated }
+  } catch (error) {
+    console.error('更新章节目标字数失败:', error)
+    return { success: false, message: error.message || '更新失败' }
   }
 })
 
 // 更新章节格式
-ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) => {
+ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawSettings }) => {
   try {
     const booksDir = store.get('booksDir')
     const bookPath = join(booksDir, bookName)
@@ -673,8 +724,15 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
       return { success: false, message: '正文目录不存在' }
     }
 
-    // 保存设置
-    store.set(`chapterSettings:${bookName}`, settings)
+    // 保存设置（补齐默认值）
+    const cleanSettings = {
+      suffixType: rawSettings?.suffixType || '章',
+      targetWords: Number.isFinite(Number(rawSettings?.targetWords))
+        ? Number(rawSettings.targetWords)
+        : 2000
+    }
+    store.set(`chapterSettings:${bookName}`, cleanSettings)
+    const appliedSettings = cleanSettings
 
     // 获取所有卷和章节
     const volumes = fs.readdirSync(volumePath, { withFileTypes: true })
@@ -704,7 +762,7 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
             // 如果找到了匹配的格式，则进行重命名
             if (chapterNumber && oldType && description !== undefined) {
               // 生成新的前缀（编号+类型），保留描述
-              const newPrefix = generateChapterName(chapterNumber, settings)
+              const newPrefix = generateChapterName(chapterNumber, appliedSettings)
               const newName = newPrefix + description
 
               if (newName !== oldName) {

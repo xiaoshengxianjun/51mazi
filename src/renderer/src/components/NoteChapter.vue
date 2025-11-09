@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineExpose, nextTick } from 'vue'
+import { ref, onMounted, defineExpose, nextTick, watch } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,
@@ -198,8 +198,18 @@ const noteTreeRef = ref(null)
 const chapterSettingsVisible = ref(false)
 const chapterSettings = ref({
   chapterFormat: 'number',
-  suffixType: '章'
+  suffixType: '章',
+  targetWords: 2000
 })
+
+watch(
+  () => editorStore.chapterTargetWords,
+  (value) => {
+    const numeric = Number(value)
+    chapterSettings.value.targetWords =
+      Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  }
+)
 
 // 切换笔记面板
 function toggleNotes() {
@@ -233,7 +243,7 @@ async function handleNoteClick(data, node) {
         path: data.path,
         notebook: parent.name
       })
-      editorStore.setContent(res.content)
+      editorStore.setContent(res.content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 笔记名作为标题
       currentNoteNodeKey.value = data.path // 保持选中态
     } else {
@@ -254,7 +264,7 @@ async function handleChapterClick(data, node) {
         path: data.path,
         volume: node.parent.data.name
       })
-      editorStore.setContent(res.content)
+      editorStore.setContent(res.content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 章节名作为标题
       currentChapterNodeKey.value = data.path // 保持选中态
     } else {
@@ -591,10 +601,19 @@ async function loadChapterSettings() {
   try {
     const settings = await window.electron.getChapterSettings(props.bookName)
     if (settings) {
-      chapterSettings.value = settings
+      const targetValue = Number(settings.targetWords)
+      chapterSettings.value = {
+        chapterFormat: settings.chapterFormat || 'number',
+        suffixType: settings.suffixType || '章',
+        targetWords: Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
+      }
+      editorStore.setChapterTargetWords(chapterSettings.value.targetWords)
+    } else {
+      editorStore.setChapterTargetWords(2000)
     }
   } catch {
     // 使用默认设置
+    editorStore.setChapterTargetWords(2000)
   }
 }
 
@@ -698,7 +717,13 @@ async function handleReformatRequested() {
 
 // 处理设置变更
 async function handleSettingsChanged(newSettings) {
-  chapterSettings.value = newSettings
+  const targetValue = Number(newSettings.targetWords)
+  chapterSettings.value = {
+    chapterFormat: newSettings.chapterFormat || 'number',
+    suffixType: newSettings.suffixType || '章',
+    targetWords: Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
+  }
+  editorStore.setChapterTargetWords(chapterSettings.value.targetWords)
   // 重新加载章节数据以显示新的命名格式
   await loadChapters()
 }

@@ -13,6 +13,7 @@ declare module 'vue' {
     ChapterSettingsDialog: typeof import('./src/components/ChapterSettingsDialog.vue')['default']
     EditorMenubar: typeof import('./src/components/EditorMenubar.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
+    EditorProgress: typeof import('./src/components/EditorProgress.vue')['default']
     EditorStats: typeof import('./src/components/EditorStats.vue')['default']
     EditorToolbar: typeof import('./src/components/EditorToolbar.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']

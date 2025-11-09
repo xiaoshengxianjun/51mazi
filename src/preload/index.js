@@ -52,6 +52,8 @@ if (process.contextIsolated) {
 
       // 获取章节设置
       getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
+      setChapterTargetWords: (bookName, targetWords) =>
+        ipcRenderer.invoke('set-chapter-target-words', { bookName, targetWords }),
 
       // 更新章节格式
       updateChapterFormat: (bookName, settings) =>

@@ -51,15 +51,32 @@
           show-icon
         />
       </div>
+
+      <!-- 章节目标字数 -->
+      <div class="setting-section">
+        <h4>章节目标字数</h4>
+        <el-select
+          v-model="settings.targetWords"
+          placeholder="选择章节目标字数"
+          class="target-select"
+        >
+          <el-option
+            v-for="option in targetWordOptions"
+            :key="option"
+            :label="`${option} 字`"
+            :value="option"
+          />
+        </el-select>
+      </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">取消</el-button>
-        <el-button @click="handleReformat" type="warning" :loading="reformatLoading"
-          >重新格式化章节编号</el-button
-        >
-        <el-button type="primary" @click="handleConfirm" :loading="loading"> 确认修改 </el-button>
+        <el-button type="warning" :loading="reformatLoading" @click="handleReformat">
+          重新格式化章节编号
+        </el-button>
+        <el-button type="primary" :loading="loading" @click="handleConfirm"> 确认修改 </el-button>
       </div>
     </template>
   </el-dialog>
@@ -81,16 +98,20 @@ const props = defineProps({
   currentSettings: {
     type: Object,
     default: () => ({
-      suffixType: '章'
+      suffixType: '章',
+      targetWords: 2000
     })
   }
 })
 
-const emit = defineEmits(['update:visible', 'settings-changed'])
+const emit = defineEmits(['update:visible', 'settings-changed', 'reformat-requested'])
 
 // 设置状态
+const targetWordOptions = [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+
 const settings = ref({
-  suffixType: '章'
+  suffixType: '章',
+  targetWords: 2000
 })
 
 // 加载状态
@@ -103,7 +124,14 @@ watch(
   (newVisible) => {
     if (newVisible) {
       // 弹框打开时，加载当前设置
-      settings.value = { ...props.currentSettings }
+      const incoming = { ...props.currentSettings }
+      if (incoming.targetWords === undefined || incoming.targetWords === null) {
+        incoming.targetWords = 2000
+      } else {
+        const targetValue = Number(incoming.targetWords)
+        incoming.targetWords = Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
+      }
+      settings.value = incoming
     }
   }
 )
@@ -136,15 +164,19 @@ async function handleConfirm() {
 
     // 调用主进程修改章节名称格式
     // 确保传递的是纯对象，避免序列化问题
+    const targetWordsValue = Number(settings.value.targetWords)
     const cleanSettings = {
-      suffixType: settings.value.suffixType
+      suffixType: settings.value.suffixType,
+      targetWords:
+        Number.isFinite(targetWordsValue) && targetWordsValue > 0 ? targetWordsValue : 2000
     }
 
     const result = await window.electron.updateChapterFormat(props.bookName, cleanSettings)
 
     if (result.success) {
       ElMessage.success('章节名称格式修改成功')
-      emit('settings-changed', settings.value)
+      settings.value.targetWords = cleanSettings.targetWords
+      emit('settings-changed', { ...settings.value })
       emit('update:visible', false)
     } else {
       ElMessage.error(result.message || '修改失败')
@@ -177,14 +209,9 @@ async function handleReformat() {
 
     reformatLoading.value = true
 
-    // 调用主进程重新格式化章节编号
-    const cleanSettings = {
-      suffixType: settings.value.suffixType
-    }
-
     // 这里需要调用父组件的重新格式化方法
     // 通过 emit 事件通知父组件
-    emit('reformat-requested', cleanSettings)
+    emit('reformat-requested', { suffixType: settings.value.suffixType })
 
     ElMessage.success('章节编号重新格式化请求已发送')
   } catch (error) {
@@ -201,11 +228,12 @@ async function handleReformat() {
 <style lang="scss" scoped>
 .settings-content {
   padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .setting-section {
-  margin-bottom: 20px;
-
   h4 {
     margin: 0 0 12px 0;
     font-size: 15px;
@@ -270,8 +298,8 @@ async function handleReformat() {
   }
 }
 
-.warning-section {
-  margin-top: 16px;
+.target-select {
+  width: 180px;
 }
 
 .dialog-footer {
