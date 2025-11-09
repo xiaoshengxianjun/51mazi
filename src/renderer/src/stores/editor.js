@@ -232,6 +232,7 @@ export const useEditorStore = defineStore('editor', () => {
     contentWordCount, // 内容字数（排除格式字符）
     editorSettings,
     isInitializing, // 暴露 isInitializing，供外部判断
+    currentBookName,
     bookTotalWords,
     bookWordsLoaded,
     setContent,

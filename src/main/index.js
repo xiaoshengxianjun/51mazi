@@ -689,6 +689,30 @@ ipcMain.handle('get-chapter-settings', (event, bookName) => {
   }
 })
 
+// 设置章节目标字数
+ipcMain.handle('set-chapter-target-words', (event, { bookName, targetWords }) => {
+  if (!bookName) {
+    return { success: false, message: '书籍名称不能为空' }
+  }
+  const numeric = Number(targetWords)
+  const sanitized = Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  const existing = store.get(`chapterSettings:${bookName}`) || {
+    suffixType: '章',
+    targetWords: 2000
+  }
+  const updated = {
+    ...existing,
+    targetWords: sanitized
+  }
+  try {
+    store.set(`chapterSettings:${bookName}`, updated)
+    return { success: true, settings: updated }
+  } catch (error) {
+    console.error('更新章节目标字数失败:', error)
+    return { success: false, message: error.message || '更新失败' }
+  }
+})
+
 // 更新章节格式
 ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawSettings }) => {
   try {

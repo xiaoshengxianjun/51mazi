@@ -73,9 +73,9 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">取消</el-button>
-        <el-button type="warning" :loading="reformatLoading" @click="handleReformat"
-          >重新格式化章节编号</el-button
-        >
+        <el-button type="warning" :loading="reformatLoading" @click="handleReformat">
+          重新格式化章节编号
+        </el-button>
         <el-button type="primary" :loading="loading" @click="handleConfirm"> 确认修改 </el-button>
       </div>
     </template>
@@ -175,7 +175,8 @@ async function handleConfirm() {
 
     if (result.success) {
       ElMessage.success('章节名称格式修改成功')
-      emit('settings-changed', settings.value)
+      settings.value.targetWords = cleanSettings.targetWords
+      emit('settings-changed', { ...settings.value })
       emit('update:visible', false)
     } else {
       ElMessage.error(result.message || '修改失败')
@@ -227,11 +228,12 @@ async function handleReformat() {
 <style lang="scss" scoped>
 .settings-content {
   padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .setting-section {
-  margin-bottom: 20px;
-
   h4 {
     margin: 0 0 12px 0;
     font-size: 15px;
@@ -294,10 +296,6 @@ async function handleReformat() {
     min-width: 60px;
     text-align: center;
   }
-}
-
-.warning-section {
-  margin-top: 16px;
 }
 
 .target-select {

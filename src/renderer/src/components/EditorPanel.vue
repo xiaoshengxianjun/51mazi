@@ -28,6 +28,7 @@
       v-if="editorStore.file?.type === 'chapter'"
       :current-words="contentWordCount"
       :target-words="editorStore.chapterTargetWords"
+      :book-name="bookName"
     />
     <!-- 编辑器统计 -->
     <EditorStats

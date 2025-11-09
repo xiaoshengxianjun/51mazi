@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineExpose, nextTick } from 'vue'
+import { ref, onMounted, defineExpose, nextTick, watch } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,
@@ -201,6 +201,15 @@ const chapterSettings = ref({
   suffixType: '章',
   targetWords: 2000
 })
+
+watch(
+  () => editorStore.chapterTargetWords,
+  (value) => {
+    const numeric = Number(value)
+    chapterSettings.value.targetWords =
+      Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  }
+)
 
 // 切换笔记面板
 function toggleNotes() {
