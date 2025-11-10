@@ -673,12 +673,13 @@ async function checkChapterNumberingAndWarn(volume) {
 }
 
 // 重新格式化章节编号
-async function reformatChapterNumbers(volumeName) {
+async function reformatChapterNumbers(volumeName, overrideSettings) {
   try {
     // 转换为普通对象，避免 IPC 克隆问题
     const cleanSettings = {
-      chapterFormat: chapterSettings.value.chapterFormat,
-      suffixType: chapterSettings.value.suffixType
+      chapterFormat:
+        overrideSettings?.chapterFormat || chapterSettings.value.chapterFormat || 'number',
+      suffixType: overrideSettings?.suffixType || chapterSettings.value.suffixType || '章'
     }
 
     const result = await window.electron.reformatChapterNumbers(
@@ -700,13 +701,13 @@ async function reformatChapterNumbers(volumeName) {
 }
 
 // 处理重新格式化请求（来自设置对话框）
-async function handleReformatRequested() {
+async function handleReformatRequested(payload) {
   try {
     // 找到第一个卷
     if (chaptersTree.value && chaptersTree.value.length > 0) {
       const firstVolume = chaptersTree.value[0]
       // 调用重新格式化函数
-      await reformatChapterNumbers(firstVolume.name)
+      await reformatChapterNumbers(firstVolume.name, payload)
     } else {
       ElMessage.warning('没有找到可格式化的卷')
     }

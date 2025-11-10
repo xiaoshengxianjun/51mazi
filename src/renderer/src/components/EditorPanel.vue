@@ -66,6 +66,16 @@ const props = defineProps({
   bookName: String
 })
 
+watch(
+  () => props.bookName,
+  (name) => {
+    if (name) {
+      editorStore.currentBookName = name
+    }
+  },
+  { immediate: true }
+)
+
 // 计算属性
 const contentWordCount = computed(() => editorStore.contentWordCount)
 

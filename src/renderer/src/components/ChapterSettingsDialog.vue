@@ -3,11 +3,24 @@
     :model-value="visible"
     title="正文设置"
     width="580px"
+    center
+    align-center
     :close-on-click-modal="false"
     @close="handleClose"
     @update:model-value="(val) => emit('update:visible', val)"
   >
     <div class="settings-content">
+      <!-- 编号格式设置 -->
+      <div class="setting-section">
+        <h4>章节编号格式</h4>
+        <div class="format-options">
+          <el-radio-group v-model="settings.chapterFormat">
+            <el-radio value="number">数字编号</el-radio>
+            <el-radio value="hanzi">汉字编号</el-radio>
+          </el-radio-group>
+        </div>
+      </div>
+
       <!-- 后缀类型设置 -->
       <div class="setting-section">
         <h4>后缀类型</h4>
@@ -32,12 +45,12 @@
             <span class="preview-text">{{ getPreviewText(1) }}</span>
           </div>
           <div class="preview-item">
-            <span class="label">第5个：</span>
-            <span class="preview-text">{{ getPreviewText(5) }}</span>
+            <span class="label">第12个：</span>
+            <span class="preview-text">{{ getPreviewText(12) }}</span>
           </div>
           <div class="preview-item">
-            <span class="label">第10个：</span>
-            <span class="preview-text">{{ getPreviewText(10) }}</span>
+            <span class="label">第123个：</span>
+            <span class="preview-text">{{ getPreviewText(123) }}</span>
           </div>
         </div>
       </div>
@@ -110,9 +123,49 @@ const emit = defineEmits(['update:visible', 'settings-changed', 'reformat-reques
 const targetWordOptions = [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
 
 const settings = ref({
+  chapterFormat: 'number',
   suffixType: '章',
   targetWords: 2000
 })
+
+const chineseDigits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+const chineseUnits = ['', '十', '百', '千']
+
+function convertNumberToChinese(num) {
+  const numeric = Number(num)
+  if (!Number.isFinite(numeric) || numeric <= 0) return String(num)
+  if (numeric >= 10000) {
+    const high = Math.floor(numeric / 10000)
+    const rest = numeric % 10000
+    let result = `${convertNumberToChinese(high)}万`
+    if (rest > 0) {
+      let restChinese = convertNumberToChinese(rest)
+      if (rest < 100 && restChinese.startsWith('十')) {
+        restChinese = `一${restChinese}`
+      }
+      result += rest < 1000 ? `零${restChinese}` : restChinese
+    }
+    return result
+  }
+  const str = String(Math.floor(numeric))
+  let result = ''
+  let zeroFlag = false
+  for (let i = 0; i < str.length; i++) {
+    const digit = Number(str[i])
+    const position = str.length - i - 1
+    if (digit === 0) {
+      zeroFlag = result.length > 0
+      continue
+    }
+    if (zeroFlag) {
+      result += chineseDigits[0]
+      zeroFlag = false
+    }
+    result += chineseDigits[digit] + (chineseUnits[position] || '')
+  }
+  result = result.replace(/^一十/, '十')
+  return result || chineseDigits[0]
+}
 
 // 加载状态
 const loading = ref(false)
@@ -131,6 +184,10 @@ watch(
         const targetValue = Number(incoming.targetWords)
         incoming.targetWords = Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 2000
       }
+      incoming.chapterFormat =
+        incoming.chapterFormat === 'hanzi' || incoming.chapterFormat === 'number'
+          ? incoming.chapterFormat
+          : 'number'
       settings.value = incoming
     }
   }
@@ -138,7 +195,9 @@ watch(
 
 // 获取预览文本
 function getPreviewText(number) {
-  return `第${number}${settings.value.suffixType}`
+  const numberPart =
+    settings.value.chapterFormat === 'hanzi' ? convertNumberToChinese(number) : String(number)
+  return `第${numberPart}${settings.value.suffixType}`
 }
 
 // 关闭弹框
@@ -166,6 +225,7 @@ async function handleConfirm() {
     // 确保传递的是纯对象，避免序列化问题
     const targetWordsValue = Number(settings.value.targetWords)
     const cleanSettings = {
+      chapterFormat: settings.value.chapterFormat,
       suffixType: settings.value.suffixType,
       targetWords:
         Number.isFinite(targetWordsValue) && targetWordsValue > 0 ? targetWordsValue : 2000
@@ -211,7 +271,10 @@ async function handleReformat() {
 
     // 这里需要调用父组件的重新格式化方法
     // 通过 emit 事件通知父组件
-    emit('reformat-requested', { suffixType: settings.value.suffixType })
+    emit('reformat-requested', {
+      suffixType: settings.value.suffixType,
+      chapterFormat: settings.value.chapterFormat
+    })
 
     ElMessage.success('章节编号重新格式化请求已发送')
   } catch (error) {

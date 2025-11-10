@@ -411,17 +411,12 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   let nextChapterNumber = 1
 
   if (chapters.length > 0) {
-    // 从现有章节名中提取最大编号（只支持数字格式）
     const chapterNumbers = chapters
       .map((file) => {
-        const name = file.name.replace('.txt', '')
-
-        // 只支持数字格式：第1章、第1集等
-        let match = name.match(/^第(\d+)(.+)$/)
-        if (match) {
-          return parseInt(match[1])
+        if (file.isFile() && file.name.endsWith('.txt')) {
+          const parsed = parseChapterName(file.name.replace('.txt', ''))
+          return parsed?.number || 0
         }
-
         return 0
       })
       .filter((num) => num > 0)
@@ -429,14 +424,15 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
     if (chapterNumbers.length > 0) {
       nextChapterNumber = Math.max(...chapterNumbers) + 1
     } else {
-      // 如果没有标准格式的章节名，使用文件数量+1
       nextChapterNumber = chapters.length + 1
     }
   }
 
   // 获取章节设置
   const chapterSettings = store.get(`chapterSettings:${bookName}`) || {
-    suffixType: '章'
+    chapterFormat: 'number',
+    suffixType: '章',
+    targetWords: 2000
   }
 
   // 根据设置生成章节名称
@@ -478,40 +474,33 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
 
       const files = fs.readdirSync(currentVolumePath, { withFileTypes: true })
 
-      const volumeChapters = []
-      for (const file of files) {
-        if (file.isFile() && file.name.endsWith('.txt')) {
-          volumeChapters.push({
+      const volumeChapters = files
+        .filter((file) => file.isFile() && file.name.endsWith('.txt'))
+        .map((file) => {
+          const name = file.name.replace('.txt', '')
+          const parsed = parseChapterName(name)
+          return {
             id: file.name,
-            name: file.name.replace('.txt', ''),
+            name,
             type: 'chapter',
-            path: join(bookPath, '正文', volumeName, file.name)
-          })
-        }
-      }
-
-      // 按照章节编号排序
-      volumeChapters.sort((a, b) => {
-        // 只支持数字格式：第1章、第1集等
-        const aMatch = a.name.match(/^第(\d+)(.+)$/)
-        const bMatch = b.name.match(/^第(\d+)(.+)$/)
-
-        if (aMatch && bMatch) {
-          // 如果都是标准章节格式，按编号排序
-          const aNum = parseInt(aMatch[1])
-          const bNum = parseInt(bMatch[1])
-          return aNum - bNum
-        } else if (aMatch) {
-          // 如果a是标准格式，b不是，a排在前面
-          return -1
-        } else if (bMatch) {
-          // 如果b是标准格式，a不是，b排在前面
-          return 1
-        } else {
-          // 都不是标准格式，按名称排序
+            path: join(bookPath, '正文', volumeName, file.name),
+            orderValue: parsed?.number || 0,
+            hasOrderValue: Boolean(parsed?.number)
+          }
+        })
+        .sort((a, b) => {
+          if (a.hasOrderValue && b.hasOrderValue) {
+            return a.orderValue - b.orderValue
+          }
+          if (a.hasOrderValue) return -1
+          if (b.hasOrderValue) return 1
           return a.name.localeCompare(b.name)
-        }
-      })
+        })
+
+      for (const chapter of volumeChapters) {
+        delete chapter.orderValue
+        delete chapter.hasOrderValue
+      }
 
       chapters.push({
         id: volumeName,
@@ -546,14 +535,19 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
     }
 
     // 检查章节编号连续性
-    const chapterInfos = chapters.map((file) => ({
-      oldName: file.name.replace('.txt', ''),
-      oldPath: join(volumePath, file.name),
-      file: file
-    }))
+    const chapterInfos = chapters.map((file) => {
+      const oldName = file.name.replace('.txt', '')
+      const parsed = parseChapterName(oldName)
+      return {
+        oldName,
+        oldPath: join(volumePath, file.name),
+        file,
+        parsed
+      }
+    })
 
     const numberingCheck = checkChapterNumbering(
-      chapterInfos.map((info) => ({ name: info.oldName }))
+      chapterInfos.map((info) => ({ name: info.oldName, parsed: info.parsed }))
     )
 
     if (numberingCheck.isSequential) {
@@ -562,14 +556,9 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
 
     // 按章节编号排序
     chapterInfos.sort((a, b) => {
-      const aMatch = a.oldName.match(/^第(\d+)(.+)$/)
-      const bMatch = b.oldName.match(/^第(\d+)(.+)$/)
-
-      if (aMatch && bMatch) {
-        const aNum = parseInt(aMatch[1])
-        const bNum = parseInt(bMatch[1])
-        return aNum - bNum
-      }
+      const aNum = a.parsed?.number || 0
+      const bNum = b.parsed?.number || 0
+      if (aNum && bNum) return aNum - bNum
       return a.oldName.localeCompare(b.oldName)
     })
 
@@ -580,27 +569,9 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
       const newNumber = i + 1
 
       // 提取原有的主题名/描述内容
-      const oldNameMatch = info.oldName.match(/^第(\d+)(.+?)(.*)$/)
-      let themeName = ''
-
-      if (oldNameMatch) {
-        // 保留原有的主题名（第3个捕获组）
-        themeName = (oldNameMatch[3] || '').trim()
-        if (
-          themeName &&
-          !themeName.startsWith('章') &&
-          !themeName.startsWith('集') &&
-          !themeName.startsWith('回')
-        ) {
-          themeName = ' ' + themeName // 添加空格分隔
-        }
-      }
-
-      // 生成新的章节名前缀
+      const description = info.parsed?.description || ''
       const newPrefix = generateChapterName(newNumber, settings)
-
-      // 组合新的章节名：前缀 + 主题名
-      const newName = newPrefix + themeName
+      const newName = description ? `${newPrefix} ${description}` : newPrefix
 
       if (newName !== info.oldName) {
         const newPath = join(volumePath, `${newName}.txt`)
@@ -726,6 +697,7 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawS
 
     // 保存设置（补齐默认值）
     const cleanSettings = {
+      chapterFormat: rawSettings?.chapterFormat === 'hanzi' ? 'hanzi' : 'number',
       suffixType: rawSettings?.suffixType || '章',
       targetWords: Number.isFinite(Number(rawSettings?.targetWords))
         ? Number(rawSettings.targetWords)
@@ -747,29 +719,18 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawS
         for (const file of files) {
           if (file.isFile() && file.name.endsWith('.txt')) {
             const oldName = file.name.replace('.txt', '')
+            const parsed = parseChapterName(oldName)
 
-            // 检查是否是标准章节格式（只支持数字格式）
-            let match = oldName.match(/^第(\d+)(.+?)(.*)$/)
-            let chapterNumber, oldType, description
-
-            if (match) {
-              // 数字格式：第1章、第2章等
-              chapterNumber = parseInt(match[1])
-              oldType = match[2] // 原来的类型（如"章"）
-              description = match[3] // 保留后面的描述内容
-            }
-
-            // 如果找到了匹配的格式，则进行重命名
-            if (chapterNumber && oldType && description !== undefined) {
-              // 生成新的前缀（编号+类型），保留描述
+            if (parsed) {
+              const { number: chapterNumber, description } = parsed
               const newPrefix = generateChapterName(chapterNumber, appliedSettings)
-              const newName = newPrefix + description
+              const suffixText = description ? ` ${description}` : ''
+              const newName = `${newPrefix}${suffixText}`
 
               if (newName !== oldName) {
                 const oldPath = join(currentVolumePath, file.name)
                 const newPath = join(currentVolumePath, `${newName}.txt`)
 
-                // 重命名文件
                 fs.renameSync(oldPath, newPath)
                 totalRenamed++
               }
@@ -790,10 +751,128 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawS
   }
 })
 
-// 生成章节名称前缀的辅助函数
+const chineseDigitMap = {
+  零: 0,
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9
+}
+
+const chineseDigitsArray = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+
+const chineseUnitsMap = {
+  十: 10,
+  百: 100,
+  千: 1000,
+  万: 10000
+}
+
+function convertNumberToChinese(num) {
+  const numeric = Number(num)
+  if (!Number.isFinite(numeric) || numeric <= 0) return String(num)
+  if (numeric >= 10000) {
+    const high = Math.floor(numeric / 10000)
+    const rest = numeric % 10000
+    let result = `${convertNumberToChinese(high)}万`
+    if (rest > 0) {
+      let restChinese = convertNumberToChinese(rest)
+      if (rest < 100 && restChinese.startsWith('十')) {
+        restChinese = `一${restChinese}`
+      }
+      result += rest < 1000 ? `零${restChinese}` : restChinese
+    }
+    return result
+  }
+  const str = String(Math.floor(numeric))
+  const units = ['', '十', '百', '千']
+  let result = ''
+  let zeroFlag = false
+
+  for (let i = 0; i < str.length; i++) {
+    const digit = Number(str[i])
+    const position = str.length - i - 1
+
+    if (digit === 0) {
+      zeroFlag = result.length > 0
+      continue
+    }
+
+    if (zeroFlag) {
+      result += '零'
+      zeroFlag = false
+    }
+
+    result += chineseDigitsArray[digit] + (units[position] || '')
+  }
+
+  result = result.replace(/^一十/, '十')
+  return result || '零'
+}
+
+function parseChineseNumber(str) {
+  if (!str) return NaN
+  let total = 0
+  let section = 0
+  let number = 0
+
+  for (const char of str) {
+    if (char === '零') {
+      if (number !== 0) number = 0
+      continue
+    }
+
+    if (chineseDigitMap[char] !== undefined) {
+      number = chineseDigitMap[char]
+    } else if (chineseUnitsMap[char]) {
+      const unitValue = chineseUnitsMap[char]
+      if (unitValue === 10000) {
+        section = (section + number) * unitValue
+        total += section
+        section = 0
+      } else {
+        const multiplier = number === 0 && char === '十' ? 1 : number
+        section += multiplier * unitValue
+      }
+      number = 0
+    } else {
+      return NaN
+    }
+  }
+
+  return total + section + number
+}
+
+function parseChapterName(name) {
+  const match = name.match(/^第(.+?)([章回集节部卷])\s*(.*)$/)
+  if (!match) return null
+  const [, rawNumber, suffix, description] = match
+  let number
+  if (/^\d+$/.test(rawNumber)) {
+    number = parseInt(rawNumber, 10)
+  } else {
+    number = parseChineseNumber(rawNumber)
+  }
+
+  if (!Number.isFinite(number) || number <= 0) return null
+
+  return {
+    number,
+    suffix,
+    description: description || ''
+  }
+}
+
 function generateChapterName(number, settings) {
-  const suffix = settings.suffixType || settings.suffix || '章'
-  return `第${number}${suffix}`
+  const format = settings?.chapterFormat === 'hanzi' ? 'hanzi' : 'number'
+  const suffix = settings?.suffixType || settings?.suffix || '章'
+  const numberPart = format === 'hanzi' ? convertNumberToChinese(number) : String(number)
+  return `第${numberPart}${suffix}`
 }
 
 // 检查章节编号是否连续
@@ -804,13 +883,9 @@ function checkChapterNumbering(chapters) {
 
   const chapterNumbers = chapters
     .map((chapter) => {
-      const name = chapter.name
-      // 只支持数字格式：第1章、第1集等
-      let match = name.match(/^第(\d+)(.+)$/)
-      if (match) {
-        return parseInt(match[1])
-      }
-      return 0
+      if (chapter.parsed?.number) return chapter.parsed.number
+      const parsed = parseChapterName(chapter.name || '')
+      return parsed?.number || 0
     })
     .filter((num) => num > 0)
     .sort((a, b) => a - b)
