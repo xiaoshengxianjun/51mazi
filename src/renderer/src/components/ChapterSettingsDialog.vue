@@ -151,7 +151,7 @@ async function handleConfirm() {
   try {
     // 确认对话框
     await ElMessageBox.confirm(
-      '确定要修改章节名称格式吗？这将重命名所有现有章节，此操作不可恢复！',
+      '确定要修改正文章节设置吗？这将应用到所有现有章节，此操作不可恢复！',
       '确认修改',
       {
         confirmButtonText: '确定修改',
@@ -174,7 +174,7 @@ async function handleConfirm() {
     const result = await window.electron.updateChapterFormat(props.bookName, cleanSettings)
 
     if (result.success) {
-      ElMessage.success('章节名称格式修改成功')
+      ElMessage.success('正文章节设置修改成功')
       settings.value.targetWords = cleanSettings.targetWords
       emit('settings-changed', { ...settings.value })
       emit('update:visible', false)
@@ -227,7 +227,7 @@ async function handleReformat() {
 
 <style lang="scss" scoped>
 .settings-content {
-  padding: 16px 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;

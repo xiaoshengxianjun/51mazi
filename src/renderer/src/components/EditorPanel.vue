@@ -17,6 +17,7 @@
         placeholder="章节标题"
         maxlength="20"
         class="chapter-title-input"
+        @blur="handleTitleBlur"
       />
     </div>
     <!-- 正文内容编辑区 -->
@@ -105,6 +106,7 @@ let styleUpdateTimer = null
 let isComposing = false // 是否正在进行输入法输入（composition）
 let compositionStartHandler = null
 let compositionEndHandler = null
+let isTitleSaving = false
 
 // 搜索面板状态
 const searchPanelVisible = ref(false)
@@ -173,6 +175,18 @@ function handleStyleUpdate() {
 // 处理导出事件
 function handleExport() {
   // 导出功能已在 EditorMenubar 组件中实现，这里只需要处理事件
+}
+
+async function handleTitleBlur() {
+  const fileType = editorStore.file?.type
+  if (!fileType || (fileType !== 'chapter' && fileType !== 'note')) return
+  if (isTitleSaving) return
+  try {
+    isTitleSaving = true
+    await saveFile(false)
+  } finally {
+    isTitleSaving = false
+  }
 }
 
 // 处理书籍总字数更新
