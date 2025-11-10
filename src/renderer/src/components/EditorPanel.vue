@@ -21,9 +21,8 @@
       />
     </div>
     <!-- 正文内容编辑区 -->
-    <div class="editor-content">
-      <EditorContent :editor="editor" />
-    </div>
+    <EditorContent class="editor-content" :editor="editor" />
+    <!-- <div class="editor-content"></div> -->
     <!-- 码字进度 -->
     <EditorProgress
       v-if="editorStore.file?.type === 'chapter'"
@@ -37,7 +36,6 @@
       :book-name="bookName"
       :content-word-count="contentWordCount"
       :file-type="editorStore.file?.type"
-      @update-book-words="handleBookWordsUpdate"
     />
 
     <!-- 搜索面板 -->
@@ -118,6 +116,18 @@ let compositionStartHandler = null
 let compositionEndHandler = null
 let isTitleSaving = false
 
+async function handleTitleBlur() {
+  const fileType = editorStore.file?.type
+  if (!fileType || (fileType !== 'chapter' && fileType !== 'note')) return
+  if (isTitleSaving) return
+  try {
+    isTitleSaving = true
+    await saveFile(false)
+  } finally {
+    isTitleSaving = false
+  }
+}
+
 // 搜索面板状态
 const searchPanelVisible = ref(false)
 
@@ -185,23 +195,6 @@ function handleStyleUpdate() {
 // 处理导出事件
 function handleExport() {
   // 导出功能已在 EditorMenubar 组件中实现，这里只需要处理事件
-}
-
-async function handleTitleBlur() {
-  const fileType = editorStore.file?.type
-  if (!fileType || (fileType !== 'chapter' && fileType !== 'note')) return
-  if (isTitleSaving) return
-  try {
-    isTitleSaving = true
-    await saveFile(false)
-  } finally {
-    isTitleSaving = false
-  }
-}
-
-// 处理书籍总字数更新
-function handleBookWordsUpdate() {
-  // 书籍总字数由 EditorStats 组件管理，这里可以处理其他逻辑
 }
 
 // 监听 store 内容变化，回显到编辑器
@@ -313,6 +306,8 @@ function handleWindowClose() {
 onMounted(async () => {
   // 书籍总字数由 EditorStats 组件通过 watch fileType 自动加载
 
+  editorStore.registerExternalSaveHandler(saveFile)
+
   // 加载编辑器设置
   await editorStore.loadEditorSettings()
 
@@ -387,6 +382,10 @@ onMounted(async () => {
   // 如果有初始内容，先开始编辑会话（设置初始化标志），再设置内容
   if (initialContent) {
     editorStore.startEditingSession(initialContent)
+  }
+
+  if (editorStore.file?.name) {
+    editorStore.setChapterTitle(editorStore.file.name)
   }
 
   editor.value.commands.setContent(plainTextToHtml(initialContent))
@@ -467,6 +466,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(async () => {
+  editorStore.registerExternalSaveHandler(null)
   // 移除窗口关闭监听器
   window.removeEventListener('beforeunload', handleWindowClose)
 
@@ -546,6 +546,11 @@ async function saveFile(showMessage = false) {
   if (result?.success) {
     if (result.name && result.name !== file.name) {
       editorStore.setFile({ ...file, name: result.name })
+      if (file.type === 'note') {
+        emit('refresh-notes')
+      } else if (file.type === 'chapter') {
+        emit('refresh-chapters')
+      }
     }
     if (showMessage) ElMessage.success('保存成功')
     return true
@@ -627,13 +632,11 @@ watch(
   background: var(--bg-primary);
   white-space: pre-wrap; // 保证Tab缩进和换行显示
   font-family: inherit, monospace;
-  > div {
-    height: max-content;
-  }
 }
 
 ::v-deep(.tiptap) {
-  height: 100%;
+  height: max-content;
+  min-height: 100%;
   white-space: pre-wrap; // 保证Tab缩进和换行显示
   // 字体、字号、行高通过动态样式设置，不在这里固定设置
 

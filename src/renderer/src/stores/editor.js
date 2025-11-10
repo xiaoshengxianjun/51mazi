@@ -18,6 +18,7 @@ export const useEditorStore = defineStore('editor', () => {
   const lastSyncedChapterWords = ref(0) // 上一次同步到书籍总字数的章节字数
   const pendingBookWordDelta = ref(0)
   const chapterTargetWords = ref(2000)
+  let externalSaveHandler = null
 
   // 新增：计算实际内容字数（排除换行符等格式字符）
   const contentWordCount = computed(() => {
@@ -124,6 +125,15 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  // function normalizeTitleSpacing(title) {
+  //   if (!title) return ''
+  //   const match = title.match(/^(第[^\\s]+[章回集节部卷]?)(.*)$/)
+  //   if (!match) return title
+  //   const prefix = match[1].trim()
+  //   const rest = match[2] ? match[2].trimStart() : ''
+  //   return rest ? `${prefix} ${rest}` : `${prefix} `
+  // }
+
   function setChapterTitle(title) {
     chapterTitle.value = title
   }
@@ -190,6 +200,17 @@ export const useEditorStore = defineStore('editor', () => {
     chapterTargetWords.value = Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
   }
 
+  function registerExternalSaveHandler(handler) {
+    externalSaveHandler = typeof handler === 'function' ? handler : null
+  }
+
+  async function saveCurrentFileThroughHandler(showMessage = false) {
+    if (typeof externalSaveHandler === 'function') {
+      return externalSaveHandler(showMessage)
+    }
+    return false
+  }
+
   async function fetchBookTotalWords(bookName, { force = false } = {}) {
     const normalizedName = bookName ? String(bookName) : ''
     if (!normalizedName) return bookTotalWords.value
@@ -246,6 +267,8 @@ export const useEditorStore = defineStore('editor', () => {
     resetBookWordStats,
     fetchBookTotalWords,
     chapterTargetWords,
-    setChapterTargetWords
+    setChapterTargetWords,
+    registerExternalSaveHandler,
+    saveCurrentFileThroughHandler
   }
 })

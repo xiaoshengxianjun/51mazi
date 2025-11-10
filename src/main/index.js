@@ -436,7 +436,7 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   }
 
   // 根据设置生成章节名称
-  const chapterName = generateChapterName(nextChapterNumber, chapterSettings)
+  const chapterName = `${generateChapterName(nextChapterNumber, chapterSettings)} `
   const filePath = join(volumePath, `${chapterName}.txt`)
 
   fs.writeFileSync(filePath, '')

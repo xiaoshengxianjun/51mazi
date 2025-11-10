@@ -234,6 +234,9 @@ function handleNodeCollapse() {
 // 处理笔记点击
 async function handleNoteClick(data, node) {
   if (data.type === 'note') {
+    const currentFile = editorStore.file
+    if (currentFile && currentFile.path === data.path) return
+    await editorStore.saveCurrentFileThroughHandler(false)
     const parent = node.parent.data
     const res = await window.electron.readNote(props.bookName, parent.name, data.name)
     if (res.success) {
@@ -255,6 +258,9 @@ async function handleNoteClick(data, node) {
 // 处理章节点击
 async function handleChapterClick(data, node) {
   if (data.type === 'chapter') {
+    const currentFile = editorStore.file
+    if (currentFile && currentFile.path === data.path) return
+    await editorStore.saveCurrentFileThroughHandler(false)
     // 读取章节内容
     const res = await window.electron.readChapter(props.bookName, node.parent.data.name, data.name)
     if (res.success) {
@@ -356,10 +362,19 @@ async function loadChapters(autoSelectLatest = false) {
   }
 }
 
-// 编辑节点
+function ensureTrailingSpace(name) {
+  const match = name.match(/^(第[^\s]+[章回集节部卷]?)(\s*)(.*)$/)
+  if (!match) return name
+  const [, prefix, spaces, rest] = match
+  if (!rest) {
+    return spaces === ' ' ? name : `${prefix} `
+  }
+  return spaces === '' ? name : `${prefix}${rest}`
+}
+
 function editNode(node) {
   editingNode.value = { ...node.data }
-  editingName.value = node.data.name
+  editingName.value = ensureTrailingSpace(node.data.name)
 }
 
 // 确认编辑
