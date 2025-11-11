@@ -43,6 +43,11 @@
                 </div>
               </div>
               <div class="character-details">
+                <span
+                  v-if="character.markerColor"
+                  class="character-marker"
+                  :style="{ backgroundColor: character.markerColor }"
+                ></span>
                 <span class="character-name">{{ character.name }}</span>
                 <span class="character-age">{{ character.age }}岁</span>
                 <span class="character-height">{{ character.height }}cm</span>
@@ -90,7 +95,18 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="姓名" width="120" align="center" />
+          <el-table-column prop="name" label="姓名" width="140" align="center">
+            <template #default="{ row }">
+              <div class="table-name-cell">
+                <span
+                  v-if="row.markerColor"
+                  class="table-marker"
+                  :style="{ backgroundColor: row.markerColor }"
+                ></span>
+                <span>{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="age" label="年龄" width="80" align="center">
             <template #default="{ row }"> {{ row.age }}岁 </template>
           </el-table-column>
@@ -217,6 +233,24 @@
           </el-form-item>
         </el-col>
       </el-row>
+      <el-form-item label="形象介绍" prop="appearance">
+        <el-input
+          v-model="characterForm.appearance"
+          placeholder="请输入人物形象介绍（外貌、气质、穿着等）"
+          type="textarea"
+          :rows="4"
+          clearable
+        />
+      </el-form-item>
+      <el-form-item label="生平介绍" prop="biography">
+        <el-input
+          v-model="characterForm.biography"
+          placeholder="请输入人物生平介绍（经历、性格、背景故事等）"
+          type="textarea"
+          :rows="6"
+          clearable
+        />
+      </el-form-item>
       <el-form-item label="标签" prop="tags">
         <el-tree-select
           v-model="characterForm.tags"
@@ -237,23 +271,26 @@
           clearable
         />
       </el-form-item>
-      <el-form-item label="形象介绍" prop="appearance">
-        <el-input
-          v-model="characterForm.appearance"
-          placeholder="请输入人物形象介绍（外貌、气质、穿着等）"
-          type="textarea"
-          :rows="4"
-          clearable
-        />
-      </el-form-item>
-      <el-form-item label="生平介绍" prop="biography">
-        <el-input
-          v-model="characterForm.biography"
-          placeholder="请输入人物生平介绍（经历、性格、背景故事等）"
-          type="textarea"
-          :rows="6"
-          clearable
-        />
+      <el-form-item label="标记色">
+        <div class="marker-selector">
+          <button
+            v-for="color in presetMarkerColors"
+            :key="color || 'none'"
+            type="button"
+            class="marker-swatch"
+            :class="{ active: color === characterForm.markerColor, empty: !color }"
+            :style="color ? { backgroundColor: color } : {}"
+            @click="handlePresetMarkerClick(color)"
+          >
+            <span v-if="!color" class="marker-none">无</span>
+          </button>
+          <el-color-picker
+            v-model="characterForm.markerColor"
+            :predefine="colorPickerPredefine"
+            :show-alpha="false"
+            size="small"
+          />
+        </div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -288,6 +325,24 @@ const dictionary = ref([]) // 字典数据
 const bookName = route.query.name || ''
 const formRef = ref(null)
 
+const presetMarkerColors = [
+  '',
+  '#FF4D4F',
+  '#FF9F1C',
+  '#FFD600',
+  '#00C853',
+  '#1890FF',
+  '#B368FF',
+  '#FF6F91',
+  '#8D99AE',
+  '#A3E635',
+  '#00C9A7',
+  '#13C2C2',
+  '#2F54EB'
+]
+
+const colorPickerPredefine = presetMarkerColors.filter((color) => !!color)
+
 // 图片预览相关
 const imageViewerVisible = ref(false)
 const imageViewerSrcList = ref([])
@@ -303,7 +358,8 @@ const characterForm = reactive({
   tags: [], // 新增标签字段
   biography: '', // 生平介绍
   appearance: '', // 形象介绍
-  avatar: '' // 头像路径或链接
+  avatar: '', // 头像路径或链接
+  markerColor: '' // 标记色
 })
 
 // 表单验证规则
@@ -366,7 +422,8 @@ async function loadCharacters() {
         ...character,
         biography: character.biography || '',
         appearance: character.appearance || '',
-        avatar: character.avatar || ''
+        avatar: character.avatar || '',
+        markerColor: character.markerColor || ''
       }
     })
 
@@ -481,8 +538,13 @@ function resetForm() {
     tags: [], // 重置标签
     biography: '', // 生平介绍
     appearance: '', // 形象介绍
-    avatar: '' // 头像
+    avatar: '', // 头像
+    markerColor: ''
   })
+}
+
+function handlePresetMarkerClick(color) {
+  characterForm.markerColor = color
 }
 
 // 监听数据变化，自动保存
@@ -603,6 +665,21 @@ onMounted(() => {
     text-align: center;
   }
 
+  .table-name-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .table-marker {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px var(--border-color);
+  }
+
   .action-buttons {
     display: flex;
     flex-direction: column;
@@ -704,6 +781,14 @@ onMounted(() => {
     align-items: center;
     gap: 8px;
     flex: 1;
+
+    .character-marker {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px var(--border-color);
+    }
   }
 
   .character-name {
@@ -871,6 +956,43 @@ onMounted(() => {
       .el-button {
         flex-shrink: 0;
       }
+    }
+  }
+}
+
+.marker-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .marker-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--bg-primary);
+    padding: 0;
+    transition: all 0.2s ease;
+
+    &.empty {
+      background: var(--bg-mute);
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    &.active {
+      box-shadow:
+        0 0 0 2px var(--bg-primary),
+        0 0 0 4px rgba(64, 158, 255, 0.4);
+    }
+
+    .marker-none {
+      font-size: 12px;
     }
   }
 }
