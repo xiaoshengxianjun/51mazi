@@ -255,7 +255,22 @@ npm run build:linux
 - **技术栈**: Electron + Vue 3 + TipTap + Element Plus + Pinia
 - **关键词**: 桌面应用、富文本编辑、Canvas 绘图、关系图谱、小说写作
 
-### 🏷️ 标签
+## 📞 联系与支持
+
+### 帮助中心 / 商务合作
+
+![QQ 群二维码](static/51mazi_qq_qrcode.jpg)
+
+- QQ 交流群：777690109
+- 问题反馈 / 商务合作邮箱：<fomazi@163.com>
+
+### 赞助作者
+
+![赞助二维码](static/wx_reward_qrcode.png)
+
+感谢每一位支持本项目的朋友！
+
+## 🏷️ 标签
 `#Electron` `#Vue3` `#桌面应用` `#富文本编辑` `#Canvas绘图` `#关系图谱` `#小说写作` `#前端开发`
 
 ---

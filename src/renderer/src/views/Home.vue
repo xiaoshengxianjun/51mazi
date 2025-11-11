@@ -22,13 +22,13 @@
           <i class="el-icon-reading"></i>
           写作指南
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="showHelpDialog = true">
           <i class="el-icon-question"></i>
           帮助中心
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="showSponsorDialog = true">
           <i class="el-icon-money"></i>
-          打赏作者
+          赞助作者
         </div>
       </div>
     </div>
@@ -93,6 +93,24 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 帮助中心弹框 -->
+    <el-dialog v-model="showHelpDialog" title="帮助中心" width="420px" align-center>
+      <div class="dialog-content">
+        <img :src="qqGroupQrcode" alt="QQ 群二维码" class="dialog-image" />
+        <p class="dialog-text">
+          问题反馈 / 商务合作邮箱：
+          <a class="dialog-link" :href="`mailto:${contactEmail}`">{{ contactEmail }}</a>
+        </p>
+      </div>
+    </el-dialog>
+
+    <!-- 赞助作者弹框 -->
+    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="420px" align-center>
+      <div class="dialog-content">
+        <img :src="rewardQrcode" alt="赞助二维码" class="dialog-image" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -107,7 +125,12 @@ const router = useRouter()
 const showDirDialog = ref(false)
 const bookDir = ref('')
 const showThemeDialog = ref(false)
+const showHelpDialog = ref(false)
+const showSponsorDialog = ref(false)
 const themeStore = useThemeStore()
+const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
+const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
+const contactEmail = 'fomazi@163.com'
 
 // 检查本地存储是否有bookDir
 onMounted(async () => {
@@ -256,6 +279,31 @@ const goToUserGuide = () => {
   justify-content: center;
   gap: 50px;
   margin: 20px 0;
+}
+
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.dialog-image {
+  width: 260px;
+  max-width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.dialog-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.dialog-link {
+  color: var(--primary-color);
 }
 
 :deep(.el-radio) {
