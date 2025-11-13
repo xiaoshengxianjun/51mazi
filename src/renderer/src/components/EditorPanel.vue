@@ -27,7 +27,6 @@
       ref="chapterEditorContentRef"
       :editor-store="editorStore"
       :menubar-state="menubarState"
-      :align="align"
       :is-composing="isComposing"
       :get-font-family="getFontFamily"
       :auto-save-content="autoSaveContent"
@@ -36,7 +35,6 @@
       ref="noteEditorContentRef"
       :editor-store="editorStore"
       :menubar-state="menubarState"
-      :align="align"
       :is-composing="isComposing"
       :get-font-family="getFontFamily"
       :auto-save-content="autoSaveContent"
@@ -121,8 +119,6 @@ const menubarState = ref({
   isItalic: false
 })
 
-const align = ref('left')
-
 const editor = ref(null)
 let saveTimer = ref(null)
 let styleUpdateTimer = null
@@ -180,7 +176,6 @@ function updateEditorStyle() {
     }
     editorElement.style.setProperty('font-size', menubarState.value.fontSize, 'important')
     editorElement.style.setProperty('line-height', menubarState.value.lineHeight, 'important')
-    editorElement.style.setProperty('text-align', align.value, 'important')
   }
 }
 
@@ -649,13 +644,6 @@ async function autoSaveContent() {
 }
 
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
-
-// 监听对齐方式变化
-watch([align], () => {
-  if (editor.value) {
-    updateEditorStyle()
-  }
-})
 
 // 监听当前文件类型，动态设置首行缩进和编辑器模式
 watch(

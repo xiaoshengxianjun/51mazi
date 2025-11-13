@@ -16,10 +16,6 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  align: {
-    type: String,
-    default: 'left'
-  },
   isComposing: {
     type: Boolean,
     default: false
@@ -100,7 +96,7 @@ function createEditor() {
             const fullFontFamily = props.getFontFamily(props.menubarState.fontFamily)
             fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
           }
-          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${props.menubarState.fontSize} !important; line-height: ${props.menubarState.lineHeight} !important; text-align: ${props.align} !important;`
+          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${props.menubarState.fontSize} !important; line-height: ${props.menubarState.lineHeight} !important;`
         }
       }
     },
