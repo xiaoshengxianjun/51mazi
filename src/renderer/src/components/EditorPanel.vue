@@ -22,7 +22,25 @@
     </div>
     <!-- 正文内容编辑区 -->
     <EditorContent class="editor-content" :editor="editor" />
-    <!-- <div class="editor-content"></div> -->
+    <!-- 编辑器内容配置组件（隐藏，仅提供逻辑） -->
+    <ChapterEditorContent
+      ref="chapterEditorContentRef"
+      :editor-store="editorStore"
+      :menubar-state="menubarState"
+      :align="align"
+      :is-composing="isComposing"
+      :get-font-family="getFontFamily"
+      :auto-save-content="autoSaveContent"
+    />
+    <NoteEditorContent
+      ref="noteEditorContentRef"
+      :editor-store="editorStore"
+      :menubar-state="menubarState"
+      :align="align"
+      :is-composing="isComposing"
+      :get-font-family="getFontFamily"
+      :auto-save-content="autoSaveContent"
+    />
     <!-- 码字进度 -->
     <EditorProgress
       v-if="editorStore.file?.type === 'chapter'"
@@ -46,19 +64,14 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Editor, EditorContent } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
-import Document from '@tiptap/extension-document'
-import TextAlign from '@tiptap/extension-text-align'
-import Highlight from '@tiptap/extension-highlight'
+import { EditorContent } from '@tiptap/vue-3'
 import { useEditorStore } from '@renderer/stores/editor'
-import { Extension } from '@tiptap/core'
-import { Collapsible } from '@renderer/extensions/Collapsible'
-import { NoteOutlineParagraph } from '@renderer/extensions/NoteOutline'
 import SearchPanel from './SearchPanel.vue'
 import EditorMenubar from './EditorMenubar.vue'
 import EditorStats from './EditorStats.vue'
 import EditorProgress from './EditorProgress.vue'
+import ChapterEditorContent from './ChapterEditorContent.vue'
+import NoteEditorContent from './NoteEditorContent.vue'
 
 const editorStore = useEditorStore()
 
@@ -111,12 +124,16 @@ const menubarState = ref({
 const align = ref('left')
 
 const editor = ref(null)
-let saveTimer = null
+let saveTimer = ref(null)
 let styleUpdateTimer = null
 let isComposing = false // 是否正在进行输入法输入（composition）
 let compositionStartHandler = null
 let compositionEndHandler = null
 let isTitleSaving = false
+
+// 编辑器内容组件引用
+const chapterEditorContentRef = ref(null)
+const noteEditorContentRef = ref(null)
 
 async function handleTitleBlur() {
   const fileType = editorStore.file?.type
@@ -133,36 +150,10 @@ async function handleTitleBlur() {
 // 搜索面板状态
 const searchPanelVisible = ref(false)
 
-// 将纯文本转换为 HTML（用于章节模式）
-function plainTextToHtml(text) {
-  if (!text) return ''
-  // 1. 按行分割
-  const lines = text.split('\n')
-  // 2. 每行处理缩进和空格
-  const htmlLines = lines.map((line) => {
-    // 替换Tab为8个&nbsp;
-    let html = line.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')
-    // 替换连续空格为 &nbsp;
-    html = html.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length))
-    // 包裹为<p>
-    return html ? `<p>${html}</p>` : ''
-  })
-  // 3. 拼接
-  return htmlLines.join('')
-}
-
-// 将笔记的 HTML 内容转换为纯文本（用于字数统计）
-function htmlToPlainText(html) {
-  if (!html) return ''
-  const div = document.createElement('div')
-  div.innerHTML = html
-  return div.textContent || div.innerText || ''
-}
-
-// 检查内容是否是 HTML 格式
-function isHtmlContent(content) {
-  if (!content) return false
-  return /<[a-z][\s\S]*>/i.test(content)
+// 获取当前编辑器内容组件
+function getEditorContentComponent() {
+  const isNote = editorStore.file?.type === 'note'
+  return isNote ? noteEditorContentRef.value : chapterEditorContentRef.value
 }
 
 // 获取完整的字体族配置
@@ -274,39 +265,11 @@ watch(
       // 先开始编辑会话，设置 isInitializing = true，避免加载已有内容时被计入码字速度
       editorStore.startEditingSession(newContent)
 
-      // 根据文件类型决定如何加载内容
-      if (isNote && isHtmlContent(newContent)) {
-        // 笔记模式：如果内容是 HTML，直接加载
-        // 确保 HTML 内容格式正确
-        let htmlContent = newContent
-        // 如果 HTML 中没有 note-outline 段落，尝试转换
-        if (!htmlContent.includes('data-note-outline')) {
-          // 可能是旧的 HTML 格式，尝试转换
-          htmlContent = htmlContent.replace(/<p([^>]*)>/gi, (match, attrs) => {
-            if (attrs.includes('data-note-outline')) return match
-            return `<p data-note-outline data-level="0"${attrs}>`
-          })
-        }
-        editor.value.commands.setContent(htmlContent)
-      } else if (isNote) {
-        // 笔记模式：如果是纯文本，转换为笔记大纲格式
-        const lines = (newContent || '').split('\n')
-        const htmlContent = lines
-          .map((line) => {
-            const trimmed = line.trim()
-            if (!trimmed) return '<p data-note-outline data-level="0"></p>'
-            // 检测缩进级别（Tab 或空格）
-            const indentMatch = line.match(/^(\t| {2,})*/)
-            const level = indentMatch
-              ? Math.floor(indentMatch[0].replace(/\t/g, '  ').length / 2)
-              : 0
-            return `<p data-note-outline data-level="${Math.min(level, 10)}">${trimmed}</p>`
-          })
-          .join('')
-        editor.value.commands.setContent(htmlContent || '<p data-note-outline data-level="0"></p>')
+      // 根据文件类型使用对应的内容设置方法
+      if (isNote) {
+        noteEditorContentRef.value.setNoteContent(editor.value, newContent)
       } else {
-        // 章节模式：使用纯文本转 HTML
-        editor.value.commands.setContent(plainTextToHtml(newContent))
+        chapterEditorContentRef.value.setChapterContent(editor.value, newContent)
       }
 
       // 书籍总字数由 EditorStats 组件通过 watch fileType 自动加载
@@ -346,19 +309,6 @@ watch(
   }
 )
 
-// 支持Tab键插入制表符
-const TabInsert = Extension.create({
-  name: 'tabInsert',
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        this.editor.commands.insertContent('\t')
-        return true
-      }
-    }
-  }
-})
-
 // 键盘快捷键处理
 function handleKeydown(event) {
   // Cmd/Ctrl + F: 打开搜索面板
@@ -379,7 +329,7 @@ function handleKeydown(event) {
 // 窗口关闭前保存设置
 function handleWindowClose() {
   // 清除定时器
-  if (saveTimer) clearTimeout(saveTimer)
+  if (saveTimer.value) clearTimeout(saveTimer.value)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
 
   // 同步保存编辑器设置（窗口关闭时无法使用 async/await）
@@ -432,101 +382,15 @@ async function initEditor() {
     }
   }
 
-  // 根据文件类型决定使用的扩展
-  const isNoteMode = editorStore.file?.type === 'note'
-
-  // 基础扩展
-  let baseExtensions = []
-
-  if (isNoteMode) {
-    // 笔记模式：手动配置，禁用依赖 paragraph 的扩展
-    // 扩展顺序很重要：NoteOutlineParagraph 必须在 StarterKit 之前，这样 trailingNode 才能找到它
-    baseExtensions = [
-      Document.configure({
-        content: 'noteOutlineParagraph block*' // 使用 noteOutlineParagraph 替代 paragraph
-      }),
-      NoteOutlineParagraph, // 必须在 StarterKit 之前定义，这样 trailingNode 才能找到它
-      StarterKit.configure({
-        paragraph: false, // 禁用 paragraph
-        document: false, // 禁用默认的 Document，使用上面自定义的
-        heading: true,
-        blockquote: false, // 禁用 blockquote（依赖 paragraph）
-        codeBlock: true,
-        horizontalRule: true,
-        hardBreak: true,
-        dropcursor: true,
-        gapcursor: true,
-        history: true,
-        bulletList: false, // 禁用 bulletList（listItem 依赖 paragraph）
-        orderedList: false, // 禁用 orderedList（listItem 依赖 paragraph）
-        listItem: false, // 禁用 listItem（content 是 'paragraph block*'）
-        listKeymap: false, // 禁用 listKeymap
-        trailingNode: {
-          node: 'noteOutlineParagraph', // 使用 noteOutlineParagraph 替代 paragraph
-          notAfter: ['noteOutlineParagraph'] // 在 noteOutlineParagraph 后不插入
-        }
-      }),
-      TextAlign.configure({ types: ['heading', 'noteOutlineParagraph'] })
-    ]
-  } else {
-    // 章节模式：使用完整的 StarterKit
-    baseExtensions = [StarterKit, TextAlign.configure({ types: ['heading', 'paragraph'] })]
+  // 获取对应的编辑器内容组件
+  const editorContentComponent = getEditorContentComponent()
+  if (!editorContentComponent) {
+    console.error('编辑器内容组件未找到')
+    return
   }
 
-  baseExtensions.push(
-    Highlight.configure({
-      multicolor: true,
-      HTMLAttributes: {
-        class: 'search-highlight'
-      }
-    }),
-    TabInsert
-  )
-
-  // Collapsible 扩展只在章节模式下使用（因为它依赖 paragraph）
-  if (!isNoteMode) {
-    baseExtensions.push(Collapsible)
-  }
-
-  editor.value = new Editor({
-    extensions: baseExtensions,
-    content: editorStore.content,
-    editorProps: {
-      attributes: {
-        class: 'tiptap-editor',
-        style: () => {
-          let fontFamilyStyle = ''
-          if (menubarState.value.fontFamily !== 'inherit') {
-            const fullFontFamily = getFontFamily(menubarState.value.fontFamily)
-            fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
-          }
-          return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${menubarState.value.fontSize} !important; line-height: ${menubarState.value.lineHeight} !important; text-align: ${align.value} !important;`
-        }
-      }
-    },
-    onUpdate: ({ editor }) => {
-      // 根据文件类型决定保存格式
-      const isNote = editorStore.file?.type === 'note'
-      const content = isNote ? editor.getHTML() : editor.getText()
-
-      // 如果正在进行输入法输入（composition），不更新字数统计
-      // 等待compositionend事件后再更新
-      if (!isComposing) {
-        // 字数统计始终使用纯文本
-        const textContent = isNote ? htmlToPlainText(content) : content
-        editorStore.setContent(textContent)
-      }
-
-      // 防抖保存（无论是否在composition状态都保存内容）
-      if (saveTimer) clearTimeout(saveTimer)
-      saveTimer = setTimeout(() => {
-        autoSaveContent()
-      }, 1000)
-    },
-    onSelectionUpdate: () => {
-      // 按钮状态由 EditorMenubar 组件管理
-    }
-  })
+  // 使用组件提供的方法创建编辑器
+  editor.value = editorContentComponent.createEditor()
 
   // 设置初始内容
   const initialContent = editorStore.content || ''
@@ -540,38 +404,12 @@ async function initEditor() {
     editorStore.setChapterTitle(editorStore.file.name)
   }
 
-  // 根据文件类型决定如何加载内容
+  // 根据文件类型使用对应的内容设置方法
   const isNote = editorStore.file?.type === 'note'
-  if (isNote && isHtmlContent(initialContent)) {
-    // 笔记模式：如果内容是 HTML，直接加载
-    // 确保 HTML 内容格式正确
-    let htmlContent = initialContent
-    // 如果 HTML 中没有 note-outline 段落，尝试转换
-    if (!htmlContent.includes('data-note-outline')) {
-      // 可能是旧的 HTML 格式，尝试转换
-      htmlContent = htmlContent.replace(/<p([^>]*)>/gi, (match, attrs) => {
-        if (attrs.includes('data-note-outline')) return match
-        return `<p data-note-outline data-level="0"${attrs}>`
-      })
-    }
-    editor.value.commands.setContent(htmlContent)
-  } else if (isNote) {
-    // 笔记模式：如果是纯文本，转换为笔记大纲格式
-    const lines = (initialContent || '').split('\n')
-    const htmlContent = lines
-      .map((line) => {
-        const trimmed = line.trim()
-        if (!trimmed) return '<p data-note-outline data-level="0"></p>'
-        // 检测缩进级别（Tab 或空格）
-        const indentMatch = line.match(/^(\t| {2,})*/)
-        const level = indentMatch ? Math.floor(indentMatch[0].replace(/\t/g, '  ').length / 2) : 0
-        return `<p data-note-outline data-level="${Math.min(level, 10)}">${trimmed}</p>`
-      })
-      .join('')
-    editor.value.commands.setContent(htmlContent || '<p data-note-outline data-level="0"></p>')
+  if (isNote) {
+    noteEditorContentRef.value.setNoteContent(editor.value, initialContent)
   } else {
-    // 章节模式：使用纯文本转 HTML
-    editor.value.commands.setContent(plainTextToHtml(initialContent))
+    chapterEditorContentRef.value.setChapterContent(editor.value, initialContent)
   }
 
   // 等待DOM渲染完成后应用样式
@@ -693,7 +531,7 @@ onBeforeUnmount(async () => {
     }
   }
 
-  if (saveTimer) clearTimeout(saveTimer)
+  if (saveTimer.value) clearTimeout(saveTimer.value)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
 
   // 保存编辑器设置
@@ -726,21 +564,21 @@ async function saveFile(showMessage = false) {
     return false
   }
 
-  // 根据文件类型决定保存格式
+  // 根据文件类型使用对应的内容获取方法
   const isNote = file.type === 'note'
   let contentToSave = editorStore.content
 
   if (editor.value) {
-    if (isNote) {
-      // 笔记模式：保存 HTML 格式
-      contentToSave = editor.value.getHTML()
-      // 同时更新 store 中的纯文本内容用于字数统计
-      const textContent = htmlToPlainText(contentToSave)
-      editorStore.setContent(textContent)
-    } else {
-      // 章节模式：保存纯文本格式
-      contentToSave = editor.value.getText()
-      editorStore.setContent(contentToSave)
+    const editorContentComponent = getEditorContentComponent()
+    if (editorContentComponent) {
+      contentToSave = editorContentComponent.getSaveContent(editor.value)
+      // 更新 store 中的纯文本内容用于字数统计
+      if (isNote) {
+        const textContent = noteEditorContentRef.value.htmlToPlainText(contentToSave)
+        editorStore.setContent(textContent)
+      } else {
+        editorStore.setContent(contentToSave)
+      }
     }
   }
 

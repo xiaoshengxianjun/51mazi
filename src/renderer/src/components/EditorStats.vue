@@ -1,8 +1,8 @@
 <template>
   <div class="editor-stats">
     <div class="editor-stats-left">
-      <span class="word-count">章节字数：{{ contentWordCount }}字</span>
       <span class="book-word-count">书籍字数：{{ displayedBookWords }}字</span>
+      <span class="word-count">章节字数：{{ contentWordCount }}字</span>
     </div>
     <div class="editor-stats-right">
       <span class="typing-speed">
@@ -147,7 +147,6 @@ defineExpose({
     align-items: center;
     gap: 10px;
     > span {
-      font-weight: bold;
       color: var(--primary-color);
     }
   }
