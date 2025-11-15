@@ -130,10 +130,37 @@ const NoteDragHandle = Extension.create({
           break
         }
       }
-      if (targetDepth === -1) return false
-      const targetNode = $pos.node(targetDepth)
-      const targetStart = $pos.before(targetDepth)
-      const targetEnd = targetStart + targetNode.nodeSize
+      let targetNode = null
+      let targetStart = null
+      let targetEnd = null
+      if (targetDepth !== -1) {
+        targetNode = $pos.node(targetDepth)
+        targetStart = $pos.before(targetDepth)
+        targetEnd = targetStart + targetNode.nodeSize
+      } else {
+        // Fallback：当前位置不在任何段落内（例如在左侧功能栏），
+        // 在顶层文档中查找最近的 noteOutlineParagraph 作为目标
+        const pos = posInfo.pos
+        const before = state.doc.childBefore(pos)
+        const after = state.doc.childAfter(pos)
+        let candidate = null
+        if (before && before.node && before.node.type === paragraphType) {
+          candidate = { node: before.node, start: before.offset + 1 }
+        }
+        if (
+          (!candidate ||
+            (after && Math.abs(after.offset + 1 - pos) < Math.abs(candidate.start - pos))) &&
+          after &&
+          after.node &&
+          after.node.type === paragraphType
+        ) {
+          candidate = { node: after.node, start: after.offset + 1 }
+        }
+        if (!candidate) return false
+        targetNode = candidate.node
+        targetStart = candidate.start
+        targetEnd = targetStart + targetNode.nodeSize
+      }
       // 决定前/后
       let insertPos = targetStart
       const targetDom = view.nodeDOM(targetStart)
@@ -151,9 +178,61 @@ const NoteDragHandle = Extension.create({
       const from = draggingPos
       const to = draggingPos + draggedNode.nodeSize
       tr = tr.delete(from, to)
-      let adjustedInsert = insertPos
-      if (insertPos > from) adjustedInsert -= draggedNode.nodeSize
+      // 使用映射后的插入点，避免手工偏移导致的块拆分与空段落
+      let adjustedInsert = tr.mapping.map(insertPos, -1)
       tr = tr.insert(adjustedInsert, draggedNode)
+      // 清理可能产生的空段落（在插入点两侧连续清扫）
+      const isEmptyNote = (n) =>
+        n &&
+        n.type === paragraphType &&
+        (n.content.size === 0 || (typeof n.textContent === 'string' && n.textContent.trim() === ''))
+      // 向左清理
+      for (;;) {
+        const $cur = tr.doc.resolve(adjustedInsert)
+        const left = $cur.nodeBefore
+        if (isEmptyNote(left) && tr.doc.childCount > 1) {
+          const start = adjustedInsert - left.nodeSize
+          tr = tr.delete(start, adjustedInsert)
+          adjustedInsert -= left.nodeSize
+          continue
+        }
+        break
+      }
+      // 向右清理
+      for (;;) {
+        const $cur = tr.doc.resolve(adjustedInsert)
+        const right = $cur.nodeAfter
+        if (isEmptyNote(right) && tr.doc.childCount > 1) {
+          const end = adjustedInsert + right.nodeSize
+          tr = tr.delete(adjustedInsert, end)
+          continue
+        }
+        break
+      }
+      // 全量扫描：删除所有空段；仅当“文档最后一个顶层节点是空段”时，保留这一个作为末尾占位
+      const emptyRanges = []
+      let lastTopLevelEmpty = null
+      tr.doc.descendants((node, pos, parent, index) => {
+        if (node.type === paragraphType && isEmptyNote(node)) {
+          emptyRanges.push([pos, pos + node.nodeSize])
+          const $p = tr.doc.resolve(pos)
+          const isTopLevel = $p.depth === 1
+          if (isTopLevel && index === tr.doc.childCount - 1) {
+            lastTopLevelEmpty = [pos, pos + node.nodeSize]
+          }
+        }
+        return true
+      })
+      if (emptyRanges.length) {
+        for (let i = emptyRanges.length - 1; i >= 0; i--) {
+          const [df, dt] = emptyRanges[i]
+          const isLastKept =
+            lastTopLevelEmpty && df === lastTopLevelEmpty[0] && dt === lastTopLevelEmpty[1]
+          if (!isLastKept) {
+            tr = tr.delete(df, dt)
+          }
+        }
+      }
       view.dispatch(tr.scrollIntoView())
       return true
     }
@@ -174,20 +253,34 @@ const NoteDragHandle = Extension.create({
         },
         view(editorView) {
           // 捕获全局拖拽结束/放置，覆盖左侧功能栏等非编辑区位置
+          let lastPoint = null
           const onDocDrop = (e) => {
             if (draggingPos == null) return
             e.preventDefault()
             moveParagraphAtPoint(editorView, e.clientX, e.clientY)
             draggingPos = null
           }
+          const onDocDragOver = (e) => {
+            if (draggingPos == null) return
+            // 确保会触发 drop 事件
+            e.preventDefault()
+            lastPoint = { x: e.clientX, y: e.clientY }
+          }
           const onDocDragEnd = () => {
+            if (draggingPos != null && lastPoint) {
+              // 如果没有触发 drop，也在 dragend 时根据最后位置执行一次移动
+              moveParagraphAtPoint(editorView, lastPoint.x, lastPoint.y)
+            }
             draggingPos = null
+            lastPoint = null
           }
           document.addEventListener('drop', onDocDrop)
+          document.addEventListener('dragover', onDocDragOver)
           document.addEventListener('dragend', onDocDragEnd)
           return {
             destroy() {
               document.removeEventListener('drop', onDocDrop)
+              document.removeEventListener('dragover', onDocDragOver)
               document.removeEventListener('dragend', onDocDragEnd)
             }
           }
@@ -223,6 +316,8 @@ const NoteDragHandle = Extension.create({
               if (!target.classList.contains('note-outline-drag-handle')) return false
               const pos = Number(target.dataset.pos || -1)
               if (pos < 0) return false
+              // 确保拖拽开始时已记录 draggingPos
+              if (draggingPos == null) draggingPos = pos
               // 使用整段节点作为拖拽预览
               const nodeDom = view.nodeDOM(pos)
               if (!(nodeDom instanceof HTMLElement)) return false
@@ -300,6 +395,7 @@ function buildDecorations(doc, schema) {
       const handle = document.createElement('span')
       handle.className = 'note-outline-drag-handle'
       handle.dataset.pos = String(nodePos)
+      handle.setAttribute('draggable', 'true')
       handle.title = '拖动以移动该段落'
       handle.textContent = '⋮⋮'
       // 将锚点作为小部件挂载在段首（side: -1 更贴近段落开始）
@@ -471,5 +567,4 @@ defineExpose({
   cursor: move;
   color: var(--text-base, #333);
 }
-
 </style>
