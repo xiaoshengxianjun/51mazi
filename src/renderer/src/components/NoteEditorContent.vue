@@ -7,6 +7,8 @@ import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import { Extension } from '@tiptap/core'
 import { NoteOutlineParagraph } from '@renderer/extensions/NoteOutline'
+import { Plugin, PluginKey, NodeSelection } from 'prosemirror-state'
+import { Decoration, DecorationSet } from 'prosemirror-view'
 
 const props = defineProps({
   editorStore: {
@@ -103,14 +105,220 @@ function getNoteExtensions() {
   ]
 }
 
+// 段落拖拽锚点扩展：为每个 noteOutlineParagraph 添加可拖拽锚点
+const NoteDragHandle = Extension.create({
+  name: 'noteDragHandle',
+  addProseMirrorPlugins() {
+    const key = new PluginKey('note-drag-handle')
+    // 运行时拖拽起点（段落起始位置）
+    let draggingPos = null
+    // 计算并执行在屏幕坐标处的移动
+    function moveParagraphAtPoint(view, clientX, clientY) {
+      const { state } = view
+      const paragraphType = state.schema.nodes.noteOutlineParagraph
+      const rect = view.dom.getBoundingClientRect()
+      const clampedX = Math.max(rect.left + 1, Math.min(clientX, rect.right - 1))
+      const clampedY = Math.max(rect.top + 1, Math.min(clientY, rect.bottom - 1))
+      const posInfo = view.posAtCoords({ left: clampedX, top: clampedY })
+      if (!posInfo) return false
+      const $pos = state.doc.resolve(posInfo.pos)
+      // 锚定目标段落
+      let targetDepth = -1
+      for (let depth = $pos.depth; depth >= 0; depth--) {
+        if ($pos.node(depth).type === paragraphType) {
+          targetDepth = depth
+          break
+        }
+      }
+      if (targetDepth === -1) return false
+      const targetNode = $pos.node(targetDepth)
+      const targetStart = $pos.before(targetDepth)
+      const targetEnd = targetStart + targetNode.nodeSize
+      // 决定前/后
+      let insertPos = targetStart
+      const targetDom = view.nodeDOM(targetStart)
+      if (targetDom instanceof HTMLElement) {
+        const tRect = targetDom.getBoundingClientRect()
+        const midY = tRect.top + tRect.height / 2
+        insertPos = clampedY < midY ? targetStart : targetEnd
+      }
+      const draggedNode = state.doc.nodeAt(draggingPos)
+      if (!draggedNode) return false
+      if (insertPos >= draggingPos && insertPos <= draggingPos + draggedNode.nodeSize) {
+        return true
+      }
+      let tr = state.tr
+      const from = draggingPos
+      const to = draggingPos + draggedNode.nodeSize
+      tr = tr.delete(from, to)
+      let adjustedInsert = insertPos
+      if (insertPos > from) adjustedInsert -= draggedNode.nodeSize
+      tr = tr.insert(adjustedInsert, draggedNode)
+      view.dispatch(tr.scrollIntoView())
+      return true
+    }
+    return [
+      new Plugin({
+        key,
+        state: {
+          init: (_, { doc, schema }) => {
+            return buildDecorations(doc, schema)
+          },
+          apply: (tr, old) => {
+            // 当文档变化时，重新构建装饰
+            if (tr.docChanged) {
+              return buildDecorations(tr.doc, tr.doc.type.schema)
+            }
+            return old.map(tr.mapping, tr.doc)
+          }
+        },
+        view(editorView) {
+          // 捕获全局拖拽结束/放置，覆盖左侧功能栏等非编辑区位置
+          const onDocDrop = (e) => {
+            if (draggingPos == null) return
+            e.preventDefault()
+            moveParagraphAtPoint(editorView, e.clientX, e.clientY)
+            draggingPos = null
+          }
+          const onDocDragEnd = () => {
+            draggingPos = null
+          }
+          document.addEventListener('drop', onDocDrop)
+          document.addEventListener('dragend', onDocDragEnd)
+          return {
+            destroy() {
+              document.removeEventListener('drop', onDocDrop)
+              document.removeEventListener('dragend', onDocDragEnd)
+            }
+          }
+        },
+        props: {
+          decorations(state) {
+            return buildDecorations(state.doc, state.schema)
+          },
+          handleDOMEvents: {
+            mousedown: (view, event) => {
+              const target = event.target
+              if (!(target instanceof HTMLElement)) return false
+              if (!target.classList.contains('note-outline-drag-handle')) return false
+              const pos = Number(target.dataset.pos || -1)
+              if (pos < 0) return false
+              const { state } = view
+              // 选中整个段落节点，后续由 ProseMirror 内置的拖拽/放置完成移动
+              // 找到段落节点起始位置
+              const node = state.doc.nodeAt(pos)
+              if (!node) return false
+              const tr = state.tr.setSelection(NodeSelection.create(state.doc, pos))
+              view.dispatch(tr)
+              // 让锚点可拖拽，显示为“抓取”手势
+              target.setAttribute('draggable', 'true')
+              // 记录拖拽起点
+              draggingPos = pos
+              return true
+            },
+            dragstart: (view, event) => {
+              const target = event.target
+              if (!(event instanceof DragEvent)) return false
+              if (!(target instanceof HTMLElement)) return false
+              if (!target.classList.contains('note-outline-drag-handle')) return false
+              const pos = Number(target.dataset.pos || -1)
+              if (pos < 0) return false
+              // 使用整段节点作为拖拽预览
+              const nodeDom = view.nodeDOM(pos)
+              if (!(nodeDom instanceof HTMLElement)) return false
+              try {
+                // 克隆节点作为 drag image，避免直接使用原节点造成布局抖动
+                const clone = nodeDom.cloneNode(true)
+                if (clone instanceof HTMLElement) {
+                  clone.style.position = 'fixed'
+                  clone.style.pointerEvents = 'none'
+                  clone.style.top = '-10000px'
+                  clone.style.left = '-10000px'
+                  clone.style.width = getComputedStyle(nodeDom).width
+                  clone.style.background = getComputedStyle(nodeDom).backgroundColor || '#fff'
+                  document.body.appendChild(clone)
+                  if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move'
+                    // 设置任意数据以启用 Firefox 的 drop
+                    event.dataTransfer.setData('text/plain', 'move-note-paragraph')
+                    event.dataTransfer.setDragImage(clone, 8, 8)
+                  }
+                  // 下一帧移除克隆节点
+                  requestAnimationFrame(() => {
+                    if (clone.parentNode) {
+                      clone.parentNode.removeChild(clone)
+                    }
+                  })
+                }
+              } catch {
+                // 安全兜底：忽略 drag image 设置失败
+              }
+              return true
+            },
+            dragover: (view, event) => {
+              // 允许放置
+              if (draggingPos != null) {
+                event.preventDefault()
+                if (event.dataTransfer) {
+                  event.dataTransfer.dropEffect = 'move'
+                }
+                return true
+              }
+              return false
+            },
+            drop: (view, event) => {
+              if (draggingPos == null) return false
+              event.preventDefault()
+              moveParagraphAtPoint(view, event.clientX, event.clientY)
+              draggingPos = null
+              return true
+            },
+            dragend: () => {
+              draggingPos = null
+              return false
+            }
+          }
+        }
+      })
+    ]
+  }
+})
+
+function buildDecorations(doc, schema) {
+  const decorations = []
+  const paragraphType = schema.nodes.noteOutlineParagraph
+  if (!paragraphType) return DecorationSet.empty
+
+  doc.descendants((node, nodePos) => {
+    if (node.type === paragraphType) {
+      // 给段落增加相对定位类，便于绝对定位锚点
+      const nodeDeco = Decoration.node(nodePos, nodePos + node.nodeSize, {
+        class: 'has-note-drag-handle'
+      })
+      decorations.push(nodeDeco)
+      // 在段首插入一个锚点控件
+      const handle = document.createElement('span')
+      handle.className = 'note-outline-drag-handle'
+      handle.dataset.pos = String(nodePos)
+      handle.title = '拖动以移动该段落'
+      handle.textContent = '⋮⋮'
+      // 将锚点作为小部件挂载在段首（side: -1 更贴近段落开始）
+      const widget = Decoration.widget(nodePos + 1, handle, { side: -1 })
+      decorations.push(widget)
+    }
+    return true
+  })
+  return DecorationSet.create(doc, decorations)
+}
+
 // 创建笔记编辑器实例
 function createEditor() {
   const editor = new Editor({
-    extensions: getNoteExtensions(),
+    extensions: [...getNoteExtensions(), NoteDragHandle],
     content: props.editorStore.content,
     editorProps: {
       attributes: {
-        class: 'tiptap-editor',
+        class: 'tiptap-editor note-editor',
         style: () => {
           let fontFamilyStyle = ''
           if (props.menubarState.fontFamily !== 'inherit') {
@@ -197,3 +405,71 @@ defineExpose({
   isHtmlContent
 })
 </script>
+
+<template>
+  <span style="display: none"></span>
+</template>
+
+<style>
+/* 段落拖拽锚点样式（仅笔记模式生效） */
+/* 为笔记编辑区预留统一左侧功能栏宽度，便于放置多个功能图标 */
+.tiptap.note-editor {
+  --note-gutter-width: 36px; /* 图标区宽度，可按需调整 */
+  padding-left: var(--note-gutter-width);
+}
+
+.tiptap.note-editor p[data-note-outline] {
+  position: relative;
+  /* 段落内仍保留少量缩进，避免特殊样式覆盖容器内边距时产生重叠 */
+  padding-left: 4px;
+}
+
+/* 扩展段落的悬停热区到左侧功能栏，避免从文本移动到图标途中消失 */
+.tiptap.note-editor p[data-note-outline]::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--note-gutter-width));
+  top: 0;
+  width: var(--note-gutter-width);
+  height: 100%;
+  /* 透明覆盖层，仅用于保持 :hover，不影响视觉 */
+  background: transparent;
+  pointer-events: auto; /* 让该区域参与 :hover 命中 */
+  z-index: 1; /* 位于文本下、图标下 */
+}
+
+.tiptap.note-editor .note-outline-drag-handle {
+  position: absolute;
+  left: calc(-1 * var(--note-gutter-width)); /* 放在统一的功能栏区域内 */
+  top: 0;
+  width: 16px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  color: var(--text-mute, #999);
+  opacity: 0; /* 默认隐藏 */
+  user-select: none;
+  pointer-events: none; /* 隐藏时不拦截事件 */
+  transition: opacity 0.15s ease-in-out;
+  margin-right: 5px; /* 与正文保持 5px 间距 */
+  display: none; /* 强制默认不展示，防止被其他样式覆盖 */
+  z-index: 2; /* 确保位于文本之上，但不影响布局 */
+}
+
+/* 悬停段落显示锚点 */
+.tiptap.note-editor p[data-note-outline]:hover .note-outline-drag-handle,
+.tiptap.note-editor .has-note-drag-handle:hover .note-outline-drag-handle,
+.tiptap.note-editor .note-outline-drag-handle:hover {
+  opacity: 1;
+  pointer-events: auto; /* 显示时可交互 */
+  cursor: move; /* 悬停锚点显示为可移动图标 */
+  display: flex; /* 悬停时再显示 */
+}
+.tiptap.note-editor .note-outline-drag-handle:active {
+  cursor: move;
+  color: var(--text-base, #333);
+}
+
+</style>

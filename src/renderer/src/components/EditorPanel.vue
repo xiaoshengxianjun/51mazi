@@ -48,6 +48,7 @@
     />
     <!-- 编辑器统计 -->
     <EditorStats
+      v-if="editorStore.file?.type === 'chapter'"
       ref="editorStatsRef"
       :book-name="bookName"
       :content-word-count="contentWordCount"
@@ -176,6 +177,9 @@ function updateEditorStyle() {
     }
     editorElement.style.setProperty('font-size', menubarState.value.fontSize, 'important')
     editorElement.style.setProperty('line-height', menubarState.value.lineHeight, 'important')
+    // 根据文件类型设置首行缩进（章节：2em；笔记：0）
+    const isChapter = editorStore.file?.type === 'chapter'
+    editorElement.style.setProperty('text-indent', isChapter ? '2em' : '0', 'important')
   }
 }
 

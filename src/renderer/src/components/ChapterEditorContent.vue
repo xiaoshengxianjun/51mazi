@@ -86,7 +86,7 @@ function getChapterExtensions() {
 function createEditor() {
   const editor = new Editor({
     extensions: getChapterExtensions(),
-    content: props.editorStore.content,
+    content: plainTextToHtml(props.editorStore.content),
     editorProps: {
       attributes: {
         class: 'tiptap-editor',
@@ -145,3 +145,15 @@ defineExpose({
   plainTextToHtml
 })
 </script>
+
+<template>
+  <span style="display: none"></span>
+</template>
+
+<style scoped>
+/* 章节模式：段落首行缩进，确保进入编辑器首次加载也生效 */
+:deep(.tiptap-editor p) {
+  text-indent: 2em;
+  margin: 0; /* 避免浏览器默认 margin 影响视觉缩进 */
+}
+</style>
