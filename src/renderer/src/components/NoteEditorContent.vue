@@ -9,6 +9,7 @@ import { Extension } from '@tiptap/core'
 import { NoteOutlineParagraph } from '@renderer/extensions/NoteOutline'
 import { Plugin, PluginKey, NodeSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
+import { Fragment } from 'prosemirror-model'
 import { Extension as PMExtension } from '@tiptap/core'
 
 const props = defineProps({
@@ -161,122 +162,49 @@ const NoteDragHandle = Extension.create({
     const key = new PluginKey('note-drag-handle')
     // 运行时拖拽起点（段落起始位置）
     let draggingPos = null
-    // 计算并执行在屏幕坐标处的移动
+    // 计算并执行在屏幕坐标处的顶层段落重排
     function moveParagraphAtPoint(view, clientX, clientY) {
       const { state } = view
-      const paragraphType = state.schema.nodes.noteOutlineParagraph
       const rect = view.dom.getBoundingClientRect()
       const clampedX = Math.max(rect.left + 1, Math.min(clientX, rect.right - 1))
       const clampedY = Math.max(rect.top + 1, Math.min(clientY, rect.bottom - 1))
       const posInfo = view.posAtCoords({ left: clampedX, top: clampedY })
       if (!posInfo) return false
+      const $from = state.doc.resolve(draggingPos)
+      const sourceIndex = $from.index(0)
+
       const $pos = state.doc.resolve(posInfo.pos)
-      // 锚定目标段落
-      let targetDepth = -1
-      for (let depth = $pos.depth; depth >= 0; depth--) {
-        if ($pos.node(depth).type === paragraphType) {
-          targetDepth = depth
-          break
-        }
-      }
-      let targetNode = null
-      let targetStart = null
-      let targetEnd = null
-      if (targetDepth !== -1) {
-        targetNode = $pos.node(targetDepth)
-        targetStart = $pos.before(targetDepth)
-        targetEnd = targetStart + targetNode.nodeSize
-      } else {
-        // Fallback：当前位置不在任何段落内（例如在左侧功能栏），
-        // 在顶层文档中查找最近的 noteOutlineParagraph 作为目标
-        const pos = posInfo.pos
-        const before = state.doc.childBefore(pos)
-        const after = state.doc.childAfter(pos)
-        let candidate = null
-        if (before && before.node && before.node.type === paragraphType) {
-          candidate = { node: before.node, start: before.offset + 1 }
-        }
-        if (
-          (!candidate ||
-            (after && Math.abs(after.offset + 1 - pos) < Math.abs(candidate.start - pos))) &&
-          after &&
-          after.node &&
-          after.node.type === paragraphType
-        ) {
-          candidate = { node: after.node, start: after.offset + 1 }
-        }
-        if (!candidate) return false
-        targetNode = candidate.node
-        targetStart = candidate.start
-        targetEnd = targetStart + targetNode.nodeSize
-      }
-      // 决定前/后
-      let insertPos = targetStart
-      const targetDom = view.nodeDOM(targetStart)
-      if (targetDom instanceof HTMLElement) {
-        const tRect = targetDom.getBoundingClientRect()
+      let targetIndex = $pos.index(0)
+
+      const domAt = view.nodeDOM($pos.before(1))
+      let insertAfter = false
+      if (domAt) {
+        const tRect = domAt.getBoundingClientRect()
         const midY = tRect.top + tRect.height / 2
-        insertPos = clampedY < midY ? targetStart : targetEnd
+        insertAfter = clampedY >= midY
       }
-      const draggedNode = state.doc.nodeAt(draggingPos)
-      if (!draggedNode) return false
-      if (insertPos >= draggingPos && insertPos <= draggingPos + draggedNode.nodeSize) {
-        return true
+
+      if (!insertAfter && targetIndex === sourceIndex) return true
+      if (insertAfter && targetIndex === sourceIndex) return true
+
+      const children = []
+      state.doc.forEach((child) => {
+        children.push(child)
+      })
+
+      const [moved] = children.splice(sourceIndex, 1)
+      let destIndex = targetIndex
+      if (sourceIndex < targetIndex) {
+        destIndex -= 1
       }
-      let tr = state.tr
-      const from = draggingPos
-      const to = draggingPos + draggedNode.nodeSize
-      tr = tr.delete(from, to)
-      // 使用映射后的插入点，避免手工偏移导致的块拆分与空段落
-      // 使用正向偏置，确保定位到目标边界的“后侧”，再由前/后清理保障结果
-      let adjustedInsert = tr.mapping.map(insertPos, 1)
-      tr = tr.insert(adjustedInsert, draggedNode)
-      // 清理可能产生的空段落（在插入点两侧连续清扫）
-      const isEmptyNote = (n) =>
-        n &&
-        n.type === paragraphType &&
-        (n.content.size === 0 || (typeof n.textContent === 'string' && n.textContent.trim() === ''))
-      // 精确围绕插入节点清理一次（仅紧邻，基于顶层索引对比原始空段）
-      const insertedInfo = tr.doc.childBefore(adjustedInsert + 1)
-      if (insertedInfo && insertedInfo.node) {
-        const insertedIndex = insertedInfo.index
-        // 前一个兄弟
-        if (insertedIndex - 1 >= 0) {
-          const prevNode = tr.doc.child(insertedIndex - 1)
-          if (isEmptyNote(prevNode)) {
-            // 仅当“原始文档该索引不是空段”才删，避免删除用户已有空行
-            // 计算前一个兄弟的起始位置
-            let startPos = 0
-            for (let i = 0; i < insertedIndex - 1; i++) {
-              startPos += tr.doc.child(i).nodeSize
-            }
-            if (
-              state.doc.childCount <= insertedIndex - 1 ||
-              !isEmptyNote(state.doc.child(insertedIndex - 1))
-            ) {
-              tr = tr.delete(startPos, startPos + prevNode.nodeSize)
-              adjustedInsert -= prevNode.nodeSize
-            }
-          }
-        }
-        // 后一个兄弟
-        if (insertedIndex + 1 < tr.doc.childCount) {
-          const nextNode = tr.doc.child(insertedIndex + 1)
-          if (isEmptyNote(nextNode)) {
-            let nextStart = 0
-            for (let i = 0; i < insertedIndex + 1; i++) {
-              nextStart += tr.doc.child(i).nodeSize
-            }
-            if (
-              state.doc.childCount <= insertedIndex + 1 ||
-              !isEmptyNote(state.doc.child(insertedIndex + 1))
-            ) {
-              tr = tr.delete(nextStart, nextStart + nextNode.nodeSize)
-            }
-          }
-        }
+      if (insertAfter) {
+        children.splice(destIndex + 1, 0, moved)
+      } else {
+        children.splice(destIndex, 0, moved)
       }
-      // 注意：保留用户已有的空段落，只移除因移动操作在插入点附近新产生的空段
+
+      const newDoc = state.doc.type.create(state.doc.attrs, Fragment.from(children))
+      const tr = state.tr.replaceWith(0, state.doc.content.size, newDoc.content)
       view.dispatch(tr.scrollIntoView())
       return true
     }
