@@ -9,6 +9,7 @@ import { Extension } from '@tiptap/core'
 import { NoteOutlineParagraph } from '@renderer/extensions/NoteOutline'
 import { Plugin, PluginKey, NodeSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
+import { Extension as PMExtension } from '@tiptap/core'
 
 const props = defineProps({
   editorStore: {
@@ -105,6 +106,54 @@ function getNoteExtensions() {
   ]
 }
 
+// 处理回车换行与段落拆分的修复：避免产生多余空段、确保连续回车可用
+const NoteEnterFix = PMExtension.create({
+  name: 'noteEnterFix',
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        const editor = this.editor
+        const { state } = editor
+        const paragraphType = state.schema.nodes.noteOutlineParagraph
+        const $from = state.selection.$from
+        if (!$from || $from.parent.type !== paragraphType) return false
+
+        // 执行默认的块拆分
+        const did = editor.commands.splitBlock()
+        if (!did) return true
+
+        // 轻量归一化：删除“当前位置附近多余的顶层空段”
+        editor
+          .chain()
+          .focus()
+          .command(({ tr }) => {
+            const isEmptyNote = (n) =>
+              n &&
+              n.type === paragraphType &&
+              (n.content.size === 0 ||
+                (typeof n.textContent === 'string' && n.textContent.trim() === ''))
+
+            const sel = tr.selection
+            const $pos = tr.doc.resolve(sel.from)
+            // 前后各检查一段
+            const prev = $pos.nodeBefore
+            const next = $pos.nodeAfter
+
+            if (isEmptyNote(next)) {
+              tr.delete(sel.from, sel.from + next.nodeSize)
+            } else if (isEmptyNote(prev)) {
+              tr.delete(sel.from - prev.nodeSize, sel.from)
+            }
+            return true
+          })
+          .run()
+
+        return true
+      }
+    }
+  }
+})
+
 // 段落拖拽锚点扩展：为每个 noteOutlineParagraph 添加可拖拽锚点
 const NoteDragHandle = Extension.create({
   name: 'noteDragHandle',
@@ -179,60 +228,55 @@ const NoteDragHandle = Extension.create({
       const to = draggingPos + draggedNode.nodeSize
       tr = tr.delete(from, to)
       // 使用映射后的插入点，避免手工偏移导致的块拆分与空段落
-      let adjustedInsert = tr.mapping.map(insertPos, -1)
+      // 使用正向偏置，确保定位到目标边界的“后侧”，再由前/后清理保障结果
+      let adjustedInsert = tr.mapping.map(insertPos, 1)
       tr = tr.insert(adjustedInsert, draggedNode)
       // 清理可能产生的空段落（在插入点两侧连续清扫）
       const isEmptyNote = (n) =>
         n &&
         n.type === paragraphType &&
         (n.content.size === 0 || (typeof n.textContent === 'string' && n.textContent.trim() === ''))
-      // 向左清理
-      for (;;) {
-        const $cur = tr.doc.resolve(adjustedInsert)
-        const left = $cur.nodeBefore
-        if (isEmptyNote(left) && tr.doc.childCount > 1) {
-          const start = adjustedInsert - left.nodeSize
-          tr = tr.delete(start, adjustedInsert)
-          adjustedInsert -= left.nodeSize
-          continue
-        }
-        break
-      }
-      // 向右清理
-      for (;;) {
-        const $cur = tr.doc.resolve(adjustedInsert)
-        const right = $cur.nodeAfter
-        if (isEmptyNote(right) && tr.doc.childCount > 1) {
-          const end = adjustedInsert + right.nodeSize
-          tr = tr.delete(adjustedInsert, end)
-          continue
-        }
-        break
-      }
-      // 全量扫描：删除所有空段；仅当“文档最后一个顶层节点是空段”时，保留这一个作为末尾占位
-      const emptyRanges = []
-      let lastTopLevelEmpty = null
-      tr.doc.descendants((node, pos, parent, index) => {
-        if (node.type === paragraphType && isEmptyNote(node)) {
-          emptyRanges.push([pos, pos + node.nodeSize])
-          const $p = tr.doc.resolve(pos)
-          const isTopLevel = $p.depth === 1
-          if (isTopLevel && index === tr.doc.childCount - 1) {
-            lastTopLevelEmpty = [pos, pos + node.nodeSize]
+      // 精确围绕插入节点清理一次（仅紧邻，基于顶层索引对比原始空段）
+      const insertedInfo = tr.doc.childBefore(adjustedInsert + 1)
+      if (insertedInfo && insertedInfo.node) {
+        const insertedIndex = insertedInfo.index
+        // 前一个兄弟
+        if (insertedIndex - 1 >= 0) {
+          const prevNode = tr.doc.child(insertedIndex - 1)
+          if (isEmptyNote(prevNode)) {
+            // 仅当“原始文档该索引不是空段”才删，避免删除用户已有空行
+            // 计算前一个兄弟的起始位置
+            let startPos = 0
+            for (let i = 0; i < insertedIndex - 1; i++) {
+              startPos += tr.doc.child(i).nodeSize
+            }
+            if (
+              state.doc.childCount <= insertedIndex - 1 ||
+              !isEmptyNote(state.doc.child(insertedIndex - 1))
+            ) {
+              tr = tr.delete(startPos, startPos + prevNode.nodeSize)
+              adjustedInsert -= prevNode.nodeSize
+            }
           }
         }
-        return true
-      })
-      if (emptyRanges.length) {
-        for (let i = emptyRanges.length - 1; i >= 0; i--) {
-          const [df, dt] = emptyRanges[i]
-          const isLastKept =
-            lastTopLevelEmpty && df === lastTopLevelEmpty[0] && dt === lastTopLevelEmpty[1]
-          if (!isLastKept) {
-            tr = tr.delete(df, dt)
+        // 后一个兄弟
+        if (insertedIndex + 1 < tr.doc.childCount) {
+          const nextNode = tr.doc.child(insertedIndex + 1)
+          if (isEmptyNote(nextNode)) {
+            let nextStart = 0
+            for (let i = 0; i < insertedIndex + 1; i++) {
+              nextStart += tr.doc.child(i).nodeSize
+            }
+            if (
+              state.doc.childCount <= insertedIndex + 1 ||
+              !isEmptyNote(state.doc.child(insertedIndex + 1))
+            ) {
+              tr = tr.delete(nextStart, nextStart + nextNode.nodeSize)
+            }
           }
         }
       }
+      // 注意：保留用户已有的空段落，只移除因移动操作在插入点附近新产生的空段
       view.dispatch(tr.scrollIntoView())
       return true
     }
@@ -410,7 +454,7 @@ function buildDecorations(doc, schema) {
 // 创建笔记编辑器实例
 function createEditor() {
   const editor = new Editor({
-    extensions: [...getNoteExtensions(), NoteDragHandle],
+    extensions: [...getNoteExtensions(), NoteEnterFix, NoteDragHandle],
     content: props.editorStore.content,
     editorProps: {
       attributes: {
