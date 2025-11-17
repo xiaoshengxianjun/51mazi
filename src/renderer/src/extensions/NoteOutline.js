@@ -188,6 +188,22 @@ export const NoteOutlineParagraph = Node.create({
 
                 decorations.push(nodeDecoration)
 
+                // 如果有子段落，添加折叠按钮 widget（使用 Decoration.widget 确保不会被移除）
+                if (hasChildren) {
+                  const toggleBtn = document.createElement('button')
+                  toggleBtn.className = `note-outline-toggle ProseMirror-widget ${collapsed ? 'collapsed' : 'expanded'}`
+                  toggleBtn.setAttribute('data-pos', String(pos))
+                  toggleBtn.setAttribute('data-collapsed', String(collapsed))
+                  toggleBtn.setAttribute('contenteditable', 'false')
+                  toggleBtn.setAttribute('title', collapsed ? '展开子段落' : '折叠子段落')
+                  // 使用空内容，箭头通过 CSS 的 ::before 伪元素绘制
+                  toggleBtn.innerHTML = ''
+                  // 将折叠按钮作为 widget 添加到段落开始位置（和拖拽锚点一样使用 pos + 1）
+                  // 拖拽锚点在 nodePos + 1，折叠按钮也在 pos + 1，但通过 CSS 定位在左侧
+                  const toggleWidget = Decoration.widget(pos + 1, toggleBtn, { side: -1 })
+                  decorations.push(toggleWidget)
+                }
+
                 // 如果折叠，隐藏子段落
                 if (collapsed && hasChildren) {
                   let nextPos = pos + node.nodeSize
@@ -220,128 +236,11 @@ export const NoteOutlineParagraph = Node.create({
 
             return DecorationSet.create(doc, decorations)
           },
-          view: (view) => {
-            // 在视图更新后，为每个段落添加控制按钮
-            const updateControls = () => {
-              const paragraphs = view.dom.querySelectorAll('p[data-note-outline]')
-              paragraphs.forEach((paragraph) => {
-                // 检查是否已经有控制按钮
-                if (paragraph.querySelector('.note-outline-controls')) {
-                  return
-                }
-
-                // 获取段落属性
-                const level = parseInt(paragraph.getAttribute('data-level') || '0', 10)
-                const hasChildrenAttr = paragraph.getAttribute('data-note-outline-has-children')
-                const collapsedAttr = paragraph.getAttribute('data-note-outline-collapsed')
-                const posAttr = paragraph.getAttribute('data-note-outline-pos')
-
-                // 如果没有这些属性，尝试从装饰中获取
-                let hasChildren = false
-                let collapsed = false
-                let pos = 0
-
-                if (hasChildrenAttr !== null) {
-                  hasChildren = hasChildrenAttr === 'true'
-                }
-                if (collapsedAttr !== null) {
-                  collapsed = collapsedAttr === 'true'
-                }
-                if (posAttr !== null) {
-                  pos = parseInt(posAttr, 10)
-                } else {
-                  // 尝试从 DOM 位置计算
-                  const domPos = view.posAtDOM(paragraph, 0)
-                  if (domPos !== null) {
-                    pos = domPos
-                  }
-                }
-
-                // 如果没有子节点信息，检查下一个段落
-                if (hasChildrenAttr === null) {
-                  let nextSibling = paragraph.nextElementSibling
-                  while (nextSibling) {
-                    if (nextSibling.hasAttribute('data-note-outline')) {
-                      const nextLevel = parseInt(nextSibling.getAttribute('data-level') || '0', 10)
-                      if (nextLevel > level) {
-                        hasChildren = true
-                        break
-                      } else {
-                        break
-                      }
-                    }
-                    nextSibling = nextSibling.nextElementSibling
-                  }
-                }
-
-                // 确保段落有相对定位
-                if (paragraph.style.position !== 'relative') {
-                  paragraph.style.position = 'relative'
-                }
-
-                // 创建控制按钮容器
-                const button = document.createElement('div')
-                button.className = 'note-outline-controls'
-                button.setAttribute('data-level', level)
-                button.setAttribute('data-has-children', hasChildren ? 'true' : 'false')
-                button.setAttribute('data-collapsed', collapsed ? 'true' : 'false')
-
-                // 折叠/展开按钮
-                if (hasChildren) {
-                  const toggleBtn = document.createElement('button')
-                  toggleBtn.className = 'note-outline-toggle'
-                  toggleBtn.innerHTML = collapsed ? '▶' : '▼'
-                  toggleBtn.setAttribute('data-pos', pos)
-                  button.appendChild(toggleBtn)
-                } else {
-                  // 占位，保持对齐
-                  const spacer = document.createElement('div')
-                  spacer.className = 'note-outline-spacer'
-                  button.appendChild(spacer)
-                }
-
-                // 拖拽锚点
-                const dragHandle = document.createElement('div')
-                dragHandle.className = 'note-outline-drag-handle'
-                dragHandle.innerHTML = '⋮⋮'
-                dragHandle.style.cursor = 'grab'
-                dragHandle.setAttribute('draggable', 'false')
-                button.appendChild(dragHandle)
-
-                // 添加悬停事件
-                const showControls = () => {
-                  button.style.opacity = '1'
-                  button.style.pointerEvents = 'auto'
-                  const handle = button.querySelector('.note-outline-drag-handle')
-                  if (handle) {
-                    handle.style.cursor = 'grab'
-                  }
-                }
-                const hideControls = () => {
-                  if (!button.matches(':hover') && !paragraph.matches(':hover')) {
-                    button.style.opacity = '0'
-                    button.style.pointerEvents = 'none'
-                  }
-                }
-                paragraph.addEventListener('mouseenter', showControls)
-                paragraph.addEventListener('mouseleave', hideControls)
-                button.addEventListener('mouseenter', showControls)
-                button.addEventListener('mouseleave', hideControls)
-
-                // 将控制按钮添加到段落
-                paragraph.appendChild(button)
-              })
-            }
-
-            // 初始更新
-            setTimeout(updateControls, 0)
-
-            // 返回视图更新函数
+          view: () => {
+            // 折叠按钮现在通过 Decoration.widget 添加，不需要手动管理 DOM
             return {
-              update: (view, prevState) => {
-                if (prevState && prevState.doc !== view.state.doc) {
-                  setTimeout(updateControls, 0)
-                }
+              update: () => {
+                // 装饰器会自动更新，不需要手动操作
               },
               destroy: () => {
                 // 清理

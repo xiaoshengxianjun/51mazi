@@ -40,18 +40,7 @@ const saveTimer = ref(null)
 
 const emit = defineEmits(['editor-created', 'content-updated'])
 
-// 支持Tab键插入制表符
-const TabInsert = Extension.create({
-  name: 'tabInsert',
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        this.editor.commands.insertContent('\t')
-        return true
-      }
-    }
-  }
-})
+// Tab 键处理已由 NoteOutlineParagraph 扩展提供（增加/减少缩进级别）
 
 // 将笔记的 HTML 内容转换为纯文本（用于字数统计）
 function htmlToPlainText(html) {
@@ -102,8 +91,7 @@ function getNoteExtensions() {
       HTMLAttributes: {
         class: 'search-highlight'
       }
-    }),
-    TabInsert
+    })
   ]
 }
 
@@ -506,9 +494,80 @@ defineExpose({
   z-index: 1; /* 位于文本下、图标下 */
 }
 
+/* 折叠按钮样式（和拖拽锚点使用相同的定位方式） */
+.tiptap.note-editor .note-outline-toggle {
+  position: absolute;
+  left: calc(-1 * var(--note-gutter-width, 36px)); /* 在左侧功能栏最左侧 */
+  top: 0;
+  width: 16px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+  z-index: 3; /* 确保位于文本之上 */
+  line-height: 1;
+  /* 默认隐藏（展开状态） */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out;
+}
+
+/* 使用 CSS 绘制箭头图标（类似 > 的形状） */
+.tiptap.note-editor .note-outline-toggle::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-mute, #999);
+  border-bottom: 1.5px solid var(--text-mute, #999);
+  transition:
+    transform 0.15s ease-in-out,
+    border-color 0.15s ease-in-out;
+}
+
+/* 展开状态：向下箭头（类似 v） */
+.tiptap.note-editor .note-outline-toggle.expanded::before {
+  transform: rotate(45deg) translateY(-1px);
+}
+
+/* 折叠状态：向右箭头（类似 >） */
+.tiptap.note-editor .note-outline-toggle.collapsed::before {
+  transform: rotate(-45deg) translateX(1px);
+}
+
+/* 悬停时显示（展开状态） */
+.tiptap.note-editor p[data-note-outline]:hover .note-outline-toggle.expanded,
+.tiptap.note-editor .note-outline-toggle.expanded:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tiptap.note-editor p[data-note-outline]:hover .note-outline-toggle.expanded::before,
+.tiptap.note-editor .note-outline-toggle.expanded:hover::before {
+  border-right-color: var(--text-base, #333);
+  border-bottom-color: var(--text-base, #333);
+}
+
+/* 折叠状态始终显示 */
+.tiptap.note-editor .note-outline-toggle.collapsed {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tiptap.note-editor .note-outline-toggle.collapsed:hover::before {
+  border-right-color: var(--text-base, #333);
+  border-bottom-color: var(--text-base, #333);
+}
+
 .tiptap.note-editor .note-outline-drag-handle {
   position: absolute;
-  left: calc(-1 * var(--note-gutter-width)); /* 放在统一的功能栏区域内 */
+  left: calc(-1 * var(--note-gutter-width, 36px) + 16px); /* 折叠按钮右侧 */
   top: 0;
   width: 16px;
   height: 100%;
@@ -521,7 +580,6 @@ defineExpose({
   user-select: none;
   pointer-events: none; /* 隐藏时不拦截事件 */
   transition: opacity 0.15s ease-in-out;
-  margin-right: 5px; /* 与正文保持 5px 间距 */
   display: none; /* 强制默认不展示，防止被其他样式覆盖 */
   z-index: 2; /* 确保位于文本之上，但不影响布局 */
 }
