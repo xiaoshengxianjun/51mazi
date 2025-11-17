@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     Book: typeof import('./src/components/Book.vue')['default']
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
+    ChapterEditorContent: typeof import('./src/components/ChapterEditorContent.vue')['default']
     ChapterSettingsDialog: typeof import('./src/components/ChapterSettingsDialog.vue')['default']
     EditorMenubar: typeof import('./src/components/EditorMenubar.vue')['default']
     EditorPanel: typeof import('./src/components/EditorPanel.vue')['default']
@@ -43,6 +44,7 @@ declare module 'vue' {
     IconFont: typeof import('./src/components/IconFont.vue')['default']
     LayoutTool: typeof import('./src/components/LayoutTool.vue')['default']
     NoteChapter: typeof import('./src/components/NoteChapter.vue')['default']
+    NoteEditorContent: typeof import('./src/components/NoteEditorContent.vue')['default']
     RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
