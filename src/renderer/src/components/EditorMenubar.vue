@@ -13,6 +13,23 @@
           <el-option label="苹方" value="PingFang" />
         </el-select>
       </el-tooltip>
+      <el-tooltip v-if="isNoteEditor" content="标题" placement="bottom" :show-after="2000">
+        <el-select
+          :model-value="headingLevel"
+          class="toolbar-item"
+          size="small"
+          style="width: 70px"
+          @change="handleHeadingChange"
+        >
+          <el-option label="正文" value="0" />
+          <el-option label="标题 1" value="1" />
+          <el-option label="标题 2" value="2" />
+          <el-option label="标题 3" value="3" />
+          <el-option label="标题 4" value="4" />
+          <el-option label="标题 5" value="5" />
+          <el-option label="标题 6" value="6" />
+        </el-select>
+      </el-tooltip>
       <el-tooltip content="字号" placement="bottom" :show-after="2000">
         <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 65px">
           <el-option label="12px" value="12px" />
@@ -116,6 +133,9 @@ const emit = defineEmits(['update:modelValue', 'toggle-search', 'save', 'export'
 
 const editorStore = useEditorStore()
 
+// 判断是否为笔记编辑器
+const isNoteEditor = computed(() => editorStore.file?.type === 'note')
+
 // 使用 computed 来双向绑定
 const fontFamily = computed({
   get: () => props.modelValue.fontFamily,
@@ -160,6 +180,17 @@ const isItalic = computed(() => {
   }
   // 章节编辑器：使用全局状态
   return props.modelValue.isItalic
+})
+
+// 当前选中的标题级别
+const headingLevel = computed(() => {
+  if (!props.editor) return '0'
+  // 检查当前是否在 heading 节点中
+  if (props.editor.isActive('heading')) {
+    const level = props.editor.getAttributes('heading').level
+    return String(level || 1)
+  }
+  return '0' // 正文/段落
 })
 
 // 全局格式模式，与 menubarState 同步
@@ -271,6 +302,34 @@ function handleToggleBold() {
 
 function handleToggleItalic() {
   toggleFormat('italic')
+}
+
+function handleHeadingChange(level) {
+  if (!props.editor) return
+  const levelNum = parseInt(level, 10)
+
+  if (levelNum === 0) {
+    // 切换回段落
+    if (isNoteEditor.value) {
+      // 笔记编辑器：使用 noteOutlineParagraph（没有 paragraph 节点类型）
+      // setNode 会自动处理当前节点类型，无需手动查找
+      props.editor.chain().focus().setNode('noteOutlineParagraph', { level: 0 }).run()
+    } else {
+      // 章节编辑器：使用 paragraph
+      props.editor.commands.setParagraph()
+    }
+  } else {
+    // 设置为对应的标题级别
+    if (isNoteEditor.value) {
+      // 笔记编辑器：使用 setHeading 而不是 toggleHeading
+      // toggleHeading 内部会调用 toggleNode(this.name, 'paragraph')，导致报错
+      // setHeading 只是简单地调用 setNode，更安全
+      props.editor.commands.setHeading({ level: levelNum })
+    } else {
+      // 章节编辑器：使用 toggleHeading（可以正常切换 heading 和 paragraph）
+      props.editor.commands.toggleHeading({ level: levelNum })
+    }
+  }
 }
 
 function handleCopyContent() {
