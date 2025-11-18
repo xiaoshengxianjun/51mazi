@@ -575,7 +575,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   cursor: default;
-  color: var(--text-mute, #999);
+  color: var(--text-mute, #333);
   opacity: 0; /* 默认隐藏 */
   user-select: none;
   pointer-events: none; /* 隐藏时不拦截事件 */
@@ -592,6 +592,7 @@ defineExpose({
   pointer-events: auto; /* 显示时可交互 */
   cursor: move; /* 悬停锚点显示为可移动图标 */
   display: flex; /* 悬停时再显示 */
+  color: var(--text-base, #333); /* 悬停时使用更深的颜色 */
 }
 .tiptap.note-editor .note-outline-drag-handle:active {
   cursor: move;

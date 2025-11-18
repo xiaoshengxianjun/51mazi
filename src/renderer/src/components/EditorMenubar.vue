@@ -141,8 +141,26 @@ const lineHeight = computed({
   }
 })
 
-const isBold = computed(() => props.modelValue.isBold)
-const isItalic = computed(() => props.modelValue.isItalic)
+// 按钮状态：笔记编辑器根据选中文本格式，章节编辑器使用全局状态
+const isBold = computed(() => {
+  const isNoteEditor = editorStore.file?.type === 'note'
+  if (isNoteEditor && props.editor) {
+    // 笔记编辑器：根据当前选中文本的格式
+    return props.editor.isActive('bold')
+  }
+  // 章节编辑器：使用全局状态
+  return props.modelValue.isBold
+})
+
+const isItalic = computed(() => {
+  const isNoteEditor = editorStore.file?.type === 'note'
+  if (isNoteEditor && props.editor) {
+    // 笔记编辑器：根据当前选中文本的格式
+    return props.editor.isActive('italic')
+  }
+  // 章节编辑器：使用全局状态
+  return props.modelValue.isItalic
+})
 
 // 全局格式模式，与 menubarState 同步
 const globalBoldMode = computed({
@@ -207,30 +225,43 @@ function toggleFormat(markType) {
 
   props.editor.commands.focus()
 
-  if (markType === 'bold') {
-    const newState = !globalBoldMode.value
-    applyFormatToAll('bold', newState)
-    emit('update:modelValue', { ...props.modelValue, isBold: newState })
-    // 立即保存设置
-    editorStore.saveEditorSettings({
-      fontFamily: fontFamily.value,
-      fontSize: fontSize.value,
-      lineHeight: lineHeight.value,
-      globalBoldMode: newState,
-      globalItalicMode: globalItalicMode.value
-    })
-  } else if (markType === 'italic') {
-    const newState = !globalItalicMode.value
-    applyFormatToAll('italic', newState)
-    emit('update:modelValue', { ...props.modelValue, isItalic: newState })
-    // 立即保存设置
-    editorStore.saveEditorSettings({
-      fontFamily: fontFamily.value,
-      fontSize: fontSize.value,
-      lineHeight: lineHeight.value,
-      globalBoldMode: globalBoldMode.value,
-      globalItalicMode: newState
-    })
+  // 判断是笔记编辑器还是章节编辑器
+  const isNoteEditor = editorStore.file?.type === 'note'
+
+  if (isNoteEditor) {
+    // 笔记编辑器：只对选中文本应用格式
+    if (markType === 'bold') {
+      props.editor.commands.toggleBold()
+    } else if (markType === 'italic') {
+      props.editor.commands.toggleItalic()
+    }
+  } else {
+    // 章节编辑器：对整个文档应用格式
+    if (markType === 'bold') {
+      const newState = !globalBoldMode.value
+      applyFormatToAll('bold', newState)
+      emit('update:modelValue', { ...props.modelValue, isBold: newState })
+      // 立即保存设置
+      editorStore.saveEditorSettings({
+        fontFamily: fontFamily.value,
+        fontSize: fontSize.value,
+        lineHeight: lineHeight.value,
+        globalBoldMode: newState,
+        globalItalicMode: globalItalicMode.value
+      })
+    } else if (markType === 'italic') {
+      const newState = !globalItalicMode.value
+      applyFormatToAll('italic', newState)
+      emit('update:modelValue', { ...props.modelValue, isItalic: newState })
+      // 立即保存设置
+      editorStore.saveEditorSettings({
+        fontFamily: fontFamily.value,
+        fontSize: fontSize.value,
+        lineHeight: lineHeight.value,
+        globalBoldMode: globalBoldMode.value,
+        globalItalicMode: newState
+      })
+    }
   }
 }
 
