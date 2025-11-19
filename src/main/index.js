@@ -41,9 +41,9 @@ function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: '51码字',
-    width: 1000,
+    width: 1100,
     height: 800,
-    minWidth: 1000,
+    minWidth: 1100,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
@@ -337,9 +337,9 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   // 新建窗口
   const editorWindow = new BrowserWindow({
     title: `${name} - 51码字`,
-    width: 1000,
+    width: 1100,
     height: 800,
-    minWidth: 1000,
+    minWidth: 1100,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,

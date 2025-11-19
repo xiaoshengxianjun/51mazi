@@ -150,7 +150,7 @@ const NoteDragHandle = Extension.create({
     const key = new PluginKey('note-drag-handle')
     // 运行时拖拽起点（段落起始位置）
     let draggingPos = null
-    // 计算并执行在屏幕坐标处的顶层段落重排
+    // 计算并执行在屏幕坐标处的顶层段落重排（包括所有子段落）
     function moveParagraphAtPoint(view, clientX, clientY) {
       const { state } = view
       const rect = view.dom.getBoundingClientRect()
@@ -160,6 +160,12 @@ const NoteDragHandle = Extension.create({
       if (!posInfo) return false
       const $from = state.doc.resolve(draggingPos)
       const sourceIndex = $from.index(0)
+      const sourceNode = state.doc.child(sourceIndex)
+
+      // 检查源节点是否是 noteOutlineParagraph
+      if (sourceNode.type.name !== 'noteOutlineParagraph') return false
+
+      const sourceLevel = sourceNode.attrs.level || 0
 
       const $pos = state.doc.resolve(posInfo.pos)
       let targetIndex = $pos.index(0)
@@ -172,23 +178,62 @@ const NoteDragHandle = Extension.create({
         insertAfter = clampedY >= midY
       }
 
-      if (!insertAfter && targetIndex === sourceIndex) return true
-      if (insertAfter && targetIndex === sourceIndex) return true
+      // 找到源段落及其所有子段落（缩进级别大于源段落的连续段落）
+      let moveCount = 1 // 至少移动源段落本身
+      let nextIndex = sourceIndex + 1
+
+      // 从源段落的下一个段落开始，查找所有子段落
+      while (nextIndex < state.doc.childCount) {
+        const nextNode = state.doc.child(nextIndex)
+        if (nextNode.type.name === 'noteOutlineParagraph') {
+          const nextLevel = nextNode.attrs.level || 0
+          // 如果下一段落的层级大于源段落，说明是子段落，需要一起移动
+          if (nextLevel > sourceLevel) {
+            moveCount++
+            nextIndex++
+          } else {
+            // 遇到同级或更高级的段落，停止查找
+            break
+          }
+        } else {
+          // 遇到非 noteOutlineParagraph 节点，停止查找
+          break
+        }
+      }
+
+      // 检查目标位置是否在要移动的段落范围内
+      if (!insertAfter && targetIndex >= sourceIndex && targetIndex < sourceIndex + moveCount) {
+        return true // 目标位置在移动范围内，不需要移动
+      }
+      if (insertAfter && targetIndex >= sourceIndex && targetIndex < sourceIndex + moveCount - 1) {
+        return true // 目标位置在移动范围内，不需要移动
+      }
 
       const children = []
       state.doc.forEach((child) => {
         children.push(child)
       })
 
-      const [moved] = children.splice(sourceIndex, 1)
+      // 移除源段落及其所有子段落
+      const movedParagraphs = children.splice(sourceIndex, moveCount)
+
+      // 计算目标插入位置
       let destIndex = targetIndex
       if (sourceIndex < targetIndex) {
-        destIndex -= 1
+        // 如果源位置在目标位置之前，需要减去已移除的段落数
+        destIndex -= moveCount
       }
+
+      // 确保目标位置不在要移动的段落范围内
+      if (destIndex >= sourceIndex && destIndex < sourceIndex + moveCount) {
+        destIndex = sourceIndex // 如果目标位置在移动范围内，保持原位置
+      }
+
+      // 在目标位置插入所有段落（包括子段落）
       if (insertAfter) {
-        children.splice(destIndex + 1, 0, moved)
+        children.splice(destIndex + 1, 0, ...movedParagraphs)
       } else {
-        children.splice(destIndex, 0, moved)
+        children.splice(destIndex, 0, ...movedParagraphs)
       }
 
       const newDoc = state.doc.type.create(state.doc.attrs, Fragment.from(children))
