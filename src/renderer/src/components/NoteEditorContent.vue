@@ -643,4 +643,15 @@ defineExpose({
   cursor: move;
   color: var(--text-base, #333);
 }
+
+/* 标题字体粗细设置 */
+.tiptap.note-editor h1,
+.tiptap.note-editor h2 {
+  font-weight: 700;
+}
+
+.tiptap.note-editor h3,
+.tiptap.note-editor h4 {
+  font-weight: 600;
+}
 </style>

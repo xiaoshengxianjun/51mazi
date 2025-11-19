@@ -26,8 +26,6 @@
           <el-option label="标题 2" value="2" />
           <el-option label="标题 3" value="3" />
           <el-option label="标题 4" value="4" />
-          <el-option label="标题 5" value="5" />
-          <el-option label="标题 6" value="6" />
         </el-select>
       </el-tooltip>
       <el-tooltip content="字号" placement="bottom" :show-after="2000">
