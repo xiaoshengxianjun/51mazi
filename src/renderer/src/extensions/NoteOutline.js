@@ -135,6 +135,31 @@ export const NoteOutlineParagraph = Node.create({
           return true
         }
         return false
+      },
+      Backspace: ({ editor }) => {
+        // Backspace 键：如果光标在段落开头且有缩进，减少缩进级别
+        const { state } = editor
+        const { selection } = state
+        const { $from } = selection
+
+        // 检查当前节点是否是 noteOutlineParagraph
+        if ($from.parent.type.name === 'noteOutlineParagraph') {
+          // 检查光标是否在段落开头（parentOffset === 0 表示在段落开始位置）
+          const isAtStart = $from.parentOffset === 0
+
+          if (isAtStart) {
+            const currentLevel = $from.parent.attrs.level || 0
+            if (currentLevel > 0) {
+              // 如果有缩进，减少缩进级别
+              editor.commands.updateAttributes('noteOutlineParagraph', {
+                level: currentLevel - 1
+              })
+              return true // 阻止默认的 backspace 行为
+            }
+            // 如果 level === 0，执行默认的 backspace 行为（返回 false）
+          }
+        }
+        return false // 让其他处理器处理
       }
     }
   },
