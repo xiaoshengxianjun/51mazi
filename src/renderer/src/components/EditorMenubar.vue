@@ -72,6 +72,45 @@
           <i>I</i>
         </el-button>
       </el-tooltip>
+      <el-popover
+        v-if="isNoteEditor"
+        v-model:visible="highlightPopoverVisible"
+        placement="bottom"
+        :width="200"
+        trigger="click"
+        popper-class="highlight-color-picker-popover"
+      >
+        <template #reference>
+          <el-button
+            size="small"
+            class="toolbar-item"
+            :type="isHighlight ? 'primary' : 'default'"
+            title="高亮"
+          >
+            <SvgIcon name="highlight" :size="12" />
+          </el-button>
+        </template>
+        <div class="highlight-color-picker">
+          <div class="highlight-colors">
+            <div
+              v-for="color in highlightColors"
+              :key="color.value"
+              class="highlight-color-item"
+              :class="{ active: isHighlightColorActive(color.value) }"
+              :style="{ backgroundColor: color.value }"
+              :title="color.label"
+              @click="applyHighlight(color.value)"
+            ></div>
+            <SvgIcon
+              class="highlight-color-item highlight-color-none"
+              :class="{ active: !isHighlight }"
+              :size="20"
+              name="ban"
+              @click="removeHighlight"
+            />
+          </div>
+        </div>
+      </el-popover>
       <el-tooltip content="复制" placement="bottom" :show-after="2000">
         <el-button size="small" class="toolbar-item" @click="handleCopyContent">
           <el-icon><DocumentCopy /></el-icon>
@@ -99,10 +138,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import SvgIcon from '@renderer/components/SvgIcon.vue'
 import dayjs from 'dayjs'
 import { useEditorStore } from '@renderer/stores/editor'
 
@@ -178,6 +216,17 @@ const isItalic = computed(() => {
   }
   // 章节编辑器：使用全局状态
   return props.modelValue.isItalic
+})
+
+// 高亮状态（仅笔记编辑器）
+const isHighlight = computed(() => {
+  if (!props.editor) return false
+  const isNoteEditor = editorStore.file?.type === 'note'
+  if (isNoteEditor) {
+    // 笔记编辑器：根据当前选中文本的格式
+    return props.editor.isActive('highlight')
+  }
+  return false
 })
 
 // 当前选中的标题级别
@@ -300,6 +349,48 @@ function handleToggleBold() {
 
 function handleToggleItalic() {
   toggleFormat('italic')
+}
+
+// 高亮颜色选择器显示状态
+const highlightPopoverVisible = ref(false)
+
+// 高亮颜色选项（5个浅色、亮色）
+const highlightColors = [
+  { value: '#ffeb3b', label: '黄色' },
+  { value: '#a8e6cf', label: '绿色' },
+  { value: '#a8c8ec', label: '蓝色' },
+  { value: '#ffb3ba', label: '粉色' },
+  { value: '#dda0dd', label: '紫色' }
+]
+
+// 检查当前高亮是否使用指定颜色
+function isHighlightColorActive(color) {
+  if (!props.editor || !isHighlight.value) return false
+  const attrs = props.editor.getAttributes('highlight')
+  // 如果没有 color 属性，默认是黄色
+  const currentColor = attrs.color || '#ffeb3b'
+  return currentColor === color
+}
+
+// 应用高亮颜色
+function applyHighlight(color) {
+  if (!props.editor) return
+  const isNoteEditor = editorStore.file?.type === 'note'
+  if (isNoteEditor) {
+    // 使用 setHighlight 确保应用正确的颜色
+    props.editor.chain().focus().setHighlight({ color }).run()
+    highlightPopoverVisible.value = false
+  }
+}
+
+// 移除高亮
+function removeHighlight() {
+  if (!props.editor) return
+  const isNoteEditor = editorStore.file?.type === 'note'
+  if (isNoteEditor) {
+    props.editor.chain().focus().unsetHighlight().run()
+    highlightPopoverVisible.value = false
+  }
 }
 
 function handleHeadingChange(level) {
@@ -496,5 +587,61 @@ defineExpose({
 }
 .toolbar-item {
   margin: 0;
+}
+
+.highlight-color-picker {
+  padding: 6px;
+}
+
+.highlight-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.highlight-color-item {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: scale(1.15);
+    border-color: var(--el-color-primary);
+  }
+
+  &.active {
+    border-color: var(--el-color-primary);
+  }
+}
+
+.highlight-color-none {
+  color: #999;
+
+  &:hover {
+    border-color: #bbb;
+    color: #666;
+  }
+
+  &.active {
+    border-color: var(--el-color-primary);
+    color: #666;
+  }
+}
+</style>
+
+<style lang="scss">
+// 全局样式，用于 popover
+.highlight-color-picker-popover {
+  padding: 6px !important;
 }
 </style>
