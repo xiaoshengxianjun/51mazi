@@ -56,13 +56,12 @@
         style="width: 50px"
         title="行高"
       >
-        <el-option label="1.2" value="1.2" />
-        <el-option label="1.3" value="1.3" />
         <el-option label="1.4" value="1.4" />
-        <el-option label="1.5" value="1.5" />
         <el-option label="1.6" value="1.6" />
         <el-option label="1.8" value="1.8" />
         <el-option label="2" value="2" />
+        <el-option label="2.2" value="2.2" />
+        <el-option label="2.4" value="2.4" />
       </el-select>
       <el-button
         class="toolbar-item"
