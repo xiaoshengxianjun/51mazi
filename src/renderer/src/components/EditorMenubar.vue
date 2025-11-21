@@ -1,77 +1,87 @@
 <template>
   <div class="editor-menubar">
     <div class="toolbar-left">
-      <el-tooltip content="字体" placement="bottom" :show-after="2000">
-        <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 85px">
-          <el-option label="默认" value="inherit" />
-          <el-option label="宋体" value="SimSun" />
-          <el-option label="黑体" value="SimHei" />
-          <el-option label="楷体" value="KaiTi" />
-          <el-option label="仿宋" value="FangSong" />
-          <el-option label="思源黑体" value="SourceHanSans" />
-          <el-option label="思源宋体" value="SourceHanSerif" />
-          <el-option label="苹方" value="PingFang" />
-        </el-select>
-      </el-tooltip>
-      <el-tooltip v-if="isNoteEditor" content="标题" placement="bottom" :show-after="2000">
-        <el-select
-          :model-value="headingLevel"
-          class="toolbar-item"
-          size="small"
-          style="width: 70px"
-          @change="handleHeadingChange"
-        >
-          <el-option label="正文" value="0" />
-          <el-option label="标题 1" value="1" />
-          <el-option label="标题 2" value="2" />
-          <el-option label="标题 3" value="3" />
-          <el-option label="标题 4" value="4" />
-        </el-select>
-      </el-tooltip>
-      <el-tooltip content="字号" placement="bottom" :show-after="2000">
-        <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 65px">
-          <el-option label="12px" value="12px" />
-          <el-option label="13px" value="13px" />
-          <el-option label="14px" value="14px" />
-          <el-option label="15px" value="15px" />
-          <el-option label="16px" value="16px" />
-          <el-option label="18px" value="18px" />
-          <el-option label="20px" value="20px" />
-          <el-option label="22px" value="22px" />
-          <el-option label="24px" value="24px" />
-        </el-select>
-      </el-tooltip>
-      <el-tooltip content="行高" placement="bottom" :show-after="2000">
-        <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 50px">
-          <el-option label="1.2" value="1.2" />
-          <el-option label="1.3" value="1.3" />
-          <el-option label="1.4" value="1.4" />
-          <el-option label="1.5" value="1.5" />
-          <el-option label="1.6" value="1.6" />
-          <el-option label="1.8" value="1.8" />
-          <el-option label="2" value="2" />
-        </el-select>
-      </el-tooltip>
-      <el-tooltip content="加粗" placement="bottom" :show-after="2000">
-        <el-button
-          class="toolbar-item"
-          size="small"
-          :type="isBold ? 'primary' : 'default'"
-          @click="handleToggleBold"
-        >
-          <b>B</b>
-        </el-button>
-      </el-tooltip>
-      <el-tooltip content="倾斜" placement="bottom" :show-after="2000">
-        <el-button
-          class="toolbar-item"
-          size="small"
-          :type="isItalic ? 'primary' : 'default'"
-          @click="handleToggleItalic"
-        >
-          <i>I</i>
-        </el-button>
-      </el-tooltip>
+      <el-select
+        v-model="fontFamily"
+        class="toolbar-item"
+        size="small"
+        style="width: 85px"
+        title="字体"
+      >
+        <el-option label="默认" value="inherit" />
+        <el-option label="宋体" value="SimSun" />
+        <el-option label="黑体" value="SimHei" />
+        <el-option label="楷体" value="KaiTi" />
+        <el-option label="仿宋" value="FangSong" />
+        <el-option label="思源黑体" value="SourceHanSans" />
+        <el-option label="思源宋体" value="SourceHanSerif" />
+        <el-option label="苹方" value="PingFang" />
+      </el-select>
+      <el-select
+        v-if="isNoteEditor"
+        :model-value="headingLevel"
+        class="toolbar-item"
+        size="small"
+        style="width: 70px"
+        title="标题"
+        @change="handleHeadingChange"
+      >
+        <el-option label="正文" value="0" />
+        <el-option label="标题 1" value="1" />
+        <el-option label="标题 2" value="2" />
+        <el-option label="标题 3" value="3" />
+        <el-option label="标题 4" value="4" />
+      </el-select>
+      <el-select
+        v-model="fontSize"
+        class="toolbar-item"
+        size="small"
+        style="width: 65px"
+        title="字号"
+      >
+        <el-option label="12px" value="12px" />
+        <el-option label="13px" value="13px" />
+        <el-option label="14px" value="14px" />
+        <el-option label="15px" value="15px" />
+        <el-option label="16px" value="16px" />
+        <el-option label="18px" value="18px" />
+        <el-option label="20px" value="20px" />
+        <el-option label="22px" value="22px" />
+        <el-option label="24px" value="24px" />
+      </el-select>
+      <el-select
+        v-model="lineHeight"
+        class="toolbar-item"
+        size="small"
+        style="width: 50px"
+        title="行高"
+      >
+        <el-option label="1.2" value="1.2" />
+        <el-option label="1.3" value="1.3" />
+        <el-option label="1.4" value="1.4" />
+        <el-option label="1.5" value="1.5" />
+        <el-option label="1.6" value="1.6" />
+        <el-option label="1.8" value="1.8" />
+        <el-option label="2" value="2" />
+      </el-select>
+      <el-button
+        class="toolbar-item"
+        size="small"
+        :type="isBold ? 'primary' : 'default'"
+        title="加粗"
+        @click="handleToggleBold"
+      >
+        <b>B</b>
+      </el-button>
+      <el-button
+        class="toolbar-item"
+        :type="isItalic ? 'primary' : 'default'"
+        size="small"
+        title="倾斜"
+        @click="handleToggleItalic"
+      >
+        <i>I</i>
+      </el-button>
       <el-popover
         v-if="isNoteEditor"
         v-model:visible="highlightPopoverVisible"
@@ -97,11 +107,11 @@
               :key="color.value"
               class="highlight-color-item"
               :class="{ active: isHighlightColorActive(color.value) }"
+              :title="color.label"
               @click="applyHighlight(color.value)"
             >
               <div
                 :style="{ backgroundColor: color.value }"
-                :title="color.label"
                 class="hightlight-color-item-main"
               ></div>
             </div>
@@ -109,6 +119,7 @@
             <div
               :class="{ active: !isHighlight }"
               class="highlight-color-item highlight-color-none"
+              title="无高亮"
             >
               <SvgIcon
                 class="hightlight-color-item-main"
@@ -120,28 +131,26 @@
           </div>
         </div>
       </el-popover>
-      <el-tooltip content="复制" placement="bottom" :show-after="2000">
-        <el-button size="small" class="toolbar-item" @click="handleCopyContent">
-          <el-icon><DocumentCopy /></el-icon>
-        </el-button>
-      </el-tooltip>
-      <el-tooltip content="搜索" placement="bottom" :show-after="2000">
-        <el-button size="small" class="toolbar-item" @click="handleToggleSearchPanel">
-          <el-icon><Search /></el-icon>
-        </el-button>
-      </el-tooltip>
+      <el-button size="small" class="toolbar-item" title="复制" @click="handleCopyContent">
+        <el-icon><DocumentCopy /></el-icon>
+      </el-button>
+      <el-button size="small" class="toolbar-item" title="搜索" @click="handleToggleSearchPanel">
+        <el-icon><Search /></el-icon>
+      </el-button>
     </div>
     <div class="toolbar-right">
-      <el-tooltip content="保存" placement="bottom" :show-after="2000">
-        <el-button size="small" class="toolbar-item" @click="handleSave">
-          <SvgIcon name="save" :size="12" />
-        </el-button>
-      </el-tooltip>
-      <el-tooltip content="导出" placement="bottom" :show-after="2000">
-        <el-button size="small" class="toolbar-item" @click="handleExport">
-          <SvgIcon name="export" :size="12" />
-        </el-button>
-      </el-tooltip>
+      <el-button size="small" class="toolbar-item" title="保存" @click="handleSave">
+        <SvgIcon name="save" :size="12" />
+      </el-button>
+      <el-button
+        v-if="!isNoteEditor"
+        size="small"
+        class="toolbar-item"
+        title="导出"
+        @click="handleExport"
+      >
+        <SvgIcon name="export" :size="12" />
+      </el-button>
     </div>
   </div>
 </template>
