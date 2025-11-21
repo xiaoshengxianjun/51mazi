@@ -76,9 +76,9 @@
         v-if="isNoteEditor"
         v-model:visible="highlightPopoverVisible"
         placement="bottom"
-        :width="200"
+        :width="230"
         trigger="click"
-        popper-class="highlight-color-picker-popover"
+        popper-style="padding: 6px;"
       >
         <template #reference>
           <el-button
@@ -97,17 +97,26 @@
               :key="color.value"
               class="highlight-color-item"
               :class="{ active: isHighlightColorActive(color.value) }"
-              :style="{ backgroundColor: color.value }"
-              :title="color.label"
               @click="applyHighlight(color.value)"
-            ></div>
-            <SvgIcon
-              class="highlight-color-item highlight-color-none"
+            >
+              <div
+                :style="{ backgroundColor: color.value }"
+                :title="color.label"
+                class="hightlight-color-item-main"
+              ></div>
+            </div>
+            <div class="highlight-color-split"></div>
+            <div
               :class="{ active: !isHighlight }"
-              :size="20"
-              name="ban"
-              @click="removeHighlight"
-            />
+              class="highlight-color-item highlight-color-none"
+            >
+              <SvgIcon
+                class="hightlight-color-item-main"
+                :size="20"
+                name="ban"
+                @click="removeHighlight"
+              />
+            </div>
           </div>
         </div>
       </el-popover>
@@ -589,24 +598,18 @@ defineExpose({
   margin: 0;
 }
 
-.highlight-color-picker {
-  padding: 6px;
-}
-
 .highlight-colors {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
   justify-content: center;
+  gap: 4px;
 }
 
 .highlight-color-item {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  padding: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  border: 2px solid transparent;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -614,34 +617,42 @@ defineExpose({
   position: relative;
   flex-shrink: 0;
 
+  .hightlight-color-item-main {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+  }
+
   &:hover {
     transform: scale(1.15);
-    border-color: var(--el-color-primary);
+    background: #e3e3e3;
+    .hightlight-color-item-main {
+      border-color: var(--el-color-primary);
+    }
   }
 
   &.active {
-    border-color: var(--el-color-primary);
+    background: #e3e3e3;
+    .hightlight-color-item-main {
+      border-color: var(--el-color-primary);
+    }
+  }
+
+  &.highlight-color-none {
+    .hightlight-color-item-main {
+      border-color: transparent;
+      &:hover,
+      &.active {
+        border-color: transparent;
+      }
+    }
   }
 }
 
-.highlight-color-none {
-  color: #999;
-
-  &:hover {
-    border-color: #bbb;
-    color: #666;
-  }
-
-  &.active {
-    border-color: var(--el-color-primary);
-    color: #666;
-  }
-}
-</style>
-
-<style lang="scss">
-// 全局样式，用于 popover
-.highlight-color-picker-popover {
-  padding: 6px !important;
+.highlight-color-split {
+  width: 1px;
+  height: 15px;
+  background: #999;
 }
 </style>
