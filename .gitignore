@@ -33,6 +33,7 @@ lerna-debug.log*
 .eslintcache
 
 relation-graph-master
-tiptap-3.2.2
-element-plus-2.11.1
+tiptap-3.11.0
+element-plus-2.11.8
 paint-board-main
+excalidraw-0.18.0
