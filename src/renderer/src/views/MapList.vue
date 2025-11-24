@@ -45,11 +45,15 @@
       <el-form-item label="地图名称" prop="name">
         <el-input v-model="createForm.name" clearable maxlength="20" placeholder="请输入地图名称" />
       </el-form-item>
-      <el-form-item label="宽度" prop="width">
-        <el-input-number v-model="createForm.width" :min="100" :max="2000" :step="100" />
-      </el-form-item>
-      <el-form-item label="高度" prop="height">
-        <el-input-number v-model="createForm.height" :min="100" :max="2000" :step="100" />
+      <el-form-item label="地图介绍" prop="description">
+        <el-input
+          v-model="createForm.description"
+          type="textarea"
+          :rows="4"
+          maxlength="200"
+          placeholder="请输入地图介绍（可选）"
+          show-word-limit
+        />
       </el-form-item>
     </el-form>
     <template #footer>
@@ -97,8 +101,7 @@ const selectedMap = ref(null)
 
 const createForm = ref({
   name: '',
-  width: 800,
-  height: 600
+  description: ''
 })
 
 const rules = {
@@ -106,8 +109,7 @@ const rules = {
     { required: true, message: '请输入地图名称', trigger: 'blur' },
     { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
   ],
-  width: [{ required: true, message: '请输入地图宽度', trigger: 'blur' }],
-  height: [{ required: true, message: '请输入地图高度', trigger: 'blur' }]
+  description: [{ max: 200, message: '介绍长度不能超过 200 个字符', trigger: 'blur' }]
 }
 
 // 加载地图列表
@@ -125,14 +127,15 @@ onMounted(() => {
   loadMaps()
 })
 
-// 新增：生成空白图片的函数
-function createBlankPngBase64(width, height) {
+// 生成空白图片的函数（无限画板使用默认尺寸）
+function createBlankPngBase64() {
   const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
+  // 无限画板使用默认尺寸，后续会根据实际绘制内容动态调整
+  canvas.width = 1920
+  canvas.height = 1080
   const ctx = canvas.getContext('2d')
   ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, width, height)
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
   return canvas.toDataURL('image/png')
 }
 
@@ -144,16 +147,23 @@ const handleCreateMap = async () => {
     await createFormRef.value.validate()
     creating.value = true
 
-    // 用canvas生成空白图片
-    const imageData = createBlankPngBase64(createForm.value.width, createForm.value.height)
+    // 用canvas生成空白图片（无限画板，使用默认尺寸）
+    const imageData = createBlankPngBase64()
+    // 保存地图名称用于跳转
+    const createdMapName = createForm.value.name
+
     await window.electron.createMap({
       bookName,
-      mapName: createForm.value.name,
+      mapName: createdMapName,
+      description: createForm.value.description || '',
       imageData
     })
 
     ElMessage.success('创建成功')
     showCreateDialog.value = false
+
+    // 重置表单
+    createForm.value = { name: '', description: '' }
 
     // 重新加载地图列表
     await loadMaps()
@@ -163,12 +173,12 @@ const handleCreateMap = async () => {
       path: '/map-design',
       query: {
         name: bookName,
-        id: createForm.value.name
+        id: createdMapName
       }
     })
   } catch (error) {
     console.error('创建地图失败:', error)
-    ElMessage.error('创建地图失败')
+    ElMessage.error(error.message || '创建地图失败')
   } finally {
     creating.value = false
   }

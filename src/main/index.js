@@ -1481,6 +1481,8 @@ ipcMain.handle('read-maps', async (event, bookName) => {
       .map((file) => {
         const name = file.split('.').slice(0, -1).join('.')
         const filePath = join(mapsDir, file)
+        const jsonPath = join(mapsDir, `${name}.json`)
+
         let thumbnail = ''
         try {
           const data = fs.readFileSync(filePath)
@@ -1488,9 +1490,28 @@ ipcMain.handle('read-maps', async (event, bookName) => {
         } catch {
           thumbnail = ''
         }
-        return {
+
+        // 读取地图元数据（如果存在）
+        let mapData = {
           id: name,
           name: name,
+          description: ''
+        }
+        if (fs.existsSync(jsonPath)) {
+          try {
+            const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))
+            mapData = {
+              id: jsonData.id || name,
+              name: jsonData.name || name,
+              description: jsonData.description || ''
+            }
+          } catch (error) {
+            console.error(`读取地图元数据失败: ${name}`, error)
+          }
+        }
+
+        return {
+          ...mapData,
           thumbnail
         }
       })
@@ -1518,7 +1539,7 @@ ipcMain.handle('read-map-image', async (event, { bookName, mapName }) => {
 })
 
 // 创建地图（有同名校验）
-ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => {
+ipcMain.handle('create-map', async (event, { bookName, mapName, description, imageData }) => {
   try {
     const booksDir = await store.get('booksDir')
     if (!booksDir) {
@@ -1531,13 +1552,25 @@ ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => 
     }
     // 校验同名文件
     const filePath = join(mapsDir, `${mapName}.png`)
-    if (fs.existsSync(filePath)) {
+    const jsonPath = join(mapsDir, `${mapName}.json`)
+    if (fs.existsSync(filePath) || fs.existsSync(jsonPath)) {
       throw new Error('已存在同名地图文件')
     }
     // 保存图片
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
     fs.writeFileSync(filePath, buffer)
+
+    // 保存地图元数据
+    const mapData = {
+      id: mapName,
+      name: mapName,
+      description: description || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    fs.writeFileSync(jsonPath, JSON.stringify(mapData, null, 2), 'utf-8')
+
     return {
       success: true,
       path: filePath

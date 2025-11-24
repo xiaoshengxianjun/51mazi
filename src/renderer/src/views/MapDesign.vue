@@ -5,16 +5,34 @@
     </template>
     <template #default>
       <div class="content">
+        <!-- 工具栏 -->
         <div class="toolbar">
-          <el-tooltip content="铅笔" placement="bottom">
+          <!-- 选择工具组 -->
+          <el-tooltip content="选框 (V)" placement="bottom">
+            <div
+              :class="['tool-btn', tool === 'select' ? 'active' : '']"
+              @click="selectTool('select')"
+            >
+              <el-icon><Select /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip content="移动 (H)" placement="bottom">
+            <div :class="['tool-btn', tool === 'move' ? 'active' : '']" @click="selectTool('move')">
+              <el-icon><Rank /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-divider direction="vertical" />
+
+          <!-- 绘图工具组 -->
+          <el-tooltip content="画笔 (P)" placement="bottom">
             <div
               :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
               @click="selectTool('pencil')"
             >
-              <img src="@renderer/assets/pencil.svg" alt="铅笔" />
+              <img src="@renderer/assets/pencil.svg" alt="画笔" />
             </div>
           </el-tooltip>
-          <el-tooltip content="橡皮擦" placement="bottom">
+          <el-tooltip content="橡皮擦 (E)" placement="bottom">
             <div
               :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
               @click="selectTool('eraser')"
@@ -22,7 +40,17 @@
               <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
             </div>
           </el-tooltip>
-          <el-tooltip content="油漆桶" placement="bottom">
+          <el-tooltip content="线条 (L)" placement="bottom">
+            <div :class="['tool-btn', tool === 'line' ? 'active' : '']" @click="selectTool('line')">
+              <el-icon><Minus /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip content="矩形 (R)" placement="bottom">
+            <div :class="['tool-btn', tool === 'rect' ? 'active' : '']" @click="selectTool('rect')">
+              <el-icon><FullScreen /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip content="油漆桶 (B)" placement="bottom">
             <div
               :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
               @click="selectTool('bucket')"
@@ -30,11 +58,13 @@
               <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
             </div>
           </el-tooltip>
-          <el-tooltip content="文字" placement="bottom">
+          <el-tooltip content="文字 (T)" placement="bottom">
             <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
               A
             </div>
           </el-tooltip>
+
+          <!-- 资源工具 -->
           <el-popover
             v-model:visible="resourcePopoverVisible"
             placement="bottom"
@@ -64,34 +94,71 @@
               </div>
             </div>
           </el-popover>
-          <el-tooltip content="撤销" placement="bottom">
-            <div :class="['tool-btn', 'undo-btn']" @click="undo">
+
+          <el-divider direction="vertical" />
+
+          <!-- 操作工具组 -->
+          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
+            <div :class="['tool-btn', canUndo ? '' : 'disabled']" @click="handleUndo">
               <img src="@renderer/assets/undo.svg" alt="撤销" />
             </div>
           </el-tooltip>
+          <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="bottom">
+            <div :class="['tool-btn', canRedo ? '' : 'disabled']" @click="handleRedo">
+              <el-icon><RefreshRight /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip content="清空画板" placement="bottom">
+            <div class="tool-btn" @click="handleClearCanvas">
+              <el-icon><Delete /></el-icon>
+            </div>
+          </el-tooltip>
+
           <el-divider direction="vertical" />
-          <el-tooltip content="颜色">
+
+          <!-- 颜色选择器 -->
+          <el-tooltip content="颜色" placement="bottom">
             <div>
               <el-color-picker v-model="color" />
             </div>
           </el-tooltip>
+
           <el-divider direction="vertical" />
-          <el-tooltip content="重置缩放">
+
+          <!-- 缩放控制 -->
+          <el-tooltip content="重置缩放" placement="bottom">
             <div class="tool-btn" @click="resetZoom">
               <el-icon><ZoomIn /></el-icon>
             </div>
           </el-tooltip>
           <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
+
           <el-divider direction="vertical" />
-          <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
+
+          <!-- 画笔粗细（仅画笔和橡皮擦显示） -->
+          <el-tooltip
+            v-if="tool === 'pencil' || tool === 'eraser'"
+            content="粗细"
+            placement="bottom"
+          >
             <div class="slider-wrap">
               <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
             </div>
           </el-tooltip>
         </div>
 
-        <div ref="editorContainerRef" class="editor-container" @wheel="handleWheel">
+        <!-- 画布容器 -->
+        <div
+          ref="editorContainerRef"
+          class="editor-container"
+          @wheel="handleWheel"
+          @mousedown="handleContainerMouseDown"
+          @mousemove="handleContainerMouseMove"
+          @mouseup="handleContainerMouseUp"
+          @mouseleave="handleContainerMouseUp"
+        >
           <div class="canvas-wrap" :style="canvasWrapStyle">
+            <!-- 背景图片 -->
             <img
               v-if="mapImage"
               ref="mapImageRef"
@@ -100,20 +167,29 @@
               class="map-bg"
               @load="handleImageLoad"
             />
+            <!-- 绘制画布 -->
             <canvas
               ref="canvasRef"
               :width="canvasWidth"
               :height="canvasHeight"
               class="draw-canvas"
               :style="{ cursor: canvasCursor }"
-              @mousedown="startDraw"
-              @mousemove="drawing"
-              @mouseup="endDraw"
-              @mouseleave="endDraw"
-              @touchstart.prevent="startDraw"
-              @touchmove.prevent="drawing"
-              @touchend.prevent="endDraw"
-              @click="handleCanvasClick"
+              @mousedown="handleCanvasMouseDown"
+              @mousemove="handleCanvasMouseMove"
+              @mouseup="handleCanvasMouseUp"
+              @mouseleave="handleCanvasMouseUp"
+              @touchstart.prevent="handleCanvasMouseDown"
+              @touchmove.prevent="handleCanvasMouseMove"
+              @touchend.prevent="handleCanvasMouseUp"
+            ></canvas>
+
+            <!-- 选框预览层 -->
+            <canvas
+              v-if="tool === 'select'"
+              ref="selectionCanvasRef"
+              :width="canvasWidth"
+              :height="canvasHeight"
+              class="selection-canvas"
             ></canvas>
 
             <!-- 文字输入框 -->
@@ -151,99 +227,170 @@
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { PictureRounded, ZoomIn } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import {
+  PictureRounded,
+  ZoomIn,
+  Select,
+  Rank,
+  Minus,
+  FullScreen,
+  RefreshRight,
+  Delete
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
 const mapId = route.query.id
 
+// ==================== 基础数据 ====================
 const mapName = ref('')
 const isEdit = computed(() => !!mapId)
 const mapImage = ref(null)
 const editorContainerRef = ref(null)
 const mapImageRef = ref(null)
 const canvasRef = ref(null)
-const canvasWidth = ref(800)
-const canvasHeight = ref(600)
-const scale = ref(1) // 缩放比例
-const minScale = 0.5 // 最小缩放
-const maxScale = 3 // 最大缩放
+const selectionCanvasRef = ref(null)
 
+// ==================== 画布尺寸和变换 ====================
+// 无限画板：使用较大的默认尺寸，支持动态扩展
+const canvasWidth = ref(1920)
+const canvasHeight = ref(1080)
+const scale = ref(1)
+const minScale = 0.1
+const maxScale = 5
+
+// 画布平移
+const panning = ref(false)
+const panStart = ref({ x: 0, y: 0 })
+const panOffset = ref({ x: 0, y: 0 })
+const spaceKeyPressed = ref(false)
+
+// ==================== 工具栏状态 ====================
+const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource
+const color = ref('#222222')
+const size = ref(5)
 const resourcePopoverVisible = ref(false)
-// 图片资源列表
+
+// ==================== 资源列表 ====================
 const resources = [
-  {
-    name: '点',
-    url: '/src/assets/images/point.png'
-  },
-  {
-    name: '五角星',
-    url: '/src/assets/images/star.png'
-  },
-  {
-    name: '山',
-    url: '/src/assets/images/mountain.png'
-  },
-  {
-    name: '森林',
-    url: '/src/assets/images/forest.png'
-  },
-  {
-    name: '宫殿',
-    url: '/src/assets/images/palace.png'
-  },
-  {
-    name: '城市',
-    url: '/src/assets/images/city.png'
-  },
-  {
-    name: '村庄',
-    url: '/src/assets/images/village.png'
-  },
-  {
-    name: '湖泊',
-    url: '/src/assets/images/lake.png'
-  },
-  {
-    name: '战役',
-    url: '/src/assets/images/battle.png'
-  }
+  { name: '点', url: '/src/assets/images/point.png' },
+  { name: '五角星', url: '/src/assets/images/star.png' },
+  { name: '山', url: '/src/assets/images/mountain.png' },
+  { name: '森林', url: '/src/assets/images/forest.png' },
+  { name: '宫殿', url: '/src/assets/images/palace.png' },
+  { name: '城市', url: '/src/assets/images/city.png' },
+  { name: '村庄', url: '/src/assets/images/village.png' },
+  { name: '湖泊', url: '/src/assets/images/lake.png' },
+  { name: '战役', url: '/src/assets/images/battle.png' }
 ]
 
-// 工具栏状态
-const tool = ref('pencil') // pencil, eraser, bucket, text
-const color = ref('#222')
-const size = ref(1)
+// ==================== 绘制状态 ====================
 const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
-const undoStack = ref([])
+const shapeStart = ref({ x: 0, y: 0 })
+const currentShape = ref(null)
 
-// 拖拽资源图片相关
-const draggingResource = ref(null)
-const dragPreviewEl = ref(null)
+// ==================== 选框状态 ====================
+const selectionStart = ref(null)
+const selectionEnd = ref(null)
+const isSelecting = ref(false)
 
-// 文字工具相关
+// ==================== 文字工具 ====================
 const textInputVisible = ref(false)
 const textInputValue = ref('')
 const textInputPosition = ref({ x: 0, y: 0 })
 const textInputRef = ref(null)
 
-// 画布样式适应容器
+// ==================== 资源拖拽 ====================
+const draggingResource = ref(null)
+const dragPreviewEl = ref(null)
+
+// ==================== 历史记录管理 ====================
+class HistoryManager {
+  constructor(canvas, maxHistory = 50) {
+    this.canvas = canvas
+    this.maxHistory = maxHistory
+    this.history = []
+    this.currentIndex = -1
+  }
+
+  // 保存当前状态
+  saveState() {
+    if (!this.canvas) return
+    const ctx = this.canvas.getContext('2d')
+    const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height)
+
+    // 移除当前位置之后的历史（如果有回退操作）
+    this.history = this.history.slice(0, this.currentIndex + 1)
+
+    // 添加新状态
+    this.history.push(imageData)
+    this.currentIndex++
+
+    // 限制历史记录数量
+    if (this.history.length > this.maxHistory) {
+      this.history.shift()
+      this.currentIndex--
+    }
+  }
+
+  // 撤销
+  undo() {
+    if (this.canUndo()) {
+      const ctx = this.canvas.getContext('2d')
+      this.currentIndex--
+      ctx.putImageData(this.history[this.currentIndex], 0, 0)
+      return true
+    }
+    return false
+  }
+
+  // 回退
+  redo() {
+    if (this.canRedo()) {
+      const ctx = this.canvas.getContext('2d')
+      this.currentIndex++
+      ctx.putImageData(this.history[this.currentIndex], 0, 0)
+      return true
+    }
+    return false
+  }
+
+  canUndo() {
+    return this.currentIndex > 0
+  }
+
+  canRedo() {
+    return this.currentIndex < this.history.length - 1
+  }
+
+  // 初始化历史记录
+  init() {
+    if (!this.canvas) return
+    const ctx = this.canvas.getContext('2d')
+    const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height)
+    this.history = [imageData]
+    this.currentIndex = 0
+  }
+}
+
+const history = ref(null)
+
+// ==================== 计算属性 ====================
 const canvasWrapStyle = computed(() => ({
   position: 'relative',
   width: canvasWidth.value + 'px',
   height: canvasHeight.value + 'px',
   margin: '0 auto',
   background: '#fff',
-  boxShadow: '0 2px 8px #0001',
-  transform: `scale(${scale.value})`,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  transform: `translate(${panOffset.value.x}px, ${panOffset.value.y}px) scale(${scale.value})`,
   transformOrigin: 'center center',
-  transition: 'transform 0.1s ease-out'
+  transition: panning.value ? 'none' : 'transform 0.1s ease-out'
 }))
 
-// 计算图片样式，使其适应canvas
 const imageStyle = computed(() => ({
   position: 'absolute',
   left: 0,
@@ -253,17 +400,21 @@ const imageStyle = computed(() => ({
   zIndex: 0
 }))
 
-// 计算画布鼠标样式
 const canvasCursor = computed(() => {
+  if (panning.value) return 'grabbing'
   switch (tool.value) {
-    // case 'pencil':
-    //   return 'url(/src/assets/pencil.svg) 8 44, crosshair'
-    // case 'eraser':
-    //   return 'url(/src/assets/eraser.svg) 16 44, crosshair'
-    // case 'bucket':
-    //   return 'url(/src/assets/bucket.svg) 40 20, crosshair'
+    case 'select':
+      return 'default'
+    case 'move':
+      return spaceKeyPressed.value ? 'grabbing' : 'grab'
+    case 'pencil':
+    case 'eraser':
+    case 'line':
+    case 'rect':
+      return 'crosshair'
     case 'text':
       return 'text'
+    case 'bucket':
     case 'resource':
       return 'crosshair'
     default:
@@ -271,8 +422,566 @@ const canvasCursor = computed(() => {
   }
 })
 
-// 加载地图图片
-const loadMapImage = async () => {
+// 历史记录状态计算属性（安全访问）
+const canUndo = computed(() => {
+  return history.value ? history.value.canUndo() : false
+})
+
+const canRedo = computed(() => {
+  return history.value ? history.value.canRedo() : false
+})
+
+// ==================== 工具选择 ====================
+function selectTool(t) {
+  tool.value = t
+  if (t === 'pencil') {
+    size.value = 5
+  } else if (t === 'eraser') {
+    size.value = 10
+  }
+  // 切换工具时清除选择
+  clearSelection()
+}
+
+// ==================== 坐标转换 ====================
+function getCanvasPos(e) {
+  if (!canvasRef.value) return { x: 0, y: 0 }
+  const rect = canvasRef.value.getBoundingClientRect()
+  let x, y
+  if (e.touches) {
+    x = (e.touches[0].clientX - rect.left - panOffset.value.x) / scale.value
+    y = (e.touches[0].clientY - rect.top - panOffset.value.y) / scale.value
+  } else {
+    x = (e.clientX - rect.left - panOffset.value.x) / scale.value
+    y = (e.clientY - rect.top - panOffset.value.y) / scale.value
+  }
+  return { x, y }
+}
+
+// ==================== 画布事件处理 ====================
+function handleCanvasMouseDown(e) {
+  if (tool.value === 'move' || spaceKeyPressed.value) {
+    // 移动工具：开始平移
+    panning.value = true
+    panStart.value = { x: e.clientX - panOffset.value.x, y: e.clientY - panOffset.value.y }
+    return
+  }
+
+  const pos = getCanvasPos(e)
+
+  if (tool.value === 'select') {
+    // 选框工具
+    isSelecting.value = true
+    selectionStart.value = { ...pos }
+    selectionEnd.value = { ...pos }
+    drawSelection()
+  } else if (tool.value === 'pencil' || tool.value === 'eraser') {
+    // 画笔/橡皮擦
+    startDrawing(pos)
+  } else if (tool.value === 'line' || tool.value === 'rect') {
+    // 线条/矩形
+    startShape(pos)
+  } else if (tool.value === 'bucket') {
+    // 油漆桶
+    fillBucket(pos)
+  } else if (tool.value === 'text') {
+    // 文字
+    showTextInput(e)
+  }
+}
+
+function handleCanvasMouseMove(e) {
+  if (panning.value) {
+    panOffset.value.x = e.clientX - panStart.value.x
+    panOffset.value.y = e.clientY - panStart.value.y
+    return
+  }
+
+  const pos = getCanvasPos(e)
+
+  if (isSelecting.value && tool.value === 'select') {
+    selectionEnd.value = { ...pos }
+    drawSelection()
+  } else if (drawingActive.value && (tool.value === 'pencil' || tool.value === 'eraser')) {
+    continueDrawing(pos)
+  } else if (drawingActive.value && (tool.value === 'line' || tool.value === 'rect')) {
+    drawShapePreview(pos)
+  }
+}
+
+function handleCanvasMouseUp() {
+  if (panning.value) {
+    panning.value = false
+    return
+  }
+
+  if (isSelecting.value && tool.value === 'select') {
+    isSelecting.value = false
+    // 选框完成，可以在这里添加选择区域的处理逻辑
+  } else if (drawingActive.value) {
+    if (tool.value === 'line' || tool.value === 'rect') {
+      finishShape()
+    }
+    drawingActive.value = false
+  }
+}
+
+// ==================== 容器事件处理（用于平移） ====================
+function handleContainerMouseDown(e) {
+  if (tool.value === 'move' || e.button === 1 || (e.button === 0 && spaceKeyPressed.value)) {
+    panning.value = true
+    panStart.value = { x: e.clientX - panOffset.value.x, y: e.clientY - panOffset.value.y }
+    e.preventDefault()
+    if (tool.value !== 'move') {
+      document.body.style.cursor = 'grabbing'
+    }
+  }
+}
+
+function handleContainerMouseMove(e) {
+  if (panning.value) {
+    panOffset.value.x = e.clientX - panStart.value.x
+    panOffset.value.y = e.clientY - panStart.value.y
+  }
+}
+
+function handleContainerMouseUp() {
+  if (panning.value) {
+    panning.value = false
+    if (tool.value !== 'move' && !spaceKeyPressed.value) {
+      document.body.style.cursor = ''
+    }
+  }
+}
+
+// ==================== 绘制功能 ====================
+function startDrawing(pos) {
+  if (!canvasRef.value || !history.value) return
+  drawingActive.value = true
+  lastPoint.value = { ...pos }
+  history.value.saveState()
+}
+
+function continueDrawing(pos) {
+  if (!canvasRef.value) return
+  const ctx = canvasRef.value.getContext('2d')
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = size.value
+
+  if (tool.value === 'pencil') {
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.strokeStyle = color.value
+  } else if (tool.value === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out'
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
+  ctx.lineTo(pos.x, pos.y)
+  ctx.stroke()
+  lastPoint.value = { ...pos }
+}
+
+function startShape(pos) {
+  if (!canvasRef.value || !history.value) return
+  drawingActive.value = true
+  shapeStart.value = { ...pos }
+  currentShape.value = { type: tool.value, start: { ...pos }, end: { ...pos } }
+  history.value.saveState()
+}
+
+function drawShapePreview(pos) {
+  if (!canvasRef.value || !currentShape.value) return
+  const ctx = canvasRef.value.getContext('2d')
+
+  // 恢复画布状态
+  if (history.value && history.value.history.length > 0) {
+    const lastState = history.value.history[history.value.currentIndex]
+    ctx.putImageData(lastState, 0, 0)
+  }
+
+  // 绘制预览
+  currentShape.value.end = { ...pos }
+  drawShape(ctx, currentShape.value, true)
+}
+
+function finishShape() {
+  if (!canvasRef.value || !currentShape.value) return
+  const ctx = canvasRef.value.getContext('2d')
+
+  // 恢复画布状态
+  if (history.value && history.value.history.length > 0) {
+    const lastState = history.value.history[history.value.currentIndex]
+    ctx.putImageData(lastState, 0, 0)
+  }
+
+  // 绘制最终形状
+  drawShape(ctx, currentShape.value, false)
+  history.value.saveState()
+  currentShape.value = null
+}
+
+function drawShape(ctx, shape, isPreview = false) {
+  ctx.strokeStyle = color.value
+  ctx.lineWidth = size.value
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  if (isPreview) {
+    ctx.setLineDash([5, 5])
+  }
+
+  if (shape.type === 'line') {
+    ctx.beginPath()
+    ctx.moveTo(shape.start.x, shape.start.y)
+    ctx.lineTo(shape.end.x, shape.end.y)
+    ctx.stroke()
+  } else if (shape.type === 'rect') {
+    const width = shape.end.x - shape.start.x
+    const height = shape.end.y - shape.start.y
+    ctx.strokeRect(shape.start.x, shape.start.y, width, height)
+  }
+
+  if (isPreview) {
+    ctx.setLineDash([])
+  }
+}
+
+// ==================== 选框功能 ====================
+function drawSelection() {
+  if (!selectionCanvasRef.value || !selectionStart.value || !selectionEnd.value) return
+  const ctx = selectionCanvasRef.value.getContext('2d')
+  ctx.clearRect(0, 0, selectionCanvasRef.value.width, selectionCanvasRef.value.height)
+
+  const x = Math.min(selectionStart.value.x, selectionEnd.value.x)
+  const y = Math.min(selectionStart.value.y, selectionEnd.value.y)
+  const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
+  const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
+
+  ctx.strokeStyle = '#409EFF'
+  ctx.lineWidth = 2
+  ctx.setLineDash([5, 5])
+  ctx.strokeRect(x, y, width, height)
+  ctx.setLineDash([])
+
+  ctx.fillStyle = 'rgba(64, 158, 255, 0.1)'
+  ctx.fillRect(x, y, width, height)
+}
+
+function clearSelection() {
+  if (selectionCanvasRef.value) {
+    const ctx = selectionCanvasRef.value.getContext('2d')
+    ctx.clearRect(0, 0, selectionCanvasRef.value.width, selectionCanvasRef.value.height)
+  }
+  selectionStart.value = null
+  selectionEnd.value = null
+  isSelecting.value = false
+}
+
+// ==================== 油漆桶填充 ====================
+function fillBucket(pos) {
+  if (!canvasRef.value || !history.value) return
+  const ctx = canvasRef.value.getContext('2d')
+  history.value.saveState()
+
+  const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
+  const data = imageData.data
+  const width = imageData.width
+  const height = imageData.height
+
+  const x = Math.floor(pos.x)
+  const y = Math.floor(pos.y)
+  if (x < 0 || x >= width || y < 0 || y >= height) return
+
+  const startIdx = (y * width + x) * 4
+  const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]]
+  const fillColor = hexToRgba(color.value)
+
+  if (colorsMatch(startColor, fillColor)) return
+
+  const stack = [[x, y]]
+  const visited = new Set()
+
+  while (stack.length) {
+    const [cx, cy] = stack.pop()
+    const key = `${cx},${cy}`
+    if (visited.has(key) || cx < 0 || cy < 0 || cx >= width || cy >= height) continue
+    visited.add(key)
+
+    const idx = (cy * width + cx) * 4
+    const currColor = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]]
+    if (!colorsMatch(currColor, startColor)) continue
+
+    data[idx] = fillColor[0]
+    data[idx + 1] = fillColor[1]
+    data[idx + 2] = fillColor[2]
+    data[idx + 3] = fillColor[3]
+
+    stack.push([cx + 1, cy])
+    stack.push([cx - 1, cy])
+    stack.push([cx, cy + 1])
+    stack.push([cx, cy - 1])
+  }
+
+  ctx.putImageData(imageData, 0, 0)
+  history.value.saveState()
+}
+
+function colorsMatch(a, b) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]
+}
+
+function hexToRgba(hex) {
+  let c = hex.replace('#', '')
+  if (c.length === 3) {
+    c = c
+      .split('')
+      .map((s) => s + s)
+      .join('')
+  }
+  const num = parseInt(c, 16)
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255]
+}
+
+// ==================== 文字工具 ====================
+function showTextInput(e) {
+  if (!canvasRef.value) return
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  const mouseX = e.clientX - canvasRect.left
+  const mouseY = e.clientY - canvasRect.top
+  const containerX = (mouseX - panOffset.value.x) / scale.value
+  const containerY = (mouseY - panOffset.value.y) / scale.value
+
+  textInputPosition.value = { x: containerX, y: containerY }
+  textInputValue.value = ''
+  textInputVisible.value = true
+
+  nextTick(() => {
+    if (textInputRef.value) {
+      textInputRef.value.focus()
+      textInputRef.value.select()
+    }
+  })
+}
+
+function confirmTextInput() {
+  if (textInputValue.value.trim() && canvasRef.value && history.value) {
+    const canvasX = textInputPosition.value.x
+    const canvasY = textInputPosition.value.y
+    drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
+  }
+  textInputVisible.value = false
+  textInputValue.value = ''
+}
+
+function cancelTextInput() {
+  textInputVisible.value = false
+  textInputValue.value = ''
+}
+
+function drawTextOnCanvas(text, x, y) {
+  if (!canvasRef.value || !history.value) return
+  const ctx = canvasRef.value.getContext('2d')
+  history.value.saveState()
+
+  ctx.font = '16px Arial'
+  ctx.fillStyle = color.value
+  ctx.textBaseline = 'top'
+  ctx.fillText(text, x, y)
+
+  history.value.saveState()
+}
+
+// ==================== 资源工具 ====================
+function selectResource(resource) {
+  startResourceDrag(resource, null)
+}
+
+function startResourceDrag(resource, event) {
+  draggingResource.value = resource
+  if (!dragPreviewEl.value) {
+    dragPreviewEl.value = document.createElement('img')
+    dragPreviewEl.value.src = resource.url
+    dragPreviewEl.value.style.position = 'fixed'
+    dragPreviewEl.value.style.pointerEvents = 'none'
+    dragPreviewEl.value.style.zIndex = '9999'
+    dragPreviewEl.value.style.width = '40px'
+    dragPreviewEl.value.style.height = '40px'
+    document.body.appendChild(dragPreviewEl.value)
+  }
+  window.addEventListener('mousemove', onResourceDragMove)
+  window.addEventListener('mouseup', onResourceDragEnd)
+  if (event) {
+    onResourceDragMove(event)
+  }
+}
+
+function onResourceDragMove(e) {
+  if (!dragPreviewEl.value) return
+  dragPreviewEl.value.style.left = e.clientX - 20 + 'px'
+  dragPreviewEl.value.style.top = e.clientY - 20 + 'px'
+}
+
+function onResourceDragEnd(e) {
+  if (!draggingResource.value || !canvasRef.value) return
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  if (
+    e.clientX >= canvasRect.left &&
+    e.clientX <= canvasRect.right &&
+    e.clientY >= canvasRect.top &&
+    e.clientY <= canvasRect.bottom
+  ) {
+    const x =
+      (((e.clientX - canvasRect.left - panOffset.value.x) / scale.value) * canvasRef.value.width) /
+      canvasRect.width
+    const y =
+      (((e.clientY - canvasRect.top - panOffset.value.y) / scale.value) * canvasRef.value.height) /
+      canvasRect.height
+    drawResourceOnCanvas(draggingResource.value, x, y)
+  }
+  if (dragPreviewEl.value) {
+    document.body.removeChild(dragPreviewEl.value)
+    dragPreviewEl.value = null
+  }
+  draggingResource.value = null
+  window.removeEventListener('mousemove', onResourceDragMove)
+  window.removeEventListener('mouseup', onResourceDragEnd)
+}
+
+function onResourceMouseDown(resource, event) {
+  event.preventDefault()
+  startResourceDrag(resource, event)
+}
+
+function drawResourceOnCanvas(resource, x, y) {
+  if (!canvasRef.value || !history.value) return
+  const ctx = canvasRef.value.getContext('2d')
+  history.value.saveState()
+
+  const img = new window.Image()
+  img.src = resource.url
+  img.onload = () => {
+    ctx.drawImage(img, x - 20, y - 20, 40, 40)
+    history.value.saveState()
+  }
+}
+
+// ==================== 缩放功能 ====================
+function handleWheel(e) {
+  e.preventDefault()
+
+  // Shift + 滚轮：平移
+  if (e.shiftKey || tool.value === 'move') {
+    const deltaX = e.deltaX || 0
+    const deltaY = e.deltaY || 0
+    panOffset.value.x += deltaX * 0.5
+    panOffset.value.y += deltaY * 0.5
+    return
+  }
+
+  // Ctrl/Cmd + 滚轮：缩放
+  if (e.ctrlKey || e.metaKey) {
+    const delta = e.deltaY
+    const zoomFactor = 0.1
+    let newScale = scale.value
+    if (delta < 0) {
+      newScale = Math.min(scale.value + zoomFactor, maxScale)
+    } else {
+      newScale = Math.max(scale.value - zoomFactor, minScale)
+    }
+    scale.value = newScale
+  }
+}
+
+function resetZoom() {
+  scale.value = 1
+  panOffset.value = { x: 0, y: 0 }
+}
+
+// ==================== 历史记录操作 ====================
+function handleUndo() {
+  if (history.value && history.value.undo()) {
+    ElMessage.success('已撤销')
+  }
+}
+
+function handleRedo() {
+  if (history.value && history.value.redo()) {
+    ElMessage.success('已回退')
+  }
+}
+
+function handleClearCanvas() {
+  ElMessageBox.confirm('确定要清空画板吗？此操作不可撤销。', '确认清空', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+    .then(() => {
+      if (!canvasRef.value || !history.value) return
+      const ctx = canvasRef.value.getContext('2d')
+      history.value.saveState()
+      ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+
+      // 如果有底图，重新绘制
+      if (mapImage.value) {
+        const img = new window.Image()
+        img.src = mapImage.value
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvasRef.value.width, canvasRef.value.height)
+          history.value.saveState()
+        }
+      } else {
+        // 新建地图：填充白色背景
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+        history.value.saveState()
+      }
+
+      ElMessage.success('画板已清空')
+    })
+    .catch(() => {
+      // 用户取消
+    })
+}
+
+// ==================== 初始化画布 ====================
+function resetCanvas() {
+  if (!canvasRef.value) return
+  const ctx = canvasRef.value.getContext('2d')
+  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+
+  if (mapImage.value) {
+    const img = new window.Image()
+    img.src = mapImage.value
+    img.onload = () => {
+      // 无限画板：如果图片尺寸大于当前画布，扩展画布
+      if (img.naturalWidth > canvasWidth.value) {
+        canvasWidth.value = img.naturalWidth
+      }
+      if (img.naturalHeight > canvasHeight.value) {
+        canvasHeight.value = img.naturalHeight
+      }
+      nextTick(() => {
+        ctx.drawImage(img, 0, 0, canvasRef.value.width, canvasRef.value.height)
+        if (history.value) {
+          history.value.init()
+        }
+      })
+    }
+  } else {
+    // 新建地图：填充白色背景
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+    if (history.value) {
+      history.value.init()
+    }
+  }
+}
+
+// ==================== 加载地图 ====================
+async function loadMapImage() {
   try {
     mapImage.value = await window.electron.readMapImage({ bookName, mapName: mapId })
     mapName.value = mapId
@@ -282,205 +991,29 @@ const loadMapImage = async () => {
   }
 }
 
-// 图片加载完成后，设置canvas尺寸
-const handleImageLoad = () => {
+function handleImageLoad() {
   const img = mapImageRef.value
   if (img) {
-    canvasWidth.value = img.naturalWidth
-    canvasHeight.value = img.naturalHeight
+    if (img.naturalWidth > canvasWidth.value) {
+      canvasWidth.value = img.naturalWidth
+    }
+    if (img.naturalHeight > canvasHeight.value) {
+      canvasHeight.value = img.naturalHeight
+    }
     nextTick(() => {
       resetCanvas()
     })
   }
 }
 
-// 工具栏操作
-function selectTool(t) {
-  tool.value = t
-  if (t === 'pencil') {
-    size.value = 1
-  } else if (t === 'eraser') {
-    size.value = 10
-  }
-}
-
-// 撤销
-function undo() {
-  if (undoStack.value.length > 0) {
-    const ctx = canvasRef.value.getContext('2d')
-    const img = undoStack.value.pop()
-    ctx.putImageData(img, 0, 0)
-  }
-}
-
-// 初始化canvas，绘制底图
-function resetCanvas() {
-  const canvas = canvasRef.value
-  const ctx = canvas.getContext('2d')
-  // 清空
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  // 绘制底图
-  if (mapImage.value) {
-    const img = new window.Image()
-    img.src = mapImage.value
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    }
-  }
-}
-
-// 画图相关
-function getCanvasPos(e) {
-  const rect = canvasRef.value.getBoundingClientRect()
-  let x, y
-  if (e.touches) {
-    x = (e.touches[0].clientX - rect.left) / scale.value
-    y = (e.touches[0].clientY - rect.top) / scale.value
-  } else {
-    x = (e.clientX - rect.left) / scale.value
-    y = (e.clientY - rect.top) / scale.value
-  }
-  return { x, y }
-}
-
-function startDraw(e) {
-  // 检查当前选中的工具
-  if (tool.value === 'pencil' || tool.value === 'eraser') {
-    // 铅笔工具：绘制线条
-    drawingActive.value = true
-    const { x, y } = getCanvasPos(e)
-    lastPoint.value = { x, y }
-    // 保存撤销栈
-    const ctx = canvasRef.value.getContext('2d')
-    undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-  } else if (tool.value === 'bucket') {
-    // 油漆桶工具：填充
-    fillBucket(e)
-  } else if (tool.value === 'text') {
-    // 文字工具：显示文字输入框
-    showTextInput(e)
-    // 阻止事件冒泡，防止触发 handleCanvasClick
-    e.stopPropagation()
-  }
-  // 其他工具（如 resource）不执行绘制操作
-}
-
-function drawing(e) {
-  if (!drawingActive.value) return
-
-  // 只有铅笔和橡皮擦工具才能继续绘制
-  if (tool.value !== 'pencil' && tool.value !== 'eraser') return
-
-  const ctx = canvasRef.value.getContext('2d')
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = size.value
-  if (tool.value === 'pencil') {
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = color.value
-  } else if (tool.value === 'eraser') {
-    // 使用白色来擦除，擦过的地方变成白色
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = '#ffffff'
-  }
-  ctx.beginPath()
-  ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
-  const { x, y } = getCanvasPos(e)
-  ctx.lineTo(x, y)
-  ctx.stroke()
-  lastPoint.value = { x, y }
-}
-
-function endDraw() {
-  drawingActive.value = false
-}
-
-// 油漆桶填充（Flood Fill，闭合区域填充）
-function fillBucket(e) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-  const { x, y } = getCanvasPos(e)
-  const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
-  const data = imageData.data
-  const width = imageData.width
-  const height = imageData.height
-
-  // 获取起始像素的rgba
-  const startIdx = (Math.floor(y) * width + Math.floor(x)) * 4
-  const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]]
-
-  // 目标颜色
-  const fillColor = hexToRgba(color.value)
-
-  // 如果起始像素颜色和目标颜色一样，直接返回
-  if (colorsMatch(startColor, fillColor)) return
-
-  // Flood Fill
-  const stack = [[Math.floor(x), Math.floor(y)]]
-  while (stack.length) {
-    const [cx, cy] = stack.pop()
-    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue
-    const idx = (cy * width + cx) * 4
-    const currColor = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]]
-    if (!colorsMatch(currColor, startColor)) continue
-    // 填充颜色
-    data[idx] = fillColor[0]
-    data[idx + 1] = fillColor[1]
-    data[idx + 2] = fillColor[2]
-    data[idx + 3] = fillColor[3]
-    // 四邻域递归
-    stack.push([cx + 1, cy])
-    stack.push([cx - 1, cy])
-    stack.push([cx, cy + 1])
-    stack.push([cx, cy - 1])
-  }
-  ctx.putImageData(imageData, 0, 0)
-}
-
-// 判断颜色是否相等
-function colorsMatch(a, b) {
-  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]
-}
-// 16进制转rgba数组
-function hexToRgba(hex) {
-  let c = hex.replace('#', '')
-  if (c.length === 3)
-    c = c
-      .split('')
-      .map((s) => s + s)
-      .join('')
-  const num = parseInt(c, 16)
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255]
-}
-
-// 键盘事件处理函数
-function handleKeyDown(e) {
-  // 检查是否按下 Ctrl+Z (Windows) 或 Cmd+Z (Mac)
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    e.preventDefault() // 阻止默认行为
-    undo()
-  }
-}
-
-onMounted(() => {
-  if (isEdit.value) {
-    loadMapImage()
-  }
-  // 添加键盘事件监听
-  window.addEventListener('keydown', handleKeyDown)
-})
-
-// 组件卸载时移除事件监听
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown)
-})
-
-const handleSave = async () => {
+// ==================== 保存地图 ====================
+async function handleSave() {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
     return
   }
+  if (!canvasRef.value) return
+
   try {
     // 获取canvas内容
     const imageData = canvasRef.value.toDataURL('image/png')
@@ -497,185 +1030,106 @@ const handleSave = async () => {
   }
 }
 
-function selectResource(resource) {
-  // 兼容点击直接拖拽
-  startResourceDrag(resource, null)
-}
-
-function startResourceDrag(resource, event) {
-  draggingResource.value = resource
-  // 创建预览元素
-  if (!dragPreviewEl.value) {
-    dragPreviewEl.value = document.createElement('img')
-    dragPreviewEl.value.src = resource.url
-    dragPreviewEl.value.style.position = 'fixed'
-    dragPreviewEl.value.style.pointerEvents = 'none'
-    dragPreviewEl.value.style.zIndex = 9999
-    dragPreviewEl.value.style.width = '40px'
-    dragPreviewEl.value.style.height = '40px'
-    document.body.appendChild(dragPreviewEl.value)
-  }
-  // 监听全局鼠标移动和松开
-  window.addEventListener('mousemove', onResourceDragMove)
-  window.addEventListener('mouseup', onResourceDragEnd)
-  if (event) {
-    onResourceDragMove(event)
-  }
-}
-
-function onResourceDragMove(e) {
-  if (!dragPreviewEl.value) return
-  dragPreviewEl.value.style.left = e.clientX - 20 + 'px'
-  dragPreviewEl.value.style.top = e.clientY - 20 + 'px'
-}
-
-function onResourceDragEnd(e) {
-  if (!draggingResource.value) return
-  // 判断是否在canvas区域
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-  if (
-    e.clientX >= canvasRect.left &&
-    e.clientX <= canvasRect.right &&
-    e.clientY >= canvasRect.top &&
-    e.clientY <= canvasRect.bottom
-  ) {
-    // 转换为canvas坐标
-    const x = ((e.clientX - canvasRect.left) / canvasRect.width) * canvasRef.value.width
-    const y = ((e.clientY - canvasRect.top) / canvasRect.height) * canvasRef.value.height
-    drawResourceOnCanvas(draggingResource.value, x, y)
-  }
-  // 清理
-  if (dragPreviewEl.value) {
-    document.body.removeChild(dragPreviewEl.value)
-    dragPreviewEl.value = null
-  }
-  draggingResource.value = null
-  window.removeEventListener('mousemove', onResourceDragMove)
-  window.removeEventListener('mouseup', onResourceDragEnd)
-}
-
-function drawResourceOnCanvas(resource, x, y) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-
-  const img = new window.Image()
-  img.src = resource.url
-  img.onload = () => {
-    // 居中绘制，默认40x40
-    ctx.drawImage(img, x - 20, y - 20, 40, 40)
-  }
-}
-
-// 资源图片mousedown时启动拖拽
-function onResourceMouseDown(resource, event) {
-  event.preventDefault()
-  startResourceDrag(resource, event)
-}
-
-// 处理画布缩放
-function handleWheel(e) {
-  e.preventDefault()
-  const delta = e.deltaY
-  const zoomFactor = 0.1 // 每次缩放的步长
-
-  // 计算新的缩放比例
-  let newScale = scale.value
-  if (delta < 0) {
-    // 放大
-    newScale = Math.min(scale.value + zoomFactor, maxScale)
-  } else {
-    // 缩小
-    newScale = Math.max(scale.value - zoomFactor, minScale)
-  }
-
-  scale.value = newScale
-}
-
-// 重置缩放
-function resetZoom() {
-  scale.value = 1
-}
-
-// 显示文字输入框
-function showTextInput(e) {
-  // 获取画布的实际位置和尺寸
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-
-  // 计算鼠标相对于画布的位置
-  const mouseX = e.clientX - canvasRect.left
-  const mouseY = e.clientY - canvasRect.top
-
-  // 将画布坐标转换为容器坐标（考虑缩放）
-  const containerX = mouseX / scale.value
-  const containerY = mouseY / scale.value
-
-  textInputPosition.value = {
-    x: containerX,
-    y: containerY
-  }
-  textInputValue.value = ''
-  textInputVisible.value = true
-
-  // 确保输入框聚焦
-  nextTick(() => {
-    if (textInputRef.value) {
-      textInputRef.value.focus()
-      // 选中所有文本，方便用户直接输入
-      textInputRef.value.select()
-    }
-  })
-}
-
-// 确认文字输入
-function confirmTextInput() {
-  if (textInputValue.value.trim()) {
-    // 输入框位置已经是画布坐标，直接使用
-    const canvasX = textInputPosition.value.x
-    const canvasY = textInputPosition.value.y
-
-    drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
-  }
-  textInputVisible.value = false
-  textInputValue.value = ''
-}
-
-// 取消文字输入
-function cancelTextInput() {
-  textInputVisible.value = false
-  textInputValue.value = ''
-}
-
-// 点击其他地方时隐藏输入框
-function hideTextInput() {
-  if (textInputVisible.value) {
-    textInputVisible.value = false
-    textInputValue.value = ''
-  }
-}
-
-// 在画布上绘制文字
-function drawTextOnCanvas(text, x, y) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-
-  // 设置文字样式 - 固定12px字号
-  ctx.font = '12px Arial'
-  ctx.fillStyle = color.value
-  ctx.textBaseline = 'top'
-
-  // 绘制文字
-  ctx.fillText(text, x, y)
-}
-
-function handleCanvasClick() {
-  // 如果当前工具是文字工具，不要隐藏输入框
-  if (tool.value === 'text') {
+// ==================== 键盘事件 ====================
+function handleKeyDown(e) {
+  // 防止在输入框中触发
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
     return
   }
-  hideTextInput()
+
+  // 工具快捷键
+  if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    switch (e.key.toLowerCase()) {
+      case 'v':
+        selectTool('select')
+        break
+      case 'h':
+        selectTool('move')
+        break
+      case 'p':
+        selectTool('pencil')
+        break
+      case 'e':
+        selectTool('eraser')
+        break
+      case 'l':
+        selectTool('line')
+        break
+      case 'r':
+        selectTool('rect')
+        break
+      case 'b':
+        selectTool('bucket')
+        break
+      case 't':
+        selectTool('text')
+        break
+    }
+  }
+
+  // 撤销/回退
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    handleUndo()
+  }
+  if (
+    ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') ||
+    ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y')
+  ) {
+    e.preventDefault()
+    handleRedo()
+  }
+
+  // 空格键：临时切换到移动模式
+  if (e.key === ' ' && tool.value !== 'move') {
+    e.preventDefault()
+    spaceKeyPressed.value = true
+    document.body.style.cursor = 'grab'
+  }
 }
+
+function handleKeyUp(e) {
+  if (e.key === ' ') {
+    spaceKeyPressed.value = false
+    if (tool.value !== 'move') {
+      document.body.style.cursor = ''
+    }
+  }
+}
+
+// ==================== 生命周期 ====================
+onMounted(() => {
+  // 初始化历史记录管理器
+  nextTick(() => {
+    if (canvasRef.value) {
+      history.value = new HistoryManager(canvasRef.value)
+
+      if (isEdit.value) {
+        loadMapImage()
+      } else {
+        resetCanvas()
+      }
+    }
+  })
+
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('keyup', handleKeyUp)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('keyup', handleKeyUp)
+
+  // 清理资源拖拽
+  if (dragPreviewEl.value) {
+    try {
+      document.body.removeChild(dragPreviewEl.value)
+    } catch {
+      // 忽略错误
+    }
+  }
+})
 </script>
 
 <style lang="scss" scoped>
@@ -694,6 +1148,8 @@ function handleCanvasClick() {
     justify-content: center;
     position: relative;
     width: max-content;
+    flex-wrap: wrap;
+
     .tool-btn {
       width: 32px;
       height: 32px;
@@ -706,22 +1162,33 @@ function handleCanvasClick() {
       align-items: center;
       justify-content: center;
       border: 1px solid transparent;
+      transition: all 0.2s;
+
       img {
         width: 100%;
         height: 100%;
         display: block;
       }
+
       &.active,
-      &:hover {
+      &:hover:not(.disabled) {
         border: 1px solid var(--el-color-primary);
+        background-color: rgba(64, 158, 255, 0.1);
+      }
+
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
     }
+
     .slider-wrap {
       position: absolute;
       right: -170px;
       top: 0;
       z-index: 1;
     }
+
     .zoom-level {
       font-size: 14px;
       color: var(--text-base);
@@ -744,9 +1211,10 @@ function handleCanvasClick() {
     .canvas-wrap {
       position: relative;
       background: #fff;
-      box-shadow: 0 2px 8px #0001;
-      will-change: transform; // 优化缩放性能
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      will-change: transform;
     }
+
     .map-bg {
       position: absolute;
       left: 0;
@@ -754,19 +1222,26 @@ function handleCanvasClick() {
       z-index: 0;
       pointer-events: none;
     }
+
     .draw-canvas {
       position: absolute;
       left: 0;
       top: 0;
       z-index: 1;
       background: transparent;
-      cursor: crosshair;
     }
 
-    // 文字输入框样式
+    .selection-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
     .text-input-overlay {
       position: absolute;
-      z-index: 2;
+      z-index: 3;
       pointer-events: auto;
 
       .text-input {
@@ -789,6 +1264,7 @@ function handleCanvasClick() {
     }
   }
 }
+
 .resource-popover {
   height: max-content;
   .resource-grid {
@@ -803,11 +1279,11 @@ function handleCanvasClick() {
       justify-content: center;
       gap: 4px;
       font-size: 14px;
+      cursor: pointer;
       img {
         width: 100%;
         height: 100%;
         display: block;
-        cursor: pointer;
       }
     }
   }
