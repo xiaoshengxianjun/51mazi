@@ -6,146 +6,18 @@
     <template #default>
       <div class="content">
         <!-- 工具栏 -->
-        <div class="toolbar">
-          <!-- 选择工具组 -->
-          <el-tooltip content="选框 (V)" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'select' ? 'active' : '']"
-              @click="selectTool('select')"
-            >
-              <el-icon><Select /></el-icon>
-            </div>
-          </el-tooltip>
-          <el-tooltip content="移动 (H)" placement="bottom">
-            <div :class="['tool-btn', tool === 'move' ? 'active' : '']" @click="selectTool('move')">
-              <el-icon><Rank /></el-icon>
-            </div>
-          </el-tooltip>
-          <el-divider direction="vertical" />
-
-          <!-- 绘图工具组 -->
-          <el-tooltip content="画笔 (P)" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
-              @click="selectTool('pencil')"
-            >
-              <img src="@renderer/assets/pencil.svg" alt="画笔" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="橡皮擦 (E)" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
-              @click="selectTool('eraser')"
-            >
-              <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="线条 (L)" placement="bottom">
-            <div :class="['tool-btn', tool === 'line' ? 'active' : '']" @click="selectTool('line')">
-              <el-icon><Minus /></el-icon>
-            </div>
-          </el-tooltip>
-          <el-tooltip content="矩形 (R)" placement="bottom">
-            <div :class="['tool-btn', tool === 'rect' ? 'active' : '']" @click="selectTool('rect')">
-              <el-icon><FullScreen /></el-icon>
-            </div>
-          </el-tooltip>
-          <el-tooltip content="油漆桶 (B)" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
-              @click="selectTool('bucket')"
-            >
-              <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="文字 (T)" placement="bottom">
-            <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
-              A
-            </div>
-          </el-tooltip>
-
-          <!-- 资源工具 -->
-          <el-popover
-            v-model:visible="resourcePopoverVisible"
-            placement="bottom"
-            :width="420"
-            trigger="click"
-          >
-            <template #reference>
-              <div
-                :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
-                @click="selectTool('resource')"
-              >
-                <el-icon><PictureRounded /></el-icon>
-              </div>
-            </template>
-            <div class="resource-popover">
-              <div class="resource-grid">
-                <div
-                  v-for="(resource, index) in resources"
-                  :key="index"
-                  class="resource-item"
-                  @click="selectResource(resource)"
-                  @mousedown="onResourceMouseDown(resource, $event)"
-                >
-                  <img :src="resource.url" :alt="resource.name" />
-                  <span class="resource-name">{{ resource.name }}</span>
-                </div>
-              </div>
-            </div>
-          </el-popover>
-
-          <el-divider direction="vertical" />
-
-          <!-- 操作工具组 -->
-          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
-            <div :class="['tool-btn', canUndo ? '' : 'disabled']" @click="handleUndo">
-              <img src="@renderer/assets/undo.svg" alt="撤销" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="bottom">
-            <div :class="['tool-btn', canRedo ? '' : 'disabled']" @click="handleRedo">
-              <el-icon><RefreshRight /></el-icon>
-            </div>
-          </el-tooltip>
-          <el-tooltip content="清空画板" placement="bottom">
-            <div class="tool-btn" @click="handleClearCanvas">
-              <el-icon><Delete /></el-icon>
-            </div>
-          </el-tooltip>
-
-          <el-divider direction="vertical" />
-
-          <!-- 颜色选择器 -->
-          <el-tooltip content="颜色" placement="bottom">
-            <div>
-              <el-color-picker v-model="color" />
-            </div>
-          </el-tooltip>
-
-          <el-divider direction="vertical" />
-
-          <!-- 缩放控制 -->
-          <el-tooltip content="重置缩放" placement="bottom">
-            <div class="tool-btn" @click="resetZoom">
-              <el-icon><ZoomIn /></el-icon>
-            </div>
-          </el-tooltip>
-          <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
-
-          <el-divider direction="vertical" />
-
-          <!-- 画笔粗细（仅画笔和橡皮擦显示） -->
-          <el-tooltip
-            v-if="tool === 'pencil' || tool === 'eraser'"
-            content="粗细"
-            placement="bottom"
-          >
-            <div class="slider-wrap">
-              <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
-            </div>
-          </el-tooltip>
-        </div>
+        <MapToolbar
+          v-model="tool"
+          :can-undo="canUndo"
+          :can-redo="canRedo"
+          :resources="resources"
+          @update:model-value="onToolChange"
+          @undo="handleUndo"
+          @redo="handleRedo"
+          @clear="handleClearCanvas"
+          @resource-select="selectResource"
+          @resource-mousedown="onResourceMouseDown"
+        />
 
         <!-- 画布容器 -->
         <div
@@ -225,18 +97,9 @@
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
+import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import {
-  PictureRounded,
-  ZoomIn,
-  Select,
-  Rank,
-  Minus,
-  FullScreen,
-  RefreshRight,
-  Delete
-} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -271,7 +134,6 @@ const spaceKeyPressed = ref(false)
 const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource
 const color = ref('#222222')
 const size = ref(5)
-const resourcePopoverVisible = ref(false)
 
 // ==================== 资源列表 ====================
 const resources = [
@@ -440,6 +302,16 @@ function selectTool(t) {
     size.value = 10
   }
   // 切换工具时清除选择
+  clearSelection()
+}
+
+// 监听工具变化，处理工具切换逻辑
+function onToolChange(newTool) {
+  if (newTool === 'pencil') {
+    size.value = 5
+  } else if (newTool === 'eraser') {
+    size.value = 10
+  }
   clearSelection()
 }
 
@@ -894,11 +766,6 @@ function handleWheel(e) {
   }
 }
 
-function resetZoom() {
-  scale.value = 1
-  panOffset.value = { x: 0, y: 0 }
-}
-
 // ==================== 历史记录操作 ====================
 function handleUndo() {
   if (history.value && history.value.undo()) {
@@ -1140,63 +1007,6 @@ onUnmounted(() => {
   align-items: center;
   flex-direction: column;
 
-  .toolbar {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    width: max-content;
-    flex-wrap: wrap;
-
-    .tool-btn {
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
-      border-radius: 4px;
-      padding: 6px;
-      color: #000;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid transparent;
-      transition: all 0.2s;
-
-      img {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-
-      &.active,
-      &:hover:not(.disabled) {
-        border: 1px solid var(--el-color-primary);
-        background-color: rgba(64, 158, 255, 0.1);
-      }
-
-      &.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-    }
-
-    .slider-wrap {
-      position: absolute;
-      right: -170px;
-      top: 0;
-      z-index: 1;
-    }
-
-    .zoom-level {
-      font-size: 14px;
-      color: var(--text-base);
-      min-width: 60px;
-      text-align: center;
-    }
-  }
-
   .editor-container {
     flex: 1;
     width: 100%;
@@ -1260,30 +1070,6 @@ onUnmounted(() => {
           border: 1px dashed #ff4444;
           box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
         }
-      }
-    }
-  }
-}
-
-.resource-popover {
-  height: max-content;
-  .resource-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
-    .resource-item {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      img {
-        width: 100%;
-        height: 100%;
-        display: block;
       }
     }
   }
