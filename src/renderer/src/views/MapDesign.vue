@@ -19,6 +19,16 @@
           @resource-mousedown="onResourceMouseDown"
         />
 
+        <!-- 滑块控制工具 -->
+        <MapSlider
+          v-if="tool === 'pencil' || tool === 'eraser'"
+          v-model="size"
+          :min="sliderConfig.min"
+          :max="sliderConfig.max"
+          :step="sliderConfig.step"
+          :visible="tool === 'pencil' || tool === 'eraser'"
+        />
+
         <!-- 画布容器 -->
         <div
           ref="editorContainerRef"
@@ -98,6 +108,7 @@
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
+import MapSlider from '@renderer/components/Map/MapSlider.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -134,6 +145,30 @@ const spaceKeyPressed = ref(false)
 const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource
 const color = ref('#222222')
 const size = ref(5)
+
+// ==================== 滑块配置 ====================
+const sliderConfig = computed(() => {
+  if (tool.value === 'eraser') {
+    // 橡皮擦：控制大小
+    return {
+      min: 1,
+      max: 40,
+      step: 1
+    }
+  } else if (tool.value === 'pencil') {
+    // 画笔：控制粗细
+    return {
+      min: 1,
+      max: 40,
+      step: 1
+    }
+  }
+  return {
+    min: 0,
+    max: 100,
+    step: 1
+  }
+})
 
 // ==================== 资源列表 ====================
 const resources = [
