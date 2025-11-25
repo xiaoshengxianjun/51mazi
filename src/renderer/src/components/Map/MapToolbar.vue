@@ -6,7 +6,7 @@
         :class="['tool-btn', modelValue === 'select' ? 'active' : '']"
         @click="handleToolSelect('select')"
       >
-        <el-icon><Select /></el-icon>
+        <SvgIcon name="xuanze" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="移动 (H)" placement="bottom">
@@ -14,7 +14,7 @@
         :class="['tool-btn', modelValue === 'move' ? 'active' : '']"
         @click="handleToolSelect('move')"
       >
-        <el-icon><Rank /></el-icon>
+        <SvgIcon name="hand" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-divider direction="vertical" />
@@ -25,7 +25,7 @@
         :class="['tool-btn', modelValue === 'pencil' ? 'active' : '']"
         @click="handleToolSelect('pencil')"
       >
-        <img src="@renderer/assets/pencil.svg" alt="画笔" />
+        <SvgIcon name="pencil" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="橡皮擦 (E)" placement="bottom">
@@ -33,7 +33,7 @@
         :class="['tool-btn', modelValue === 'eraser' ? 'active' : '']"
         @click="handleToolSelect('eraser')"
       >
-        <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
+        <SvgIcon name="eraser" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="线条 (L)" placement="bottom">
@@ -41,15 +41,15 @@
         :class="['tool-btn', modelValue === 'line' ? 'active' : '']"
         @click="handleToolSelect('line')"
       >
-        <el-icon><Minus /></el-icon>
+        <SvgIcon name="line" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="矩形 (R)" placement="bottom">
+    <el-tooltip content="多边形 (G)" placement="bottom">
       <div
         :class="['tool-btn', modelValue === 'rect' ? 'active' : '']"
         @click="handleToolSelect('rect')"
       >
-        <el-icon><FullScreen /></el-icon>
+        <SvgIcon name="polygon" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="油漆桶 (B)" placement="bottom">
@@ -57,7 +57,7 @@
         :class="['tool-btn', modelValue === 'bucket' ? 'active' : '']"
         @click="handleToolSelect('bucket')"
       >
-        <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
+        <SvgIcon name="bucket" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="文字 (T)" placement="bottom">
@@ -65,7 +65,7 @@
         :class="['tool-btn', modelValue === 'text' ? 'active' : '']"
         @click="handleToolSelect('text')"
       >
-        A
+        <SvgIcon name="text" :size="iconSize" />
       </div>
     </el-tooltip>
 
@@ -81,7 +81,7 @@
           :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
           @click="handleToolSelect('resource')"
         >
-          <el-icon><PictureRounded /></el-icon>
+          <SvgIcon name="resource" :size="iconSize" />
         </div>
       </template>
       <div class="resource-popover">
@@ -105,17 +105,17 @@
     <!-- 操作工具组 -->
     <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
       <div :class="['tool-btn', canUndo ? '' : 'disabled']" @click="handleUndo">
-        <img src="@renderer/assets/undo.svg" alt="撤销" />
+        <SvgIcon name="undo" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="bottom">
       <div :class="['tool-btn', canRedo ? '' : 'disabled']" @click="handleRedo">
-        <el-icon><RefreshRight /></el-icon>
+        <SvgIcon name="redo" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-tooltip content="清空画板" placement="bottom">
       <div class="tool-btn" @click="handleClear">
-        <el-icon><Delete /></el-icon>
+        <SvgIcon name="clear" :size="iconSize" />
       </div>
     </el-tooltip>
   </div>
@@ -123,15 +123,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import {
-  Select,
-  Rank,
-  Minus,
-  FullScreen,
-  PictureRounded,
-  RefreshRight,
-  Delete
-} from '@element-plus/icons-vue'
 
 defineProps({
   modelValue: {
@@ -151,6 +142,8 @@ defineProps({
     default: () => []
   }
 })
+
+const iconSize = 18
 
 const emit = defineEmits([
   'update:modelValue',
@@ -213,12 +206,12 @@ function handleResourceMouseDown(resource, event) {
     border-radius: 6px;
     padding: 6px;
     color: #000;
-    font-size: 20px;
+    font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    transition: all 0.2s;
+    transition: all 0.3s;
 
     img {
       width: 100%;
