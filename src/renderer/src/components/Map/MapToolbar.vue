@@ -1,20 +1,20 @@
 <template>
   <div class="map-toolbar">
     <!-- 选择工具组 -->
-    <el-tooltip content="选框 (V)" placement="bottom">
-      <div
-        :class="['tool-btn', modelValue === 'select' ? 'active' : '']"
-        @click="handleToolSelect('select')"
-      >
-        <SvgIcon name="xuanze" :size="iconSize" />
-      </div>
-    </el-tooltip>
     <el-tooltip content="移动 (H)" placement="bottom">
       <div
         :class="['tool-btn', modelValue === 'move' ? 'active' : '']"
         @click="handleToolSelect('move')"
       >
         <SvgIcon name="hand" :size="iconSize" />
+      </div>
+    </el-tooltip>
+    <el-tooltip content="选框 (V)" placement="bottom">
+      <div
+        :class="['tool-btn', modelValue === 'select' ? 'active' : '']"
+        @click="handleToolSelect('select')"
+      >
+        <SvgIcon name="xuanze" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-divider direction="vertical" />
