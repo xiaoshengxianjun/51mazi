@@ -27,6 +27,8 @@
           :max="sliderConfig.max"
           :step="sliderConfig.step"
           :visible="tool === 'pencil' || tool === 'eraser'"
+          :min-top-distance="100"
+          :min-bottom-distance="50"
         />
 
         <!-- 画布容器 -->
