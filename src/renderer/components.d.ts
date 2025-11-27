@@ -46,6 +46,7 @@ declare module 'vue' {
     IconFont: typeof import('./src/components/IconFont.vue')['default']
     LayoutTool: typeof import('./src/components/LayoutTool.vue')['default']
     MapSlider: typeof import('./src/components/Map/MapSlider.vue')['default']
+    MapSliderItem: typeof import('./src/components/Map/MapSliderItem.vue')['default']
     MapToolbar: typeof import('./src/components/Map/MapToolbar.vue')['default']
     NoteChapter: typeof import('./src/components/NoteChapter.vue')['default']
     NoteEditorContent: typeof import('./src/components/NoteEditorContent.vue')['default']
