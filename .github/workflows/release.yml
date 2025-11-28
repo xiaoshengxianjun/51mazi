@@ -55,14 +55,27 @@ jobs:
           echo "Build completed, checking output..."
           dir dist || echo "dist directory not found"
 
+      - name: Fix app-builder permissions (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Fixing app-builder permissions..."
+          chmod +x node_modules/app-builder-bin/linux/x64/app-builder 2>/dev/null || true
+          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder 2>/dev/null || true
+          find node_modules/app-builder-bin -name "app-builder" -type f -exec chmod +x {} \; 2>/dev/null || true
+
       - name: Build for Linux
         if: matrix.os == 'ubuntu-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
+        continue-on-error: false
         run: |
           echo "Building for Linux..."
-          npm run build:linux
+          npm run build:linux || {
+            echo "Build failed, but checking if any artifacts were created..."
+            ls -la dist/ || echo "No dist directory"
+            exit 1
+          }
           echo "Build completed, checking output..."
           ls -la dist/ || echo "dist directory not found"
 
@@ -140,7 +153,6 @@ jobs:
             dist/**/*.dmg
             dist/**/*.AppImage
             dist/**/*.deb
-            dist/**/*.snap
             dist/**/*.zip
           draft: false
           prerelease: false
