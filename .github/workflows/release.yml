@@ -30,26 +30,31 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Build for current platform
+      - name: Build for macOS
+        if: matrix.os == 'macos-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            npm run build:mac
-          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            npm run build:win
-          else
-            npm run build:linux
-          fi
+        run: npm run build:mac
+
+      - name: Build for Windows
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win
+
+      - name: Build for Linux
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:linux
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-build
-          path: |
-            dist/*
-            !dist/mac-universal
+          path: dist/
           if-no-files-found: error
+          retention-days: 7
 
   release-all:
     needs: release
@@ -66,11 +71,34 @@ jobs:
         with:
           path: dist
 
+      - name: List artifacts
+        run: |
+          find dist -type f -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.zip" | head -20
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Release ${{ github.ref_name }}
+            
+            ### 下载安装包
+            
+            - **Windows**: 下载 `.exe` 文件进行安装
+            - **macOS**: 下载 `.dmg` 文件进行安装
+            - **Linux**: 下载 `.AppImage`、`.deb` 或 `.snap` 文件
+            
+            ### 构建信息
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - 提交: ${{ github.sha }}
           files: |
-            dist/**/*
+            dist/**/*.exe
+            dist/**/*.dmg
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.snap
+            dist/**/*.zip
           draft: false
           prerelease: false
         env:
