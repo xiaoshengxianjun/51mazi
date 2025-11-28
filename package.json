@@ -4,7 +4,7 @@
   "description": "An Electron application with Vue",
   "main": "./out/main/index.js",
   "author": "51mazi",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://github.com/xiaoshengxianjun/51mazi",
   "type": "module",
   "scripts": {
     "format": "prettier --write .",
@@ -16,7 +16,11 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "release:win": "npm run build && electron-builder --win --publish=always",
+    "release:mac": "npm run build && electron-builder --mac --publish=always",
+    "release:linux": "npm run build && electron-builder --linux --publish=always",
+    "release:all": "npm run build && electron-builder --win --mac --linux --publish=always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
