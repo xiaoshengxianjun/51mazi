@@ -66,12 +66,24 @@ jobs:
           echo "Build completed, checking output..."
           ls -la dist/ || echo "dist directory not found"
 
-      - name: List build artifacts
-        if: always()
+      - name: List build artifacts (macOS/Linux)
+        if: always() && (matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest')
+        shell: bash
         run: |
           echo "Listing files in dist directory:"
           ls -la dist/ || echo "dist directory not found"
           find dist -type f 2>/dev/null | head -20 || echo "No files found"
+
+      - name: List build artifacts (Windows)
+        if: always() && matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          echo "Listing files in dist directory:"
+          if (Test-Path dist) {
+            Get-ChildItem -Recurse dist | Select-Object -First 20 FullName
+          } else {
+            echo "dist directory not found"
+          }
 
       - name: Upload artifacts
         if: always()
