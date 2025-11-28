@@ -9,7 +9,9 @@ jobs:
   release:
     permissions:
       contents: write
+    timeout-minutes: 60
     strategy:
+      fail-fast: false  # 一个平台失败不影响其他平台
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
@@ -26,6 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        continue-on-error: false
 
       - name: Build application
         run: npm run build
@@ -34,26 +37,49 @@ jobs:
         if: matrix.os == 'macos-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:mac
+          CI: true
+        run: |
+          echo "Building for macOS..."
+          npm run build:mac
+          echo "Build completed, checking output..."
+          ls -la dist/ || echo "dist directory not found"
 
       - name: Build for Windows
         if: matrix.os == 'windows-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:win
+          CI: true
+        run: |
+          echo "Building for Windows..."
+          npm run build:win
+          echo "Build completed, checking output..."
+          dir dist || echo "dist directory not found"
 
       - name: Build for Linux
         if: matrix.os == 'ubuntu-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:linux
+          CI: true
+        run: |
+          echo "Building for Linux..."
+          npm run build:linux
+          echo "Build completed, checking output..."
+          ls -la dist/ || echo "dist directory not found"
+
+      - name: List build artifacts
+        if: always()
+        run: |
+          echo "Listing files in dist directory:"
+          ls -la dist/ || echo "dist directory not found"
+          find dist -type f 2>/dev/null | head -20 || echo "No files found"
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-build
           path: dist/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
 
   release-all:
@@ -61,6 +87,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    if: always()  # 即使部分构建失败也创建 release
     
     steps:
       - name: Checkout code
@@ -73,7 +100,11 @@ jobs:
 
       - name: List artifacts
         run: |
-          find dist -type f -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.zip" | head -20
+          echo "=== Artifacts Structure ==="
+          find dist -type f 2>/dev/null | head -30 || echo "No artifacts found"
+          echo ""
+          echo "=== Build Artifacts ==="
+          find dist -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.zip" \) 2>/dev/null | head -20 || echo "No build artifacts found"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
