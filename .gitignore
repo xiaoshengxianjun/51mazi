@@ -32,4 +32,4 @@ lerna-debug.log*
 # Cache
 .eslintcache
 
-/others/
+others
