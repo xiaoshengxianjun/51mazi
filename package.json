@@ -4,7 +4,7 @@
   "description": "An Electron application with Vue",
   "main": "./out/main/index.js",
   "author": "51mazi",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://github.com/xiaoshengxianjun/51mazi",
   "type": "module",
   "scripts": {
     "format": "prettier --write .",
