@@ -126,6 +126,12 @@
         <SvgIcon name="clear" :size="iconSize" />
       </div>
     </el-tooltip>
+    <el-divider direction="vertical" />
+    <el-tooltip content="保存" placement="bottom">
+      <div class="tool-btn" @click="handleSaveMap">
+        <SvgIcon name="save" :size="iconSize" />
+      </div>
+    </el-tooltip>
   </div>
 </template>
 
@@ -159,7 +165,8 @@ const emit = defineEmits([
   'redo',
   'clear',
   'resource-select',
-  'resource-mousedown'
+  'resource-mousedown',
+  'save-map'
 ])
 
 const resourcePopoverVisible = ref(false)
@@ -186,6 +193,10 @@ function handleResourceSelect(resource) {
 
 function handleResourceMouseDown(resource, event) {
   emit('resource-mousedown', resource, event)
+}
+
+function handleSaveMap() {
+  emit('save-map')
 }
 </script>
 

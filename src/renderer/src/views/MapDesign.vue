@@ -29,7 +29,7 @@
 
     <!-- 滑块控制工具 -->
     <FloatingSidebar
-      :visible="tool === 'pencil' || tool === 'eraser'"
+      :visible="tool === 'pencil' || tool === 'eraser' || tool === 'line' || tool === 'rect'"
       :min-top-distance="100"
       :min-bottom-distance="50"
     >
@@ -110,7 +110,7 @@
               fontFamily: editingTextElement?.fontFamily || 'Arial',
               color: editingTextElement?.color || color,
               textAlign: editingTextElement?.textAlign || 'left',
-              lineHeight: editingTextElement?.lineHeight || 1.5
+              lineHeight: editingTextElement?.lineHeight || 1.2
             }"
             :class="{ 'text-input-editing': tool === 'text' }"
             @input="handleTextInput"
@@ -242,6 +242,13 @@ const sliderConfig = computed(() => {
       max: 50,
       step: 1
     }
+  } else if (tool.value === 'line' || tool.value === 'rect') {
+    // 线条/矩形：控制线条粗细
+    return {
+      min: 1,
+      max: 50,
+      step: 1
+    }
   }
   return {
     min: 0,
@@ -316,8 +323,10 @@ const textInputOverlayStyle = computed(() => {
   const containerRect = editorContainerRef.value.getBoundingClientRect()
 
   // 参考 excalidraw: (sceneX + scrollX) * zoom.value + offsetLeft
-  const viewportX = (textInputPosition.value.x + scrollX.value) * scale.value + containerRect.left
-  const viewportY = (textInputPosition.value.y + scrollY.value) * scale.value + containerRect.top
+  const viewportX =
+    (textInputPosition.value.x + scrollX.value) * scale.value + containerRect.left - 7
+  const viewportY =
+    (textInputPosition.value.y + scrollY.value) * scale.value + containerRect.top - 7
 
   return {
     position: 'fixed',
@@ -572,12 +581,57 @@ function updateContentBounds() {
 // ==================== 渲染画布（参考 excalidraw 的方式） ====================
 function renderCanvas(updateBounds = true) {
   if (!canvasRef.value) return
-  const ctx = canvasRef.value.getContext('2d')
 
   // 更新内容边界（可能会改变画布尺寸）
   if (updateBounds) {
+    const oldWidth = canvasRef.value.width
+    const oldHeight = canvasRef.value.height
+
+    // 保存当前画布内容（如果画布尺寸即将改变）
+    let imageData = null
+    if (oldWidth > 0 && oldHeight > 0) {
+      try {
+        const ctx = canvasRef.value.getContext('2d')
+        imageData = ctx.getImageData(0, 0, oldWidth, oldHeight)
+      } catch {
+        // 忽略错误（可能是跨域问题）
+      }
+    }
+
+    // 更新边界（这可能会改变 canvasDisplayWidth/Height）
     updateContentBounds()
+
+    // 等待 Vue 更新 canvas 尺寸（如果尺寸改变了）
+    nextTick(() => {
+      if (!canvasRef.value) return
+      const ctx = canvasRef.value.getContext('2d')
+      const newWidth = canvasRef.value.width
+      const newHeight = canvasRef.value.height
+
+      // 如果画布尺寸改变了，先恢复旧内容（只恢复重叠部分）
+      if (imageData && (newWidth !== oldWidth || newHeight !== oldHeight)) {
+        const restoreWidth = Math.min(oldWidth, newWidth)
+        const restoreHeight = Math.min(oldHeight, newHeight)
+        if (restoreWidth > 0 && restoreHeight > 0) {
+          ctx.putImageData(imageData, 0, 0, 0, 0, restoreWidth, restoreHeight)
+        }
+      }
+
+      // 重新绘制所有内容
+      renderCanvasContent(ctx)
+    })
+
+    return
   }
+
+  // 不更新边界时，直接渲染
+  const ctx = canvasRef.value.getContext('2d')
+  renderCanvasContent(ctx)
+}
+
+// 渲染画布内容（不更新边界）
+function renderCanvasContent(ctx) {
+  if (!canvasRef.value) return
 
   // 先绘制背景色（参考 excalidraw 的 bootstrapCanvas）
   ctx.fillStyle = backgroundColor.value
@@ -691,7 +745,7 @@ function renderText(ctx, element) {
   ctx.save()
   const fontSize = element.fontSize || 14
   const fontFamily = element.fontFamily || 'Arial'
-  const lineHeight = element.lineHeight || 1.5
+  const lineHeight = element.lineHeight || 1.2
   const textAlign = element.textAlign || 'left'
 
   ctx.font = `${fontSize}px ${fontFamily}`
@@ -763,6 +817,8 @@ function onToolChange(newTool) {
     size.value = 5
   } else if (newTool === 'eraser') {
     size.value = 10
+  } else if (newTool === 'line' || newTool === 'rect') {
+    size.value = 3 // 线条和矩形的默认粗细
   }
   clearSelection()
 }
@@ -1190,7 +1246,7 @@ function showTextInput(e, element = null) {
       fontSize: 14,
       fontFamily: 'Arial',
       textAlign: 'left',
-      lineHeight: 1.5,
+      lineHeight: 1.2,
       color: color.value
     }
     textInputValue.value = ''
@@ -1234,11 +1290,27 @@ function adjustTextareaSize() {
   if (!textInputRef.value) return
   // 重置高度以获取正确的 scrollHeight
   textInputRef.value.style.height = 'auto'
-  // 设置高度为内容高度，最小高度为一行
-  const lineHeight = editingTextElement.value?.lineHeight || 1.5
+
+  const lineHeight = editingTextElement.value?.lineHeight || 1.2
   const fontSize = editingTextElement.value?.fontSize || 14
-  const minHeight = fontSize * lineHeight
-  textInputRef.value.style.height = Math.max(textInputRef.value.scrollHeight, minHeight) + 'px'
+  const padding = 8 // 上下 padding 各 4px，总共 8px
+  const oneLineHeight = fontSize * lineHeight + padding // 一行文本高度 + padding
+
+  // 获取内容高度（不包含 padding）
+  const contentHeight = textInputRef.value.scrollHeight
+
+  // 判断内容是否只有一行或为空
+  // scrollHeight 减去 padding 应该等于或小于一行高度
+  const actualContentHeight = contentHeight - padding
+  const isSingleLine = actualContentHeight <= fontSize * lineHeight
+
+  if (isSingleLine) {
+    // 如果内容为空或只有一行，只显示一行文本高度 + padding
+    textInputRef.value.style.height = oneLineHeight + 'px'
+  } else {
+    // 如果超过一行，按最大内容高度显示（scrollHeight 已经包含了 padding）
+    textInputRef.value.style.height = contentHeight + 'px'
+  }
 }
 
 function confirmTextInput() {
@@ -1303,7 +1375,7 @@ function drawTextOnCanvas(text, x, y) {
   // 计算文字尺寸
   const fontSize = editingTextElement.value?.fontSize || 14
   const fontFamily = editingTextElement.value?.fontFamily || 'Arial'
-  const lineHeight = editingTextElement.value?.lineHeight || 1.5
+  const lineHeight = editingTextElement.value?.lineHeight || 1.2
   const textAlign = editingTextElement.value?.textAlign || 'left'
   const lines = text.split('\n')
   const ctx = canvasRef.value.getContext('2d')
@@ -1731,7 +1803,7 @@ onUnmounted(() => {
 
     .text-input {
       background: transparent;
-      border: none;
+      border: 1px dashed transparent;
       border-radius: 2px;
       padding: 4px 6px;
       outline: none;
