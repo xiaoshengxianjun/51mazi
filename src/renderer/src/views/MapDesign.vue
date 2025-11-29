@@ -1,146 +1,132 @@
 <template>
-  <LayoutTool :title="mapName || '地图设计'">
-    <template #headrAction>
-      <el-button type="primary" @click="handleSave">保存地图</el-button>
-    </template>
-    <template #default>
-      <div class="content">
-        <!-- 工具栏 -->
-        <MapToolbar
-          v-model="tool"
-          :can-undo="canUndo"
-          :can-redo="canRedo"
-          :resources="resources"
-          @update:model-value="onToolChange"
-          @undo="handleUndo"
-          @redo="handleRedo"
-          @clear="handleClearCanvas"
-          @resource-select="selectResource"
-          @resource-mousedown="onResourceMouseDown"
+  <div class="map-design">
+    <!-- 工具栏 -->
+    <MapToolbar
+      v-model="tool"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      :resources="resources"
+      @update:model-value="onToolChange"
+      @undo="handleUndo"
+      @redo="handleRedo"
+      @clear="handleClearCanvas"
+      @resource-select="selectResource"
+      @resource-mousedown="onResourceMouseDown"
+    />
+
+    <!-- 颜色选择器 -->
+    <Transition name="color-picker-fade">
+      <div v-if="showColorPicker" class="color-picker-container">
+        <el-color-picker
+          v-model="currentColor"
+          :predefine="colorPresets"
+          :show-alpha="false"
+          size="default"
+          @change="handleColorChange"
         />
+      </div>
+    </Transition>
 
-        <!-- 颜色选择器 -->
-        <Transition name="color-picker-fade">
-          <div v-if="showColorPicker" class="color-picker-container">
-            <el-color-picker
-              v-model="currentColor"
-              :predefine="colorPresets"
-              :show-alpha="false"
-              size="default"
-              @change="handleColorChange"
-            />
-          </div>
-        </Transition>
+    <!-- 滑块控制工具 -->
+    <FloatingSidebar
+      :visible="tool === 'pencil' || tool === 'eraser'"
+      :min-top-distance="100"
+      :min-bottom-distance="50"
+    >
+      <template #default="{ draggingDisabled }">
+        <MapSlider
+          v-model="size"
+          :min="sliderConfig.min"
+          :max="sliderConfig.max"
+          :step="sliderConfig.step"
+          :dragging-disabled="draggingDisabled"
+          label="大小"
+        />
+        <MapSlider
+          v-if="tool === 'pencil'"
+          v-model="opacity"
+          :min="opacityConfig.min"
+          :max="opacityConfig.max"
+          :step="opacityConfig.step"
+          :dragging-disabled="draggingDisabled"
+          label="透明度"
+          preview-type="opacity"
+        />
+      </template>
+    </FloatingSidebar>
 
-        <!-- 滑块控制工具 -->
-        <FloatingSidebar
-          :visible="tool === 'pencil' || tool === 'eraser'"
-          :min-top-distance="100"
-          :min-bottom-distance="50"
-        >
-          <template #default="{ draggingDisabled }">
-            <MapSlider
-              v-model="size"
-              :min="sliderConfig.min"
-              :max="sliderConfig.max"
-              :step="sliderConfig.step"
-              :dragging-disabled="draggingDisabled"
-              label="大小"
-            />
-            <MapSlider
-              v-if="tool === 'pencil'"
-              v-model="opacity"
-              :min="opacityConfig.min"
-              :max="opacityConfig.max"
-              :step="opacityConfig.step"
-              :dragging-disabled="draggingDisabled"
-              label="透明度"
-              preview-type="opacity"
-            />
-          </template>
-        </FloatingSidebar>
+    <!-- 画布容器 -->
+    <div
+      ref="editorContainerRef"
+      class="editor-container"
+      @wheel="handleWheel"
+      @mousedown="handleContainerMouseDown"
+      @mousemove="handleContainerMouseMove"
+      @mouseup="handleContainerMouseUp"
+      @mouseleave="handleContainerMouseUp"
+    >
+      <div class="canvas-wrap" :style="canvasWrapStyle">
+        <!-- 绘制画布 -->
+        <canvas
+          ref="canvasRef"
+          :width="canvasDisplayWidth"
+          :height="canvasDisplayHeight"
+          class="draw-canvas"
+          :style="{ cursor: canvasCursor }"
+          @mousedown="handleCanvasMouseDown"
+          @mousemove="handleCanvasMouseMove"
+          @mouseup="handleCanvasMouseUp"
+          @mouseleave="handleCanvasMouseUp"
+          @dblclick="handleTextDoubleClick"
+          @touchstart.prevent="handleCanvasMouseDown"
+          @touchmove.prevent="handleCanvasMouseMove"
+          @touchend.prevent="handleCanvasMouseUp"
+        ></canvas>
 
-        <!-- 画布容器 -->
+        <!-- 选框预览层 -->
+        <canvas
+          v-if="tool === 'select'"
+          ref="selectionCanvasRef"
+          :width="canvasDisplayWidth"
+          :height="canvasDisplayHeight"
+          class="selection-canvas"
+        ></canvas>
+
+        <!-- 文字输入框 -->
         <div
-          ref="editorContainerRef"
-          class="editor-container"
-          @wheel="handleWheel"
-          @mousedown="handleContainerMouseDown"
-          @mousemove="handleContainerMouseMove"
-          @mouseup="handleContainerMouseUp"
-          @mouseleave="handleContainerMouseUp"
+          v-if="textInputVisible"
+          class="text-input-overlay"
+          :style="textInputOverlayStyle"
+          @mousedown.stop
+          @click.stop
         >
-          <div class="canvas-wrap" :style="canvasWrapStyle">
-            <!-- 绘制画布 -->
-            <canvas
-              ref="canvasRef"
-              :width="canvasWidth"
-              :height="canvasHeight"
-              class="draw-canvas"
-              :style="{ cursor: canvasCursor }"
-              @mousedown="handleCanvasMouseDown"
-              @mousemove="handleCanvasMouseMove"
-              @mouseup="handleCanvasMouseUp"
-              @mouseleave="handleCanvasMouseUp"
-              @dblclick="handleTextDoubleClick"
-              @touchstart.prevent="handleCanvasMouseDown"
-              @touchmove.prevent="handleCanvasMouseMove"
-              @touchend.prevent="handleCanvasMouseUp"
-            ></canvas>
-
-            <!-- 选框预览层 -->
-            <canvas
-              v-if="tool === 'select'"
-              ref="selectionCanvasRef"
-              :width="canvasWidth"
-              :height="canvasHeight"
-              class="selection-canvas"
-            ></canvas>
-
-            <!-- 文字输入框 -->
-            <div
-              v-if="textInputVisible"
-              class="text-input-overlay"
-              :style="{
-                left: textInputPosition.x + 'px',
-                top: textInputPosition.y + 'px',
-                fontSize: (editingTextElement?.fontSize || 14) + 'px',
-                fontFamily: editingTextElement?.fontFamily || 'Arial',
-                color: editingTextElement?.color || color
-              }"
-              @mousedown.stop
-              @click.stop
-            >
-              <textarea
-                ref="textInputRef"
-                v-model="textInputValue"
-                class="text-input"
-                placeholder="输入文字..."
-                :style="{
-                  fontSize: (editingTextElement?.fontSize || 14) + 'px',
-                  fontFamily: editingTextElement?.fontFamily || 'Arial',
-                  color: editingTextElement?.color || color,
-                  textAlign: editingTextElement?.textAlign || 'left',
-                  lineHeight: editingTextElement?.lineHeight || 1.5
-                }"
-                :class="{ 'text-input-editing': tool === 'text' }"
-                @input="handleTextInput"
-                @keydown.ctrl.enter="confirmTextInput"
-                @keydown.meta.enter="confirmTextInput"
-                @keydown.esc="cancelTextInput"
-                @mousedown.stop
-                @click.stop
-              />
-            </div>
-          </div>
+          <textarea
+            ref="textInputRef"
+            v-model="textInputValue"
+            class="text-input"
+            placeholder="输入文字..."
+            :style="{
+              fontSize: (editingTextElement?.fontSize || 14) + 'px',
+              fontFamily: editingTextElement?.fontFamily || 'Arial',
+              color: editingTextElement?.color || color,
+              textAlign: editingTextElement?.textAlign || 'left',
+              lineHeight: editingTextElement?.lineHeight || 1.5
+            }"
+            :class="{ 'text-input-editing': tool === 'text' }"
+            @input="handleTextInput"
+            @keydown.ctrl.enter="confirmTextInput"
+            @keydown.meta.enter="confirmTextInput"
+            @keydown.esc="cancelTextInput"
+            @mousedown.stop
+            @click.stop
+          />
         </div>
       </div>
-    </template>
-  </LayoutTool>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import LayoutTool from '@renderer/components/LayoutTool.vue'
 import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
 import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
 import MapSlider from '@renderer/components/Map/MapSlider.vue'
@@ -161,18 +147,28 @@ const canvasRef = ref(null)
 const selectionCanvasRef = ref(null)
 
 // ==================== 画布尺寸和变换 ====================
-// 无限画板：使用较大的默认尺寸，支持动态扩展
-const canvasWidth = ref(1920)
-const canvasHeight = ref(1080)
+// 无限画布：使用虚拟坐标系统，不设置固定尺寸
+// 画布的实际显示尺寸由容器决定，使用虚拟坐标系统
 const scale = ref(1)
 const minScale = 0.1
 const maxScale = 5
 
+// 视口位置（参考 excalidraw 的 scrollX/scrollY）
+const scrollX = ref(0)
+const scrollY = ref(0)
+
 // 画布平移
 const panning = ref(false)
 const panStart = ref({ x: 0, y: 0 })
-const panOffset = ref({ x: 0, y: 0 })
 const spaceKeyPressed = ref(false)
+
+// 画布内容边界（用于动态计算画布大小）
+const contentBounds = ref({
+  minX: 0,
+  minY: 0,
+  maxX: 1920,
+  maxY: 1080
+})
 
 // ==================== 工具栏状态 ====================
 const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource, background
@@ -301,6 +297,29 @@ const textInputValue = ref('')
 const textInputPosition = ref({ x: 0, y: 0 })
 const textInputRef = ref(null)
 
+// 计算文字输入框的位置样式（适配无限画布，参考 excalidraw）
+// sceneCoordsToViewportCoords: 将场景坐标转换为视口坐标
+const textInputOverlayStyle = computed(() => {
+  if (!textInputVisible.value || !editingTextElement.value || !editorContainerRef.value) {
+    return {}
+  }
+
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+
+  // 参考 excalidraw: (sceneX + scrollX) * zoom.value + offsetLeft
+  const viewportX = (textInputPosition.value.x + scrollX.value) * scale.value + containerRect.left
+  const viewportY = (textInputPosition.value.y + scrollY.value) * scale.value + containerRect.top
+
+  return {
+    position: 'fixed',
+    left: `${viewportX}px`,
+    top: `${viewportY}px`,
+    fontSize: (editingTextElement.value.fontSize || 14) * scale.value + 'px',
+    fontFamily: editingTextElement.value.fontFamily || 'Arial',
+    color: editingTextElement.value.color || color.value
+  }
+})
+
 // ==================== 资源拖拽 ====================
 const draggingResource = ref(null)
 const dragPreviewEl = ref(null)
@@ -391,17 +410,45 @@ class HistoryManager {
 const history = ref(null)
 
 // ==================== 计算属性 ====================
-const canvasWrapStyle = computed(() => ({
-  position: 'relative',
-  width: canvasWidth.value + 'px',
-  height: canvasHeight.value + 'px',
-  margin: '0 auto',
-  background: '#fff',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  transform: `translate(${panOffset.value.x}px, ${panOffset.value.y}px) scale(${scale.value})`,
-  transformOrigin: 'center center',
-  transition: panning.value ? 'none' : 'transform 0.1s ease-out'
-}))
+// 计算画布显示尺寸（基于内容边界和视口）
+const canvasDisplayWidth = computed(() => {
+  const padding = 200 // 内容周围的 padding
+  return Math.max(contentBounds.value.maxX - contentBounds.value.minX + padding * 2, 1920)
+})
+
+const canvasDisplayHeight = computed(() => {
+  const padding = 200
+  return Math.max(contentBounds.value.maxY - contentBounds.value.minY + padding * 2, 1080)
+})
+
+const canvasWrapStyle = computed(() => {
+  // 参考 excalidraw: 画布位置计算
+  // sceneCoordsToViewportCoords: (sceneX + scrollX) * zoom.value + offsetLeft
+  // 画布的原点 (0, 0) 在视口中的位置 = scrollX * scale + offsetLeft
+  const containerRect = editorContainerRef.value?.getBoundingClientRect()
+  if (!containerRect) {
+    return {}
+  }
+
+  // 计算画布左上角在容器中的位置
+  // 画布原点 (0, 0) 在视口中的位置 = scrollX * scale + containerRect.left
+  // 相对于容器的位置 = scrollX * scale
+  const offsetX = scrollX.value * scale.value
+  const offsetY = scrollY.value * scale.value
+
+  return {
+    position: 'absolute',
+    left: `${offsetX}px`,
+    top: `${offsetY}px`,
+    width: canvasDisplayWidth.value + 'px',
+    height: canvasDisplayHeight.value + 'px',
+    background: '#fff',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    transform: `scale(${scale.value})`,
+    transformOrigin: 'top left',
+    transition: panning.value ? 'none' : 'transform 0.1s ease-out'
+  }
+})
 
 const canvasCursor = computed(() => {
   if (panning.value) return 'grabbing'
@@ -446,10 +493,82 @@ function selectTool(t) {
   clearSelection()
 }
 
+// ==================== 更新内容边界 ====================
+function updateContentBounds() {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  // 检查所有元素
+  freeDrawElements.value.forEach((element) => {
+    if (element.points && element.points.length > 0) {
+      element.points.forEach((point) => {
+        minX = Math.min(minX, point.x)
+        minY = Math.min(minY, point.y)
+        maxX = Math.max(maxX, point.x)
+        maxY = Math.max(maxY, point.y)
+      })
+    }
+  })
+
+  shapeElements.value.forEach((element) => {
+    if (element.start && element.end) {
+      minX = Math.min(minX, element.start.x, element.end.x)
+      minY = Math.min(minY, element.start.y, element.end.y)
+      maxX = Math.max(maxX, element.start.x, element.end.x)
+      maxY = Math.max(maxY, element.start.y, element.end.y)
+    }
+  })
+
+  textElements.value.forEach((element) => {
+    minX = Math.min(minX, element.x)
+    minY = Math.min(minY, element.y)
+    maxX = Math.max(maxX, element.x + (element.width || 0))
+    maxY = Math.max(maxY, element.y + (element.height || 0))
+  })
+
+  resourceElements.value.forEach((element) => {
+    minX = Math.min(minX, element.x - 20)
+    minY = Math.min(minY, element.y - 20)
+    maxX = Math.max(maxX, element.x + 20)
+    maxY = Math.max(maxY, element.y + 20)
+  })
+
+  fillElements.value.forEach((element) => {
+    minX = Math.min(minX, element.x)
+    minY = Math.min(minY, element.y)
+    maxX = Math.max(maxX, element.x + (element.width || 0))
+    maxY = Math.max(maxY, element.y + (element.height || 0))
+  })
+
+  // 如果没有内容，使用默认边界
+  if (minX === Infinity) {
+    contentBounds.value = {
+      minX: -960,
+      minY: -540,
+      maxX: 960,
+      maxY: 540
+    }
+  } else {
+    contentBounds.value = {
+      minX: minX - 200,
+      minY: minY - 200,
+      maxX: maxX + 200,
+      maxY: maxY + 200
+    }
+  }
+}
+
 // ==================== 渲染画布（参考 excalidraw 的方式） ====================
-function renderCanvas() {
+function renderCanvas(updateBounds = true) {
   if (!canvasRef.value) return
   const ctx = canvasRef.value.getContext('2d')
+
+  // 更新内容边界（可能会改变画布尺寸）
+  if (updateBounds) {
+    updateContentBounds()
+  }
 
   // 先绘制背景色（参考 excalidraw 的 bootstrapCanvas）
   ctx.fillStyle = backgroundColor.value
@@ -637,18 +756,28 @@ function onToolChange(newTool) {
   clearSelection()
 }
 
-// ==================== 坐标转换 ====================
+// ==================== 坐标转换（参考 excalidraw） ====================
+// viewportCoordsToSceneCoords: 将视口坐标转换为场景坐标
 function getCanvasPos(e) {
-  if (!canvasRef.value) return { x: 0, y: 0 }
-  const rect = canvasRef.value.getBoundingClientRect()
-  let x, y
+  if (!canvasRef.value || !editorContainerRef.value) return { x: 0, y: 0 }
+
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+
+  let clientX, clientY
   if (e.touches) {
-    x = (e.touches[0].clientX - rect.left - panOffset.value.x) / scale.value
-    y = (e.touches[0].clientY - rect.top - panOffset.value.y) / scale.value
+    clientX = e.touches[0].clientX
+    clientY = e.touches[0].clientY
   } else {
-    x = (e.clientX - rect.left - panOffset.value.x) / scale.value
-    y = (e.clientY - rect.top - panOffset.value.y) / scale.value
+    clientX = e.clientX
+    clientY = e.clientY
   }
+
+  // 参考 excalidraw: (clientX - offsetLeft) / zoom.value - scrollX
+  // offsetLeft/offsetTop 是容器相对于视口的偏移
+  // scrollX/scrollY 是视口中心在场景坐标系中的位置
+  const x = (clientX - containerRect.left) / scale.value - scrollX.value
+  const y = (clientY - containerRect.top) / scale.value - scrollY.value
+
   return { x, y }
 }
 
@@ -657,7 +786,10 @@ function handleCanvasMouseDown(e) {
   if (tool.value === 'move' || spaceKeyPressed.value) {
     // 移动工具：开始平移
     panning.value = true
-    panStart.value = { x: e.clientX - panOffset.value.x, y: e.clientY - panOffset.value.y }
+    panStart.value = {
+      x: e.clientX,
+      y: e.clientY
+    }
     return
   }
 
@@ -695,8 +827,19 @@ function handleCanvasMouseDown(e) {
 
 function handleCanvasMouseMove(e) {
   if (panning.value) {
-    panOffset.value.x = e.clientX - panStart.value.x
-    panOffset.value.y = e.clientY - panStart.value.y
+    if (!editorContainerRef.value) return
+    const containerRect = editorContainerRef.value.getBoundingClientRect()
+    // 计算鼠标在场景坐标系中的位置
+    const sceneX = (e.clientX - containerRect.left) / scale.value - scrollX.value
+    const sceneY = (e.clientY - containerRect.top) / scale.value - scrollY.value
+    // 计算开始平移时的场景坐标
+    const startSceneX = (panStart.value.x - containerRect.left) / scale.value - scrollX.value
+    const startSceneY = (panStart.value.y - containerRect.top) / scale.value - scrollY.value
+    // 计算 scrollX 和 scrollY 的变化
+    scrollX.value = scrollX.value - (sceneX - startSceneX)
+    scrollY.value = scrollY.value - (sceneY - startSceneY)
+    // 更新 panStart
+    panStart.value = { x: e.clientX, y: e.clientY }
     return
   }
 
@@ -726,7 +869,8 @@ function handleCanvasMouseUp() {
       // 完成画笔路径
       if (currentFreeDrawPath.value.points.length > 1) {
         freeDrawElements.value.push({ ...currentFreeDrawPath.value })
-        renderCanvas()
+        // 绘制完成时更新边界并重新渲染
+        renderCanvas(true)
         if (history.value) {
           history.value.saveState()
         }
@@ -748,7 +892,10 @@ function handleCanvasMouseUp() {
 function handleContainerMouseDown(e) {
   if (tool.value === 'move' || e.button === 1 || (e.button === 0 && spaceKeyPressed.value)) {
     panning.value = true
-    panStart.value = { x: e.clientX - panOffset.value.x, y: e.clientY - panOffset.value.y }
+    panStart.value = {
+      x: e.clientX,
+      y: e.clientY
+    }
     e.preventDefault()
     if (tool.value !== 'move') {
       document.body.style.cursor = 'grabbing'
@@ -757,9 +904,19 @@ function handleContainerMouseDown(e) {
 }
 
 function handleContainerMouseMove(e) {
-  if (panning.value) {
-    panOffset.value.x = e.clientX - panStart.value.x
-    panOffset.value.y = e.clientY - panStart.value.y
+  if (panning.value && editorContainerRef.value) {
+    const containerRect = editorContainerRef.value.getBoundingClientRect()
+    // 计算鼠标在场景坐标系中的位置
+    const sceneX = (e.clientX - containerRect.left) / scale.value - scrollX.value
+    const sceneY = (e.clientY - containerRect.top) / scale.value - scrollY.value
+    // 计算开始平移时的场景坐标
+    const startSceneX = (panStart.value.x - containerRect.left) / scale.value - scrollX.value
+    const startSceneY = (panStart.value.y - containerRect.top) / scale.value - scrollY.value
+    // 计算 scrollX 和 scrollY 的变化
+    scrollX.value = scrollX.value - (sceneX - startSceneX)
+    scrollY.value = scrollY.value - (sceneY - startSceneY)
+    // 更新 panStart
+    panStart.value = { x: e.clientX, y: e.clientY }
   }
 }
 
@@ -801,8 +958,8 @@ function continueDrawing(pos) {
   if (tool.value === 'pencil' && currentFreeDrawPath.value) {
     // 添加点到当前路径
     currentFreeDrawPath.value.points.push({ x: pos.x, y: pos.y })
-    // 重新渲染画布
-    renderCanvas()
+    // 重新渲染画布（但不更新边界，避免画布尺寸频繁变化导致内容丢失）
+    renderCanvas(false)
   } else if (tool.value === 'eraser') {
     // 橡皮擦使用直接绘制的方式
     const ctx = canvasRef.value.getContext('2d')
@@ -839,8 +996,8 @@ function drawShapePreview(pos) {
   if (!canvasRef.value || !currentShape.value) return
   // 更新形状的结束点
   currentShape.value.end = { ...pos }
-  // 重新渲染画布
-  renderCanvas()
+  // 重新渲染画布（但不更新边界，避免画布尺寸频繁变化）
+  renderCanvas(false)
 }
 
 function finishShape() {
@@ -1008,11 +1165,8 @@ const editingTextElement = ref(null) // 当前正在编辑的文字元素
 
 function showTextInput(e, element = null) {
   if (!canvasRef.value) return
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-  const mouseX = e.clientX - canvasRect.left
-  const mouseY = e.clientY - canvasRect.top
-  const containerX = (mouseX - panOffset.value.x) / scale.value
-  const containerY = (mouseY - panOffset.value.y) / scale.value
+  // 使用 getCanvasPos 获取画布坐标
+  const pos = getCanvasPos(e)
 
   if (element) {
     // 编辑现有文字元素
@@ -1029,7 +1183,7 @@ function showTextInput(e, element = null) {
       color: color.value
     }
     textInputValue.value = ''
-    textInputPosition.value = { x: containerX, y: containerY }
+    textInputPosition.value = { x: pos.x, y: pos.y }
   }
 
   textInputVisible.value = true
@@ -1177,22 +1331,14 @@ function drawTextOnCanvas(text, x, y) {
 // 双击文字元素进行编辑
 function handleTextDoubleClick(e) {
   if (tool.value !== 'text') return
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-  const mouseX = e.clientX - canvasRect.left
-  const mouseY = e.clientY - canvasRect.top
-  const containerX = (mouseX - panOffset.value.x) / scale.value
-  const containerY = (mouseY - panOffset.value.y) / scale.value
+  // 使用 getCanvasPos 获取画布坐标
+  const pos = getCanvasPos(e)
 
   // 查找点击的文字元素
   const clickedElement = textElements.value.find((element) => {
     const right = element.x + (element.width || 0)
     const bottom = element.y + (element.height || 0)
-    return (
-      containerX >= element.x &&
-      containerX <= right &&
-      containerY >= element.y &&
-      containerY <= bottom
-    )
+    return pos.x >= element.x && pos.x <= right && pos.y >= element.y && pos.y <= bottom
   })
 
   if (clickedElement) {
@@ -1239,13 +1385,9 @@ function onResourceDragEnd(e) {
     e.clientY >= canvasRect.top &&
     e.clientY <= canvasRect.bottom
   ) {
-    const x =
-      (((e.clientX - canvasRect.left - panOffset.value.x) / scale.value) * canvasRef.value.width) /
-      canvasRect.width
-    const y =
-      (((e.clientY - canvasRect.top - panOffset.value.y) / scale.value) * canvasRef.value.height) /
-      canvasRect.height
-    drawResourceOnCanvas(draggingResource.value, x, y)
+    // 使用 getCanvasPos 获取画布坐标
+    const pos = getCanvasPos(e)
+    drawResourceOnCanvas(draggingResource.value, pos.x, pos.y)
   }
   if (dragPreviewEl.value) {
     document.body.removeChild(dragPreviewEl.value)
@@ -1290,13 +1432,22 @@ function handleWheel(e) {
   if (e.shiftKey || tool.value === 'move') {
     const deltaX = e.deltaX || 0
     const deltaY = e.deltaY || 0
-    panOffset.value.x += deltaX * 0.5
-    panOffset.value.y += deltaY * 0.5
+    scrollX.value += (deltaX * 0.5) / scale.value
+    scrollY.value += (deltaY * 0.5) / scale.value
     return
   }
 
-  // Ctrl/Cmd + 滚轮：缩放
+  // Ctrl/Cmd + 滚轮：缩放（以鼠标位置为中心，参考 excalidraw）
   if (e.ctrlKey || e.metaKey) {
+    if (!editorContainerRef.value) return
+    const containerRect = editorContainerRef.value.getBoundingClientRect()
+    const mouseX = e.clientX - containerRect.left
+    const mouseY = e.clientY - containerRect.top
+
+    // 计算鼠标在场景坐标系中的位置（使用 viewportCoordsToSceneCoords）
+    const sceneX = mouseX / scale.value - scrollX.value
+    const sceneY = mouseY / scale.value - scrollY.value
+
     const delta = e.deltaY
     const zoomFactor = 0.1
     let newScale = scale.value
@@ -1305,6 +1456,13 @@ function handleWheel(e) {
     } else {
       newScale = Math.max(scale.value - zoomFactor, minScale)
     }
+
+    // 调整 scrollX 和 scrollY 以保持鼠标位置不变
+    // 新的 scrollX 应该满足: mouseX = (sceneX + newScrollX) * newScale
+    // 所以: newScrollX = mouseX / newScale - sceneX
+    scrollX.value = mouseX / newScale - sceneX
+    scrollY.value = mouseY / newScale - sceneY
+
     scale.value = newScale
   }
 }
@@ -1373,6 +1531,7 @@ function resetCanvas() {
 }
 
 // ==================== 保存地图 ====================
+// eslint-disable-next-line no-unused-vars
 async function handleSave() {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
@@ -1514,78 +1673,76 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.content {
-  flex: 1;
-  overflow: hidden;
+.map-design {
+  width: 100vw;
+  height: 100vh;
   display: flex;
-  align-items: center;
   flex-direction: column;
+  background-color: #f3f3f3;
+  position: relative;
+  overflow: hidden; // 隐藏滚动条，使用 transform 来移动画布（参考 excalidraw）
 
   .editor-container {
     flex: 1;
     width: 100%;
-    background-color: #f3f3f3;
-    border-radius: 8px;
-    overflow: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     position: relative;
+    overflow: hidden; // 隐藏滚动条
+    background-color: #f3f3f3;
+  }
 
-    .canvas-wrap {
-      position: relative;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      will-change: transform;
-    }
+  .canvas-wrap {
+    position: absolute;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    will-change: transform;
+  }
 
-    .draw-canvas {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 1;
+  .draw-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    background: transparent;
+  }
+
+  .selection-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .text-input-overlay {
+    position: absolute;
+    z-index: 3;
+    pointer-events: auto;
+
+    .text-input {
       background: transparent;
-    }
+      border: none;
+      border-radius: 2px;
+      padding: 4px 6px;
+      outline: none;
+      min-width: 100px;
+      min-height: 0;
+      max-width: 500px;
+      max-height: 300px;
+      resize: none;
+      overflow: hidden;
+      box-shadow: none;
+      font-family: Arial, sans-serif;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: inherit;
 
-    .selection-canvas {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 2;
-      pointer-events: none;
-    }
+      &.text-input-editing {
+        border: 1px dashed #409eff;
+      }
 
-    .text-input-overlay {
-      position: absolute;
-      z-index: 3;
-      pointer-events: auto;
-
-      .text-input {
-        background: transparent;
-        border: none;
-        border-radius: 2px;
-        padding: 4px 6px;
-        outline: none;
-        min-width: 100px;
-        min-height: 0;
-        max-width: 500px;
-        max-height: 300px;
-        resize: none;
-        overflow: hidden;
-        box-shadow: none;
-        font-family: Arial, sans-serif;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        line-height: inherit;
-
-        &.text-input-editing {
-          border: 1px dashed #409eff;
-        }
-
-        &:focus {
-          border: 1px dashed #409eff;
-          box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.2);
-        }
+      &:focus {
+        border: 1px dashed #409eff;
+        box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.2);
       }
     }
   }

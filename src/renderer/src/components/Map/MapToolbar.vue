@@ -200,7 +200,7 @@ function handleResourceMouseDown(resource, event) {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: auto;
+  width: max-content;
   padding: 8px 12px;
   background: #ffffff;
   border-radius: 12px;
