@@ -19,6 +19,19 @@
           @resource-mousedown="onResourceMouseDown"
         />
 
+        <!-- 颜色选择器 -->
+        <Transition name="color-picker-fade">
+          <div v-if="showColorPicker" class="color-picker-container">
+            <el-color-picker
+              v-model="currentColor"
+              :predefine="colorPresets"
+              :show-alpha="false"
+              size="default"
+              @change="handleColorChange"
+            />
+          </div>
+        </Transition>
+
         <!-- 滑块控制工具 -->
         <FloatingSidebar
           :visible="tool === 'pencil' || tool === 'eraser'"
@@ -58,15 +71,6 @@
           @mouseleave="handleContainerMouseUp"
         >
           <div class="canvas-wrap" :style="canvasWrapStyle">
-            <!-- 背景图片 -->
-            <img
-              v-if="mapImage"
-              ref="mapImageRef"
-              :src="mapImage"
-              :style="imageStyle"
-              class="map-bg"
-              @load="handleImageLoad"
-            />
             <!-- 绘制画布 -->
             <canvas
               ref="canvasRef"
@@ -78,6 +82,7 @@
               @mousemove="handleCanvasMouseMove"
               @mouseup="handleCanvasMouseUp"
               @mouseleave="handleCanvasMouseUp"
+              @dblclick="handleTextDoubleClick"
               @touchstart.prevent="handleCanvasMouseDown"
               @touchmove.prevent="handleCanvasMouseMove"
               @touchend.prevent="handleCanvasMouseUp"
@@ -99,18 +104,29 @@
               :style="{
                 left: textInputPosition.x + 'px',
                 top: textInputPosition.y + 'px',
-                transform: 'translateY(-50%)'
+                fontSize: (editingTextElement?.fontSize || 14) + 'px',
+                fontFamily: editingTextElement?.fontFamily || 'Arial',
+                color: editingTextElement?.color || color
               }"
               @mousedown.stop
               @click.stop
             >
-              <input
+              <textarea
                 ref="textInputRef"
                 v-model="textInputValue"
-                type="text"
                 class="text-input"
                 placeholder="输入文字..."
-                @keydown.enter="confirmTextInput"
+                :style="{
+                  fontSize: (editingTextElement?.fontSize || 14) + 'px',
+                  fontFamily: editingTextElement?.fontFamily || 'Arial',
+                  color: editingTextElement?.color || color,
+                  textAlign: editingTextElement?.textAlign || 'left',
+                  lineHeight: editingTextElement?.lineHeight || 1.5
+                }"
+                :class="{ 'text-input-editing': tool === 'text' }"
+                @input="handleTextInput"
+                @keydown.ctrl.enter="confirmTextInput"
+                @keydown.meta.enter="confirmTextInput"
                 @keydown.esc="cancelTextInput"
                 @mousedown.stop
                 @click.stop
@@ -131,18 +147,16 @@ import MapSlider from '@renderer/components/Map/MapSlider.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getStroke } from 'perfect-freehand'
+import rough from 'roughjs'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
-const mapId = route.query.id
 
 // ==================== 基础数据 ====================
 const mapName = ref('')
-const isEdit = computed(() => !!mapId)
-const mapImage = ref(null)
 const editorContainerRef = ref(null)
-const mapImageRef = ref(null)
 const canvasRef = ref(null)
 const selectionCanvasRef = ref(null)
 
@@ -161,10 +175,51 @@ const panOffset = ref({ x: 0, y: 0 })
 const spaceKeyPressed = ref(false)
 
 // ==================== 工具栏状态 ====================
-const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource
+const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource, background
 const color = ref('#222222')
+const backgroundColor = ref('#ffffff') // 画布背景色
 const size = ref(5)
 const opacity = ref(100) // 透明度 0-100
+
+// 颜色预设
+const colorPresets = [
+  '#000000',
+  '#222222',
+  '#666666',
+  '#999999',
+  '#FFFFFF',
+  '#FF4D4F',
+  '#FF9F1C',
+  '#FFD600',
+  '#00C853',
+  '#1890FF',
+  '#B368FF',
+  '#FF6F91',
+  '#8D99AE',
+  '#A3E635',
+  '#00C9A7',
+  '#13C2C2',
+  '#2F54EB'
+]
+
+// 是否显示颜色选择器
+const showColorPicker = computed(() => {
+  return ['pencil', 'bucket', 'line', 'rect', 'background'].includes(tool.value)
+})
+
+// 当前颜色选择器绑定的颜色（根据工具类型）
+const currentColor = computed({
+  get() {
+    return tool.value === 'background' ? backgroundColor.value : color.value
+  },
+  set(value) {
+    if (tool.value === 'background') {
+      backgroundColor.value = value
+    } else {
+      color.value = value
+    }
+  }
+})
 
 // ==================== 滑块配置 ====================
 const sliderConfig = computed(() => {
@@ -212,11 +267,28 @@ const resources = [
   { name: '战役', url: '/src/assets/images/battle.png' }
 ]
 
+// ==================== 绘制元素数据结构（参考 excalidraw） ====================
+// 画笔路径元素
+const freeDrawElements = ref([]) // 保存所有已完成的画笔路径
+const currentFreeDrawPath = ref(null) // 当前正在绘制的路径
+
+// 线条和多边形元素
+const shapeElements = ref([]) // 保存所有已完成的形状
+const currentShape = ref(null) // 当前正在绘制的形状
+
+// 文字元素
+const textElements = ref([]) // 保存所有文字元素
+
+// 资源元素
+const resourceElements = ref([]) // 保存所有资源元素
+
+// 油漆桶填充区域（保存为像素数据，或使用路径）
+const fillElements = ref([]) // 保存所有填充区域
+
 // ==================== 绘制状态 ====================
 const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
 const shapeStart = ref({ x: 0, y: 0 })
-const currentShape = ref(null)
 
 // ==================== 选框状态 ====================
 const selectionStart = ref(null)
@@ -240,19 +312,23 @@ class HistoryManager {
     this.maxHistory = maxHistory
     this.history = []
     this.currentIndex = -1
+    this.renderCallback = null // 用于重新渲染的回调函数
+    this.getStateCallback = null // 用于获取当前状态的回调函数
+    this.setStateCallback = null // 用于设置状态的回调函数
   }
 
   // 保存当前状态
   saveState() {
-    if (!this.canvas) return
-    const ctx = this.canvas.getContext('2d')
-    const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height)
+    if (!this.canvas || !this.getStateCallback) return
+
+    // 获取当前元素状态（而不是 ImageData）
+    const state = this.getStateCallback()
 
     // 移除当前位置之后的历史（如果有回退操作）
     this.history = this.history.slice(0, this.currentIndex + 1)
 
-    // 添加新状态
-    this.history.push(imageData)
+    // 添加新状态（深拷贝）
+    this.history.push(JSON.parse(JSON.stringify(state)))
     this.currentIndex++
 
     // 限制历史记录数量
@@ -264,10 +340,15 @@ class HistoryManager {
 
   // 撤销
   undo() {
-    if (this.canUndo()) {
-      const ctx = this.canvas.getContext('2d')
+    if (this.canUndo() && this.setStateCallback) {
       this.currentIndex--
-      ctx.putImageData(this.history[this.currentIndex], 0, 0)
+      // 恢复状态
+      const state = this.history[this.currentIndex]
+      this.setStateCallback(state)
+      // 重新渲染画布
+      if (this.renderCallback) {
+        this.renderCallback()
+      }
       return true
     }
     return false
@@ -275,10 +356,15 @@ class HistoryManager {
 
   // 回退
   redo() {
-    if (this.canRedo()) {
-      const ctx = this.canvas.getContext('2d')
+    if (this.canRedo() && this.setStateCallback) {
       this.currentIndex++
-      ctx.putImageData(this.history[this.currentIndex], 0, 0)
+      // 恢复状态
+      const state = this.history[this.currentIndex]
+      this.setStateCallback(state)
+      // 重新渲染画布
+      if (this.renderCallback) {
+        this.renderCallback()
+      }
       return true
     }
     return false
@@ -294,10 +380,10 @@ class HistoryManager {
 
   // 初始化历史记录
   init() {
-    if (!this.canvas) return
-    const ctx = this.canvas.getContext('2d')
-    const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height)
-    this.history = [imageData]
+    if (!this.canvas || !this.getStateCallback) return
+    // 获取当前元素状态
+    const state = this.getStateCallback()
+    this.history = [JSON.parse(JSON.stringify(state))]
     this.currentIndex = 0
   }
 }
@@ -315,15 +401,6 @@ const canvasWrapStyle = computed(() => ({
   transform: `translate(${panOffset.value.x}px, ${panOffset.value.y}px) scale(${scale.value})`,
   transformOrigin: 'center center',
   transition: panning.value ? 'none' : 'transform 0.1s ease-out'
-}))
-
-const imageStyle = computed(() => ({
-  position: 'absolute',
-  left: 0,
-  top: 0,
-  width: canvasWidth.value + 'px',
-  height: canvasHeight.value + 'px',
-  zIndex: 0
 }))
 
 const canvasCursor = computed(() => {
@@ -367,6 +444,187 @@ function selectTool(t) {
   }
   // 切换工具时清除选择
   clearSelection()
+}
+
+// ==================== 渲染画布（参考 excalidraw 的方式） ====================
+function renderCanvas() {
+  if (!canvasRef.value) return
+  const ctx = canvasRef.value.getContext('2d')
+
+  // 先绘制背景色（参考 excalidraw 的 bootstrapCanvas）
+  ctx.fillStyle = backgroundColor.value
+  ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+
+  // 绘制所有已完成的画笔路径
+  freeDrawElements.value.forEach((element) => {
+    renderFreeDrawPath(ctx, element)
+  })
+
+  // 绘制所有已完成的形状
+  shapeElements.value.forEach((element) => {
+    renderShape(ctx, element)
+  })
+
+  // 绘制所有文字元素
+  textElements.value.forEach((element) => {
+    renderText(ctx, element)
+  })
+
+  // 绘制所有资源元素
+  resourceElements.value.forEach((element) => {
+    renderResource(ctx, element)
+  })
+
+  // 绘制所有填充区域
+  fillElements.value.forEach((element) => {
+    renderFill(ctx, element)
+  })
+
+  // 绘制当前正在绘制的路径（预览）
+  if (currentFreeDrawPath.value && drawingActive.value && tool.value === 'pencil') {
+    renderFreeDrawPath(ctx, currentFreeDrawPath.value, true)
+  }
+
+  // 绘制当前正在绘制的形状（预览）
+  if (
+    currentShape.value &&
+    drawingActive.value &&
+    (tool.value === 'line' || tool.value === 'rect')
+  ) {
+    renderShape(ctx, currentShape.value, true)
+  }
+}
+
+// ==================== 渲染画笔路径（使用 perfect-freehand） ====================
+function renderFreeDrawPath(ctx, element, isPreview = false) {
+  if (!element.points || element.points.length === 0) return
+
+  const options = {
+    size: element.strokeWidth, // 直接使用 strokeWidth，不乘以倍数
+    thinning: 0.6,
+    smoothing: 0.5,
+    streamline: 0.5,
+    easing: (t) => Math.sin((t * Math.PI) / 2),
+    simulatePressure: true
+  }
+
+  // 将点数组转换为 perfect-freehand 需要的格式
+  const inputPoints = element.points.map((p) => [p.x, p.y])
+  const stroke = getStroke(inputPoints, options)
+
+  // 绘制路径
+  ctx.save()
+  ctx.globalAlpha = isPreview ? 0.7 : (element.opacity || 100) / 100
+  ctx.fillStyle = element.color
+
+  if (stroke.length > 0) {
+    ctx.beginPath()
+    ctx.moveTo(stroke[0][0], stroke[0][1])
+    for (let i = 1; i < stroke.length; i++) {
+      ctx.lineTo(stroke[i][0], stroke[i][1])
+    }
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  ctx.restore()
+}
+
+// ==================== 渲染形状（使用 roughjs） ====================
+function renderShape(ctx, element, isPreview = false) {
+  if (!canvasRef.value) return
+
+  const rc = rough.canvas(canvasRef.value)
+  const options = {
+    stroke: element.color,
+    strokeWidth: element.strokeWidth,
+    roughness: 1,
+    seed: 1
+  }
+
+  ctx.save()
+  ctx.globalAlpha = isPreview ? 0.7 : 1
+
+  if (element.type === 'line') {
+    rc.line(element.start.x, element.start.y, element.end.x, element.end.y, options)
+  } else if (element.type === 'rect') {
+    const width = element.end.x - element.start.x
+    const height = element.end.y - element.start.y
+    rc.rectangle(element.start.x, element.start.y, width, height, options)
+  }
+
+  ctx.restore()
+}
+
+// ==================== 渲染文字 ====================
+function renderText(ctx, element) {
+  if (!element.text) return
+
+  ctx.save()
+  const fontSize = element.fontSize || 14
+  const fontFamily = element.fontFamily || 'Arial'
+  const lineHeight = element.lineHeight || 1.5
+  const textAlign = element.textAlign || 'left'
+
+  ctx.font = `${fontSize}px ${fontFamily}`
+  ctx.fillStyle = element.color || '#000000'
+  ctx.textBaseline = 'top'
+  ctx.textAlign = textAlign
+
+  // 处理多行文字
+  const lines = element.text.replace(/\r\n?/g, '\n').split('\n')
+  const lineHeightPx = fontSize * lineHeight
+
+  // 计算水平偏移
+  let horizontalOffset = 0
+  if (textAlign === 'center') {
+    horizontalOffset = (element.width || 0) / 2
+  } else if (textAlign === 'right') {
+    horizontalOffset = element.width || 0
+  }
+
+  // 绘制每一行
+  lines.forEach((line, index) => {
+    ctx.fillText(line, element.x + horizontalOffset, element.y + index * lineHeightPx)
+  })
+
+  ctx.restore()
+}
+
+// ==================== 渲染资源 ====================
+function renderResource(ctx, element) {
+  const img = new window.Image()
+  img.src = element.url
+  img.onload = () => {
+    ctx.drawImage(img, element.x - 20, element.y - 20, 40, 40)
+  }
+}
+
+// ==================== 渲染填充区域 ====================
+function renderFill(ctx, element) {
+  // 填充区域保存为 base64 图片，直接绘制
+  if (element.imageDataBase64) {
+    const img = new window.Image()
+    img.src = element.imageDataBase64
+    // 注意：如果图片还未加载，这里可能不会立即显示
+    // 但通常 base64 图片会立即加载
+    ctx.drawImage(img, element.x, element.y, element.width, element.height)
+  }
+}
+
+// ==================== 颜色变化处理 ====================
+function handleColorChange(newColor) {
+  // 如果当前工具是背景工具，更新画布背景色
+  if (tool.value === 'background' && canvasRef.value && history.value) {
+    history.value.saveState()
+
+    // 更新背景色变量
+    backgroundColor.value = newColor
+
+    // 重新渲染画布
+    renderCanvas()
+    history.value.saveState()
+  }
 }
 
 // 监听工具变化，处理工具切换逻辑
@@ -421,8 +679,17 @@ function handleCanvasMouseDown(e) {
     // 油漆桶
     fillBucket(pos)
   } else if (tool.value === 'text') {
-    // 文字
+    // 文字：如果已经有文字输入框在显示，先确认当前输入
+    if (textInputVisible.value) {
+      confirmTextInput()
+    }
+    // 然后创建新的文字输入框
     showTextInput(e)
+  } else {
+    // 如果点击了其他地方，且文字输入框正在显示，确认当前输入
+    if (textInputVisible.value) {
+      confirmTextInput()
+    }
   }
 }
 
@@ -455,8 +722,23 @@ function handleCanvasMouseUp() {
     isSelecting.value = false
     // 选框完成，可以在这里添加选择区域的处理逻辑
   } else if (drawingActive.value) {
-    if (tool.value === 'line' || tool.value === 'rect') {
+    if (tool.value === 'pencil' && currentFreeDrawPath.value) {
+      // 完成画笔路径
+      if (currentFreeDrawPath.value.points.length > 1) {
+        freeDrawElements.value.push({ ...currentFreeDrawPath.value })
+        renderCanvas()
+        if (history.value) {
+          history.value.saveState()
+        }
+      }
+      currentFreeDrawPath.value = null
+    } else if (tool.value === 'line' || tool.value === 'rect') {
       finishShape()
+    } else if (tool.value === 'eraser') {
+      // 橡皮擦完成
+      if (history.value) {
+        history.value.saveState()
+      }
     }
     drawingActive.value = false
   }
@@ -495,98 +777,83 @@ function startDrawing(pos) {
   if (!canvasRef.value || !history.value) return
   drawingActive.value = true
   lastPoint.value = { ...pos }
-  history.value.saveState()
+
+  if (tool.value === 'pencil') {
+    // 开始新的画笔路径（参考 excalidraw）
+    currentFreeDrawPath.value = {
+      type: 'freedraw',
+      points: [{ x: pos.x, y: pos.y }],
+      color: color.value,
+      strokeWidth: size.value,
+      opacity: opacity.value,
+      id: Date.now().toString()
+    }
+    history.value.saveState()
+  } else if (tool.value === 'eraser') {
+    // 橡皮擦仍然使用直接绘制的方式
+    history.value.saveState()
+  }
 }
 
 function continueDrawing(pos) {
   if (!canvasRef.value) return
-  const ctx = canvasRef.value.getContext('2d')
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = size.value
 
-  if (tool.value === 'pencil') {
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.globalAlpha = opacity.value / 100 // 应用透明度
-    ctx.strokeStyle = color.value
+  if (tool.value === 'pencil' && currentFreeDrawPath.value) {
+    // 添加点到当前路径
+    currentFreeDrawPath.value.points.push({ x: pos.x, y: pos.y })
+    // 重新渲染画布
+    renderCanvas()
   } else if (tool.value === 'eraser') {
+    // 橡皮擦使用直接绘制的方式
+    const ctx = canvasRef.value.getContext('2d')
     ctx.globalCompositeOperation = 'destination-out'
-    ctx.globalAlpha = 1 // 橡皮擦不需要透明度
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = size.value
+
+    ctx.beginPath()
+    ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+
+    lastPoint.value = { ...pos }
   }
-
-  ctx.beginPath()
-  ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
-  ctx.lineTo(pos.x, pos.y)
-  ctx.stroke()
-  lastPoint.value = { ...pos }
-
-  // 重置透明度，避免影响其他绘制
-  ctx.globalAlpha = 1
 }
 
 function startShape(pos) {
   if (!canvasRef.value || !history.value) return
   drawingActive.value = true
   shapeStart.value = { ...pos }
-  currentShape.value = { type: tool.value, start: { ...pos }, end: { ...pos } }
+  currentShape.value = {
+    type: tool.value,
+    start: { ...pos },
+    end: { ...pos },
+    color: color.value,
+    strokeWidth: size.value,
+    id: Date.now().toString()
+  }
   history.value.saveState()
 }
 
 function drawShapePreview(pos) {
   if (!canvasRef.value || !currentShape.value) return
-  const ctx = canvasRef.value.getContext('2d')
-
-  // 恢复画布状态
-  if (history.value && history.value.history.length > 0) {
-    const lastState = history.value.history[history.value.currentIndex]
-    ctx.putImageData(lastState, 0, 0)
-  }
-
-  // 绘制预览
+  // 更新形状的结束点
   currentShape.value.end = { ...pos }
-  drawShape(ctx, currentShape.value, true)
+  // 重新渲染画布
+  renderCanvas()
 }
 
 function finishShape() {
   if (!canvasRef.value || !currentShape.value) return
-  const ctx = canvasRef.value.getContext('2d')
 
-  // 恢复画布状态
-  if (history.value && history.value.history.length > 0) {
-    const lastState = history.value.history[history.value.currentIndex]
-    ctx.putImageData(lastState, 0, 0)
+  // 保存完成的形状
+  shapeElements.value.push({ ...currentShape.value })
+  // 重新渲染画布
+  renderCanvas()
+  if (history.value) {
+    history.value.saveState()
   }
-
-  // 绘制最终形状
-  drawShape(ctx, currentShape.value, false)
-  history.value.saveState()
   currentShape.value = null
-}
-
-function drawShape(ctx, shape, isPreview = false) {
-  ctx.strokeStyle = color.value
-  ctx.lineWidth = size.value
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-
-  if (isPreview) {
-    ctx.setLineDash([5, 5])
-  }
-
-  if (shape.type === 'line') {
-    ctx.beginPath()
-    ctx.moveTo(shape.start.x, shape.start.y)
-    ctx.lineTo(shape.end.x, shape.end.y)
-    ctx.stroke()
-  } else if (shape.type === 'rect') {
-    const width = shape.end.x - shape.start.x
-    const height = shape.end.y - shape.start.y
-    ctx.strokeRect(shape.start.x, shape.start.y, width, height)
-  }
-
-  if (isPreview) {
-    ctx.setLineDash([])
-  }
 }
 
 // ==================== 选框功能 ====================
@@ -625,6 +892,9 @@ function fillBucket(pos) {
   if (!canvasRef.value || !history.value) return
   const ctx = canvasRef.value.getContext('2d')
   history.value.saveState()
+
+  // 先渲染当前画布，获取最新状态
+  renderCanvas()
 
   const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
   const data = imageData.data
@@ -665,7 +935,55 @@ function fillBucket(pos) {
     stack.push([cx, cy - 1])
   }
 
-  ctx.putImageData(imageData, 0, 0)
+  // 计算填充区域的边界
+  const visitedArray = Array.from(visited)
+  if (visitedArray.length === 0) return
+
+  const minX = Math.min(...visitedArray.map((key) => parseInt(key.split(',')[0])))
+  const maxX = Math.max(...visitedArray.map((key) => parseInt(key.split(',')[0])))
+  const minY = Math.min(...visitedArray.map((key) => parseInt(key.split(',')[1])))
+  const maxY = Math.max(...visitedArray.map((key) => parseInt(key.split(',')[1])))
+
+  // 裁剪 imageData 到填充区域
+  const fillWidth = maxX - minX + 1
+  const fillHeight = maxY - minY + 1
+  const fillImageData = ctx.createImageData(fillWidth, fillHeight)
+
+  for (let fy = 0; fy < fillHeight; fy++) {
+    for (let fx = 0; fx < fillWidth; fx++) {
+      const srcX = minX + fx
+      const srcY = minY + fy
+      const srcIdx = (srcY * width + srcX) * 4
+      const dstIdx = (fy * fillWidth + fx) * 4
+
+      fillImageData.data[dstIdx] = data[srcIdx]
+      fillImageData.data[dstIdx + 1] = data[srcIdx + 1]
+      fillImageData.data[dstIdx + 2] = data[srcIdx + 2]
+      fillImageData.data[dstIdx + 3] = data[srcIdx + 3]
+    }
+  }
+
+  // 将 imageData 转换为 base64 字符串以便序列化
+  const tempCanvas = document.createElement('canvas')
+  tempCanvas.width = fillWidth
+  tempCanvas.height = fillHeight
+  const tempCtx = tempCanvas.getContext('2d')
+  tempCtx.putImageData(fillImageData, 0, 0)
+  const imageDataBase64 = tempCanvas.toDataURL('image/png')
+
+  // 保存填充元素
+  fillElements.value.push({
+    type: 'fill',
+    x: minX,
+    y: minY,
+    width: fillWidth,
+    height: fillHeight,
+    imageDataBase64: imageDataBase64,
+    id: Date.now().toString()
+  })
+
+  // 重新渲染画布
+  renderCanvas()
   history.value.saveState()
 }
 
@@ -686,7 +1004,9 @@ function hexToRgba(hex) {
 }
 
 // ==================== 文字工具 ====================
-function showTextInput(e) {
+const editingTextElement = ref(null) // 当前正在编辑的文字元素
+
+function showTextInput(e, element = null) {
   if (!canvasRef.value) return
   const canvasRect = canvasRef.value.getBoundingClientRect()
   const mouseX = e.clientX - canvasRect.left
@@ -694,44 +1014,190 @@ function showTextInput(e) {
   const containerX = (mouseX - panOffset.value.x) / scale.value
   const containerY = (mouseY - panOffset.value.y) / scale.value
 
-  textInputPosition.value = { x: containerX, y: containerY }
-  textInputValue.value = ''
+  if (element) {
+    // 编辑现有文字元素
+    editingTextElement.value = { ...element }
+    textInputValue.value = element.text
+    textInputPosition.value = { x: element.x, y: element.y }
+  } else {
+    // 创建新文字元素
+    editingTextElement.value = {
+      fontSize: 14,
+      fontFamily: 'Arial',
+      textAlign: 'left',
+      lineHeight: 1.5,
+      color: color.value
+    }
+    textInputValue.value = ''
+    textInputPosition.value = { x: containerX, y: containerY }
+  }
+
   textInputVisible.value = true
 
   nextTick(() => {
     if (textInputRef.value) {
       textInputRef.value.focus()
-      textInputRef.value.select()
+      if (!element) {
+        textInputRef.value.select()
+      } else {
+        // 编辑时，将光标移到末尾
+        const length = textInputRef.value.value.length
+        textInputRef.value.setSelectionRange(length, length)
+      }
+      // 自动调整 textarea 大小
+      adjustTextareaSize()
     }
   })
 }
 
-function confirmTextInput() {
-  if (textInputValue.value.trim() && canvasRef.value && history.value) {
-    const canvasX = textInputPosition.value.x
-    const canvasY = textInputPosition.value.y
-    drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
+function handleTextInput() {
+  // 实时更新预览
+  if (editingTextElement.value && textInputRef.value) {
+    adjustTextareaSize()
+    // 如果正在编辑现有元素，实时更新
+    if (editingTextElement.value.id) {
+      const element = textElements.value.find((el) => el.id === editingTextElement.value.id)
+      if (element) {
+        element.text = textInputValue.value
+        renderCanvas()
+      }
+    }
   }
+}
+
+function adjustTextareaSize() {
+  if (!textInputRef.value) return
+  // 重置高度以获取正确的 scrollHeight
+  textInputRef.value.style.height = 'auto'
+  // 设置高度为内容高度，最小高度为一行
+  const lineHeight = editingTextElement.value?.lineHeight || 1.5
+  const fontSize = editingTextElement.value?.fontSize || 14
+  const minHeight = fontSize * lineHeight
+  textInputRef.value.style.height = Math.max(textInputRef.value.scrollHeight, minHeight) + 'px'
+}
+
+function confirmTextInput() {
+  // 如果有内容，才保存
+  if (textInputValue.value.trim() && canvasRef.value && history.value) {
+    if (editingTextElement.value?.id) {
+      // 更新现有文字元素
+      const element = textElements.value.find((el) => el.id === editingTextElement.value.id)
+      if (element) {
+        history.value.saveState()
+        element.text = textInputValue.value
+        element.fontSize = editingTextElement.value.fontSize
+        element.fontFamily = editingTextElement.value.fontFamily
+        element.textAlign = editingTextElement.value.textAlign
+        element.lineHeight = editingTextElement.value.lineHeight
+        element.color = editingTextElement.value.color
+        // 重新计算尺寸
+        const ctx = canvasRef.value.getContext('2d')
+        ctx.font = `${element.fontSize}px ${element.fontFamily}`
+        ctx.textAlign = element.textAlign
+        const lines = element.text.split('\n')
+        let maxWidth = 0
+        lines.forEach((line) => {
+          const metrics = ctx.measureText(line)
+          maxWidth = Math.max(maxWidth, metrics.width)
+        })
+        element.width = maxWidth
+        element.height = lines.length * element.fontSize * element.lineHeight
+        renderCanvas()
+        history.value.saveState()
+      }
+    } else {
+      // 创建新文字元素
+      const canvasX = textInputPosition.value.x
+      const canvasY = textInputPosition.value.y
+      drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
+    }
+  }
+  // 无论是否有内容，都关闭输入框
   textInputVisible.value = false
   textInputValue.value = ''
+  editingTextElement.value = null
 }
 
 function cancelTextInput() {
+  // 如果正在编辑现有元素，恢复原文本
+  if (editingTextElement.value?.id) {
+    const element = textElements.value.find((el) => el.id === editingTextElement.value.id)
+    if (element) {
+      renderCanvas()
+    }
+  }
   textInputVisible.value = false
   textInputValue.value = ''
+  editingTextElement.value = null
 }
 
 function drawTextOnCanvas(text, x, y) {
   if (!canvasRef.value || !history.value) return
+  history.value.saveState()
+
+  // 计算文字尺寸
+  const fontSize = editingTextElement.value?.fontSize || 14
+  const fontFamily = editingTextElement.value?.fontFamily || 'Arial'
+  const lineHeight = editingTextElement.value?.lineHeight || 1.5
+  const textAlign = editingTextElement.value?.textAlign || 'left'
+  const lines = text.split('\n')
   const ctx = canvasRef.value.getContext('2d')
-  history.value.saveState()
+  ctx.font = `${fontSize}px ${fontFamily}`
+  ctx.textAlign = textAlign
 
-  ctx.font = '16px Arial'
-  ctx.fillStyle = color.value
-  ctx.textBaseline = 'top'
-  ctx.fillText(text, x, y)
+  // 计算文字宽度和高度
+  let maxWidth = 0
+  lines.forEach((line) => {
+    const metrics = ctx.measureText(line)
+    maxWidth = Math.max(maxWidth, metrics.width)
+  })
+  const textHeight = lines.length * fontSize * lineHeight
 
+  // 保存文字元素
+  textElements.value.push({
+    type: 'text',
+    text: text,
+    x: x,
+    y: y,
+    width: maxWidth,
+    height: textHeight,
+    fontSize: fontSize,
+    fontFamily: fontFamily,
+    textAlign: textAlign,
+    lineHeight: lineHeight,
+    color: editingTextElement.value?.color || color.value,
+    id: Date.now().toString()
+  })
+
+  // 重新渲染画布
+  renderCanvas()
   history.value.saveState()
+}
+
+// 双击文字元素进行编辑
+function handleTextDoubleClick(e) {
+  if (tool.value !== 'text') return
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  const mouseX = e.clientX - canvasRect.left
+  const mouseY = e.clientY - canvasRect.top
+  const containerX = (mouseX - panOffset.value.x) / scale.value
+  const containerY = (mouseY - panOffset.value.y) / scale.value
+
+  // 查找点击的文字元素
+  const clickedElement = textElements.value.find((element) => {
+    const right = element.x + (element.width || 0)
+    const bottom = element.y + (element.height || 0)
+    return (
+      containerX >= element.x &&
+      containerX <= right &&
+      containerY >= element.y &&
+      containerY <= bottom
+    )
+  })
+
+  if (clickedElement) {
+    showTextInput(e, clickedElement)
+  }
 }
 
 // ==================== 资源工具 ====================
@@ -797,15 +1263,23 @@ function onResourceMouseDown(resource, event) {
 
 function drawResourceOnCanvas(resource, x, y) {
   if (!canvasRef.value || !history.value) return
-  const ctx = canvasRef.value.getContext('2d')
   history.value.saveState()
 
-  const img = new window.Image()
-  img.src = resource.url
-  img.onload = () => {
-    ctx.drawImage(img, x - 20, y - 20, 40, 40)
-    history.value.saveState()
-  }
+  // 保存资源元素
+  resourceElements.value.push({
+    type: 'resource',
+    url: resource.url,
+    name: resource.name,
+    x: x,
+    y: y,
+    width: 40,
+    height: 40,
+    id: Date.now().toString()
+  })
+
+  // 重新渲染画布
+  renderCanvas()
+  history.value.saveState()
 }
 
 // ==================== 缩放功能 ====================
@@ -856,24 +1330,20 @@ function handleClearCanvas() {
   })
     .then(() => {
       if (!canvasRef.value || !history.value) return
-      const ctx = canvasRef.value.getContext('2d')
       history.value.saveState()
-      ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
 
-      // 如果有底图，重新绘制
-      if (mapImage.value) {
-        const img = new window.Image()
-        img.src = mapImage.value
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, canvasRef.value.width, canvasRef.value.height)
-          history.value.saveState()
-        }
-      } else {
-        // 新建地图：填充白色背景
-        ctx.fillStyle = '#fff'
-        ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
-        history.value.saveState()
-      }
+      // 清空所有绘制元素
+      freeDrawElements.value = []
+      shapeElements.value = []
+      textElements.value = []
+      resourceElements.value = []
+      fillElements.value = []
+      currentFreeDrawPath.value = null
+      currentShape.value = null
+
+      // 重新渲染画布（只绘制背景色）
+      renderCanvas()
+      history.value.saveState()
 
       ElMessage.success('画板已清空')
     })
@@ -885,60 +1355,20 @@ function handleClearCanvas() {
 // ==================== 初始化画布 ====================
 function resetCanvas() {
   if (!canvasRef.value) return
-  const ctx = canvasRef.value.getContext('2d')
-  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
 
-  if (mapImage.value) {
-    const img = new window.Image()
-    img.src = mapImage.value
-    img.onload = () => {
-      // 无限画板：如果图片尺寸大于当前画布，扩展画布
-      if (img.naturalWidth > canvasWidth.value) {
-        canvasWidth.value = img.naturalWidth
-      }
-      if (img.naturalHeight > canvasHeight.value) {
-        canvasHeight.value = img.naturalHeight
-      }
-      nextTick(() => {
-        ctx.drawImage(img, 0, 0, canvasRef.value.width, canvasRef.value.height)
-        if (history.value) {
-          history.value.init()
-        }
-      })
-    }
-  } else {
-    // 新建地图：填充白色背景
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
-    if (history.value) {
-      history.value.init()
-    }
-  }
-}
+  // 清空所有绘制元素
+  freeDrawElements.value = []
+  shapeElements.value = []
+  textElements.value = []
+  resourceElements.value = []
+  fillElements.value = []
+  currentFreeDrawPath.value = null
+  currentShape.value = null
 
-// ==================== 加载地图 ====================
-async function loadMapImage() {
-  try {
-    mapImage.value = await window.electron.readMapImage({ bookName, mapName: mapId })
-    mapName.value = mapId
-  } catch (error) {
-    console.error('加载地图失败:', error)
-    ElMessage.error('加载地图失败')
-  }
-}
-
-function handleImageLoad() {
-  const img = mapImageRef.value
-  if (img) {
-    if (img.naturalWidth > canvasWidth.value) {
-      canvasWidth.value = img.naturalWidth
-    }
-    if (img.naturalHeight > canvasHeight.value) {
-      canvasHeight.value = img.naturalHeight
-    }
-    nextTick(() => {
-      resetCanvas()
-    })
+  // 渲染画布（只绘制背景色）
+  renderCanvas()
+  if (history.value) {
+    history.value.init()
   }
 }
 
@@ -951,6 +1381,8 @@ async function handleSave() {
   if (!canvasRef.value) return
 
   try {
+    // 先渲染画布，确保画布是最新状态
+    renderCanvas()
     // 获取canvas内容
     const imageData = canvasRef.value.toDataURL('image/png')
     await window.electron.updateMap({
@@ -1039,12 +1471,25 @@ onMounted(() => {
   nextTick(() => {
     if (canvasRef.value) {
       history.value = new HistoryManager(canvasRef.value)
-
-      if (isEdit.value) {
-        loadMapImage()
-      } else {
-        resetCanvas()
+      // 设置回调函数
+      history.value.renderCallback = renderCanvas
+      history.value.getStateCallback = () => ({
+        freeDrawElements: freeDrawElements.value,
+        shapeElements: shapeElements.value,
+        textElements: textElements.value,
+        resourceElements: resourceElements.value,
+        fillElements: fillElements.value,
+        backgroundColor: backgroundColor.value
+      })
+      history.value.setStateCallback = (state) => {
+        freeDrawElements.value = state.freeDrawElements || []
+        shapeElements.value = state.shapeElements || []
+        textElements.value = state.textElements || []
+        resourceElements.value = state.resourceElements || []
+        fillElements.value = state.fillElements || []
+        backgroundColor.value = state.backgroundColor || '#ffffff'
       }
+      resetCanvas()
     }
   })
 
@@ -1094,14 +1539,6 @@ onUnmounted(() => {
       will-change: transform;
     }
 
-    .map-bg {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 0;
-      pointer-events: none;
-    }
-
     .draw-canvas {
       position: absolute;
       left: 0;
@@ -1125,22 +1562,72 @@ onUnmounted(() => {
 
       .text-input {
         background: transparent;
-        border: 1px dashed #ff4444;
+        border: none;
         border-radius: 2px;
-        padding: 2px 4px;
-        font-size: 12px;
+        padding: 4px 6px;
         outline: none;
         min-width: 100px;
+        min-height: 0;
+        max-width: 500px;
+        max-height: 300px;
+        resize: none;
+        overflow: hidden;
         box-shadow: none;
-        color: var(--text-base);
         font-family: Arial, sans-serif;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        line-height: inherit;
+
+        &.text-input-editing {
+          border: 1px dashed #409eff;
+        }
 
         &:focus {
-          border: 1px dashed #ff4444;
-          box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
+          border: 1px dashed #409eff;
+          box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.2);
         }
       }
     }
   }
+}
+
+// 颜色选择器样式
+.color-picker-container {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  z-index: 1000;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+// 颜色选择器过渡动画
+.color-picker-fade-enter-active,
+.color-picker-fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.color-picker-fade-enter-from {
+  opacity: 0;
+  transform: translateX(10px) scale(0.95);
+}
+
+.color-picker-fade-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.color-picker-fade-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.color-picker-fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px) scale(0.95);
 }
 </style>

@@ -20,6 +20,14 @@
     <el-divider direction="vertical" />
 
     <!-- 绘图工具组 -->
+    <el-tooltip content="背景 (B)" placement="bottom">
+      <div
+        :class="['tool-btn', modelValue === 'background' ? 'active' : '']"
+        @click="handleToolSelect('background')"
+      >
+        <SvgIcon name="background" :size="iconSize" />
+      </div>
+    </el-tooltip>
     <el-tooltip content="画笔 (P)" placement="bottom">
       <div
         :class="['tool-btn', modelValue === 'pencil' ? 'active' : '']"
