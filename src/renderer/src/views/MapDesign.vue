@@ -42,6 +42,7 @@
               :step="opacityConfig.step"
               :dragging-disabled="draggingDisabled"
               label="透明度"
+              preview-type="opacity"
             />
           </template>
         </FloatingSidebar>

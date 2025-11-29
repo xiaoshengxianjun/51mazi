@@ -65,6 +65,11 @@ const props = defineProps({
   draggingDisabled: {
     type: Boolean,
     default: false
+  },
+  previewType: {
+    type: String,
+    default: 'size', // 'size' 或 'opacity'
+    validator: (value) => ['size', 'opacity'].includes(value)
   }
 })
 
@@ -176,10 +181,22 @@ const displayValue = computed(() => {
 
 // 预览区圆形样式
 const circleStyle = computed(() => {
-  const size = props.modelValue
-  return {
-    width: `${size}px`,
-    height: `${size}px`
+  if (props.previewType === 'opacity') {
+    // 透明度类型：固定大小，调整透明度
+    const opacity = props.modelValue / 100 // 0-1
+    return {
+      width: '60px',
+      height: '60px',
+      opacity: opacity
+    }
+  } else {
+    // 大小类型：调整大小
+    const size = props.modelValue
+    return {
+      width: `${size}px`,
+      height: `${size}px`,
+      opacity: 1
+    }
   }
 })
 
