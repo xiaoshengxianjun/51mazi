@@ -210,7 +210,16 @@ const currentColor = computed({
   },
   set(value) {
     if (tool.value === 'background') {
-      backgroundColor.value = value
+      // 更新背景色并重新渲染
+      if (canvasRef.value && history.value) {
+        history.value.saveState()
+        backgroundColor.value = value
+        renderCanvas()
+        history.value.saveState()
+      } else {
+        backgroundColor.value = value
+        renderCanvas()
+      }
     } else {
       color.value = value
     }
@@ -734,16 +743,18 @@ function renderFill(ctx, element) {
 // ==================== 颜色变化处理 ====================
 function handleColorChange(newColor) {
   // 如果当前工具是背景工具，更新画布背景色
-  if (tool.value === 'background' && canvasRef.value && history.value) {
-    history.value.saveState()
-
-    // 更新背景色变量
-    backgroundColor.value = newColor
-
-    // 重新渲染画布
-    renderCanvas()
-    history.value.saveState()
+  if (tool.value === 'background') {
+    if (canvasRef.value && history.value) {
+      history.value.saveState()
+      backgroundColor.value = newColor
+      renderCanvas()
+      history.value.saveState()
+    } else if (canvasRef.value) {
+      backgroundColor.value = newColor
+      renderCanvas()
+    }
   }
+  // 其他工具的颜色变化已经在 currentColor 的 setter 中处理
 }
 
 // 监听工具变化，处理工具切换逻辑
