@@ -20,16 +20,31 @@
         />
 
         <!-- 滑块控制工具 -->
-        <MapSlider
-          v-if="tool === 'pencil' || tool === 'eraser'"
-          v-model="size"
-          :min="sliderConfig.min"
-          :max="sliderConfig.max"
-          :step="sliderConfig.step"
+        <FloatingSidebar
           :visible="tool === 'pencil' || tool === 'eraser'"
           :min-top-distance="100"
           :min-bottom-distance="50"
-        />
+        >
+          <template #default="{ draggingDisabled }">
+            <MapSlider
+              v-model="size"
+              :min="sliderConfig.min"
+              :max="sliderConfig.max"
+              :step="sliderConfig.step"
+              :dragging-disabled="draggingDisabled"
+              label="大小"
+            />
+            <MapSlider
+              v-if="tool === 'pencil'"
+              v-model="opacity"
+              :min="opacityConfig.min"
+              :max="opacityConfig.max"
+              :step="opacityConfig.step"
+              :dragging-disabled="draggingDisabled"
+              label="透明度"
+            />
+          </template>
+        </FloatingSidebar>
 
         <!-- 画布容器 -->
         <div
@@ -110,6 +125,7 @@
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
 import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
+import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
 import MapSlider from '@renderer/components/Map/MapSlider.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -147,6 +163,7 @@ const spaceKeyPressed = ref(false)
 const tool = ref('select') // select, move, pencil, eraser, line, rect, bucket, text, resource
 const color = ref('#222222')
 const size = ref(5)
+const opacity = ref(100) // 透明度 0-100
 
 // ==================== 滑块配置 ====================
 const sliderConfig = computed(() => {
@@ -161,10 +178,19 @@ const sliderConfig = computed(() => {
     // 画笔：控制粗细
     return {
       min: 1,
-      max: 40,
+      max: 50,
       step: 1
     }
   }
+  return {
+    min: 0,
+    max: 100,
+    step: 1
+  }
+})
+
+// 透明度配置
+const opacityConfig = computed(() => {
   return {
     min: 0,
     max: 100,
@@ -480,9 +506,11 @@ function continueDrawing(pos) {
 
   if (tool.value === 'pencil') {
     ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = opacity.value / 100 // 应用透明度
     ctx.strokeStyle = color.value
   } else if (tool.value === 'eraser') {
     ctx.globalCompositeOperation = 'destination-out'
+    ctx.globalAlpha = 1 // 橡皮擦不需要透明度
   }
 
   ctx.beginPath()
@@ -490,6 +518,9 @@ function continueDrawing(pos) {
   ctx.lineTo(pos.x, pos.y)
   ctx.stroke()
   lastPoint.value = { ...pos }
+
+  // 重置透明度，避免影响其他绘制
+  ctx.globalAlpha = 1
 }
 
 function startShape(pos) {
