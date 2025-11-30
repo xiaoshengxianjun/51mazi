@@ -83,15 +83,6 @@
           @touchend.prevent="handleCanvasMouseUp"
         ></canvas>
 
-        <!-- 选框预览层 -->
-        <canvas
-          v-if="tool === 'select'"
-          ref="selectionCanvasRef"
-          :width="canvasDisplayWidth"
-          :height="canvasDisplayHeight"
-          class="selection-canvas"
-        ></canvas>
-
         <!-- 文字输入框 -->
         <div
           v-if="textInputVisible"
@@ -144,7 +135,6 @@ const bookName = route.query.name
 const mapName = ref('')
 const editorContainerRef = ref(null)
 const canvasRef = ref(null)
-const selectionCanvasRef = ref(null)
 
 // ==================== 画布尺寸和变换 ====================
 // 无限画布：使用虚拟坐标系统，不设置固定尺寸
@@ -302,10 +292,20 @@ const drawingActive = ref(false)
 const lastPoint = ref({ x: 0, y: 0 })
 const shapeStart = ref({ x: 0, y: 0 })
 
-// ==================== 选框状态 ====================
-const selectionStart = ref(null)
-const selectionEnd = ref(null)
+// ==================== 选框状态（参考 excalidraw） ====================
+// 选中的元素（存储元素 ID）
+const selectedElementIds = ref(new Set())
+
+// 拖拽选框状态
+const selectionStart = ref(null) // { x, y }
+const selectionEnd = ref(null) // { x, y }
 const isSelecting = ref(false)
+
+// 变换状态（参考 excalidraw 的 PointerDownState）
+const isDragging = ref(false) // 是否正在拖拽（移动）
+const isTransforming = ref(false) // 是否正在变换（调整大小或旋转）
+const transformHandleType = ref(null) // 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | 'rotation' | false
+const pointerDownState = ref(null) // { originalElements: Map, startCoords: { x, y }, center: { x, y }, ... }
 
 // ==================== 文字工具 ====================
 const textInputVisible = ref(false)
@@ -468,27 +468,8 @@ const canvasWrapStyle = computed(() => {
   }
 })
 
-const canvasCursor = computed(() => {
-  if (panning.value) return 'grabbing'
-  switch (tool.value) {
-    case 'select':
-      return 'default'
-    case 'move':
-      return spaceKeyPressed.value ? 'grabbing' : 'grab'
-    case 'pencil':
-    case 'eraser':
-    case 'line':
-    case 'rect':
-      return 'crosshair'
-    case 'text':
-      return 'text'
-    case 'bucket':
-    case 'resource':
-      return 'crosshair'
-    default:
-      return 'default'
-  }
-})
+// 画布光标样式（ref，用于动态更新）
+const canvasCursor = ref('default')
 
 // 历史记录状态计算属性（安全访问）
 const canUndo = computed(() => {
@@ -508,7 +489,7 @@ function selectTool(t) {
     size.value = 10
   }
   // 切换工具时清除选择
-  clearSelection()
+  selectedElementIds.value.clear()
 }
 
 // ==================== 更新内容边界 ====================
@@ -675,6 +656,594 @@ function renderCanvasContent(ctx) {
   ) {
     renderShape(ctx, currentShape.value, true)
   }
+
+  // 绘制选中框和变换控制点（参考 excalidraw）
+  if (tool.value === 'select' && selectedElementIds.value.size > 0) {
+    renderSelection(ctx)
+  }
+
+  // 绘制拖拽选框（参考 excalidraw）
+  if (tool.value === 'select' && isSelecting.value && selectionStart.value && selectionEnd.value) {
+    ctx.save()
+    ctx.translate(scrollX.value, scrollY.value)
+
+    const x = Math.min(selectionStart.value.x, selectionEnd.value.x)
+    const y = Math.min(selectionStart.value.y, selectionEnd.value.y)
+    const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
+    const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
+
+    ctx.strokeStyle = '#1e88e5'
+    ctx.lineWidth = 1 / scale.value
+    ctx.setLineDash([2 / scale.value])
+    ctx.strokeRect(x, y, width, height)
+
+    ctx.fillStyle = 'rgba(30, 136, 229, 0.1)'
+    ctx.fillRect(x, y, width, height)
+
+    ctx.setLineDash([])
+    ctx.restore()
+  }
+}
+
+// ==================== 选框渲染（参考 excalidraw） ====================
+// 获取元素的绝对坐标（参考 excalidraw 的 getElementAbsoluteCoords）
+function getElementAbsoluteCoords(element) {
+  const bounds = getElementBounds(element)
+  if (!bounds) return null
+  const x1 = bounds.x
+  const y1 = bounds.y
+  const x2 = bounds.x + bounds.width
+  const y2 = bounds.y + bounds.height
+  const cx = (x1 + x2) / 2
+  const cy = (y1 + y2) / 2
+  return [x1, y1, x2, y2, cx, cy]
+}
+
+// 获取多个元素的共同边界（参考 excalidraw 的 getCommonBounds）
+function getCommonBounds(elements) {
+  if (elements.length === 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  elements.forEach((element) => {
+    const coords = getElementAbsoluteCoords(element)
+    if (coords) {
+      minX = Math.min(minX, coords[0])
+      minY = Math.min(minY, coords[1])
+      maxX = Math.max(maxX, coords[2])
+      maxY = Math.max(maxY, coords[3])
+    }
+  })
+  if (minX === Infinity) return null
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  return [minX, minY, maxX, maxY, cx, cy]
+}
+
+// 获取选中的元素数组
+function getSelectedElements() {
+  const allElements = [
+    ...freeDrawElements.value,
+    ...shapeElements.value,
+    ...textElements.value,
+    ...resourceElements.value,
+    ...fillElements.value
+  ]
+  return allElements.filter((el) => selectedElementIds.value.has(el.id))
+}
+
+// 渲染选中框和变换控制点（参考 excalidraw）
+function renderSelection(ctx) {
+  const selectedElements = getSelectedElements()
+  if (selectedElements.length === 0) return
+
+  ctx.save()
+  ctx.translate(scrollX.value, scrollY.value)
+
+  const selectionColor = '#1e88e5' // rgb(0,118,255)
+
+  if (selectedElements.length === 1) {
+    // 单个元素：绘制带角度的选中框（参考 excalidraw 的 renderSelectionBorder）
+    const element = selectedElements[0]
+    const coords = getElementAbsoluteCoords(element)
+    if (!coords) return
+    const [x1, y1, x2, y2, cx, cy] = coords
+    const angle = 0 // 我们的元素暂时不支持角度
+
+    // 绘制选中框（参考 excalidraw 的 renderSelectionBorder）
+    const padding = 8 / scale.value // DEFAULT_TRANSFORM_HANDLE_SPACING * 2
+    const lineWidth = 8 / scale.value
+    const spaceWidth = 4 / scale.value
+
+    ctx.lineWidth = 1 / scale.value
+    ctx.strokeStyle = selectionColor
+    ctx.setLineDash([lineWidth, spaceWidth])
+    ctx.lineDashOffset = 0
+    strokeRectWithRotation(
+      ctx,
+      x1 - padding,
+      y1 - padding,
+      x2 - x1 + padding * 2,
+      y2 - y1 + padding * 2,
+      cx,
+      cy,
+      angle
+    )
+    ctx.setLineDash([])
+
+    // 绘制变换控制点（参考 excalidraw 的 renderTransformHandles）
+    const transformHandles = getTransformHandlesForElement(element)
+    renderTransformHandles(ctx, transformHandles, angle)
+  } else {
+    // 多个元素：绘制共同边界框（参考 excalidraw）
+    const bounds = getCommonBounds(selectedElements)
+    if (!bounds) return
+    const [x1, y1, x2, y2, cx, cy] = bounds
+    const padding = 8 / scale.value
+
+    ctx.lineWidth = 1 / scale.value
+    ctx.strokeStyle = selectionColor
+    ctx.setLineDash([2 / scale.value])
+    strokeRectWithRotation(
+      ctx,
+      x1 - padding,
+      y1 - padding,
+      x2 - x1 + padding * 2,
+      y2 - y1 + padding * 2,
+      cx,
+      cy,
+      0
+    )
+    ctx.setLineDash([])
+
+    // 绘制变换控制点
+    const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], 0)
+    renderTransformHandles(ctx, transformHandles, 0)
+  }
+
+  ctx.restore()
+}
+
+// 绘制旋转矩形（参考 excalidraw 的 strokeRectWithRotation）
+function strokeRectWithRotation(ctx, x, y, width, height, cx, cy, angle, fillBeforeStroke = false) {
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.rotate(angle)
+  if (fillBeforeStroke) {
+    ctx.fillRect(x - cx, y - cy, width, height)
+    ctx.strokeRect(x - cx, y - cy, width, height)
+  } else {
+    ctx.strokeRect(x - cx, y - cy, width, height)
+  }
+  ctx.restore()
+}
+
+// 获取单个元素的变换控制点（参考 excalidraw 的 getTransformHandles）
+function getTransformHandlesForElement(element) {
+  const [x1, y1, x2, y2, cx, cy] = getElementAbsoluteCoords(element)
+  return getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], 0)
+}
+
+// 从坐标获取变换控制点（参考 excalidraw 的 getTransformHandlesFromCoords）
+function getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], angle) {
+  const size = 8 // transformHandleSizes['mouse']
+  const handleWidth = size / scale.value
+  const handleHeight = size / scale.value
+  const handleMarginX = size / scale.value
+  const handleMarginY = size / scale.value
+  const spacing = 4 / scale.value // DEFAULT_TRANSFORM_HANDLE_SPACING
+  const margin = 4 / scale.value
+  const dashedLineMargin = margin
+  const centeringOffset = (size - spacing * 2) / (2 * scale.value)
+
+  const width = x2 - x1
+  const height = y2 - y1
+
+  const handles = {}
+
+  // 角点（参考 excalidraw 的计算方式）
+  handles.nw = rotateHandle(
+    [
+      x1 - dashedLineMargin - handleMarginX + centeringOffset,
+      y1 - dashedLineMargin - handleMarginY + centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.ne = rotateHandle(
+    [
+      x2 + dashedLineMargin - centeringOffset,
+      y1 - dashedLineMargin - handleMarginY + centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.sw = rotateHandle(
+    [
+      x1 - dashedLineMargin - handleMarginX + centeringOffset,
+      y2 + dashedLineMargin - centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.se = rotateHandle(
+    [
+      x2 + dashedLineMargin - centeringOffset,
+      y2 + dashedLineMargin - centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+
+  // 边中点
+  handles.n = rotateHandle(
+    [
+      x1 + width / 2 - handleWidth / 2,
+      y1 - dashedLineMargin - handleMarginY + centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.s = rotateHandle(
+    [
+      x1 + width / 2 - handleWidth / 2,
+      y2 + dashedLineMargin - centeringOffset,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.w = rotateHandle(
+    [
+      x1 - dashedLineMargin - handleMarginX + centeringOffset,
+      y1 + height / 2 - handleHeight / 2,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+  handles.e = rotateHandle(
+    [
+      x2 + dashedLineMargin - centeringOffset,
+      y1 + height / 2 - handleHeight / 2,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+
+  // 旋转控制点（参考 excalidraw 的 ROTATION_RESIZE_HANDLE_GAP = 16）
+  const rotationGap = 16 / scale.value
+  handles.rotation = rotateHandle(
+    [
+      x1 + width / 2 - handleWidth / 2,
+      y1 - dashedLineMargin - handleMarginY - rotationGap,
+      handleWidth,
+      handleHeight
+    ],
+    cx,
+    cy,
+    angle
+  )
+
+  return handles
+}
+
+// 旋转控制点位置
+function rotateHandle([x, y, w, h], cx, cy, angle) {
+  const centerX = x + w / 2
+  const centerY = y + h / 2
+  const dx = centerX - cx
+  const dy = centerY - cy
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const newX = cx + dx * cos - dy * sin - w / 2
+  const newY = cy + dx * sin + dy * cos - h / 2
+  return [newX, newY, w, h]
+}
+
+// 渲染变换控制点（参考 excalidraw 的 renderTransformHandles）
+function renderTransformHandles(ctx, transformHandles, angle) {
+  const selectionColor = '#1e88e5' // rgb(0,118,255)
+
+  Object.keys(transformHandles).forEach((key) => {
+    const handle = transformHandles[key]
+    if (handle === undefined) return
+    const [x, y, w, h] = handle
+
+    ctx.save()
+    ctx.lineWidth = 1 / scale.value
+    ctx.strokeStyle = selectionColor
+    ctx.fillStyle = '#fff'
+
+    if (key === 'rotation') {
+      // 旋转控制点：圆形（参考 excalidraw 的 fillCircle）
+      ctx.beginPath()
+      ctx.arc(x + w / 2, y + h / 2, w / 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    } else if (ctx.roundRect) {
+      // 调整大小控制点：圆角矩形（参考 excalidraw）
+      ctx.beginPath()
+      ctx.roundRect(x, y, w, h, 2 / scale.value)
+      ctx.fill()
+      ctx.stroke()
+    } else {
+      // 如果不支持 roundRect，使用 strokeRectWithRotation 绘制（参考 excalidraw）
+      strokeRectWithRotation(
+        ctx,
+        x,
+        y,
+        w,
+        h,
+        x + w / 2,
+        y + h / 2,
+        angle,
+        true // fill before stroke
+      )
+    }
+
+    ctx.restore()
+  })
+}
+
+// ==================== 选框辅助函数（参考 excalidraw） ====================
+// 获取指定点的元素
+function getElementAtPoint(pos) {
+  const allElements = [
+    ...freeDrawElements.value,
+    ...shapeElements.value,
+    ...textElements.value,
+    ...resourceElements.value,
+    ...fillElements.value
+  ]
+  // 从后往前检查（后绘制的在上层）
+  for (let i = allElements.length - 1; i >= 0; i--) {
+    const element = allElements[i]
+    if (isPointInElement(pos, element)) {
+      return element
+    }
+  }
+  return null
+}
+
+// 检查点是否在选中框内（包括 padding，参考 excalidraw）
+function isPointInSelectionBox(pos, selectedElements) {
+  if (selectedElements.length === 0) return false
+  const bounds =
+    selectedElements.length === 1
+      ? getElementAbsoluteCoords(selectedElements[0])
+      : getCommonBounds(selectedElements)
+  if (!bounds) return false
+  const [x1, y1, x2, y2] = bounds
+  const padding = 8 / scale.value // DEFAULT_TRANSFORM_HANDLE_SPACING * 2
+  return (
+    pos.x >= x1 - padding && pos.x <= x2 + padding && pos.y >= y1 - padding && pos.y <= y2 + padding
+  )
+}
+
+// 获取指定点的变换控制点类型（参考 excalidraw 的 resizeTest）
+function getTransformHandleTypeAtPoint(pos, selectedElements) {
+  if (selectedElements.length === 0) return false
+
+  if (selectedElements.length === 1) {
+    // 单个元素：检查其变换控制点
+    const element = selectedElements[0]
+    const transformHandles = getTransformHandlesForElement(element)
+    return getTransformHandleTypeFromHandles(pos, transformHandles)
+  } else {
+    // 多个元素：检查共同边界框的变换控制点
+    const bounds = getCommonBounds(selectedElements)
+    if (!bounds) return false
+    const transformHandles = getTransformHandlesFromCoords(bounds, 0)
+    return getTransformHandleTypeFromHandles(pos, transformHandles)
+  }
+}
+
+// 从变换控制点中获取点击的控制点类型
+function getTransformHandleTypeFromHandles(pos, transformHandles) {
+  const handleSize = 8 / scale.value
+  for (const [key, handle] of Object.entries(transformHandles)) {
+    if (!handle) continue
+    const [x, y, w, h] = handle
+    const centerX = x + w / 2
+    const centerY = y + h / 2
+    const distance = Math.sqrt(Math.pow(pos.x - centerX, 2) + Math.pow(pos.y - centerY, 2))
+    if (distance <= handleSize) {
+      return key
+    }
+  }
+  return false
+}
+
+// 检查点是否在选中框的边框上（用于显示对应的光标样式）
+function isPointOnSelectionBoxBorder(pos, selectedElements) {
+  if (selectedElements.length === 0) return null
+  const bounds =
+    selectedElements.length === 1
+      ? getElementAbsoluteCoords(selectedElements[0])
+      : getCommonBounds(selectedElements)
+  if (!bounds) return null
+  const [x1, y1, x2, y2] = bounds
+  const padding = 8 / scale.value // DEFAULT_TRANSFORM_HANDLE_SPACING * 2
+  const borderThreshold = 4 / scale.value // 边框检测阈值
+
+  const left = x1 - padding
+  const right = x2 + padding
+  const top = y1 - padding
+  const bottom = y2 + padding
+
+  // 检查是否在左右边框上（排除控制点区域）
+  const isOnLeftBorder =
+    Math.abs(pos.x - left) <= borderThreshold && pos.y >= top && pos.y <= bottom
+  const isOnRightBorder =
+    Math.abs(pos.x - right) <= borderThreshold && pos.y >= top && pos.y <= bottom
+
+  // 检查是否在上下边框上（排除控制点区域）
+  const isOnTopBorder = Math.abs(pos.y - top) <= borderThreshold && pos.x >= left && pos.x <= right
+  const isOnBottomBorder =
+    Math.abs(pos.y - bottom) <= borderThreshold && pos.x >= left && pos.x <= right
+
+  // 排除控制点区域（控制点大小约为 8px）
+  const handleSize = 8 / scale.value
+  const handleMargin = handleSize / 2
+
+  if (isOnLeftBorder || isOnRightBorder) {
+    // 检查是否在控制点区域（角点和边中点）
+    const isNearCorner =
+      Math.abs(pos.y - top) <= handleMargin ||
+      Math.abs(pos.y - bottom) <= handleMargin ||
+      Math.abs(pos.y - (top + bottom) / 2) <= handleMargin
+    if (!isNearCorner) {
+      return 'ew-resize'
+    }
+  }
+
+  if (isOnTopBorder || isOnBottomBorder) {
+    // 检查是否在控制点区域（角点和边中点）
+    const isNearCorner =
+      Math.abs(pos.x - left) <= handleMargin ||
+      Math.abs(pos.x - right) <= handleMargin ||
+      Math.abs(pos.x - (left + right) / 2) <= handleMargin
+    if (!isNearCorner) {
+      return 'ns-resize'
+    }
+  }
+
+  return null
+}
+
+// 更新光标样式（参考 excalidraw 的 getCursorForResizingElement）
+function updateCursorStyle(pos) {
+  // 如果正在平移，显示 grabbing
+  if (panning.value) {
+    canvasCursor.value = 'grabbing'
+    return
+  }
+
+  // 根据工具类型设置默认光标
+  if (tool.value === 'select') {
+    const selectedElements = getSelectedElements()
+    if (selectedElements.length === 0) {
+      canvasCursor.value = 'default'
+      return
+    }
+
+    // 检查是否悬停在变换控制点上
+    const handleType = getTransformHandleTypeAtPoint(pos, selectedElements)
+    if (handleType) {
+      if (handleType === 'rotation') {
+        canvasCursor.value = 'grab'
+      } else if (handleType === 'n' || handleType === 's') {
+        canvasCursor.value = 'ns-resize'
+      } else if (handleType === 'e' || handleType === 'w') {
+        canvasCursor.value = 'ew-resize'
+      } else if (handleType === 'nw' || handleType === 'se') {
+        canvasCursor.value = 'nwse-resize'
+      } else if (handleType === 'ne' || handleType === 'sw') {
+        canvasCursor.value = 'nesw-resize'
+      } else {
+        canvasCursor.value = 'default'
+      }
+      return
+    }
+
+    // 检查是否悬停在选中框的边框上
+    const borderCursor = isPointOnSelectionBoxBorder(pos, selectedElements)
+    if (borderCursor) {
+      canvasCursor.value = borderCursor
+      return
+    }
+
+    // 检查是否悬停在选中框内部（可移动区域）
+    if (isPointInSelectionBox(pos, selectedElements)) {
+      canvasCursor.value = 'move'
+      return
+    }
+
+    canvasCursor.value = 'default'
+  } else {
+    // 其他工具的光标
+    switch (tool.value) {
+      case 'move':
+        canvasCursor.value = spaceKeyPressed.value ? 'grabbing' : 'grab'
+        break
+      case 'pencil':
+      case 'eraser':
+      case 'line':
+      case 'rect':
+        canvasCursor.value = 'crosshair'
+        break
+      case 'text':
+        canvasCursor.value = 'text'
+        break
+      case 'bucket':
+      case 'resource':
+        canvasCursor.value = 'crosshair'
+        break
+      default:
+        canvasCursor.value = 'default'
+    }
+  }
+}
+
+// 初始化指针按下状态（参考 excalidraw 的 PointerDownState）
+function initializePointerDownState(selectedElements, pos) {
+  const originalElements = new Map()
+  selectedElements.forEach((element) => {
+    originalElements.set(element.id, JSON.parse(JSON.stringify(element)))
+  })
+
+  // 计算中心点（基于原始元素）
+  let centerX, centerY
+  if (selectedElements.length === 1) {
+    // originalElement 应该总是存在，因为它是从 selectedElements 中复制的
+    const originalElement = originalElements.get(selectedElements[0].id)
+    const coords = getElementAbsoluteCoords(originalElement || selectedElements[0])
+    centerX = coords[4]
+    centerY = coords[5]
+  } else {
+    const originalElementsArray = Array.from(originalElements.values())
+    const bounds = getCommonBounds(originalElementsArray) || getCommonBounds(selectedElements)
+    centerX = bounds[4]
+    centerY = bounds[5]
+  }
+
+  pointerDownState.value = {
+    originalElements,
+    lastCoords: { ...pos },
+    startCoords: { ...pos }, // 添加起始坐标，用于计算总偏移量
+    center: { x: centerX, y: centerY },
+    startAngle:
+      transformHandleType.value === 'rotation'
+        ? (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
+        : null,
+    // 保存调整大小开始时的鼠标位置，用于计算初始尺寸
+    resizeStartPos:
+      transformHandleType.value && transformHandleType.value !== 'rotation' ? { ...pos } : null
+  }
 }
 
 // ==================== 渲染画笔路径（使用 perfect-freehand） ====================
@@ -820,7 +1389,32 @@ function onToolChange(newTool) {
   } else if (newTool === 'line' || newTool === 'rect') {
     size.value = 3 // 线条和矩形的默认粗细
   }
-  clearSelection()
+  selectedElementIds.value.clear()
+
+  // 更新光标样式
+  switch (newTool) {
+    case 'select':
+      canvasCursor.value = 'default'
+      break
+    case 'move':
+      canvasCursor.value = spaceKeyPressed.value ? 'grabbing' : 'grab'
+      break
+    case 'pencil':
+    case 'eraser':
+    case 'line':
+    case 'rect':
+      canvasCursor.value = 'crosshair'
+      break
+    case 'text':
+      canvasCursor.value = 'text'
+      break
+    case 'bucket':
+    case 'resource':
+      canvasCursor.value = 'crosshair'
+      break
+    default:
+      canvasCursor.value = 'default'
+  }
 }
 
 // ==================== 坐标转换（参考 excalidraw） ====================
@@ -863,11 +1457,67 @@ function handleCanvasMouseDown(e) {
   const pos = getCanvasPos(e)
 
   if (tool.value === 'select') {
-    // 选框工具
+    // 选框工具（参考 excalidraw）
+    const selectedElements = getSelectedElements()
+
+    // 检查是否点击了变换控制点
+    if (selectedElements.length > 0) {
+      const handleType = getTransformHandleTypeAtPoint(pos, selectedElements)
+      if (handleType) {
+        // 开始变换（调整大小或旋转）
+        isTransforming.value = true
+        transformHandleType.value = handleType
+        initializePointerDownState(selectedElements, pos)
+        return
+      }
+
+      // 检查是否点击了选中框内部（用于移动）
+      if (isPointInSelectionBox(pos, selectedElements)) {
+        // 开始移动
+        isDragging.value = true
+        initializePointerDownState(selectedElements, pos)
+        return
+      }
+    }
+
+    // 检查是否点击了元素
+    const clickedElement = getElementAtPoint(pos)
+    if (clickedElement) {
+      // 检查该元素是否已经被选中
+      const wasSelected = selectedElementIds.value.has(clickedElement.id)
+
+      // 如果元素已经被选中，且点击位置在选中框内，则开始移动
+      if (wasSelected) {
+        const selectedElements = getSelectedElements()
+        if (selectedElements.length > 0 && isPointInSelectionBox(pos, selectedElements)) {
+          isDragging.value = true
+          initializePointerDownState(selectedElements, pos)
+          return
+        }
+      }
+
+      // 点击了元素，选中它
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        // 多选：切换选中状态
+        if (selectedElementIds.value.has(clickedElement.id)) {
+          selectedElementIds.value.delete(clickedElement.id)
+        } else {
+          selectedElementIds.value.add(clickedElement.id)
+        }
+      } else {
+        // 单选：只选中当前元素
+        selectedElementIds.value.clear()
+        selectedElementIds.value.add(clickedElement.id)
+      }
+      renderCanvas()
+      return
+    }
+
+    // 没有点击元素，开始拖拽选框
     isSelecting.value = true
     selectionStart.value = { ...pos }
     selectionEnd.value = { ...pos }
-    drawSelection()
+    selectedElementIds.value.clear()
   } else if (tool.value === 'pencil' || tool.value === 'eraser') {
     // 画笔/橡皮擦
     startDrawing(pos)
@@ -912,13 +1562,342 @@ function handleCanvasMouseMove(e) {
 
   const pos = getCanvasPos(e)
 
-  if (isSelecting.value && tool.value === 'select') {
+  if (isDragging.value && tool.value === 'select') {
+    // 移动选中的元素（参考 excalidraw 的 dragSelectedElements）
+    if (!pointerDownState.value) return
+
+    // 计算从起始位置到当前位置的总偏移量（基于原始元素位置）
+    const totalDeltaX = pos.x - pointerDownState.value.startCoords.x
+    const totalDeltaY = pos.y - pointerDownState.value.startCoords.y
+
+    const selectedElements = getSelectedElements()
+    selectedElements.forEach((element) => {
+      const originalElement = pointerDownState.value.originalElements.get(element.id)
+      if (!originalElement) return
+
+      if (element.type === 'freedraw') {
+        // 移动画笔路径的所有点（基于原始位置和总偏移量）
+        element.points = originalElement.points.map((point) => ({
+          x: point.x + totalDeltaX,
+          y: point.y + totalDeltaY
+        }))
+      } else if (element.type === 'line' || element.type === 'rect') {
+        // 移动线条/矩形的起点和终点（基于原始位置和总偏移量）
+        element.start = {
+          x: originalElement.start.x + totalDeltaX,
+          y: originalElement.start.y + totalDeltaY
+        }
+        element.end = {
+          x: originalElement.end.x + totalDeltaX,
+          y: originalElement.end.y + totalDeltaY
+        }
+      } else if (
+        element.type === 'text' ||
+        element.type === 'resource' ||
+        element.type === 'fill'
+      ) {
+        // 移动文字/资源/填充的坐标（基于原始位置和总偏移量）
+        element.x = originalElement.x + totalDeltaX
+        element.y = originalElement.y + totalDeltaY
+      }
+    })
+
+    renderCanvas()
+    return
+  } else if (isTransforming.value && tool.value === 'select') {
+    // 变换选中的元素（调整大小或旋转，参考 excalidraw 的 transformElements）
+    if (!pointerDownState.value) return
+
+    const selectedElements = getSelectedElements()
+    if (selectedElements.length === 0) return
+
+    if (transformHandleType.value === 'rotation') {
+      // 旋转（参考 excalidraw 的 rotateMultipleElements）
+      const centerX = pointerDownState.value.center.x
+      const centerY = pointerDownState.value.center.y
+      const startAngle = pointerDownState.value.startAngle
+
+      const currentAngle = (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
+      const angle = currentAngle - startAngle
+
+      selectedElements.forEach((element) => {
+        const originalElement = pointerDownState.value.originalElements.get(element.id)
+        if (!originalElement) return
+
+        const bounds = getElementBounds(originalElement)
+        if (!bounds) return
+
+        const elementCenterX = bounds.x + bounds.width / 2
+        const elementCenterY = bounds.y + bounds.height / 2
+
+        // 计算旋转后的中心点
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+        const dx = elementCenterX - centerX
+        const dy = elementCenterY - centerY
+        const newCenterX = centerX + dx * cos - dy * sin
+        const newCenterY = centerY + dx * sin + dy * cos
+
+        // 计算偏移量
+        const offsetX = newCenterX - elementCenterX
+        const offsetY = newCenterY - elementCenterY
+
+        if (element.type === 'freedraw') {
+          element.points = originalElement.points.map((point) => {
+            const px = point.x - elementCenterX
+            const py = point.y - elementCenterY
+            return {
+              x: elementCenterX + px * cos - py * sin + offsetX,
+              y: elementCenterY + px * sin + py * cos + offsetY
+            }
+          })
+        } else if (element.type === 'line' || element.type === 'rect') {
+          const startPx = originalElement.start.x - elementCenterX
+          const startPy = originalElement.start.y - elementCenterY
+          const endPx = originalElement.end.x - elementCenterX
+          const endPy = originalElement.end.y - elementCenterY
+
+          element.start = {
+            x: elementCenterX + startPx * cos - startPy * sin + offsetX,
+            y: elementCenterY + startPx * sin + startPy * cos + offsetY
+          }
+          element.end = {
+            x: elementCenterX + endPx * cos - endPy * sin + offsetX,
+            y: elementCenterY + endPx * sin + endPy * cos + offsetY
+          }
+        } else if (
+          element.type === 'text' ||
+          element.type === 'resource' ||
+          element.type === 'fill'
+        ) {
+          const px = originalElement.x - elementCenterX
+          const py = originalElement.y - elementCenterY
+          element.x = elementCenterX + px * cos - py * sin + offsetX
+          element.y = elementCenterY + px * sin + py * cos + offsetY
+        }
+      })
+    } else if (transformHandleType.value) {
+      // 调整大小（参考 excalidraw 的 resizeMultipleElements）
+      const handle = transformHandleType.value
+
+      // 获取原始边界框（始终使用原始元素，不要使用当前元素）
+      const originalElements = Array.from(pointerDownState.value.originalElements.values())
+      let originalBounds
+      if (originalElements.length === 1) {
+        originalBounds = getElementBounds(originalElements[0])
+        if (originalBounds) {
+          originalBounds = [
+            originalBounds.x,
+            originalBounds.y,
+            originalBounds.x + originalBounds.width,
+            originalBounds.y + originalBounds.height,
+            originalBounds.x + originalBounds.width / 2,
+            originalBounds.y + originalBounds.height / 2
+          ]
+        }
+      } else {
+        originalBounds = getCommonBounds(originalElements)
+      }
+      if (!originalBounds) return
+
+      const [ox1, oy1, ox2, oy2] = originalBounds
+      const originalWidth = ox2 - ox1
+      const originalHeight = oy2 - oy1
+
+      // 获取调整大小开始时的鼠标位置（如果不存在，使用当前鼠标位置初始化）
+      if (!pointerDownState.value.resizeStartPos) {
+        pointerDownState.value.resizeStartPos = { ...pos }
+      }
+      const resizeStartPos = pointerDownState.value.resizeStartPos
+      // 计算鼠标从开始位置到当前位置的偏移
+      const deltaX = pos.x - resizeStartPos.x
+      const deltaY = pos.y - resizeStartPos.y
+
+      // 计算新的尺寸（参考 excalidraw 的 getNextMultipleWidthAndHeightFromPointer）
+      // 基于原始尺寸和鼠标偏移量计算，而不是直接使用鼠标绝对位置
+      let newWidth = originalWidth
+      let newHeight = originalHeight
+
+      // 确定锚点和计算新尺寸（参考 excalidraw 的 getResizeAnchor）
+      let anchorX = ox1
+      let anchorY = oy1
+
+      if (handle.includes('e') && handle.includes('s')) {
+        // se: 锚点在 top-left
+        anchorX = ox1
+        anchorY = oy1
+        newWidth = originalWidth + deltaX
+        newHeight = originalHeight + deltaY
+      } else if (handle.includes('e') && handle.includes('n')) {
+        // ne: 锚点在 bottom-left
+        anchorX = ox1
+        anchorY = oy2
+        newWidth = originalWidth + deltaX
+        newHeight = originalHeight - deltaY
+      } else if (handle.includes('w') && handle.includes('s')) {
+        // sw: 锚点在 top-right
+        anchorX = ox2
+        anchorY = oy1
+        newWidth = originalWidth - deltaX
+        newHeight = originalHeight + deltaY
+      } else if (handle.includes('w') && handle.includes('n')) {
+        // nw: 锚点在 bottom-right
+        anchorX = ox2
+        anchorY = oy2
+        newWidth = originalWidth - deltaX
+        newHeight = originalHeight - deltaY
+      } else if (handle === 'e') {
+        // e: 锚点在 west-side (left)，保持左边界和垂直中心不变
+        anchorX = ox1
+        anchorY = oy1 + originalHeight / 2
+        newWidth = originalWidth + deltaX
+        newHeight = originalHeight
+      } else if (handle === 'w') {
+        // w: 锚点在 east-side (right)，保持右边界和垂直中心不变
+        anchorX = ox2
+        anchorY = oy1 + originalHeight / 2
+        newWidth = originalWidth - deltaX
+        newHeight = originalHeight
+      } else if (handle === 's') {
+        // s: 锚点在 north-side (top)，保持上边界和水平中心不变
+        anchorX = ox1 + originalWidth / 2
+        anchorY = oy1
+        newWidth = originalWidth
+        newHeight = originalHeight + deltaY
+      } else if (handle === 'n') {
+        // n: 锚点在 south-side (bottom)，保持下边界和水平中心不变
+        anchorX = ox1 + originalWidth / 2
+        anchorY = oy2
+        newWidth = originalWidth
+        newHeight = originalHeight - deltaY
+      }
+
+      // 限制最小尺寸
+      if (newWidth < 10) {
+        newWidth = 10
+      }
+      if (newHeight < 10) {
+        newHeight = 10
+      }
+
+      // 计算缩放比例
+      const scaleX = newWidth / originalWidth
+      const scaleY = newHeight / originalHeight
+
+      // 更新所有选中元素（基于锚点进行缩放，参考 excalidraw 的 resizeMultipleElements）
+      selectedElements.forEach((element) => {
+        const originalElement = pointerDownState.value.originalElements.get(element.id)
+        if (!originalElement) return
+
+        const originalBounds = getElementBounds(originalElement)
+        if (!originalBounds) return
+
+        // 计算元素相对于原始边界框的偏移
+        const offsetX = originalBounds.x - ox1
+        const offsetY = originalBounds.y - oy1
+
+        // 计算新边界框的位置（基于锚点和新尺寸）
+        let newBoundsX, newBoundsY
+        if (handle.includes('e') && handle.includes('s')) {
+          // se: 锚点在 top-left，新边界框从锚点开始
+          newBoundsX = anchorX
+          newBoundsY = anchorY
+        } else if (handle.includes('e') && handle.includes('n')) {
+          // ne: 锚点在 bottom-left，新边界框从锚点开始（但 y 需要减去高度）
+          newBoundsX = anchorX
+          newBoundsY = anchorY - newHeight
+        } else if (handle.includes('w') && handle.includes('s')) {
+          // sw: 锚点在 top-right，新边界框从锚点开始（但 x 需要减去宽度）
+          newBoundsX = anchorX - newWidth
+          newBoundsY = anchorY
+        } else if (handle.includes('w') && handle.includes('n')) {
+          // nw: 锚点在 bottom-right，新边界框从锚点开始（但 x 和 y 都需要减去）
+          newBoundsX = anchorX - newWidth
+          newBoundsY = anchorY - newHeight
+        } else if (handle === 'e') {
+          // e: 锚点在 left，新边界框从锚点开始
+          newBoundsX = anchorX
+          newBoundsY = anchorY - newHeight / 2
+        } else if (handle === 'w') {
+          // w: 锚点在 right，新边界框从锚点开始（但 x 需要减去宽度）
+          newBoundsX = anchorX - newWidth
+          newBoundsY = anchorY - newHeight / 2
+        } else if (handle === 's') {
+          // s: 锚点在 top，新边界框从锚点开始（但 y 需要减去高度的一半，因为锚点是中心）
+          newBoundsX = anchorX - newWidth / 2
+          newBoundsY = anchorY
+        } else if (handle === 'n') {
+          // n: 锚点在 bottom，新边界框从锚点开始（但 y 需要减去高度，x 需要减去宽度的一半）
+          newBoundsX = anchorX - newWidth / 2
+          newBoundsY = anchorY - newHeight
+        } else {
+          // 默认情况
+          newBoundsX = anchorX
+          newBoundsY = anchorY
+        }
+
+        // 基于新边界框和缩放比例计算元素的新位置和尺寸
+        const newElementX = newBoundsX + offsetX * scaleX
+        const newElementY = newBoundsY + offsetY * scaleY
+        const newElementWidth = originalBounds.width * scaleX
+        const newElementHeight = originalBounds.height * scaleY
+
+        if (element.type === 'freedraw') {
+          const elementCenterX = newElementX + newElementWidth / 2
+          const elementCenterY = newElementY + newElementHeight / 2
+          const originalCenterX = originalBounds.x + originalBounds.width / 2
+          const originalCenterY = originalBounds.y + originalBounds.height / 2
+
+          element.points = originalElement.points.map((point) => ({
+            x: elementCenterX + (point.x - originalCenterX) * scaleX,
+            y: elementCenterY + (point.y - originalCenterY) * scaleY
+          }))
+        } else if (element.type === 'line' || element.type === 'rect') {
+          const elementCenterX = newElementX + newElementWidth / 2
+          const elementCenterY = newElementY + newElementHeight / 2
+          const originalCenterX = originalBounds.x + originalBounds.width / 2
+          const originalCenterY = originalBounds.y + originalBounds.height / 2
+
+          element.start = {
+            x: elementCenterX + (originalElement.start.x - originalCenterX) * scaleX,
+            y: elementCenterY + (originalElement.start.y - originalCenterY) * scaleY
+          }
+          element.end = {
+            x: elementCenterX + (originalElement.end.x - originalCenterX) * scaleX,
+            y: elementCenterY + (originalElement.end.y - originalCenterY) * scaleY
+          }
+        } else if (
+          element.type === 'text' ||
+          element.type === 'resource' ||
+          element.type === 'fill'
+        ) {
+          element.x = newElementX
+          element.y = newElementY
+          if (element.width) {
+            element.width = newElementWidth
+          }
+          if (element.height) {
+            element.height = newElementHeight
+          }
+        }
+      })
+    }
+
+    renderCanvas()
+    return
+  } else if (isSelecting.value && tool.value === 'select') {
+    // 更新选框
     selectionEnd.value = { ...pos }
-    drawSelection()
+    renderCanvas() // 重新渲染以显示选框
   } else if (drawingActive.value && (tool.value === 'pencil' || tool.value === 'eraser')) {
     continueDrawing(pos)
   } else if (drawingActive.value && (tool.value === 'line' || tool.value === 'rect')) {
     drawShapePreview(pos)
+  }
+
+  // 更新光标样式（当不在拖拽或变换时）
+  if (tool.value === 'select' && !isDragging.value && !isTransforming.value && !isSelecting.value) {
+    updateCursorStyle(pos)
   }
 }
 
@@ -928,9 +1907,45 @@ function handleCanvasMouseUp() {
     return
   }
 
-  if (isSelecting.value && tool.value === 'select') {
+  if (isDragging.value && tool.value === 'select') {
+    // 移动完成
+    isDragging.value = false
+    pointerDownState.value = null
+    canvasCursor.value = 'default'
+    if (history.value) {
+      history.value.saveState()
+    }
+  } else if (isTransforming.value && tool.value === 'select') {
+    // 变换完成（调整大小或旋转）
+    isTransforming.value = false
+    transformHandleType.value = null
+    pointerDownState.value = null
+    canvasCursor.value = 'default'
+    if (history.value) {
+      history.value.saveState()
+    }
+  } else if (isSelecting.value && tool.value === 'select') {
+    // 选框完成，选中框内的所有元素（参考 excalidraw）
     isSelecting.value = false
-    // 选框完成，可以在这里添加选择区域的处理逻辑
+    const box = {
+      x: Math.min(selectionStart.value.x, selectionEnd.value.x),
+      y: Math.min(selectionStart.value.y, selectionEnd.value.y),
+      width: Math.abs(selectionEnd.value.x - selectionStart.value.x),
+      height: Math.abs(selectionEnd.value.y - selectionStart.value.y)
+    }
+
+    if (box.width > 5 && box.height > 5) {
+      // 选框足够大，选中框内的元素
+      const selectedIds = getElementsInSelectionBox(box)
+      // 支持多选：如果按住 shift/ctrl/cmd，则添加到选中，否则替换
+      // 注意：这里无法访问 e，所以暂时不支持多选，直接替换选中
+      selectedElementIds.value = selectedIds
+      renderCanvas()
+    }
+
+    // 清除选框
+    selectionStart.value = null
+    selectionEnd.value = null
   } else if (drawingActive.value) {
     if (tool.value === 'pencil' && currentFreeDrawPath.value) {
       // 完成画笔路径
@@ -965,7 +1980,7 @@ function handleContainerMouseDown(e) {
     }
     e.preventDefault()
     if (tool.value !== 'move') {
-      document.body.style.cursor = 'grabbing'
+      canvasCursor.value = 'grabbing'
     }
   }
 }
@@ -991,7 +2006,8 @@ function handleContainerMouseUp() {
   if (panning.value) {
     panning.value = false
     if (tool.value !== 'move' && !spaceKeyPressed.value) {
-      document.body.style.cursor = ''
+      // 重置光标为默认值
+      canvasCursor.value = 'default'
     }
   }
 }
@@ -1080,35 +2096,148 @@ function finishShape() {
   currentShape.value = null
 }
 
-// ==================== 选框功能 ====================
-function drawSelection() {
-  if (!selectionCanvasRef.value || !selectionStart.value || !selectionEnd.value) return
-  const ctx = selectionCanvasRef.value.getContext('2d')
-  ctx.clearRect(0, 0, selectionCanvasRef.value.width, selectionCanvasRef.value.height)
-
-  const x = Math.min(selectionStart.value.x, selectionEnd.value.x)
-  const y = Math.min(selectionStart.value.y, selectionEnd.value.y)
-  const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
-  const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
-
-  ctx.strokeStyle = '#409EFF'
-  ctx.lineWidth = 2
-  ctx.setLineDash([5, 5])
-  ctx.strokeRect(x, y, width, height)
-  ctx.setLineDash([])
-
-  ctx.fillStyle = 'rgba(64, 158, 255, 0.1)'
-  ctx.fillRect(x, y, width, height)
+// ==================== 元素边界计算 ====================
+// 获取元素的边界框（参考 excalidraw）
+function getElementBounds(element) {
+  if (element.type === 'freedraw') {
+    // 画笔路径：计算所有点的边界
+    if (!element.points || element.points.length === 0) return null
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    element.points.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+    // 考虑 strokeWidth
+    const padding = (element.strokeWidth || 5) / 2
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    }
+  } else if (element.type === 'line') {
+    // 线条：计算起点和终点的边界
+    const minX = Math.min(element.start.x, element.end.x)
+    const minY = Math.min(element.start.y, element.end.y)
+    const maxX = Math.max(element.start.x, element.end.x)
+    const maxY = Math.max(element.start.y, element.end.y)
+    const padding = (element.strokeWidth || 2) / 2
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    }
+  } else if (element.type === 'rect') {
+    // 矩形：直接使用坐标
+    const minX = Math.min(element.start.x, element.end.x)
+    const minY = Math.min(element.start.y, element.end.y)
+    const maxX = Math.max(element.start.x, element.end.x)
+    const maxY = Math.max(element.start.y, element.end.y)
+    const padding = (element.strokeWidth || 2) / 2
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    }
+  } else if (element.type === 'text') {
+    // 文字：使用 x, y, width, height
+    return {
+      x: element.x,
+      y: element.y,
+      width: element.width || 0,
+      height: element.height || 0
+    }
+  } else if (element.type === 'resource') {
+    // 资源：使用 x, y, width, height
+    return {
+      x: element.x - 20,
+      y: element.y - 20,
+      width: element.width || 40,
+      height: element.height || 40
+    }
+  } else if (element.type === 'fill') {
+    // 填充区域
+    return {
+      x: element.x,
+      y: element.y,
+      width: element.width || 0,
+      height: element.height || 0
+    }
+  }
+  return null
 }
 
-function clearSelection() {
-  if (selectionCanvasRef.value) {
-    const ctx = selectionCanvasRef.value.getContext('2d')
-    ctx.clearRect(0, 0, selectionCanvasRef.value.width, selectionCanvasRef.value.height)
-  }
-  selectionStart.value = null
-  selectionEnd.value = null
-  isSelecting.value = false
+// 检查点是否在元素内（参考 excalidraw）
+function isPointInElement(point, element) {
+  const bounds = getElementBounds(element)
+  if (!bounds) return false
+
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
+  )
+}
+
+// 获取选框内的所有元素
+function getElementsInSelectionBox(box) {
+  const selectedIds = new Set()
+
+  // 检查所有元素
+  freeDrawElements.value.forEach((element) => {
+    const bounds = getElementBounds(element)
+    if (bounds && isElementInBox(bounds, box)) {
+      selectedIds.add(element.id)
+    }
+  })
+
+  shapeElements.value.forEach((element) => {
+    const bounds = getElementBounds(element)
+    if (bounds && isElementInBox(bounds, box)) {
+      selectedIds.add(element.id)
+    }
+  })
+
+  textElements.value.forEach((element) => {
+    const bounds = getElementBounds(element)
+    if (bounds && isElementInBox(bounds, box)) {
+      selectedIds.add(element.id)
+    }
+  })
+
+  resourceElements.value.forEach((element) => {
+    const bounds = getElementBounds(element)
+    if (bounds && isElementInBox(bounds, box)) {
+      selectedIds.add(element.id)
+    }
+  })
+
+  fillElements.value.forEach((element) => {
+    const bounds = getElementBounds(element)
+    if (bounds && isElementInBox(bounds, box)) {
+      selectedIds.add(element.id)
+    }
+  })
+
+  return selectedIds
+}
+
+// 检查元素的边界框是否完全在选框内
+function isElementInBox(elementBounds, box) {
+  return (
+    elementBounds.x >= box.x &&
+    elementBounds.y >= box.y &&
+    elementBounds.x + elementBounds.width <= box.x + box.width &&
+    elementBounds.y + elementBounds.height <= box.y + box.height
+  )
 }
 
 // ==================== 油漆桶填充 ====================
@@ -1694,7 +2823,7 @@ function handleKeyDown(e) {
   if (e.key === ' ' && tool.value !== 'move') {
     e.preventDefault()
     spaceKeyPressed.value = true
-    document.body.style.cursor = 'grab'
+    canvasCursor.value = 'grab'
   }
 }
 
@@ -1702,7 +2831,7 @@ function handleKeyUp(e) {
   if (e.key === ' ') {
     spaceKeyPressed.value = false
     if (tool.value !== 'move') {
-      document.body.style.cursor = ''
+      canvasCursor.value = 'default'
     }
   }
 }
