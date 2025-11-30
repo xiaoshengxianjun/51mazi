@@ -1,0 +1,286 @@
+<template>
+  <div class="map-design">
+    <!-- 工具栏 -->
+    <MapToolbar
+      v-model="tool"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      :resources="resources"
+      @update:model-value="onToolChange"
+      @undo="handleUndo"
+      @redo="handleRedo"
+      @clear="handleClearCanvas"
+      @resource-select="selectResource"
+      @resource-mousedown="onResourceMouseDown"
+    />
+
+    <!-- 画布容器 -->
+    <div
+      ref="editorContainerRef"
+      class="editor-container"
+      @wheel="handleWheel"
+      @mousedown="handleContainerMouseDown"
+      @mousemove="handleContainerMouseMove"
+      @mouseup="handleContainerMouseUp"
+    >
+      <div class="canvas-wrap" :style="canvasWrapStyle">
+        <canvas
+          ref="canvasRef"
+          :width="canvasState.canvasDisplayWidth"
+          :height="canvasState.canvasDisplayHeight"
+          class="draw-canvas"
+          :style="{ cursor: canvasCursor }"
+          @mousedown="handleCanvasMouseDown"
+          @mousemove="handleCanvasMouseMove"
+          @mouseup="handleCanvasMouseUp"
+        ></canvas>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, nextTick } from 'vue'
+import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
+
+// 导入 composables
+import { useCanvasState } from '@renderer/composables/map/useCanvasState'
+import { useCoordinate } from '@renderer/composables/map/useCoordinate'
+import { useHistory, HistoryManager } from '@renderer/composables/map/useHistory'
+import { useElements } from '@renderer/composables/map/useElements'
+import { useRender } from '@renderer/composables/map/useRender'
+import { useCanvas } from '@renderer/composables/map/useCanvas'
+import { usePencilTool } from '@renderer/composables/map/tools/usePencilTool'
+import { useEraserTool } from '@renderer/composables/map/tools/useEraserTool'
+
+// ==================== 基础数据 ====================
+const canvasRef = ref(null)
+const editorContainerRef = ref(null)
+const tool = ref('pencil')
+const color = ref('#222222')
+const backgroundColor = ref('#ffffff')
+const size = ref(5)
+const opacity = ref(100)
+const canvasCursor = ref('default')
+
+// ==================== 使用 Composables ====================
+// 画布状态
+const canvasState = useCanvasState()
+
+// 元素管理
+const elements = useElements()
+
+// 历史记录
+const { history } = useHistory(canvasRef)
+
+// 坐标转换
+const { getCanvasPos } = useCoordinate(
+  canvasRef,
+  editorContainerRef,
+  canvasState.scale,
+  canvasState.scrollX,
+  canvasState.scrollY
+)
+
+// 渲染函数
+const renderFunctions = useRender(canvasRef, canvasState.scale)
+
+// 画布管理
+const { renderCanvas, canvasWrapStyle } = useCanvas(
+  canvasRef,
+  editorContainerRef,
+  canvasState,
+  elements,
+  {
+    currentFreeDrawPath: elements.currentFreeDrawPath,
+    currentShape: elements.currentShape,
+    drawingActive: ref(false) // 需要从工具中获取
+  },
+  renderFunctions,
+  backgroundColor,
+  tool,
+  undefined, // selectedElementIds - 待实现
+  undefined, // isSelecting - 待实现
+  undefined, // selectionStart - 待实现
+  undefined // selectionEnd - 待实现
+)
+
+// 工具 composables
+const pencilTool = usePencilTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  color,
+  size,
+  opacity
+})
+
+const eraserTool = useEraserTool({
+  canvasRef,
+  history,
+  size
+})
+
+// 合并 drawingActive（从各个工具中获取）
+const drawingActive = computed(() => {
+  return pencilTool.drawingActive.value || eraserTool.drawingActive.value
+})
+
+// ==================== 计算属性 ====================
+const canUndo = computed(() => {
+  return history.value ? history.value.canUndo() : false
+})
+
+const canRedo = computed(() => {
+  return history.value ? history.value.canRedo() : false
+})
+
+// ==================== 事件处理 ====================
+function handleCanvasMouseDown(e) {
+  const pos = getCanvasPos(e)
+
+  if (tool.value === 'pencil') {
+    pencilTool.onMouseDown(pos)
+  } else if (tool.value === 'eraser') {
+    eraserTool.onMouseDown(pos)
+  }
+  // ... 其他工具待实现
+}
+
+function handleCanvasMouseMove(e) {
+  const pos = getCanvasPos(e)
+
+  if (tool.value === 'pencil' && pencilTool.drawingActive.value) {
+    pencilTool.onMouseMove(pos)
+  } else if (tool.value === 'eraser' && eraserTool.drawingActive.value) {
+    eraserTool.onMouseMove(pos)
+  }
+  // ... 其他工具待实现
+}
+
+function handleCanvasMouseUp(e) {
+  if (tool.value === 'pencil') {
+    pencilTool.onMouseUp()
+  } else if (tool.value === 'eraser') {
+    eraserTool.onMouseUp()
+  }
+  // ... 其他工具待实现
+}
+
+function handleContainerMouseDown(e) {
+  // 平移逻辑（待实现）
+}
+
+function handleContainerMouseMove(e) {
+  // 平移逻辑（待实现）
+}
+
+function handleContainerMouseUp() {
+  // 平移逻辑（待实现）
+}
+
+function handleWheel(e) {
+  // 缩放逻辑（待实现）
+}
+
+function onToolChange(newTool) {
+  tool.value = newTool
+}
+
+function handleUndo() {
+  if (history.value && history.value.undo()) {
+    // 成功
+  }
+}
+
+function handleRedo() {
+  if (history.value && history.value.redo()) {
+    // 成功
+  }
+}
+
+function handleClearCanvas() {
+  elements.clearAll()
+  renderCanvas()
+}
+
+function selectResource(resource) {
+  // 待实现
+}
+
+function onResourceMouseDown(resource, event) {
+  // 待实现
+}
+
+// ==================== 资源列表 ====================
+const resources = [
+  { name: '点', url: '/src/assets/images/point.png' },
+  { name: '五角星', url: '/src/assets/images/star.png' }
+  // ... 其他资源
+]
+
+// ==================== 生命周期 ====================
+onMounted(() => {
+  nextTick(() => {
+    if (canvasRef.value) {
+      history.value = new HistoryManager(canvasRef.value)
+      history.value.renderCallback = renderCanvas
+      history.value.getStateCallback = () => ({
+        freeDrawElements: elements.freeDrawElements.value,
+        shapeElements: elements.shapeElements.value,
+        textElements: elements.textElements.value,
+        resourceElements: elements.resourceElements.value,
+        fillElements: elements.fillElements.value,
+        backgroundColor: backgroundColor.value
+      })
+      history.value.setStateCallback = (state) => {
+        elements.freeDrawElements.value = state.freeDrawElements || []
+        elements.shapeElements.value = state.shapeElements || []
+        elements.textElements.value = state.textElements || []
+        elements.resourceElements.value = state.resourceElements || []
+        elements.fillElements.value = state.fillElements || []
+        backgroundColor.value = state.backgroundColor || '#ffffff'
+      }
+      history.value.init()
+      renderCanvas()
+    }
+  })
+})
+</script>
+
+<style lang="scss" scoped>
+.map-design {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f3f3f3;
+  position: relative;
+  overflow: hidden;
+
+  .editor-container {
+    flex: 1;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    background-color: #f3f3f3;
+  }
+
+  .canvas-wrap {
+    position: absolute;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    will-change: transform;
+  }
+
+  .draw-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    background: transparent;
+  }
+}
+</style>
+
