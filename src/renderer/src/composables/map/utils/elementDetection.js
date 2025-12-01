@@ -25,11 +25,11 @@ export function isPointInElement(point, element) {
 export function getElementAtPoint(point, elements) {
   // 从后往前查找（后绘制的元素在上层）
   const allElements = [
-    ...elements.fillElements,
-    ...elements.resourceElements,
-    ...elements.textElements,
-    ...elements.shapeElements,
-    ...elements.freeDrawElements
+    ...elements.fillElements.value,
+    ...elements.resourceElements.value,
+    ...elements.textElements.value,
+    ...elements.shapeElements.value,
+    ...elements.freeDrawElements.value
   ]
 
   for (let i = allElements.length - 1; i >= 0; i--) {

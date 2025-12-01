@@ -1,5 +1,14 @@
 <template>
   <div class="map-design">
+    <!-- 返回按钮 -->
+    <div class="back-button-container">
+      <el-button text class="back-button" :icon="ArrowLeftBold" @click="handleBack">
+        返回
+      </el-button>
+      <el-divider direction="vertical" />
+      <span class="map-name">{{ mapName || '未命名地图' }}</span>
+    </div>
+
     <!-- 工具栏 -->
     <MapToolbar
       v-model="tool"
@@ -43,7 +52,7 @@
           label="大小"
         />
         <MapSlider
-          v-if="tool === 'pencil'"
+          v-if="tool === 'pencil' || tool === 'line' || tool === 'rect'"
           v-model="opacity"
           :min="opacityConfig.min"
           :max="opacityConfig.max"
@@ -69,8 +78,8 @@
         <!-- 绘制画布 -->
         <canvas
           ref="canvasRef"
-          :width="canvasState.canvasDisplayWidth"
-          :height="canvasState.canvasDisplayHeight"
+          :width="canvasDisplayWidth"
+          :height="canvasDisplayHeight"
           class="draw-canvas"
           :style="{ cursor: canvasCursor }"
           @mousedown="handleCanvasMouseDown"
@@ -85,7 +94,7 @@
 
         <!-- 文字输入框 -->
         <div
-          v-if="textTool.textInputVisible"
+          v-if="shouldShowTextInput"
           class="text-input-overlay"
           :style="textInputOverlayStyle"
           @mousedown.stop
@@ -93,7 +102,7 @@
         >
           <textarea
             :ref="(el) => (textTool.textInputRef = el)"
-            v-model="textTool.textInputValue"
+            v-model="textInputValue"
             class="text-input"
             placeholder="输入文字..."
             :style="{
@@ -121,9 +130,10 @@
 import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
 import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
 import MapSlider from '@renderer/components/Map/MapSlider.vue'
-import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowLeftBold } from '@element-plus/icons-vue'
 
 // 导入 composables
 import { useCanvasState } from '@renderer/composables/map/useCanvasState'
@@ -148,7 +158,7 @@ const route = useRoute()
 const bookName = route.query.name
 
 // ==================== 基础数据 ====================
-const mapName = ref('')
+const mapName = ref(route.query.id || '')
 const editorContainerRef = ref(null)
 const canvasRef = ref(null)
 const tool = ref('select')
@@ -184,7 +194,18 @@ const renderFunctions = useRender(canvasRef, canvasState.scale)
 // 选框状态
 const selectedElementIds = ref(new Set())
 
-// 画布管理
+// 先创建 selectTool 的状态 refs（因为 useCanvas 需要它们）
+const selectToolIsSelecting = ref(false)
+const selectToolSelectionStart = ref(null)
+const selectToolSelectionEnd = ref(null)
+
+// 先创建其他工具的状态 refs（因为 useCanvas 需要它们）
+const pencilToolDrawingActive = ref(false)
+const eraserToolDrawingActive = ref(false)
+const lineToolDrawingActive = ref(false)
+const rectToolDrawingActive = ref(false)
+
+// 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
 const { renderCanvas, canvasWrapStyle } = useCanvas(
   canvasRef,
   editorContainerRef,
@@ -195,10 +216,10 @@ const { renderCanvas, canvasWrapStyle } = useCanvas(
     currentShape: elements.currentShape,
     drawingActive: computed(() => {
       return (
-        pencilTool.drawingActive.value ||
-        eraserTool.drawingActive.value ||
-        lineTool.drawingActive.value ||
-        rectTool.drawingActive.value
+        pencilToolDrawingActive.value ||
+        eraserToolDrawingActive.value ||
+        lineToolDrawingActive.value ||
+        rectToolDrawingActive.value
       )
     })
   },
@@ -206,9 +227,9 @@ const { renderCanvas, canvasWrapStyle } = useCanvas(
   backgroundColor,
   tool,
   selectedElementIds,
-  selectTool.isSelecting,
-  selectTool.selectionStart,
-  selectTool.selectionEnd
+  selectToolIsSelecting,
+  selectToolSelectionStart,
+  selectToolSelectionEnd
 )
 
 // 工具 composables
@@ -221,12 +242,28 @@ const pencilTool = usePencilTool({
   size,
   opacity
 })
+// 同步 drawingActive 状态
+watch(
+  pencilTool.drawingActive,
+  (val) => {
+    pencilToolDrawingActive.value = val
+  },
+  { immediate: true }
+)
 
 const eraserTool = useEraserTool({
   canvasRef,
   history,
   size
 })
+// 同步 drawingActive 状态
+watch(
+  eraserTool.drawingActive,
+  (val) => {
+    eraserToolDrawingActive.value = val
+  },
+  { immediate: true }
+)
 
 const lineTool = useLineTool({
   canvasRef,
@@ -234,8 +271,17 @@ const lineTool = useLineTool({
   history,
   renderCanvas,
   color,
-  size
+  size,
+  opacity
 })
+// 同步 drawingActive 状态
+watch(
+  lineTool.drawingActive,
+  (val) => {
+    lineToolDrawingActive.value = val
+  },
+  { immediate: true }
+)
 
 const rectTool = useRectTool({
   canvasRef,
@@ -243,8 +289,17 @@ const rectTool = useRectTool({
   history,
   renderCanvas,
   color,
-  size
+  size,
+  opacity
 })
+// 同步 drawingActive 状态
+watch(
+  rectTool.drawingActive,
+  (val) => {
+    rectToolDrawingActive.value = val
+  },
+  { immediate: true }
+)
 
 const textTool = useTextTool({
   canvasRef,
@@ -279,6 +334,28 @@ const selectTool = useSelectTool({
   canvasState,
   canvasCursor
 })
+// 同步 selectTool 的状态
+watch(
+  selectTool.isSelecting,
+  (val) => {
+    selectToolIsSelecting.value = val
+  },
+  { immediate: true }
+)
+watch(
+  selectTool.selectionStart,
+  (val) => {
+    selectToolSelectionStart.value = val
+  },
+  { immediate: true }
+)
+watch(
+  selectTool.selectionEnd,
+  (val) => {
+    selectToolSelectionEnd.value = val
+  },
+  { immediate: true }
+)
 
 const moveTool = useMoveTool({
   editorContainerRef,
@@ -333,7 +410,7 @@ const currentColor = computed({
 
 const sliderConfig = computed(() => {
   if (tool.value === 'eraser') {
-    return { min: 1, max: 40, step: 1 }
+    return { min: 10, max: 50, step: 1 }
   } else if (tool.value === 'pencil') {
     return { min: 1, max: 50, step: 1 }
   } else if (tool.value === 'line' || tool.value === 'rect') {
@@ -352,6 +429,41 @@ const canUndo = computed(() => {
 
 const canRedo = computed(() => {
   return history.value ? history.value.canRedo() : false
+})
+
+// 解包 canvas 尺寸（确保在模板中正确显示）
+const canvasDisplayWidth = computed(() => {
+  return canvasState.canvasDisplayWidth.value
+})
+
+const canvasDisplayHeight = computed(() => {
+  return canvasState.canvasDisplayHeight.value
+})
+
+// 文字输入框值（确保是字符串）
+const textInputValue = computed({
+  get: () => {
+    const value = textTool.textInputValue.value
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'object') return '' // 防止对象被转换为字符串
+    return String(value)
+  },
+  set: (val) => {
+    const stringValue = typeof val === 'string' ? val : ''
+    textTool.textInputValue.value = stringValue
+    // 触发输入处理
+    if (textTool.handleTextInput) {
+      textTool.handleTextInput()
+    }
+  }
+})
+
+// 文字输入框是否应该显示
+const shouldShowTextInput = computed(() => {
+  return (
+    tool.value === 'text' && textTool.textInputVisible.value && !!textTool.editingTextElement.value
+  )
 })
 
 // 文字输入框位置样式
@@ -418,9 +530,7 @@ function handleCanvasMouseDown(e) {
   } else if (tool.value === 'bucket') {
     bucketTool.onMouseDown(pos)
   } else if (tool.value === 'text') {
-    if (textTool.textInputVisible.value) {
-      textTool.confirmTextInput()
-    }
+    // 直接调用 textTool.onMouseDown，它内部会处理 confirmTextInput
     textTool.onMouseDown(e)
   } else if (tool.value === 'select') {
     selectTool.onMouseDown(e, pos)
@@ -548,11 +658,32 @@ function handleColorChange(newColor) {
 }
 
 function onToolChange(newTool) {
+  // 如果切换到非文字工具，隐藏文字输入框
+  if (tool.value === 'text' && newTool !== 'text') {
+    if (textTool.textInputVisible.value) {
+      // 先确认输入（保存内容），然后隐藏
+      textTool.confirmTextInput()
+    }
+  }
+
+  // 如果切换到文字工具，确保输入框是隐藏的（只有点击画布后才显示）
+  if (newTool === 'text') {
+    if (textTool.textInputVisible.value) {
+      // 如果输入框已经显示，先确认输入
+      textTool.confirmTextInput()
+    }
+    // 确保输入框是隐藏的，清除所有相关状态
+    textTool.textInputVisible.value = false
+    textTool.editingTextElement.value = null
+    textTool.textInputPosition.value = { x: 0, y: 0 }
+    textTool.textInputValue.value = ''
+  }
+
   tool.value = newTool
   if (newTool === 'pencil') {
     size.value = 5
   } else if (newTool === 'eraser') {
-    size.value = 10
+    size.value = 30
   } else if (newTool === 'line' || newTool === 'rect') {
     size.value = 3
   }
@@ -627,6 +758,10 @@ function handleTextDoubleClick(e) {
   if (tool.value === 'text') {
     textTool.onDoubleClick(e)
   }
+}
+
+function handleBack() {
+  router.back()
 }
 
 // ==================== 保存地图 ====================
@@ -776,6 +911,30 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
 
+  .back-button-container {
+    position: fixed;
+    top: 8px;
+    left: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    padding-right: 10px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    .back-button {
+      height: 42px;
+    }
+    .map-name {
+      font-size: 14px;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
   .editor-container {
     flex: 1;
     width: 100%;
@@ -845,10 +1004,10 @@ onUnmounted(() => {
 // 颜色选择器样式
 .color-picker-container {
   position: fixed;
-  top: 60px;
+  top: 8px;
   right: 20px;
   z-index: 1000;
-  padding: 8px 12px;
+  padding: 5px 10px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

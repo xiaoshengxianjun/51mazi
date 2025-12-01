@@ -207,12 +207,12 @@ function handleSaveMap() {
   align-items: center;
   justify-content: center;
   position: fixed;
-  top: 60px;
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   width: max-content;
-  padding: 8px 12px;
+  padding: 5px 10px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

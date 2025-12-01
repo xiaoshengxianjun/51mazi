@@ -11,35 +11,35 @@ export function getElementsInSelectionBox(box, elements) {
   const selectedIds = new Set()
 
   // 检查所有元素
-  elements.freeDrawElements.forEach((element) => {
+  elements.freeDrawElements.value.forEach((element) => {
     const bounds = getElementBounds(element)
     if (bounds && isElementInBox(bounds, box)) {
       selectedIds.add(element.id)
     }
   })
 
-  elements.shapeElements.forEach((element) => {
+  elements.shapeElements.value.forEach((element) => {
     const bounds = getElementBounds(element)
     if (bounds && isElementInBox(bounds, box)) {
       selectedIds.add(element.id)
     }
   })
 
-  elements.textElements.forEach((element) => {
+  elements.textElements.value.forEach((element) => {
     const bounds = getElementBounds(element)
     if (bounds && isElementInBox(bounds, box)) {
       selectedIds.add(element.id)
     }
   })
 
-  elements.resourceElements.forEach((element) => {
+  elements.resourceElements.value.forEach((element) => {
     const bounds = getElementBounds(element)
     if (bounds && isElementInBox(bounds, box)) {
       selectedIds.add(element.id)
     }
   })
 
-  elements.fillElements.forEach((element) => {
+  elements.fillElements.value.forEach((element) => {
     const bounds = getElementBounds(element)
     if (bounds && isElementInBox(bounds, box)) {
       selectedIds.add(element.id)

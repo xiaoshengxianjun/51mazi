@@ -3,7 +3,7 @@ import { ref } from 'vue'
 /**
  * 线条工具 composable
  */
-export function useLineTool({ canvasRef, elements, history, renderCanvas, color, size }) {
+export function useLineTool({ canvasRef, elements, history, renderCanvas, color, size, opacity }) {
   const drawingActive = ref(false)
 
   /**
@@ -19,6 +19,7 @@ export function useLineTool({ canvasRef, elements, history, renderCanvas, color,
       end: { ...pos },
       color: color.value,
       strokeWidth: size.value,
+      opacity: opacity ? opacity.value : 100,
       id: Date.now().toString()
     }
     history.value.saveState()

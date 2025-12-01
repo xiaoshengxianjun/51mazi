@@ -57,7 +57,7 @@ export function useRender(canvasRef, scale) {
     }
 
     ctx.save()
-    ctx.globalAlpha = isPreview ? 0.7 : 1
+    ctx.globalAlpha = isPreview ? 0.7 : (element.opacity || 100) / 100
 
     if (element.type === 'line') {
       rc.line(element.start.x, element.start.y, element.end.x, element.end.y, options)

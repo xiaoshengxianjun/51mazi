@@ -21,7 +21,16 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
     if (element) {
       // 编辑现有文字元素
       editingTextElement.value = { ...element }
-      textInputValue.value = element.text
+      // 确保 textInputValue 始终是字符串
+      const text = element.text
+      if (typeof text === 'string') {
+        textInputValue.value = text
+      } else if (text === null || text === undefined) {
+        textInputValue.value = ''
+      } else {
+        // 如果 text 是对象或其他类型，转换为空字符串
+        textInputValue.value = ''
+      }
       textInputPosition.value = { x: element.x, y: element.y }
     } else {
       // 创建新文字元素
@@ -138,6 +147,7 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
       drawTextOnCanvas(text, textInputPosition.value.x, textInputPosition.value.y)
     }
 
+    // 清除状态
     textInputVisible.value = false
     textInputValue.value = ''
     editingTextElement.value = null
@@ -156,9 +166,11 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
         renderCanvas()
       }
     }
+    // 清除所有状态
     textInputVisible.value = false
     textInputValue.value = ''
     editingTextElement.value = null
+    textInputPosition.value = { x: 0, y: 0 }
   }
 
   /**
@@ -166,6 +178,10 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
    */
   function drawTextOnCanvas(text, x, y) {
     if (!canvasRef.value || !history.value) return
+    // 确保 text 是字符串
+    const textString = typeof text === 'string' ? text : String(text || '')
+    if (!textString.trim()) return // 如果文本为空，不创建元素
+
     history.value.saveState()
 
     // 计算文字尺寸
@@ -173,7 +189,7 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
     const fontFamily = editingTextElement.value?.fontFamily || 'Arial'
     const lineHeight = editingTextElement.value?.lineHeight || 1.2
     const textAlign = editingTextElement.value?.textAlign || 'left'
-    const lines = text.split('\n')
+    const lines = textString.split('\n')
     const ctx = canvasRef.value.getContext('2d')
     ctx.font = `${fontSize}px ${fontFamily}`
     ctx.textAlign = textAlign
@@ -189,7 +205,7 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
     // 保存文字元素
     elements.textElements.value.push({
       type: 'text',
-      text: text,
+      text: textString,
       x: x,
       y: y,
       width: maxWidth,
