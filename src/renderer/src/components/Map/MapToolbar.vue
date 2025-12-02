@@ -111,16 +111,6 @@
     <el-divider direction="vertical" />
 
     <!-- 操作工具组 -->
-    <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
-      <div :class="['tool-btn', canUndo ? '' : 'disabled']" @click="handleUndo">
-        <SvgIcon name="undo" :size="iconSize" />
-      </div>
-    </el-tooltip>
-    <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="bottom">
-      <div :class="['tool-btn', canRedo ? '' : 'disabled']" @click="handleRedo">
-        <SvgIcon name="redo" :size="iconSize" />
-      </div>
-    </el-tooltip>
     <el-tooltip content="清空画板" placement="bottom">
       <div class="tool-btn" @click="handleClear">
         <SvgIcon name="clear" :size="iconSize" />
@@ -143,14 +133,6 @@ defineProps({
     type: String,
     required: true
   },
-  canUndo: {
-    type: Boolean,
-    default: false
-  },
-  canRedo: {
-    type: Boolean,
-    default: false
-  },
   resources: {
     type: Array,
     default: () => []
@@ -161,8 +143,6 @@ const iconSize = 18
 
 const emit = defineEmits([
   'update:modelValue',
-  'undo',
-  'redo',
   'clear',
   'resource-select',
   'resource-mousedown',
@@ -173,14 +153,6 @@ const resourcePopoverVisible = ref(false)
 
 function handleToolSelect(tool) {
   emit('update:modelValue', tool)
-}
-
-function handleUndo() {
-  emit('undo')
-}
-
-function handleRedo() {
-  emit('redo')
 }
 
 function handleClear() {

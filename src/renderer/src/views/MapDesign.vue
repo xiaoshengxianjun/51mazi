@@ -5,23 +5,29 @@
       <el-button text class="back-button" :icon="ArrowLeftBold" @click="handleBack">
         返回
       </el-button>
-      <el-divider direction="vertical" />
-      <span class="map-name">{{ mapName || '未命名地图' }}</span>
     </div>
 
     <!-- 工具栏 -->
     <MapToolbar
       v-model="tool"
-      :can-undo="canUndo"
-      :can-redo="canRedo"
       :resources="resources"
       @update:model-value="onToolChange"
-      @undo="handleUndo"
-      @redo="handleRedo"
       @clear="handleClearCanvas"
       @resource-select="selectResource"
       @resource-mousedown="onResourceMouseDown"
     />
+
+    <!-- 多边形工具弹出层 -->
+    <Transition name="panel-fade">
+      <div v-if="showShapeToolPanel && tool === 'rect'" class="shape-tool-panel-container">
+        <ShapeToolPanel
+          v-model="shapeToolType"
+          :roundness="shapeToolRoundness"
+          @update:model-value="shapeToolType = $event"
+          @update:roundness="shapeToolRoundness = $event"
+        />
+      </div>
+    </Transition>
 
     <!-- 颜色选择器 -->
     <Transition name="color-picker-fade">
@@ -123,6 +129,20 @@
         </div>
       </div>
     </div>
+
+    <!-- 缩放控制器和撤销/回退按钮 -->
+    <MapZoomControls
+      :scale="canvasState.scale.value"
+      :min-scale="canvasState.minScale"
+      :max-scale="canvasState.maxScale"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      @zoom-in="handleZoomIn"
+      @zoom-out="handleZoomOut"
+      @reset-zoom="handleResetZoom"
+      @undo="handleUndo"
+      @redo="handleRedo"
+    />
   </div>
 </template>
 
@@ -130,6 +150,8 @@
 import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
 import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
 import MapSlider from '@renderer/components/Map/MapSlider.vue'
+import MapZoomControls from '@renderer/components/Map/MapZoomControls.vue'
+import ShapeToolPanel from '@renderer/components/Map/ShapeToolPanel.vue'
 import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -145,7 +167,7 @@ import { useCanvas } from '@renderer/composables/map/useCanvas'
 import { usePencilTool } from '@renderer/composables/map/tools/usePencilTool'
 import { useEraserTool } from '@renderer/composables/map/tools/useEraserTool'
 import { useLineTool } from '@renderer/composables/map/tools/useLineTool'
-import { useRectTool } from '@renderer/composables/map/tools/useRectTool'
+import { useShapeTool } from '@renderer/composables/map/tools/useShapeTool'
 import { useTextTool } from '@renderer/composables/map/tools/useTextTool'
 import { useBucketTool } from '@renderer/composables/map/tools/useBucketTool'
 import { useResourceTool } from '@renderer/composables/map/tools/useResourceTool'
@@ -203,7 +225,10 @@ const selectToolSelectionEnd = ref(null)
 const pencilToolDrawingActive = ref(false)
 const eraserToolDrawingActive = ref(false)
 const lineToolDrawingActive = ref(false)
-const rectToolDrawingActive = ref(false)
+const shapeToolDrawingActive = ref(false)
+const shapeToolType = ref('rect')
+const shapeToolRoundness = ref('round')
+const showShapeToolPanel = ref(false)
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
 const { renderCanvas, canvasWrapStyle } = useCanvas(
@@ -219,7 +244,7 @@ const { renderCanvas, canvasWrapStyle } = useCanvas(
         pencilToolDrawingActive.value ||
         eraserToolDrawingActive.value ||
         lineToolDrawingActive.value ||
-        rectToolDrawingActive.value
+        shapeToolDrawingActive.value
       )
     })
   },
@@ -283,7 +308,7 @@ watch(
   { immediate: true }
 )
 
-const rectTool = useRectTool({
+const shapeTool = useShapeTool({
   canvasRef,
   elements,
   history,
@@ -294,9 +319,24 @@ const rectTool = useRectTool({
 })
 // 同步 drawingActive 状态
 watch(
-  rectTool.drawingActive,
+  shapeTool.drawingActive,
   (val) => {
-    rectToolDrawingActive.value = val
+    shapeToolDrawingActive.value = val
+  },
+  { immediate: true }
+)
+// 同步形状类型和边角设置
+watch(
+  shapeToolType,
+  (val) => {
+    shapeTool.setShapeType(val)
+  },
+  { immediate: true }
+)
+watch(
+  shapeToolRoundness,
+  (val) => {
+    shapeTool.setRoundness(val)
   },
   { immediate: true }
 )
@@ -526,7 +566,7 @@ function handleCanvasMouseDown(e) {
   } else if (tool.value === 'line') {
     lineTool.onMouseDown(pos)
   } else if (tool.value === 'rect') {
-    rectTool.onMouseDown(pos)
+    shapeTool.onMouseDown(pos)
   } else if (tool.value === 'bucket') {
     bucketTool.onMouseDown(pos)
   } else if (tool.value === 'text') {
@@ -555,8 +595,8 @@ function handleCanvasMouseMove(e) {
     eraserTool.onMouseMove(pos)
   } else if (tool.value === 'line' && lineTool.drawingActive.value) {
     lineTool.onMouseMove(pos)
-  } else if (tool.value === 'rect' && rectTool.drawingActive.value) {
-    rectTool.onMouseMove(pos)
+  } else if (tool.value === 'rect' && shapeTool.drawingActive.value) {
+    shapeTool.onMouseMove(pos)
   } else if (tool.value === 'select') {
     selectTool.onMouseMove(pos)
     if (
@@ -582,7 +622,7 @@ function handleCanvasMouseUp() {
   } else if (tool.value === 'line') {
     lineTool.onMouseUp()
   } else if (tool.value === 'rect') {
-    rectTool.onMouseUp()
+    shapeTool.onMouseUp()
   } else if (tool.value === 'select') {
     selectTool.onMouseUp()
     canvasCursor.value = 'default'
@@ -648,7 +688,70 @@ function handleWheel(e) {
     canvasState.scrollX.value = mouseX / newScale - sceneX
     canvasState.scrollY.value = mouseY / newScale - sceneY
     canvasState.scale.value = newScale
+
+    // 触发画布重新渲染
+    renderCanvas(false)
   }
+}
+
+// 缩放功能（参考 excalidraw）
+function handleZoomIn() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const zoomFactor = 0.1
+  const newScale = Math.min(canvasState.scale.value + zoomFactor, canvasState.maxScale)
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
+}
+
+function handleZoomOut() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const zoomFactor = 0.1
+  const newScale = Math.max(canvasState.scale.value - zoomFactor, canvasState.minScale)
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
+}
+
+function handleResetZoom() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const newScale = 1
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
 }
 
 function handleColorChange(newColor) {
@@ -677,6 +780,13 @@ function onToolChange(newTool) {
     textTool.editingTextElement.value = null
     textTool.textInputPosition.value = { x: 0, y: 0 }
     textTool.textInputValue.value = ''
+  }
+
+  // 多边形工具：显示/隐藏弹出层
+  if (newTool === 'rect') {
+    showShapeToolPanel.value = true
+  } else {
+    showShapeToolPanel.value = false
   }
 
   tool.value = newTool
@@ -857,6 +967,11 @@ function handleKeyUp(e) {
 
 // ==================== 生命周期 ====================
 onMounted(() => {
+  // 设置页面title
+  if (mapName.value) {
+    document.title = mapName.value
+  }
+
   nextTick(() => {
     if (canvasRef.value) {
       history.value = new HistoryManager(canvasRef.value)
@@ -918,7 +1033,6 @@ onUnmounted(() => {
     z-index: 1000;
     display: flex;
     align-items: center;
-    padding-right: 10px;
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -1007,7 +1121,7 @@ onUnmounted(() => {
   top: 8px;
   right: 20px;
   z-index: 1000;
-  padding: 5px 10px;
+  padding: 5px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -1039,5 +1153,42 @@ onUnmounted(() => {
 .color-picker-fade-leave-to {
   opacity: 0;
   transform: translateX(10px) scale(0.95);
+}
+
+// 多边形工具弹出层样式
+.shape-tool-panel-container {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+}
+
+// 弹出层过渡动画
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.panel-fade-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px) scale(0.95);
+}
+
+.panel-fade-enter-to {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.panel-fade-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.panel-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px) scale(0.95);
 }
 </style>

@@ -44,11 +44,16 @@ export function useRender(canvasRef, scale) {
 
   /**
    * 渲染形状（使用 roughjs）
+   * 支持：line, rect, circle, star
+   * 支持圆角/尖角设置
    */
   function renderShape(ctx, element, isPreview = false) {
     if (!canvasRef.value) return
 
     const rc = rough.canvas(canvasRef.value)
+    const roundness = element.roundness || 'sharp'
+    const borderRadius = roundness === 'round' ? 20 : 0 // 圆角半径（增大以更圆润）
+
     const options = {
       stroke: element.color,
       strokeWidth: element.strokeWidth,
@@ -64,7 +69,56 @@ export function useRender(canvasRef, scale) {
     } else if (element.type === 'rect') {
       const width = element.end.x - element.start.x
       const height = element.end.y - element.start.y
-      rc.rectangle(element.start.x, element.start.y, width, height, options)
+      if (roundness === 'round' && borderRadius > 0) {
+        // 使用圆角矩形路径（roughjs不支持borderRadius参数，需要手动绘制路径）
+        const x = element.start.x
+        const y = element.start.y
+        const w = width
+        const h = height
+        const r = Math.min(borderRadius, Math.abs(w) / 2, Math.abs(h) / 2)
+        const path = `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h} ${x + w - r} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h} ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} Z`
+        rc.path(path, options)
+      } else {
+        rc.rectangle(element.start.x, element.start.y, width, height, options)
+      }
+    } else if (element.type === 'circle') {
+      const width = element.end.x - element.start.x
+      const height = element.end.y - element.start.y
+      const centerX = element.start.x + width / 2
+      const centerY = element.start.y + height / 2
+      const radius = Math.min(Math.abs(width), Math.abs(height)) / 2
+      rc.circle(centerX, centerY, radius * 2, options)
+    } else if (element.type === 'star') {
+      const width = element.end.x - element.start.x
+      const height = element.end.y - element.start.y
+      const centerX = element.start.x + width / 2
+      const centerY = element.start.y + height / 2
+      const outerRadius = Math.min(Math.abs(width), Math.abs(height)) / 2
+      const innerRadius = outerRadius * 0.4
+      const points = 5
+
+      // 绘制五角星
+      const path = []
+      for (let i = 0; i < points * 2; i++) {
+        const angle = (i * Math.PI) / points - Math.PI / 2
+        const radius = i % 2 === 0 ? outerRadius : innerRadius
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        if (i === 0) {
+          path.push(`M ${x} ${y}`)
+        } else {
+          path.push(`L ${x} ${y}`)
+        }
+      }
+      path.push('Z')
+
+      if (roundness === 'round') {
+        // 圆角五角星：使用roughjs的path，但需要手动处理圆角
+        // 简化处理：使用较小的roughness来模拟圆角效果
+        rc.path(path.join(' '), { ...options, roughness: 0.5 })
+      } else {
+        rc.path(path.join(' '), options)
+      }
     }
 
     ctx.restore()

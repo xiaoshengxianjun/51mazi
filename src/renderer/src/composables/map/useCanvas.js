@@ -97,13 +97,30 @@ export function useCanvas(
 
   /**
    * 渲染画布内容（不更新边界）
+   * 参考 excalidraw：在 canvas context 中应用 scale 和 translate，而不是使用 CSS transform
    */
   function renderCanvasContent(ctx) {
     if (!canvasRef.value) return
 
-    // 先绘制背景色
+    // 保存当前状态
+    ctx.save()
+
+    // 应用缩放和平移（参考 excalidraw）
+    // excalidraw的实现：viewport坐标 = (scene坐标 + scroll) * scale
+    // 在canvas context中：先scale，再translate
+    // 这样：viewport坐标 = scene坐标 * scale + scroll * scale
+    ctx.scale(canvasState.scale.value, canvasState.scale.value)
+    ctx.translate(canvasState.scrollX.value, canvasState.scrollY.value)
+
+    // 绘制背景色（在场景坐标系中）
+    // 背景应该覆盖整个画布内容区域
     ctx.fillStyle = backgroundColor.value
-    ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height)
+    ctx.fillRect(
+      -canvasState.scrollX.value,
+      -canvasState.scrollY.value,
+      canvasState.canvasDisplayWidth.value,
+      canvasState.canvasDisplayHeight.value
+    )
 
     // 绘制所有已完成的画笔路径
     elements.freeDrawElements.value.forEach((element) => {
@@ -149,8 +166,12 @@ export function useCanvas(
     }
 
     // 绘制选中框和变换控制点
+    // 注意：由于已经在context中应用了scale和translate，renderSelection中的translate会导致双重变换
+    // 所以传递0作为scrollX和scrollY
     if (tool.value === 'select' && selectedElementIds && selectedElementIds.value.size > 0) {
-      const selectedElements = elements.getAllElements().filter((el) => selectedElementIds.value.has(el.id))
+      const selectedElements = elements
+        .getAllElements()
+        .filter((el) => selectedElementIds.value.has(el.id))
       if (selectedElements.length > 0) {
         renderSelectionBox(
           ctx,
@@ -161,13 +182,13 @@ export function useCanvas(
           getTransformHandlesFromCoords,
           renderTransformHandles,
           canvasState.scale.value,
-          canvasState.scrollX.value,
-          canvasState.scrollY.value
+          0, // scrollX已经在context中应用，这里传0
+          0 // scrollY已经在context中应用，这里传0
         )
       }
     }
 
-    // 绘制拖拽选框
+    // 绘制拖拽选框（在场景坐标系中）
     if (
       tool.value === 'select' &&
       isSelecting &&
@@ -178,7 +199,6 @@ export function useCanvas(
       selectionEnd.value
     ) {
       ctx.save()
-      ctx.translate(canvasState.scrollX.value, canvasState.scrollY.value)
 
       const x = Math.min(selectionStart.value.x, selectionEnd.value.x)
       const y = Math.min(selectionStart.value.y, selectionEnd.value.y)
@@ -196,6 +216,9 @@ export function useCanvas(
       ctx.setLineDash([])
       ctx.restore()
     }
+
+    // 恢复状态
+    ctx.restore()
   }
 
   /**
@@ -213,7 +236,7 @@ export function useCanvas(
       let imageData = null
       if (oldWidth > 0 && oldHeight > 0) {
         try {
-          const ctx = canvasRef.value.getContext('2d')
+          const ctx = canvasRef.value.getContext('2d', { willReadFrequently: true })
           if (ctx) {
             imageData = ctx.getImageData(0, 0, oldWidth, oldHeight)
           }
@@ -228,7 +251,7 @@ export function useCanvas(
       // 等待 Vue 更新 canvas 尺寸（如果尺寸改变了）
       nextTick(() => {
         if (!canvasRef.value) return
-        const ctx = canvasRef.value.getContext('2d')
+        const ctx = canvasRef.value.getContext('2d', { willReadFrequently: true })
         if (!ctx) return
         const newWidth = canvasRef.value.width
         const newHeight = canvasRef.value.height
@@ -250,33 +273,25 @@ export function useCanvas(
     }
 
     // 不更新边界时，直接渲染
-    const ctx = canvasRef.value.getContext('2d')
+    const ctx = canvasRef.value.getContext('2d', { willReadFrequently: true })
     if (ctx) {
       renderCanvasContent(ctx)
     }
   }
 
   // 计算画布包装样式
+  // 参考 excalidraw：不使用 CSS transform scale，保持容器尺寸不变
+  // 缩放通过 canvas context 的 scale 实现
   const canvasWrapStyle = computed(() => {
-    const containerRect = editorContainerRef.value?.getBoundingClientRect()
-    if (!containerRect) {
-      return {}
-    }
-
-    const offsetX = canvasState.scrollX.value * canvasState.scale.value
-    const offsetY = canvasState.scrollY.value * canvasState.scale.value
-
     return {
       position: 'absolute',
-      left: `${offsetX}px`,
-      top: `${offsetY}px`,
+      left: '0px',
+      top: '0px',
       width: canvasState.canvasDisplayWidth.value + 'px',
       height: canvasState.canvasDisplayHeight.value + 'px',
       background: '#fff',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      transform: `scale(${canvasState.scale.value})`,
-      transformOrigin: 'top left',
-      transition: canvasState.panning.value ? 'none' : 'transform 0.1s ease-out'
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      // 不再使用 transform: scale()，缩放通过 canvas context 实现
     }
   })
 
