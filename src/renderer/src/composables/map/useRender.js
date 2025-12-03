@@ -51,8 +51,6 @@ export function useRender(canvasRef) {
     if (!canvasRef.value) return
 
     const rc = rough.canvas(canvasRef.value)
-    const roundness = element.roundness || 'sharp'
-    const borderRadius = roundness === 'round' ? 20 : 0 // 圆角半径（增大以更圆润）
 
     const options = {
       stroke: element.color,
@@ -67,28 +65,29 @@ export function useRender(canvasRef) {
     if (element.type === 'line') {
       rc.line(element.start.x, element.start.y, element.end.x, element.end.y, options)
     } else if (element.type === 'rect') {
+      // 矩形：绘制尖角矩形
       const width = element.end.x - element.start.x
       const height = element.end.y - element.start.y
-      if (roundness === 'round' && borderRadius > 0) {
-        // 参考excalidraw的实现方式：使用quadratic curve (Q命令)绘制圆角矩形
-        // excalidraw源码：packages/excalidraw/scene/Shape.ts:327-345
-        const x = element.start.x
-        const y = element.start.y
-        const w = width
-        const h = height
-        // 计算圆角半径，参考excalidraw的getCornerRadius逻辑
-        const minDim = Math.min(Math.abs(w), Math.abs(h))
-        const r = Math.min(borderRadius, minDim * 0.1) // 使用比例半径，类似excalidraw的PROPORTIONAL_RADIUS
+      rc.rectangle(element.start.x, element.start.y, width, height, options)
+    } else if (element.type === 'rounded-rect') {
+      // 圆角矩形：参考excalidraw的实现方式：使用quadratic curve (Q命令)绘制圆角矩形
+      // excalidraw源码：packages/excalidraw/scene/Shape.ts:327-345
+      const width = element.end.x - element.start.x
+      const height = element.end.y - element.start.y
+      const x = element.start.x
+      const y = element.start.y
+      const w = width
+      const h = height
+      // 计算圆角半径，参考excalidraw的getCornerRadius逻辑
+      const minDim = Math.min(Math.abs(w), Math.abs(h))
+      const r = Math.min(20, minDim * 0.1) // 使用比例半径，类似excalidraw的PROPORTIONAL_RADIUS
 
-        // 使用quadratic curve绘制圆角矩形路径（与excalidraw完全一致）
-        // 路径：从左上角开始，顺时针绘制
-        const path = `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y}, ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h}, ${x + w - r} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h}, ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y}, ${x + r} ${y}`
+      // 使用quadratic curve绘制圆角矩形路径（与excalidraw完全一致）
+      // 路径：从左上角开始，顺时针绘制
+      const path = `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y}, ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h}, ${x + w - r} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h}, ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y}, ${x + r} ${y}`
 
-        // 使用roughjs的path方法，保持默认roughness（excalidraw也使用默认roughness）
-        rc.path(path, options)
-      } else {
-        rc.rectangle(element.start.x, element.start.y, width, height, options)
-      }
+      // 使用roughjs的path方法，保持默认roughness（excalidraw也使用默认roughness）
+      rc.path(path, options)
     } else if (element.type === 'circle') {
       // 参考excalidraw：使用ellipse而不是circle，支持椭圆
       const width = element.end.x - element.start.x
@@ -122,14 +121,7 @@ export function useRender(canvasRef) {
         }
       }
       path.push('Z')
-
-      if (roundness === 'round') {
-        // 圆角五角星：使用roughjs的path，但需要手动处理圆角
-        // 简化处理：使用较小的roughness来模拟圆角效果
-        rc.path(path.join(' '), { ...options, roughness: 0.5 })
-      } else {
-        rc.path(path.join(' '), options)
-      }
+      rc.path(path.join(' '), options)
     } else if (element.type === 'arrow') {
       // 参考excalidraw实现箭头
       // excalidraw源码：packages/excalidraw/scene/Shape.ts:421-504

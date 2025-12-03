@@ -47,7 +47,7 @@
     <el-popover
       v-model:visible="shapeToolPanelVisible"
       placement="bottom"
-      :width="200"
+      :width="250"
       trigger="click"
       :popper-options="{ modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
     >
@@ -61,9 +61,7 @@
       </template>
       <ShapeToolPanel
         :model-value="shapeToolType"
-        :roundness="shapeToolRoundness"
         @update:model-value="$emit('shape-type-change', $event)"
-        @update:roundness="$emit('roundness-change', $event)"
       />
     </el-popover>
     <!-- <el-tooltip content="多边形 (G)" placement="bottom"> </el-tooltip> -->

@@ -265,7 +265,14 @@ export function useSelectTool({
             x: point.x + totalDeltaX,
             y: point.y + totalDeltaY
           }))
-        } else if (element.type === 'line' || element.type === 'rect') {
+        } else if (
+          element.type === 'line' ||
+          element.type === 'rect' ||
+          element.type === 'rounded-rect' ||
+          element.type === 'circle' ||
+          element.type === 'star' ||
+          element.type === 'arrow'
+        ) {
           element.start = {
             x: originalElement.start.x + totalDeltaX,
             y: originalElement.start.y + totalDeltaY
@@ -330,7 +337,14 @@ export function useSelectTool({
                 y: elementCenterY + px * sin + py * cos + offsetY
               }
             })
-          } else if (element.type === 'line' || element.type === 'rect') {
+          } else if (
+            element.type === 'line' ||
+            element.type === 'rect' ||
+            element.type === 'rounded-rect' ||
+            element.type === 'circle' ||
+            element.type === 'star' ||
+            element.type === 'arrow'
+          ) {
             const startPx = originalElement.start.x - elementCenterX
             const startPy = originalElement.start.y - elementCenterY
             const endPx = originalElement.end.x - elementCenterX
@@ -507,7 +521,14 @@ export function useSelectTool({
               x: elementCenterX + (point.x - originalCenterX) * scaleX,
               y: elementCenterY + (point.y - originalCenterY) * scaleY
             }))
-          } else if (element.type === 'line' || element.type === 'rect') {
+          } else if (
+            element.type === 'line' ||
+            element.type === 'rect' ||
+            element.type === 'rounded-rect' ||
+            element.type === 'circle' ||
+            element.type === 'star' ||
+            element.type === 'arrow'
+          ) {
             const elementCenterX = newElementX + newElementWidth / 2
             const elementCenterY = newElementY + newElementHeight / 2
             const originalCenterX = originalBounds.x + originalBounds.width / 2

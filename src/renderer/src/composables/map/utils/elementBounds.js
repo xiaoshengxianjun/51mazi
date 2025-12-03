@@ -42,6 +42,7 @@ export function getElementBounds(element) {
     }
   } else if (
     element.type === 'rect' ||
+    element.type === 'rounded-rect' ||
     element.type === 'circle' ||
     element.type === 'star' ||
     element.type === 'arrow'

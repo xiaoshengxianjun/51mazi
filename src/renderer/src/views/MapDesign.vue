@@ -12,13 +12,11 @@
       v-model="tool"
       :resources="resources"
       :shape-tool-type="shapeToolType"
-      :shape-tool-roundness="shapeToolRoundness"
       @update:model-value="onToolChange"
       @clear="handleClearCanvas"
       @resource-select="selectResource"
       @resource-mousedown="onResourceMouseDown"
       @shape-type-change="handleShapeTypeChange"
-      @roundness-change="shapeToolRoundness = $event"
     />
 
     <!-- 颜色选择器 -->
@@ -216,7 +214,6 @@ const pencilToolDrawingActive = ref(false)
 const eraserToolDrawingActive = ref(false)
 const shapeToolDrawingActive = ref(false)
 const shapeToolType = ref('line') // 默认选择线条
-const shapeToolRoundness = ref('round')
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
 const { renderCanvas, canvasWrapStyle } = useCanvas(
@@ -299,13 +296,6 @@ watch(
   shapeToolType,
   (val) => {
     shapeTool.setShapeType(val)
-  },
-  { immediate: true }
-)
-watch(
-  shapeToolRoundness,
-  (val) => {
-    shapeTool.setRoundness(val)
   },
   { immediate: true }
 )

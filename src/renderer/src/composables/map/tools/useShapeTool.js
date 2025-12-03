@@ -5,8 +5,7 @@ import { ref } from 'vue'
  */
 export function useShapeTool({ canvasRef, elements, history, renderCanvas, color, size, opacity }) {
   const drawingActive = ref(false)
-  const shapeType = ref('line') // 'line', 'circle', 'rect', 'star', 'arrow' - 默认线条
-  const roundness = ref('round') // 'round' 或 'sharp'
+  const shapeType = ref('line') // 'line', 'circle', 'rect', 'rounded-rect', 'star', 'arrow' - 默认线条
 
   /**
    * 设置形状类型
@@ -16,24 +15,10 @@ export function useShapeTool({ canvasRef, elements, history, renderCanvas, color
   }
 
   /**
-   * 设置边角类型
-   */
-  function setRoundness(type) {
-    roundness.value = type
-  }
-
-  /**
    * 获取当前形状类型
    */
   function getShapeType() {
     return shapeType.value
-  }
-
-  /**
-   * 获取当前边角类型
-   */
-  function getRoundness() {
-    return roundness.value
   }
 
   /**
@@ -68,7 +53,6 @@ export function useShapeTool({ canvasRef, elements, history, renderCanvas, color
       color: color.value,
       strokeWidth: size.value,
       opacity: opacity ? opacity.value : 100,
-      roundness: roundness.value,
       id: Date.now().toString()
     }
     console.log('[useShapeTool.onMouseDown] created shape:', elements.currentShape.value)
@@ -128,11 +112,8 @@ export function useShapeTool({ canvasRef, elements, history, renderCanvas, color
   return {
     drawingActive,
     shapeType,
-    roundness,
     setShapeType,
-    setRoundness,
     getShapeType,
-    getRoundness,
     onMouseDown,
     onMouseMove,
     onMouseUp
