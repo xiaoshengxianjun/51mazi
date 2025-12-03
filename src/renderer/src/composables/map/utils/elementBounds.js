@@ -40,8 +40,13 @@ export function getElementBounds(element) {
       width: maxX - minX + padding * 2,
       height: maxY - minY + padding * 2
     }
-  } else if (element.type === 'rect') {
-    // 矩形：直接使用坐标
+  } else if (
+    element.type === 'rect' ||
+    element.type === 'circle' ||
+    element.type === 'star' ||
+    element.type === 'arrow'
+  ) {
+    // 矩形、圆形、五角形、箭头：直接使用坐标
     const minX = Math.min(element.start.x, element.end.x)
     const minY = Math.min(element.start.y, element.end.y)
     const maxX = Math.max(element.start.x, element.end.x)

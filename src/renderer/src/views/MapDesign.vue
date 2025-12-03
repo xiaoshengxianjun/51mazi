@@ -11,23 +11,15 @@
     <MapToolbar
       v-model="tool"
       :resources="resources"
+      :shape-tool-type="shapeToolType"
+      :shape-tool-roundness="shapeToolRoundness"
       @update:model-value="onToolChange"
       @clear="handleClearCanvas"
       @resource-select="selectResource"
       @resource-mousedown="onResourceMouseDown"
+      @shape-type-change="handleShapeTypeChange"
+      @roundness-change="shapeToolRoundness = $event"
     />
-
-    <!-- 多边形工具弹出层 -->
-    <Transition name="panel-fade">
-      <div v-if="showShapeToolPanel && tool === 'rect'" class="shape-tool-panel-container">
-        <ShapeToolPanel
-          v-model="shapeToolType"
-          :roundness="shapeToolRoundness"
-          @update:model-value="shapeToolType = $event"
-          @update:roundness="shapeToolRoundness = $event"
-        />
-      </div>
-    </Transition>
 
     <!-- 颜色选择器 -->
     <Transition name="color-picker-fade">
@@ -44,7 +36,7 @@
 
     <!-- 滑块控制工具 -->
     <FloatingSidebar
-      :visible="tool === 'pencil' || tool === 'eraser' || tool === 'line' || tool === 'rect'"
+      :visible="tool === 'pencil' || tool === 'eraser' || tool === 'shape'"
       :min-top-distance="100"
       :min-bottom-distance="50"
     >
@@ -58,7 +50,7 @@
           label="大小"
         />
         <MapSlider
-          v-if="tool === 'pencil' || tool === 'line' || tool === 'rect'"
+          v-if="tool === 'pencil' || tool === 'shape'"
           v-model="opacity"
           :min="opacityConfig.min"
           :max="opacityConfig.max"
@@ -151,7 +143,6 @@ import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
 import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
 import MapSlider from '@renderer/components/Map/MapSlider.vue'
 import MapZoomControls from '@renderer/components/Map/MapZoomControls.vue'
-import ShapeToolPanel from '@renderer/components/Map/ShapeToolPanel.vue'
 import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -166,7 +157,6 @@ import { useRender } from '@renderer/composables/map/useRender'
 import { useCanvas } from '@renderer/composables/map/useCanvas'
 import { usePencilTool } from '@renderer/composables/map/tools/usePencilTool'
 import { useEraserTool } from '@renderer/composables/map/tools/useEraserTool'
-import { useLineTool } from '@renderer/composables/map/tools/useLineTool'
 import { useShapeTool } from '@renderer/composables/map/tools/useShapeTool'
 import { useTextTool } from '@renderer/composables/map/tools/useTextTool'
 import { useBucketTool } from '@renderer/composables/map/tools/useBucketTool'
@@ -211,7 +201,7 @@ const { getCanvasPos } = useCoordinate(
 )
 
 // 渲染函数
-const renderFunctions = useRender(canvasRef, canvasState.scale)
+const renderFunctions = useRender(canvasRef)
 
 // 选框状态
 const selectedElementIds = ref(new Set())
@@ -224,11 +214,9 @@ const selectToolSelectionEnd = ref(null)
 // 先创建其他工具的状态 refs（因为 useCanvas 需要它们）
 const pencilToolDrawingActive = ref(false)
 const eraserToolDrawingActive = ref(false)
-const lineToolDrawingActive = ref(false)
 const shapeToolDrawingActive = ref(false)
-const shapeToolType = ref('rect')
+const shapeToolType = ref('line') // 默认选择线条
 const shapeToolRoundness = ref('round')
-const showShapeToolPanel = ref(false)
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
 const { renderCanvas, canvasWrapStyle } = useCanvas(
@@ -243,7 +231,6 @@ const { renderCanvas, canvasWrapStyle } = useCanvas(
       return (
         pencilToolDrawingActive.value ||
         eraserToolDrawingActive.value ||
-        lineToolDrawingActive.value ||
         shapeToolDrawingActive.value
       )
     })
@@ -286,24 +273,6 @@ watch(
   eraserTool.drawingActive,
   (val) => {
     eraserToolDrawingActive.value = val
-  },
-  { immediate: true }
-)
-
-const lineTool = useLineTool({
-  canvasRef,
-  elements,
-  history,
-  renderCanvas,
-  color,
-  size,
-  opacity
-})
-// 同步 drawingActive 状态
-watch(
-  lineTool.drawingActive,
-  (val) => {
-    lineToolDrawingActive.value = val
   },
   { immediate: true }
 )
@@ -432,7 +401,7 @@ const colorPresets = [
 
 // ==================== 计算属性 ====================
 const showColorPicker = computed(() => {
-  return ['pencil', 'bucket', 'line', 'rect', 'background'].includes(tool.value)
+  return ['pencil', 'bucket', 'shape', 'text', 'background'].includes(tool.value)
 })
 
 const currentColor = computed({
@@ -453,7 +422,7 @@ const sliderConfig = computed(() => {
     return { min: 10, max: 50, step: 1 }
   } else if (tool.value === 'pencil') {
     return { min: 1, max: 50, step: 1 }
-  } else if (tool.value === 'line' || tool.value === 'rect') {
+  } else if (tool.value === 'shape') {
     return { min: 1, max: 50, step: 1 }
   }
   return { min: 0, max: 100, step: 1 }
@@ -554,6 +523,8 @@ const resources = [
 function handleCanvasMouseDown(e) {
   const pos = getCanvasPos(e)
 
+  console.log('[handleCanvasMouseDown] tool:', tool.value, 'pos:', pos)
+
   if (tool.value === 'move' || spaceKeyPressed.value) {
     moveTool.onMouseDown(e)
     return
@@ -563,9 +534,11 @@ function handleCanvasMouseDown(e) {
     pencilTool.onMouseDown(pos)
   } else if (tool.value === 'eraser') {
     eraserTool.onMouseDown(pos)
-  } else if (tool.value === 'line') {
-    lineTool.onMouseDown(pos)
-  } else if (tool.value === 'rect') {
+  } else if (tool.value === 'shape') {
+    console.log(
+      '[handleCanvasMouseDown] calling shapeTool.onMouseDown, shapeType:',
+      shapeTool.shapeType.value
+    )
     shapeTool.onMouseDown(pos)
   } else if (tool.value === 'bucket') {
     bucketTool.onMouseDown(pos)
@@ -575,6 +548,7 @@ function handleCanvasMouseDown(e) {
   } else if (tool.value === 'select') {
     selectTool.onMouseDown(e, pos)
   } else {
+    console.log('[handleCanvasMouseDown] tool not handled:', tool.value)
     if (textTool.textInputVisible.value) {
       textTool.confirmTextInput()
     }
@@ -593,9 +567,8 @@ function handleCanvasMouseMove(e) {
     pencilTool.onMouseMove(pos)
   } else if (tool.value === 'eraser' && eraserTool.drawingActive.value) {
     eraserTool.onMouseMove(pos)
-  } else if (tool.value === 'line' && lineTool.drawingActive.value) {
-    lineTool.onMouseMove(pos)
-  } else if (tool.value === 'rect' && shapeTool.drawingActive.value) {
+  } else if (tool.value === 'shape' && shapeTool.drawingActive.value) {
+    console.log('[handleCanvasMouseMove] calling shapeTool.onMouseMove')
     shapeTool.onMouseMove(pos)
   } else if (tool.value === 'select') {
     selectTool.onMouseMove(pos)
@@ -619,9 +592,7 @@ function handleCanvasMouseUp() {
     pencilTool.onMouseUp()
   } else if (tool.value === 'eraser') {
     eraserTool.onMouseUp()
-  } else if (tool.value === 'line') {
-    lineTool.onMouseUp()
-  } else if (tool.value === 'rect') {
+  } else if (tool.value === 'shape') {
     shapeTool.onMouseUp()
   } else if (tool.value === 'select') {
     selectTool.onMouseUp()
@@ -760,6 +731,12 @@ function handleColorChange(newColor) {
   }
 }
 
+function handleShapeTypeChange(newType) {
+  shapeToolType.value = newType
+  // 立即同步到shapeTool
+  shapeTool.setShapeType(newType)
+}
+
 function onToolChange(newTool) {
   // 如果切换到非文字工具，隐藏文字输入框
   if (tool.value === 'text' && newTool !== 'text') {
@@ -782,20 +759,21 @@ function onToolChange(newTool) {
     textTool.textInputValue.value = ''
   }
 
-  // 多边形工具：显示/隐藏弹出层
-  if (newTool === 'rect') {
-    showShapeToolPanel.value = true
-  } else {
-    showShapeToolPanel.value = false
-  }
-
   tool.value = newTool
   if (newTool === 'pencil') {
     size.value = 5
   } else if (newTool === 'eraser') {
     size.value = 30
-  } else if (newTool === 'line' || newTool === 'rect') {
+  } else if (newTool === 'shape') {
     size.value = 3
+    // 确保shapeTool的shapeType与shapeToolType同步
+    if (shapeToolType.value) {
+      shapeTool.setShapeType(shapeToolType.value)
+    } else {
+      // 如果没有设置，使用默认值
+      shapeToolType.value = 'line'
+      shapeTool.setShapeType('line')
+    }
   }
   selectedElementIds.value.clear()
 
@@ -1153,42 +1131,5 @@ onUnmounted(() => {
 .color-picker-fade-leave-to {
   opacity: 0;
   transform: translateX(10px) scale(0.95);
-}
-
-// 多边形工具弹出层样式
-.shape-tool-panel-container {
-  position: fixed;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-}
-
-// 弹出层过渡动画
-.panel-fade-enter-active,
-.panel-fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-.panel-fade-enter-from {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-10px) scale(0.95);
-}
-
-.panel-fade-enter-to {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
-.panel-fade-leave-from {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
-}
-
-.panel-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-10px) scale(0.95);
 }
 </style>

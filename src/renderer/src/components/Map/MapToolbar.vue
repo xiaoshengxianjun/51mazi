@@ -44,22 +44,29 @@
         <SvgIcon name="eraser" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="线条 (L)" placement="bottom">
-      <div
-        :class="['tool-btn', modelValue === 'line' ? 'active' : '']"
-        @click="handleToolSelect('line')"
-      >
-        <SvgIcon name="line" :size="iconSize" />
-      </div>
-    </el-tooltip>
-    <el-tooltip content="多边形 (G)" placement="bottom">
-      <div
-        :class="['tool-btn', modelValue === 'rect' ? 'active' : '']"
-        @click="handleToolSelect('rect')"
-      >
-        <SvgIcon name="polygon" :size="iconSize" />
-      </div>
-    </el-tooltip>
+    <el-popover
+      v-model:visible="shapeToolPanelVisible"
+      placement="bottom"
+      :width="200"
+      trigger="click"
+      :popper-options="{ modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
+    >
+      <template #reference>
+        <div
+          :class="['tool-btn', modelValue === 'shape' ? 'active' : '']"
+          @click="handleToolSelect('shape')"
+        >
+          <SvgIcon name="polygon" :size="iconSize" />
+        </div>
+      </template>
+      <ShapeToolPanel
+        :model-value="shapeToolType"
+        :roundness="shapeToolRoundness"
+        @update:model-value="$emit('shape-type-change', $event)"
+        @update:roundness="$emit('roundness-change', $event)"
+      />
+    </el-popover>
+    <!-- <el-tooltip content="多边形 (G)" placement="bottom"> </el-tooltip> -->
     <el-tooltip content="油漆桶 (B)" placement="bottom">
       <div
         :class="['tool-btn', modelValue === 'bucket' ? 'active' : '']"
@@ -126,9 +133,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import ShapeToolPanel from './ShapeToolPanel.vue'
 
-defineProps({
+const props = defineProps({
   modelValue: {
     type: String,
     required: true
@@ -136,6 +144,14 @@ defineProps({
   resources: {
     type: Array,
     default: () => []
+  },
+  shapeToolType: {
+    type: String,
+    default: 'rect'
+  },
+  shapeToolRoundness: {
+    type: String,
+    default: 'round'
   }
 })
 
@@ -146,10 +162,23 @@ const emit = defineEmits([
   'clear',
   'resource-select',
   'resource-mousedown',
-  'save-map'
+  'save-map',
+  'shape-type-change',
+  'roundness-change'
 ])
 
 const resourcePopoverVisible = ref(false)
+const shapeToolPanelVisible = ref(false)
+
+// 当工具切换为非shape时，隐藏弹出层
+watch(
+  () => props.modelValue,
+  (newTool) => {
+    if (newTool !== 'shape') {
+      shapeToolPanelVisible.value = false
+    }
+  }
+)
 
 function handleToolSelect(tool) {
   emit('update:modelValue', tool)

@@ -11,6 +11,53 @@ export function isPointInElement(point, element) {
   const bounds = getElementBounds(element)
   if (!bounds) return false
 
+  // 对于圆形，使用椭圆检测
+  if (element.type === 'circle') {
+    const width = element.end.x - element.start.x
+    const height = element.end.y - element.start.y
+    const centerX = element.start.x + width / 2
+    const centerY = element.start.y + height / 2
+    const radiusX = Math.abs(width) / 2
+    const radiusY = Math.abs(height) / 2
+
+    // 椭圆方程：(x-cx)^2/rx^2 + (y-cy)^2/ry^2 <= 1
+    const dx = (point.x - centerX) / radiusX
+    const dy = (point.y - centerY) / radiusY
+    return dx * dx + dy * dy <= 1
+  }
+
+  // 对于五角星，使用多边形检测（简化：使用边界框检测）
+  // TODO: 可以实现更精确的五角星内部检测
+  if (element.type === 'star') {
+    // 先检查边界框
+    if (
+      point.x < bounds.x ||
+      point.x > bounds.x + bounds.width ||
+      point.y < bounds.y ||
+      point.y > bounds.y + bounds.height
+    ) {
+      return false
+    }
+    // 简化处理：使用边界框（可以后续优化为精确的五角星检测）
+    return true
+  }
+
+  // 对于线条和箭头，使用边界框检测（可以后续优化为精确的线段检测）
+  if (element.type === 'line' || element.type === 'arrow') {
+    // 先检查边界框
+    if (
+      point.x < bounds.x ||
+      point.x > bounds.x + bounds.width ||
+      point.y < bounds.y ||
+      point.y > bounds.y + bounds.height
+    ) {
+      return false
+    }
+    // 简化处理：使用边界框（可以后续优化为精确的线段检测）
+    return true
+  }
+
+  // 其他类型使用矩形检测
   return (
     point.x >= bounds.x &&
     point.x <= bounds.x + bounds.width &&

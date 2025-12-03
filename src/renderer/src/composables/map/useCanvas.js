@@ -160,7 +160,7 @@ export function useCanvas(
     if (
       currentPreview.currentShape.value &&
       currentPreview.drawingActive.value &&
-      (tool.value === 'line' || tool.value === 'rect')
+      (tool.value === 'line' || tool.value === 'rect' || tool.value === 'shape')
     ) {
       renderFunctions.renderShape(ctx, currentPreview.currentShape.value, true)
     }
