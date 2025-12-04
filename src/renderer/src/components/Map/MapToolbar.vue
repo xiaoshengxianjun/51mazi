@@ -1,7 +1,7 @@
 <template>
   <div class="map-toolbar">
     <!-- 选择工具组 -->
-    <el-tooltip content="移动 (H)" placement="bottom">
+    <el-tooltip content="移动 (H)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'move' ? 'active' : '']"
         @click="handleToolSelect('move')"
@@ -9,7 +9,7 @@
         <SvgIcon name="hand" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="选框 (V)" placement="bottom">
+    <el-tooltip content="选框 (V)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'select' ? 'active' : '']"
         @click="handleToolSelect('select')"
@@ -20,7 +20,7 @@
     <el-divider direction="vertical" />
 
     <!-- 绘图工具组 -->
-    <el-tooltip content="背景 (B)" placement="bottom">
+    <el-tooltip content="背景 (B)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'background' ? 'active' : '']"
         @click="handleToolSelect('background')"
@@ -28,7 +28,7 @@
         <SvgIcon name="background" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="画笔 (P)" placement="bottom">
+    <el-tooltip content="画笔 (P)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'pencil' ? 'active' : '']"
         @click="handleToolSelect('pencil')"
@@ -36,7 +36,7 @@
         <SvgIcon name="pencil" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="橡皮擦 (E)" placement="bottom">
+    <el-tooltip content="橡皮擦 (E)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'eraser' ? 'active' : '']"
         @click="handleToolSelect('eraser')"
@@ -44,28 +44,24 @@
         <SvgIcon name="eraser" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-popover
-      v-model:visible="shapeToolPanelVisible"
-      placement="bottom"
-      :width="250"
-      trigger="click"
-      :popper-options="{ modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
-    >
-      <template #reference>
+    <div class="shape-tool-btn-wrapper">
+      <el-tooltip content="多边形 (G)" placement="bottom" :show-after="2000">
         <div
           :class="['tool-btn', modelValue === 'shape' ? 'active' : '']"
-          @click="handleToolSelect('shape')"
+          @click.stop="handleShapeToolClick"
         >
-          <SvgIcon name="polygon" :size="iconSize" />
+          <SvgIcon :name="currentShapeIcon" :size="iconSize" />
         </div>
-      </template>
+      </el-tooltip>
+      <!-- 图形工具弹出层 -->
       <ShapeToolPanel
         :model-value="shapeToolType"
-        @update:model-value="$emit('shape-type-change', $event)"
+        :visible="shapeToolPanelVisible"
+        @update:model-value="handleShapeTypeChange"
+        @update:visible="shapeToolPanelVisible = $event"
       />
-    </el-popover>
-    <!-- <el-tooltip content="多边形 (G)" placement="bottom"> </el-tooltip> -->
-    <el-tooltip content="油漆桶 (B)" placement="bottom">
+    </div>
+    <el-tooltip content="油漆桶 (B)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'bucket' ? 'active' : '']"
         @click="handleToolSelect('bucket')"
@@ -73,7 +69,7 @@
         <SvgIcon name="bucket" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="文字 (T)" placement="bottom">
+    <el-tooltip content="文字 (T)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'text' ? 'active' : '']"
         @click="handleToolSelect('text')"
@@ -116,13 +112,13 @@
     <el-divider direction="vertical" />
 
     <!-- 操作工具组 -->
-    <el-tooltip content="清空画板" placement="bottom">
+    <el-tooltip content="清空画板" placement="bottom" :show-after="2000">
       <div class="tool-btn" @click="handleClear">
         <SvgIcon name="clear" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-divider direction="vertical" />
-    <el-tooltip content="保存" placement="bottom">
+    <el-tooltip content="保存" placement="bottom" :show-after="2000">
       <div class="tool-btn" @click="handleSaveMap">
         <SvgIcon name="save" :size="iconSize" />
       </div>
@@ -131,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import ShapeToolPanel from './ShapeToolPanel.vue'
 
 const props = defineProps({
@@ -168,6 +164,20 @@ const emit = defineEmits([
 const resourcePopoverVisible = ref(false)
 const shapeToolPanelVisible = ref(false)
 
+// 根据选择的图形类型显示对应的图标
+const shapeIconMap = {
+  line: 'line',
+  circle: 'circle',
+  rect: 'rect',
+  'rounded-rect': 'rounded-rect',
+  star: 'star',
+  arrow: 'right-arrow'
+}
+
+const currentShapeIcon = computed(() => {
+  return shapeIconMap[props.shapeToolType] || 'polygon'
+})
+
 // 当工具切换为非shape时，隐藏弹出层
 watch(
   () => props.modelValue,
@@ -180,6 +190,17 @@ watch(
 
 function handleToolSelect(tool) {
   emit('update:modelValue', tool)
+}
+
+function handleShapeToolClick() {
+  emit('update:modelValue', 'shape')
+  shapeToolPanelVisible.value = !shapeToolPanelVisible.value
+}
+
+function handleShapeTypeChange(type) {
+  emit('shape-type-change', type)
+  // 选择图形后关闭弹出层
+  shapeToolPanelVisible.value = false
 }
 
 function handleClear() {
@@ -247,6 +268,10 @@ function handleSaveMap() {
       opacity: 0.5;
       cursor: not-allowed;
     }
+  }
+
+  .shape-tool-btn-wrapper {
+    position: relative;
   }
 }
 

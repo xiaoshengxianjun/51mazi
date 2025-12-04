@@ -213,7 +213,7 @@ const selectToolSelectionEnd = ref(null)
 const pencilToolDrawingActive = ref(false)
 const eraserToolDrawingActive = ref(false)
 const shapeToolDrawingActive = ref(false)
-const shapeToolType = ref('line') // 默认选择线条
+const shapeToolType = ref('rect') // 默认选择矩形
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
 const { renderCanvas, canvasWrapStyle } = useCanvas(

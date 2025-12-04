@@ -52,7 +52,9 @@ export function useSelectTool({
   function getTransformHandlesForElement(element) {
     const coords = getElementAbsoluteCoordsLocal(element)
     if (!coords) return {}
-    return getTransformHandlesFromCoords(coords, 0, canvasState.scale.value)
+    // 使用元素的旋转角度（如果存在），否则为0
+    const angle = element.angle || 0
+    return getTransformHandlesFromCoords(coords, angle, canvasState.scale.value)
   }
 
   /**
@@ -94,7 +96,11 @@ export function useSelectTool({
         bounds.x + bounds.width / 2,
         bounds.y + bounds.height / 2
       ]
-      const transformHandles = getTransformHandlesFromCoords(coords, 0, canvasState.scale.value)
+      // 多个元素时，如果所有元素角度相同则使用该角度，否则为0
+      const angles = selectedElements.map((el) => el.angle || 0)
+      const allSameAngle = angles.every((a) => Math.abs(a - angles[0]) < 0.001)
+      const angle = allSameAngle ? angles[0] : 0
+      const transformHandles = getTransformHandlesFromCoords(coords, angle, canvasState.scale.value)
       return getTransformHandleTypeFromHandles(pos, transformHandles)
     }
   }
@@ -300,74 +306,56 @@ export function useSelectTool({
       if (selectedElements.length === 0) return
 
       if (transformHandleType.value === 'rotation') {
-        // 旋转
+        // 旋转（参考 excalidraw：只更新角度，不修改坐标，在渲染时应用旋转）
         const centerX = pointerDownState.value.center.x
         const centerY = pointerDownState.value.center.y
         const startAngle = pointerDownState.value.startAngle
 
         const currentAngle = (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
-        const angle = currentAngle - startAngle
+        const deltaAngle = currentAngle - startAngle
 
         selectedElements.forEach((element) => {
           const originalElement = pointerDownState.value.originalElements.get(element.id)
           if (!originalElement) return
 
-          const bounds = getElementBounds(originalElement)
-          if (!bounds) return
+          // 获取原始角度（如果不存在则默认为0）
+          const originalAngle = originalElement.angle || 0
+          // 累积角度：新角度 = 原始角度 + 增量角度
+          const newAngle = originalAngle + deltaAngle
+          
+          // 只更新角度，不修改元素的内部坐标（start/end/points）
+          // 这样在渲染时应用旋转，不会导致变形
+          element.angle = newAngle
 
-          const elementCenterX = bounds.x + bounds.width / 2
-          const elementCenterY = bounds.y + bounds.height / 2
-
-          const cos = Math.cos(angle)
-          const sin = Math.sin(angle)
-          const dx = elementCenterX - centerX
-          const dy = elementCenterY - centerY
-          const newCenterX = centerX + dx * cos - dy * sin
-          const newCenterY = centerY + dx * sin + dy * cos
-
-          const offsetX = newCenterX - elementCenterX
-          const offsetY = newCenterY - elementCenterY
-
-          if (element.type === 'freedraw') {
-            element.points = originalElement.points.map((point) => {
-              const px = point.x - elementCenterX
-              const py = point.y - elementCenterY
-              return {
-                x: elementCenterX + px * cos - py * sin + offsetX,
-                y: elementCenterY + px * sin + py * cos + offsetY
-              }
-            })
-          } else if (
-            element.type === 'line' ||
-            element.type === 'rect' ||
-            element.type === 'rounded-rect' ||
-            element.type === 'circle' ||
-            element.type === 'star' ||
-            element.type === 'arrow'
-          ) {
-            const startPx = originalElement.start.x - elementCenterX
-            const startPy = originalElement.start.y - elementCenterY
-            const endPx = originalElement.end.x - elementCenterX
-            const endPy = originalElement.end.y - elementCenterY
-
-            element.start = {
-              x: elementCenterX + startPx * cos - startPy * sin + offsetX,
-              y: elementCenterY + startPx * sin + startPy * cos + offsetY
-            }
-            element.end = {
-              x: elementCenterX + endPx * cos - endPy * sin + offsetX,
-              y: elementCenterY + endPx * sin + endPy * cos + offsetY
-            }
-          } else if (
+          // 对于有 x, y 坐标的元素（text, resource, fill），需要更新位置
+          // 使其围绕旋转中心旋转
+          if (
             element.type === 'text' ||
             element.type === 'resource' ||
             element.type === 'fill'
           ) {
-            const px = originalElement.x - elementCenterX
-            const py = originalElement.y - elementCenterY
-            element.x = elementCenterX + px * cos - py * sin + offsetX
-            element.y = elementCenterY + px * sin + py * cos + offsetY
+            const bounds = getElementBounds(originalElement)
+            if (bounds) {
+              const elementCenterX = bounds.x + bounds.width / 2
+              const elementCenterY = bounds.y + bounds.height / 2
+
+              const cos = Math.cos(deltaAngle)
+              const sin = Math.sin(deltaAngle)
+              const dx = elementCenterX - centerX
+              const dy = elementCenterY - centerY
+              const newCenterX = centerX + dx * cos - dy * sin
+              const newCenterY = centerY + dx * sin + dy * cos
+
+              const offsetX = newCenterX - elementCenterX
+              const offsetY = newCenterY - elementCenterY
+
+              // 更新元素位置
+              element.x = originalElement.x + offsetX
+              element.y = originalElement.y + offsetY
+            }
           }
+          // 对于形状元素（line, rect, circle, star, arrow）和 freedraw，
+          // 不修改 start/end/points，只在渲染时应用 angle 旋转
         })
       } else if (transformHandleType.value) {
         // 调整大小

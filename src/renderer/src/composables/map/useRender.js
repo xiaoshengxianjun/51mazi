@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand'
 import rough from 'roughjs'
+import { getElementBounds } from './utils/elementBounds.js'
 
 /**
  * 渲染函数集合
@@ -28,6 +29,20 @@ export function useRender(canvasRef) {
     ctx.save()
     ctx.globalAlpha = isPreview ? 0.7 : (element.opacity || 100) / 100
     ctx.fillStyle = element.color
+
+    // 应用旋转（参考 excalidraw）
+    const angle = element.angle || 0
+    if (angle !== 0) {
+      // 计算 freedraw 路径的中心点
+      const bounds = getElementBounds(element)
+      if (bounds) {
+        const centerX = bounds.x + bounds.width / 2
+        const centerY = bounds.y + bounds.height / 2
+        ctx.translate(centerX, centerY)
+        ctx.rotate(angle)
+        ctx.translate(-centerX, -centerY)
+      }
+    }
 
     if (stroke.length > 0) {
       ctx.beginPath()
@@ -62,47 +77,97 @@ export function useRender(canvasRef) {
     ctx.save()
     ctx.globalAlpha = isPreview ? 0.7 : (element.opacity || 100) / 100
 
+    // 应用旋转（参考 excalidraw：在绘制前应用旋转）
+    const angle = element.angle || 0
+    if (angle !== 0) {
+      // 计算元素中心点
+      let centerX, centerY
+      if (
+        element.type === 'line' ||
+        element.type === 'rect' ||
+        element.type === 'rounded-rect' ||
+        element.type === 'circle' ||
+        element.type === 'star' ||
+        element.type === 'arrow'
+      ) {
+        centerX = (element.start.x + element.end.x) / 2
+        centerY = (element.start.y + element.end.y) / 2
+      } else {
+        // 对于其他类型，使用 bounds 计算中心
+        const bounds = getElementBounds(element)
+        if (bounds) {
+          centerX = bounds.x + bounds.width / 2
+          centerY = bounds.y + bounds.height / 2
+        }
+      }
+      if (centerX !== undefined && centerY !== undefined) {
+        ctx.translate(centerX, centerY)
+        ctx.rotate(angle)
+        ctx.translate(-centerX, -centerY)
+      }
+    }
+
     if (element.type === 'line') {
       rc.line(element.start.x, element.start.y, element.end.x, element.end.y, options)
     } else if (element.type === 'rect') {
       // 矩形：绘制尖角矩形
-      const width = element.end.x - element.start.x
-      const height = element.end.y - element.start.y
-      rc.rectangle(element.start.x, element.start.y, width, height, options)
+      // 计算矩形的实际左上角和尺寸（确保 width 和 height 为正）
+      const minX = Math.min(element.start.x, element.end.x)
+      const minY = Math.min(element.start.y, element.end.y)
+      const width = Math.abs(element.end.x - element.start.x)
+      const height = Math.abs(element.end.y - element.start.y)
+      rc.rectangle(minX, minY, width, height, options)
     } else if (element.type === 'rounded-rect') {
-      // 圆角矩形：参考excalidraw的实现方式：使用quadratic curve (Q命令)绘制圆角矩形
+      // 圆角矩形：参考excalidraw的实现方式
       // excalidraw源码：packages/excalidraw/scene/Shape.ts:327-345
-      const width = element.end.x - element.start.x
-      const height = element.end.y - element.start.y
-      const x = element.start.x
-      const y = element.start.y
+      // excalidraw使用相对坐标从(0,0)开始，然后通过ctx.translate移动到实际位置
+      const minX = Math.min(element.start.x, element.end.x)
+      const minY = Math.min(element.start.y, element.end.y)
+      const width = Math.abs(element.end.x - element.start.x)
+      const height = Math.abs(element.end.y - element.start.y)
       const w = width
       const h = height
-      // 计算圆角半径，参考excalidraw的getCornerRadius逻辑
-      const minDim = Math.min(Math.abs(w), Math.abs(h))
-      const r = Math.min(20, minDim * 0.1) // 使用比例半径，类似excalidraw的PROPORTIONAL_RADIUS
 
-      // 使用quadratic curve绘制圆角矩形路径（与excalidraw完全一致）
-      // 路径：从左上角开始，顺时针绘制
-      const path = `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y}, ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h}, ${x + w - r} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h}, ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y}, ${x + r} ${y}`
+      // 计算圆角半径：使用excalidraw的DEFAULT_PROPORTIONAL_RADIUS = 0.25
+      // 参考：packages/excalidraw/constants.ts:346
+      const minDim = Math.min(w, h)
+      const r = minDim * 0.25 // 25%的比例，与excalidraw一致
 
-      // 使用roughjs的path方法，保持默认roughness（excalidraw也使用默认roughness）
-      rc.path(path, options)
+      // 使用相对坐标路径（从0,0开始），与excalidraw完全一致
+      // excalidraw路径：M r 0 L w-r 0 Q w 0, w r L w h-r Q w h, w-r h L r h Q 0 h, 0 h-r L 0 r Q 0 0, r 0
+      const path = `M ${r} 0 L ${w - r} 0 Q ${w} 0, ${w} ${r} L ${w} ${h - r} Q ${w} ${h}, ${w - r} ${h} L ${r} ${h} Q 0 ${h}, 0 ${h - r} L 0 ${r} Q 0 0, ${r} 0`
+
+      // 使用roughjs的path方法，设置preserveVertices=true以保持路径连续性
+      // 参考：packages/excalidraw/scene/Shape.ts:343 (continuousPath=true)
+      const pathOptions = {
+        ...options,
+        preserveVertices: true // 保持顶点，确保圆角平滑
+      }
+
+      // 先移动到实际位置，然后绘制相对坐标路径
+      ctx.save()
+      ctx.translate(minX, minY)
+      rc.path(path, pathOptions)
+      ctx.restore()
     } else if (element.type === 'circle') {
       // 参考excalidraw：使用ellipse而不是circle，支持椭圆
-      const width = element.end.x - element.start.x
-      const height = element.end.y - element.start.y
-      const centerX = element.start.x + width / 2
-      const centerY = element.start.y + height / 2
-      const radiusX = Math.abs(width) / 2
-      const radiusY = Math.abs(height) / 2
+      const minX = Math.min(element.start.x, element.end.x)
+      const minY = Math.min(element.start.y, element.end.y)
+      const width = Math.abs(element.end.x - element.start.x)
+      const height = Math.abs(element.end.y - element.start.y)
+      const centerX = minX + width / 2
+      const centerY = minY + height / 2
+      const radiusX = width / 2
+      const radiusY = height / 2
       // 使用ellipse绘制，参考excalidraw的ellipse实现
       rc.ellipse(centerX, centerY, radiusX * 2, radiusY * 2, options)
     } else if (element.type === 'star') {
-      const width = element.end.x - element.start.x
-      const height = element.end.y - element.start.y
-      const centerX = element.start.x + width / 2
-      const centerY = element.start.y + height / 2
+      const minX = Math.min(element.start.x, element.end.x)
+      const minY = Math.min(element.start.y, element.end.y)
+      const width = Math.abs(element.end.x - element.start.x)
+      const height = Math.abs(element.end.y - element.start.y)
+      const centerX = minX + width / 2
+      const centerY = minY + height / 2
       const outerRadius = Math.min(Math.abs(width), Math.abs(height)) / 2
       const innerRadius = outerRadius * 0.4
       const points = 5
@@ -166,6 +231,16 @@ export function useRender(canvasRef) {
     const lineHeight = element.lineHeight || 1.2
     const textAlign = element.textAlign || 'left'
 
+    // 应用旋转（参考 excalidraw）
+    const angle = element.angle || 0
+    if (angle !== 0) {
+      const centerX = element.x + (element.width || 0) / 2
+      const centerY = element.y + (element.height || 0) / 2
+      ctx.translate(centerX, centerY)
+      ctx.rotate(angle)
+      ctx.translate(-centerX, -centerY)
+    }
+
     ctx.font = `${fontSize}px ${fontFamily}`
     ctx.fillStyle = element.color || '#000000'
     ctx.textBaseline = 'top'
@@ -195,11 +270,22 @@ export function useRender(canvasRef) {
    * 渲染资源
    */
   function renderResource(ctx, element) {
+    ctx.save()
+    // 应用旋转（参考 excalidraw）
+    const angle = element.angle || 0
+    if (angle !== 0) {
+      const centerX = element.x
+      const centerY = element.y
+      ctx.translate(centerX, centerY)
+      ctx.rotate(angle)
+      ctx.translate(-centerX, -centerY)
+    }
     const img = new window.Image()
     img.src = element.url
     img.onload = () => {
       ctx.drawImage(img, element.x - 20, element.y - 20, 40, 40)
     }
+    ctx.restore()
   }
 
   /**

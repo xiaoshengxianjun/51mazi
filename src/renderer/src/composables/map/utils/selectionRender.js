@@ -251,7 +251,8 @@ export function renderSelection(
     const coords = getElementAbsoluteCoords(element, getElementBounds)
     if (!coords) return
     const [x1, y1, x2, y2, cx, cy] = coords
-    const angle = 0
+    // 使用元素的旋转角度（如果存在），否则为0
+    const angle = element.angle || 0
 
     const padding = 8 / scale
     const lineWidth = 8 / scale
