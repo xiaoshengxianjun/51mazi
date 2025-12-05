@@ -231,6 +231,7 @@ const confirmDelete = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
+  padding: 10px;
 
   .map-item {
     width: 280px;

@@ -20,24 +20,28 @@ export function useMoveTool({ editorContainerRef, canvasState }) {
 
   /**
    * 继续平移
+   * 参考excalidraw：直接计算鼠标移动的差值，更新scrollX和scrollY
+   * 注意：ctx.translate(scrollX, scrollY) 会将坐标系向右下移动
+   * 所以鼠标向右移动时，scrollX应该增加，使内容跟随鼠标向右移动
    */
   function onMouseMove(e) {
     if (!panning.value || !editorContainerRef.value) return
 
-    const containerRect = editorContainerRef.value.getBoundingClientRect()
-    // 计算鼠标在场景坐标系中的位置
-    const sceneX =
-      (e.clientX - containerRect.left) / canvasState.scale.value - canvasState.scrollX.value
-    const sceneY =
-      (e.clientY - containerRect.top) / canvasState.scale.value - canvasState.scrollY.value
-    // 计算开始平移时的场景坐标
-    const startSceneX =
-      (panStart.value.x - containerRect.left) / canvasState.scale.value - canvasState.scrollX.value
-    const startSceneY =
-      (panStart.value.y - containerRect.top) / canvasState.scale.value - canvasState.scrollY.value
-    // 计算 scrollX 和 scrollY 的变化
-    canvasState.scrollX.value = canvasState.scrollX.value - (sceneX - startSceneX)
-    canvasState.scrollY.value = canvasState.scrollY.value - (sceneY - startSceneY)
+    // 计算鼠标移动的差值（视口坐标）
+    const deltaX = e.clientX - panStart.value.x
+    const deltaY = e.clientY - panStart.value.y
+
+    // 将视口坐标差值转换为场景坐标差值
+    // 场景坐标 = 视口坐标 / scale
+    const sceneDeltaX = deltaX / canvasState.scale.value
+    const sceneDeltaY = deltaY / canvasState.scale.value
+
+    // 更新scrollX和scrollY
+    // 鼠标向右移动（deltaX > 0）→ scrollX增加 → 内容向右移动
+    // 鼠标向左移动（deltaX < 0）→ scrollX减少 → 内容向左移动
+    canvasState.scrollX.value += sceneDeltaX
+    canvasState.scrollY.value += sceneDeltaY
+
     // 更新 panStart
     panStart.value = { x: e.clientX, y: e.clientY }
   }

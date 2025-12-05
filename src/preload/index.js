@@ -129,6 +129,11 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-map-image', { bookName, mapName }),
       // 删除地图
       deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
+      // 保存地图数据（画板内容）
+      saveMapData: (data) => ipcRenderer.invoke('save-map-data', data),
+      // 加载地图数据（画板内容）
+      loadMapData: ({ bookName, mapName }) =>
+        ipcRenderer.invoke('load-map-data', { bookName, mapName }),
 
       // --------- 人物谱相关 ---------
       // 读取人物谱数据

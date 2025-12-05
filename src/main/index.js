@@ -1582,7 +1582,7 @@ ipcMain.handle('create-map', async (event, { bookName, mapName, description, ima
 })
 
 // 更新地图（无同名校验）
-ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => {
+ipcMain.handle('update-map', async (event, { bookName, mapName, imageData, mapData }) => {
   try {
     const booksDir = await store.get('booksDir')
     if (!booksDir) {
@@ -1594,10 +1594,20 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => 
       fs.mkdirSync(mapsDir, { recursive: true })
     }
     const filePath = join(mapsDir, `${mapName}.png`)
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+    
     // 保存图片（覆盖）
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
-    const buffer = Buffer.from(base64Data, 'base64')
-    fs.writeFileSync(filePath, buffer)
+    if (imageData) {
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      fs.writeFileSync(filePath, buffer)
+    }
+    
+    // 保存地图数据（画板内容）
+    if (mapData) {
+      fs.writeFileSync(dataFilePath, JSON.stringify(mapData, null, 2), 'utf-8')
+    }
+    
     return {
       success: true,
       path: filePath
@@ -1608,6 +1618,49 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => 
   }
 })
 
+// 保存地图数据（画板内容）
+ipcMain.handle('save-map-data', async (event, { bookName, mapName, mapData }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+    }
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+    fs.writeFileSync(dataFilePath, JSON.stringify(mapData, null, 2), 'utf-8')
+    return {
+      success: true,
+      path: dataFilePath
+    }
+  } catch (error) {
+    console.error('保存地图数据失败:', error)
+    throw error
+  }
+})
+
+// 加载地图数据（画板内容）
+ipcMain.handle('load-map-data', async (event, { bookName, mapName }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const dataFilePath = join(booksDir, bookName, 'maps', `${mapName}.data.json`)
+    if (!fs.existsSync(dataFilePath)) {
+      return null // 如果没有数据文件，返回null
+    }
+    const data = fs.readFileSync(dataFilePath, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    console.error('加载地图数据失败:', error)
+    return null
+  }
+})
+
 // 删除地图
 ipcMain.handle('delete-map', async (event, { bookName, mapName }) => {
   try {
@@ -1615,11 +1668,24 @@ ipcMain.handle('delete-map', async (event, { bookName, mapName }) => {
     if (!booksDir) {
       throw new Error('未设置书籍目录')
     }
-    const filePath = join(booksDir, bookName, 'maps', `${mapName}.png`)
-    if (!fs.existsSync(filePath)) {
-      throw new Error('地图不存在')
+    const mapsDir = join(booksDir, bookName, 'maps')
+    const filePath = join(mapsDir, `${mapName}.png`)
+    const jsonPath = join(mapsDir, `${mapName}.json`)
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+
+    // 删除图片文件
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
     }
-    fs.unlinkSync(filePath)
+    // 删除元数据文件
+    if (fs.existsSync(jsonPath)) {
+      fs.unlinkSync(jsonPath)
+    }
+    // 删除数据文件
+    if (fs.existsSync(dataFilePath)) {
+      fs.unlinkSync(dataFilePath)
+    }
+
     return { success: true }
   } catch (error) {
     console.error('删除地图失败:', error)

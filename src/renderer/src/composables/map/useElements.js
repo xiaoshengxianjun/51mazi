@@ -43,6 +43,60 @@ export function useElements() {
     currentShape.value = null
   }
 
+  /**
+   * 序列化所有元素数据（用于保存）
+   * 参考excalidraw：将画板内容序列化为JSON格式
+   * @param {string} backgroundColor - 背景色
+   */
+  function serialize(backgroundColor) {
+    return {
+      version: '1.0.0', // 版本号，用于后续兼容性处理
+      freeDrawElements: JSON.parse(JSON.stringify(freeDrawElements.value)),
+      shapeElements: JSON.parse(JSON.stringify(shapeElements.value)),
+      textElements: JSON.parse(JSON.stringify(textElements.value)),
+      resourceElements: JSON.parse(JSON.stringify(resourceElements.value)),
+      fillElements: JSON.parse(JSON.stringify(fillElements.value)),
+      backgroundColor: backgroundColor || '#ffffff' // 包含背景色
+    }
+  }
+
+  /**
+   * 反序列化元素数据（用于加载）
+   * 参考excalidraw：从JSON格式恢复画板内容
+   * @returns {string|null} 背景色
+   */
+  function deserialize(data) {
+    if (!data) return null
+
+    try {
+      // 清空现有元素
+      clearAll()
+
+      // 恢复元素数据
+      if (data.freeDrawElements && Array.isArray(data.freeDrawElements)) {
+        freeDrawElements.value = JSON.parse(JSON.stringify(data.freeDrawElements))
+      }
+      if (data.shapeElements && Array.isArray(data.shapeElements)) {
+        shapeElements.value = JSON.parse(JSON.stringify(data.shapeElements))
+      }
+      if (data.textElements && Array.isArray(data.textElements)) {
+        textElements.value = JSON.parse(JSON.stringify(data.textElements))
+      }
+      if (data.resourceElements && Array.isArray(data.resourceElements)) {
+        resourceElements.value = JSON.parse(JSON.stringify(data.resourceElements))
+      }
+      if (data.fillElements && Array.isArray(data.fillElements)) {
+        fillElements.value = JSON.parse(JSON.stringify(data.fillElements))
+      }
+
+      // 返回背景色
+      return data.backgroundColor || null
+    } catch (error) {
+      console.error('反序列化元素数据失败:', error)
+      throw new Error('加载画板内容失败: ' + error.message)
+    }
+  }
+
   return {
     freeDrawElements,
     currentFreeDrawPath,
@@ -52,6 +106,8 @@ export function useElements() {
     resourceElements,
     fillElements,
     getAllElements,
-    clearAll
+    clearAll,
+    serialize,
+    deserialize
   }
 }

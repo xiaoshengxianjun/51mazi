@@ -17,6 +17,7 @@
       @resource-select="selectResource"
       @resource-mousedown="onResourceMouseDown"
       @shape-type-change="handleShapeTypeChange"
+      @save-map="handleSaveMap"
     />
 
     <!-- 颜色选择器 -->
@@ -216,7 +217,7 @@ const shapeToolDrawingActive = ref(false)
 const shapeToolType = ref('rect') // 默认选择矩形
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
-const { renderCanvas, canvasWrapStyle } = useCanvas(
+const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
   canvasRef,
   editorContainerRef,
   canvasState,
@@ -513,8 +514,6 @@ const resources = [
 function handleCanvasMouseDown(e) {
   const pos = getCanvasPos(e)
 
-  console.log('[handleCanvasMouseDown] tool:', tool.value, 'pos:', pos)
-
   if (tool.value === 'move' || spaceKeyPressed.value) {
     moveTool.onMouseDown(e)
     return
@@ -525,10 +524,6 @@ function handleCanvasMouseDown(e) {
   } else if (tool.value === 'eraser') {
     eraserTool.onMouseDown(pos)
   } else if (tool.value === 'shape') {
-    console.log(
-      '[handleCanvasMouseDown] calling shapeTool.onMouseDown, shapeType:',
-      shapeTool.shapeType.value
-    )
     shapeTool.onMouseDown(pos)
   } else if (tool.value === 'bucket') {
     bucketTool.onMouseDown(pos)
@@ -538,7 +533,6 @@ function handleCanvasMouseDown(e) {
   } else if (tool.value === 'select') {
     selectTool.onMouseDown(e, pos)
   } else {
-    console.log('[handleCanvasMouseDown] tool not handled:', tool.value)
     if (textTool.textInputVisible.value) {
       textTool.confirmTextInput()
     }
@@ -558,7 +552,6 @@ function handleCanvasMouseMove(e) {
   } else if (tool.value === 'eraser' && eraserTool.drawingActive.value) {
     eraserTool.onMouseMove(pos)
   } else if (tool.value === 'shape' && shapeTool.drawingActive.value) {
-    console.log('[handleCanvasMouseMove] calling shapeTool.onMouseMove')
     shapeTool.onMouseMove(pos)
   } else if (tool.value === 'select') {
     selectTool.onMouseMove(pos)
@@ -603,6 +596,8 @@ function handleContainerMouseDown(e) {
 function handleContainerMouseMove(e) {
   if (moveTool.panning.value) {
     moveTool.onMouseMove(e)
+    // 拖拽时触发画布重新渲染
+    renderCanvas(false)
   }
 }
 
@@ -843,8 +838,120 @@ function handleBack() {
 }
 
 // ==================== 保存地图 ====================
-// eslint-disable-next-line no-unused-vars
-async function handleSave() {
+/**
+ * 生成预览图（参考excalidraw和paint-board）
+ * 创建一个新的canvas，将内容居中绘制，确保保存的图片内容在中间
+ */
+async function generatePreviewImage() {
+  if (!canvasRef.value) return null
+
+  // 先更新内容边界
+  updateContentBounds()
+
+  const bounds = canvasState.contentBounds.value
+  const padding = 100 // 预览图周围的padding
+  const contentWidth = bounds.maxX - bounds.minX
+  const contentHeight = bounds.maxY - bounds.minY
+
+  // 计算预览图尺寸（确保最小尺寸）
+  const previewWidth = Math.max(contentWidth + padding * 2, 1920)
+  const previewHeight = Math.max(contentHeight + padding * 2, 1080)
+
+  // 创建新的canvas用于预览图
+  const previewCanvas = document.createElement('canvas')
+  previewCanvas.width = previewWidth
+  previewCanvas.height = previewHeight
+  const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true })
+
+  if (!previewCtx) return null
+
+  // 设置背景色
+  previewCtx.fillStyle = backgroundColor.value
+  previewCtx.fillRect(0, 0, previewWidth, previewHeight)
+
+  // 计算偏移量，使内容居中
+  const offsetX = (previewWidth - contentWidth) / 2 - bounds.minX
+  const offsetY = (previewHeight - contentHeight) / 2 - bounds.minY
+
+  // 应用偏移量（通过translate）
+  previewCtx.save()
+  previewCtx.translate(offsetX, offsetY)
+
+  // 绘制所有元素（不使用scale和scroll，直接绘制到新canvas）
+  // 绘制所有已完成的画笔路径
+  elements.freeDrawElements.value.forEach((element) => {
+    renderFunctions.renderFreeDrawPath(previewCtx, element, false)
+  })
+
+  // 绘制所有已完成的形状
+  // 注意：renderShape内部使用了rough.canvas(canvasRef.value)，需要临时替换
+  const originalCanvas = canvasRef.value
+  canvasRef.value = previewCanvas
+  elements.shapeElements.value.forEach((element) => {
+    renderFunctions.renderShape(previewCtx, element, false)
+  })
+  canvasRef.value = originalCanvas
+
+  // 绘制所有文字元素
+  elements.textElements.value.forEach((element) => {
+    renderFunctions.renderText(previewCtx, element, false)
+  })
+
+  // 绘制所有资源元素（需要等待图片加载）
+  const resourcePromises = elements.resourceElements.value.map((element) => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        previewCtx.save()
+        const angle = element.angle || 0
+        if (angle !== 0) {
+          const centerX = element.x
+          const centerY = element.y
+          previewCtx.translate(centerX, centerY)
+          previewCtx.rotate(angle)
+          previewCtx.translate(-centerX, -centerY)
+        }
+        previewCtx.drawImage(img, element.x - 20, element.y - 20, 40, 40)
+        previewCtx.restore()
+        resolve()
+      }
+      img.onerror = () => resolve() // 图片加载失败时也继续
+      img.src = element.url
+    })
+  })
+  await Promise.all(resourcePromises)
+
+  // 绘制所有填充区域
+  const fillPromises = elements.fillElements.value.map((element) => {
+    return new Promise((resolve) => {
+      if (element.imageDataBase64) {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          previewCtx.drawImage(img, element.x, element.y, element.width, element.height)
+          resolve()
+        }
+        img.onerror = () => resolve()
+        img.src = element.imageDataBase64
+      } else {
+        resolve()
+      }
+    })
+  })
+  await Promise.all(fillPromises)
+
+  previewCtx.restore()
+
+  return previewCanvas.toDataURL('image/png', 1.0)
+}
+
+/**
+ * 保存地图（从工具栏触发）
+ * 将画板内容保存成图片并下载到对应目录，作为地图列表页的预览图
+ * 参考excalidraw：同时保存图片预览和画板内容数据
+ */
+async function handleSaveMap() {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
     return
@@ -852,18 +959,31 @@ async function handleSave() {
   if (!canvasRef.value) return
 
   try {
+    // 先渲染画布，确保内容是最新的
     renderCanvas()
-    const imageData = canvasRef.value.toDataURL('image/png')
+
+    // 生成预览图（内容居中）
+    const imageData = await generatePreviewImage()
+    if (!imageData) {
+      ElMessage.error('生成预览图失败')
+      return
+    }
+
+    // 序列化画板内容数据（包含背景色）
+    const mapData = elements.serialize(backgroundColor.value)
+
+    // 保存图片和数据到文件系统
     await window.electron.updateMap({
       bookName,
       mapName: mapName.value,
-      imageData
+      imageData,
+      mapData
     })
+
     ElMessage.success('保存成功')
-    router.back()
   } catch (error) {
     console.error('保存地图失败:', error)
-    ElMessage.error('保存地图失败')
+    ElMessage.error('保存地图失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -933,14 +1053,51 @@ function handleKeyUp(e) {
   }
 }
 
+// ==================== 加载地图数据 ====================
+/**
+ * 加载地图数据（画板内容）
+ * 参考excalidraw：从JSON文件恢复画板内容
+ */
+async function loadMapData() {
+  if (!mapName.value || !bookName) return
+
+  try {
+    const mapData = await window.electron.loadMapData({
+      bookName,
+      mapName: mapName.value
+    })
+
+    if (mapData) {
+      // 使用elements的deserialize方法恢复数据，并获取背景色
+      const loadedBackgroundColor = elements.deserialize(mapData)
+      // 恢复背景色
+      if (loadedBackgroundColor) {
+        backgroundColor.value = loadedBackgroundColor
+      }
+      // 重新渲染画布
+      renderCanvas(true)
+      // 重置历史记录（加载后作为初始状态）
+      if (history.value) {
+        history.value.init()
+      }
+      // 地图数据加载成功
+    } else {
+      // 没有找到地图数据，使用空白画板
+    }
+  } catch (error) {
+    console.error('加载地图数据失败:', error)
+    ElMessage.error('加载地图数据失败: ' + error.message)
+  }
+}
+
 // ==================== 生命周期 ====================
-onMounted(() => {
+onMounted(async () => {
   // 设置页面title
   if (mapName.value) {
     document.title = mapName.value
   }
 
-  nextTick(() => {
+  nextTick(async () => {
     if (canvasRef.value) {
       history.value = new HistoryManager(canvasRef.value)
       history.value.renderCallback = renderCanvas
@@ -961,6 +1118,10 @@ onMounted(() => {
         backgroundColor.value = state.backgroundColor || '#ffffff'
       }
       history.value.init()
+
+      // 加载地图数据（如果有）
+      await loadMapData()
+
       renderCanvas()
     }
   })
