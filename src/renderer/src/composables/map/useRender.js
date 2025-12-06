@@ -290,14 +290,40 @@ export function useRender(canvasRef) {
 
   /**
    * 渲染填充区域
+   * 使用图片缓存避免重复加载导致的闪烁
    */
+  const fillImageCache = new Map()
+
   function renderFill(ctx, element) {
-    // 填充区域保存为 base64 图片，直接绘制
-    if (element.imageDataBase64) {
-      const img = new window.Image()
+    if (!element.imageDataBase64) return
+
+    // 使用缓存避免重复加载
+    let img = fillImageCache.get(element.id)
+    if (!img) {
+      img = new window.Image()
       img.src = element.imageDataBase64
+      fillImageCache.set(element.id, img)
+    }
+
+    ctx.save()
+
+    // 应用旋转（参考 excalidraw）
+    const angle = element.angle || 0
+    if (angle !== 0) {
+      const centerX = element.x + (element.width || 0) / 2
+      const centerY = element.y + (element.height || 0) / 2
+      ctx.translate(centerX, centerY)
+      ctx.rotate(angle)
+      ctx.translate(-centerX, -centerY)
+    }
+
+    // 如果图片已加载，直接绘制；否则不绘制（避免显示灰色占位矩形）
+    if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, element.x, element.y, element.width, element.height)
     }
+    // 图片未加载完成时不绘制任何内容，避免显示灰色背景
+
+    ctx.restore()
   }
 
   return {

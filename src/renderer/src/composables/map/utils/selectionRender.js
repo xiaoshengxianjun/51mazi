@@ -241,6 +241,8 @@ export function renderSelection(
   if (selectedElements.length === 0) return
 
   ctx.save()
+  // 注意：如果scrollX和scrollY为0，说明已经在context中应用了变换，不需要再次translate
+  // 但为了保持代码一致性，仍然执行translate(0,0)，不会有任何影响
   ctx.translate(scrollX, scrollY)
 
   const selectionColor = '#1e88e5'
@@ -249,7 +251,10 @@ export function renderSelection(
     // 单个元素
     const element = selectedElements[0]
     const coords = getElementAbsoluteCoords(element, getElementBounds)
-    if (!coords) return
+    if (!coords) {
+      ctx.restore()
+      return
+    }
     const [x1, y1, x2, y2, cx, cy] = coords
     // 使用元素的旋转角度（如果存在），否则为0
     const angle = element.angle || 0
@@ -262,7 +267,21 @@ export function renderSelection(
     ctx.strokeStyle = selectionColor
     ctx.setLineDash([lineWidth, spaceWidth])
     ctx.lineDashOffset = 0
-    strokeRectWithRotation(ctx, x1 - padding, y1 - padding, x2 - x1 + padding * 2, y2 - y1 + padding * 2, cx, cy, angle)
+    
+    // 绘制旋转的选中框
+    // 注意：必须在strokeRectWithRotation之前设置lineDash，因为strokeRectWithRotation内部会save/restore
+    const boxX = x1 - padding
+    const boxY = y1 - padding
+    const boxWidth = x2 - x1 + padding * 2
+    const boxHeight = y2 - y1 + padding * 2
+    
+    // 直接在这里实现旋转绘制，确保旋转正确应用
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(angle)
+    ctx.strokeRect(boxX - cx, boxY - cy, boxWidth, boxHeight)
+    ctx.restore()
+    
     ctx.setLineDash([])
 
     const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], angle, scale)
@@ -281,15 +300,41 @@ export function renderSelection(
     const cx = bounds.x + bounds.width / 2
     const cy = bounds.y + bounds.height / 2
     const padding = 8 / scale
+    const lineWidth = 8 / scale
+    const spaceWidth = 4 / scale
+
+    // 多个元素时，使用共同的旋转角度（如果有的话）
+    // 如果所有元素都有相同的角度，使用该角度；否则使用0
+    let commonAngle = 0
+    if (selectedElements.length > 0) {
+      const firstAngle = selectedElements[0].angle || 0
+      const allSameAngle = selectedElements.every((el) => (el.angle || 0) === firstAngle)
+      if (allSameAngle) {
+        commonAngle = firstAngle
+      }
+    }
 
     ctx.lineWidth = 1 / scale
     ctx.strokeStyle = selectionColor
-    ctx.setLineDash([2 / scale])
-    strokeRectWithRotation(ctx, x1 - padding, y1 - padding, x2 - x1 + padding * 2, y2 - y1 + padding * 2, cx, cy, 0)
+    ctx.setLineDash([lineWidth, spaceWidth])
+    ctx.lineDashOffset = 0
+    
+    // 绘制旋转的选中框
+    const boxX = x1 - padding
+    const boxY = y1 - padding
+    const boxWidth = x2 - x1 + padding * 2
+    const boxHeight = y2 - y1 + padding * 2
+    
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(commonAngle)
+    ctx.strokeRect(boxX - cx, boxY - cy, boxWidth, boxHeight)
+    ctx.restore()
+    
     ctx.setLineDash([])
 
-    const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], 0, scale)
-    renderTransformHandles(ctx, transformHandles, 0, scale)
+    const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], commonAngle, scale)
+    renderTransformHandles(ctx, transformHandles, commonAngle, scale)
   }
 
   ctx.restore()

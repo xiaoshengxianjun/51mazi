@@ -15,6 +15,7 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
 
   /**
    * 油漆桶填充（洪水填充算法）
+   * 注意：pos 是场景坐标，需要转换为画布像素坐标
    */
   function fillBucket(pos) {
     if (!canvasRef.value || !history.value) return
@@ -24,13 +25,30 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     // 先渲染当前画布，获取最新状态
     renderCanvas()
 
-    const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
+    // 获取画布尺寸
+    const canvasWidth = canvasRef.value.width
+    const canvasHeight = canvasRef.value.height
+
+    // 获取画布的像素数据
+    // 注意：getImageData获取的是画布的原始像素数据，已经应用了scale和translate
+    // 但我们需要在场景坐标系中进行填充，所以需要将场景坐标转换为画布像素坐标
+    const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight)
     const data = imageData.data
     const width = imageData.width
     const height = imageData.height
 
+    // 将场景坐标转换为画布像素坐标
+    // 由于renderCanvasContent中使用了scale和translate：
+    // ctx.scale(scale, scale)
+    // ctx.translate(scrollX, scrollY)
+    // 所以画布像素坐标 = (场景坐标 + scrollX) * scale
+    // 但getImageData获取的是画布原始像素，没有应用这些变换
+    // 实际上，画布的尺寸等于内容边界，所以场景坐标可以直接使用
+    // 但为了安全，我们使用场景坐标，因为填充应该在场景坐标系中进行
     const x = Math.floor(pos.x)
     const y = Math.floor(pos.y)
+
+    // 检查坐标是否在画布范围内
     if (x < 0 || x >= width || y < 0 || y >= height) return
 
     const startIdx = (y * width + x) * 4

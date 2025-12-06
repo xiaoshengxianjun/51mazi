@@ -314,18 +314,20 @@ export function useSelectTool({
         const currentAngle = (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
         const deltaAngle = currentAngle - startAngle
 
+        // 多个元素旋转时，使用共同的旋转角度，避免内容分离
+        // 计算共同的旋转角度（基于第一个元素的原始角度）
+        const firstElement = selectedElements[0]
+        const firstOriginalElement = pointerDownState.value.originalElements.get(firstElement.id)
+        const commonOriginalAngle = firstOriginalElement ? (firstOriginalElement.angle || 0) : 0
+        const commonNewAngle = commonOriginalAngle + deltaAngle
+        
         selectedElements.forEach((element) => {
           const originalElement = pointerDownState.value.originalElements.get(element.id)
           if (!originalElement) return
 
-          // 获取原始角度（如果不存在则默认为0）
-          const originalAngle = originalElement.angle || 0
-          // 累积角度：新角度 = 原始角度 + 增量角度
-          const newAngle = originalAngle + deltaAngle
-          
-          // 只更新角度，不修改元素的内部坐标（start/end/points）
-          // 这样在渲染时应用旋转，不会导致变形
-          element.angle = newAngle
+          // 多个元素旋转时，使用共同的旋转角度
+          // 这样所有元素都会围绕共同的旋转中心旋转，保持相对位置不变
+          element.angle = commonNewAngle
 
           // 对于有 x, y 坐标的元素（text, resource, fill），需要更新位置
           // 使其围绕旋转中心旋转
@@ -356,6 +358,70 @@ export function useSelectTool({
           }
           // 对于形状元素（line, rect, circle, star, arrow）和 freedraw，
           // 不修改 start/end/points，只在渲染时应用 angle 旋转
+          
+        })
+        
+        // 处理填充元素的旋转（在选中元素之外，但需要一起旋转的填充元素）
+        // 查找所有需要一起旋转的填充元素（与选中的图形元素对应的填充元素）
+        const selectedGraphicElements = selectedElements.filter((el) => 
+          el.type !== 'fill' && (el.type === 'rect' || el.type === 'rounded-rect' || 
+          el.type === 'circle' || el.type === 'star' || el.type === 'arrow' || 
+          el.type === 'line' || el.type === 'freedraw')
+        )
+        
+        selectedGraphicElements.forEach((element) => {
+          const shapeBounds = getElementBounds(element)
+          if (shapeBounds) {
+            elements.fillElements.value.forEach((fillElement) => {
+              // 如果填充元素已经在选中列表中，跳过（已经处理过了）
+              if (selectedElementIds.value.has(fillElement.id)) return
+              
+              const fillBounds = getElementBounds(fillElement)
+              if (fillBounds) {
+                const fillCenterX = fillBounds.x + fillBounds.width / 2
+                const fillCenterY = fillBounds.y + fillBounds.height / 2
+                
+                // 检查填充元素的中心点是否在图形元素的边界框内
+                if (fillCenterX >= shapeBounds.x && fillCenterX <= shapeBounds.x + shapeBounds.width &&
+                    fillCenterY >= shapeBounds.y && fillCenterY <= shapeBounds.y + shapeBounds.height) {
+                  // 找到对应的填充元素，一起旋转
+                  const originalFillElement = pointerDownState.value.originalElements.get(fillElement.id)
+                  if (!originalFillElement) {
+                    // 如果填充元素不在原始元素列表中，创建一个副本
+                    pointerDownState.value.originalElements.set(fillElement.id, {
+                      ...fillElement,
+                      angle: fillElement.angle || 0,
+                      x: fillElement.x,
+                      y: fillElement.y
+                    })
+                  }
+                  
+                  // 使用共同的旋转角度
+                  fillElement.angle = commonNewAngle
+                  
+                  // 更新填充元素的位置（围绕共同的旋转中心）
+                  const originalFillBounds = getElementBounds(originalFillElement || fillElement)
+                  if (originalFillBounds) {
+                    const fillElementCenterX = originalFillBounds.x + originalFillBounds.width / 2
+                    const fillElementCenterY = originalFillBounds.y + originalFillBounds.height / 2
+                    
+                    const fillCos = Math.cos(deltaAngle)
+                    const fillSin = Math.sin(deltaAngle)
+                    const fillDx = fillElementCenterX - centerX
+                    const fillDy = fillElementCenterY - centerY
+                    const newFillCenterX = centerX + fillDx * fillCos - fillDy * fillSin
+                    const newFillCenterY = centerY + fillDx * fillSin + fillDy * fillCos
+                    
+                    const fillOffsetX = newFillCenterX - fillElementCenterX
+                    const fillOffsetY = newFillCenterY - fillElementCenterY
+                    
+                    fillElement.x = (originalFillElement || fillElement).x + fillOffsetX
+                    fillElement.y = (originalFillElement || fillElement).y + fillOffsetY
+                  }
+                }
+              }
+            })
+          }
         })
       } else if (transformHandleType.value) {
         // 调整大小
@@ -542,6 +608,86 @@ export function useSelectTool({
             }
             if (element.height) {
               element.height = newElementHeight
+            }
+            // 填充区域在缩放时，需要保持角度不变（角度在旋转时更新）
+            // 这里不需要更新angle，因为缩放不改变角度
+          }
+        })
+        
+        // 如果调整的是图形元素，需要同时调整对应的填充元素
+        selectedElements.forEach((element) => {
+          if (element.type !== 'fill' && (element.type === 'rect' || element.type === 'rounded-rect' || 
+              element.type === 'circle' || element.type === 'star' || element.type === 'arrow' || 
+              element.type === 'line' || element.type === 'freedraw')) {
+            const shapeBounds = getElementBounds(element)
+            if (shapeBounds) {
+              const shapeCenterX = shapeBounds.x + shapeBounds.width / 2
+              const shapeCenterY = shapeBounds.y + shapeBounds.height / 2
+              
+              elements.fillElements.value.forEach((fillElement) => {
+                const fillBounds = getElementBounds(fillElement)
+                if (fillBounds) {
+                  const fillCenterX = fillBounds.x + fillBounds.width / 2
+                  const fillCenterY = fillBounds.y + fillBounds.height / 2
+                  
+                  // 检查填充元素的中心点是否在图形元素的边界框内
+                  if (fillCenterX >= shapeBounds.x && fillCenterX <= shapeBounds.x + shapeBounds.width &&
+                      fillCenterY >= shapeBounds.y && fillCenterY <= shapeBounds.y + shapeBounds.height) {
+                    // 找到对应的填充元素，一起调整大小
+                    const originalFillElement = pointerDownState.value.originalElements.get(fillElement.id)
+                    if (!originalFillElement) {
+                      pointerDownState.value.originalElements.set(fillElement.id, {
+                        ...fillElement,
+                        x: fillElement.x,
+                        y: fillElement.y,
+                        width: fillElement.width,
+                        height: fillElement.height
+                      })
+                    }
+                    
+                    const originalFillBounds = getElementBounds(originalFillElement || fillElement)
+                    if (originalFillBounds) {
+                      const fillOffsetX = originalFillBounds.x - ox1
+                      const fillOffsetY = originalFillBounds.y - oy1
+                      
+                      let newFillBoundsX, newFillBoundsY
+                      if (handle.includes('e') && handle.includes('s')) {
+                        newFillBoundsX = anchorX
+                        newFillBoundsY = anchorY
+                      } else if (handle.includes('e') && handle.includes('n')) {
+                        newFillBoundsX = anchorX
+                        newFillBoundsY = anchorY - newHeight
+                      } else if (handle.includes('w') && handle.includes('s')) {
+                        newFillBoundsX = anchorX - newWidth
+                        newFillBoundsY = anchorY
+                      } else if (handle.includes('w') && handle.includes('n')) {
+                        newFillBoundsX = anchorX - newWidth
+                        newFillBoundsY = anchorY - newHeight
+                      } else if (handle === 'e') {
+                        newFillBoundsX = anchorX
+                        newFillBoundsY = anchorY - newHeight / 2
+                      } else if (handle === 'w') {
+                        newFillBoundsX = anchorX - newWidth
+                        newFillBoundsY = anchorY - newHeight / 2
+                      } else if (handle === 's') {
+                        newFillBoundsX = anchorX - newWidth / 2
+                        newFillBoundsY = anchorY
+                      } else if (handle === 'n') {
+                        newFillBoundsX = anchorX - newWidth / 2
+                        newFillBoundsY = anchorY - newHeight
+                      } else {
+                        newFillBoundsX = anchorX
+                        newFillBoundsY = anchorY
+                      }
+                      
+                      fillElement.x = newFillBoundsX + fillOffsetX * scaleX
+                      fillElement.y = newFillBoundsY + fillOffsetY * scaleY
+                      fillElement.width = originalFillBounds.width * scaleX
+                      fillElement.height = originalFillBounds.height * scaleY
+                    }
+                  }
+                }
+              })
             }
           }
         })

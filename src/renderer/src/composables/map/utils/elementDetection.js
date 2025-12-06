@@ -68,6 +68,7 @@ export function isPointInElement(point, element) {
 
 /**
  * 获取指定点的元素（从后往前查找，返回最上层的元素）
+ * 注意：如果点击的是填充元素，优先返回对应的图形元素
  */
 export function getElementAtPoint(point, elements) {
   // 从后往前查找（后绘制的元素在上层）
@@ -79,11 +80,53 @@ export function getElementAtPoint(point, elements) {
     ...elements.freeDrawElements.value
   ]
 
+  let clickedFillElement = null
+
+  // 先查找所有匹配的元素
   for (let i = allElements.length - 1; i >= 0; i--) {
     const element = allElements[i]
     if (isPointInElement(point, element)) {
-      return element
+      // 如果找到的是图形元素（非填充元素），直接返回
+      if (element.type !== 'fill') {
+        return element
+      }
+      // 如果找到的是填充元素，先记录下来，继续查找图形元素
+      if (!clickedFillElement) {
+        clickedFillElement = element
+      }
     }
+  }
+
+  // 如果只找到了填充元素，查找对应的图形元素
+  if (clickedFillElement) {
+    const fillBounds = {
+      x: clickedFillElement.x,
+      y: clickedFillElement.y,
+      width: clickedFillElement.width,
+      height: clickedFillElement.height
+    }
+    const fillCenterX = fillBounds.x + fillBounds.width / 2
+    const fillCenterY = fillBounds.y + fillBounds.height / 2
+
+    // 检查填充元素的中心点是否在图形元素内
+    // 先检查形状元素（从后往前，优先返回最上层的）
+    for (let i = elements.shapeElements.value.length - 1; i >= 0; i--) {
+      const shapeElement = elements.shapeElements.value[i]
+      if (isPointInElement({ x: fillCenterX, y: fillCenterY }, shapeElement)) {
+        return shapeElement
+      }
+    }
+
+    // 再检查画笔路径
+    for (let i = elements.freeDrawElements.value.length - 1; i >= 0; i--) {
+      const freeDrawElement = elements.freeDrawElements.value[i]
+      if (isPointInElement({ x: fillCenterX, y: fillCenterY }, freeDrawElement)) {
+        return freeDrawElement
+      }
+    }
+
+    // 如果找不到对应的图形元素，返回填充元素
+    return clickedFillElement
   }
 
   return null
