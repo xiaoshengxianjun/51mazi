@@ -42,6 +42,8 @@ declare module 'vue' {
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElSplitter: typeof import('element-plus/es')['ElSplitter']
     ElSplitterPanel: typeof import('element-plus/es')['ElSplitterPanel']
+    ElTimeline: typeof import('element-plus/es')['ElTimeline']
+    ElTimelineItem: typeof import('element-plus/es')['ElTimelineItem']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTree: typeof import('element-plus/es')['ElTree']
     FloatingSidebar: typeof import('./src/components/FloatingSidebar.vue')['default']
