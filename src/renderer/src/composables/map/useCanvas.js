@@ -24,7 +24,8 @@ export function useCanvas(
   selectedElementIds,
   isSelecting,
   selectionStart,
-  selectionEnd
+  selectionEnd,
+  getOriginalBounds = null // 可选的函数，用于获取旋转时的原始边界框
 ) {
   /**
    * 更新内容边界
@@ -183,7 +184,8 @@ export function useCanvas(
           renderTransformHandles,
           canvasState.scale.value,
           0, // scrollX已经在context中应用，这里传0
-          0 // scrollY已经在context中应用，这里传0
+          0, // scrollY已经在context中应用，这里传0
+          getOriginalBounds ? getOriginalBounds() : null // 传递原始边界框（旋转时保持选框宽高不变）
         )
       }
     }

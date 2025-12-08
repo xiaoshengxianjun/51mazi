@@ -1,5 +1,4 @@
-import { getElementBounds } from './elementBounds.js'
-import { getCommonBounds } from './selection.js'
+// getElementBounds 和 getCommonBounds 通过参数传递，不需要导入
 
 /**
  * 选中框渲染工具函数
@@ -236,7 +235,8 @@ export function renderSelection(
   renderTransformHandles,
   scale,
   scrollX,
-  scrollY
+  scrollY,
+  originalBounds = null // 可选的原始边界框，用于旋转时保持选框宽高不变
 ) {
   if (selectedElements.length === 0) return
 
@@ -249,15 +249,29 @@ export function renderSelection(
 
   if (selectedElements.length === 1) {
     // 单个元素
-    const element = selectedElements[0]
-    const coords = getElementAbsoluteCoords(element, getElementBounds)
-    if (!coords) {
-      ctx.restore()
-      return
+    // 如果提供了原始边界框（旋转时），使用它来保持选框宽高不变
+    let bounds = originalBounds
+    if (!bounds) {
+      const coords = getElementAbsoluteCoords(selectedElements[0], getElementBounds)
+      if (!coords) {
+        ctx.restore()
+        return
+      }
+      bounds = {
+        x: coords[0],
+        y: coords[1],
+        width: coords[2] - coords[0],
+        height: coords[3] - coords[1]
+      }
     }
-    const [x1, y1, x2, y2, cx, cy] = coords
+    const x1 = bounds.x
+    const y1 = bounds.y
+    const x2 = bounds.x + bounds.width
+    const y2 = bounds.y + bounds.height
+    const cx = bounds.x + bounds.width / 2
+    const cy = bounds.y + bounds.height / 2
     // 使用元素的旋转角度（如果存在），否则为0
-    const angle = element.angle || 0
+    const angle = selectedElements[0].angle || 0
 
     const padding = 8 / scale
     const lineWidth = 8 / scale
@@ -267,28 +281,30 @@ export function renderSelection(
     ctx.strokeStyle = selectionColor
     ctx.setLineDash([lineWidth, spaceWidth])
     ctx.lineDashOffset = 0
-    
+
     // 绘制旋转的选中框
     // 注意：必须在strokeRectWithRotation之前设置lineDash，因为strokeRectWithRotation内部会save/restore
     const boxX = x1 - padding
     const boxY = y1 - padding
     const boxWidth = x2 - x1 + padding * 2
     const boxHeight = y2 - y1 + padding * 2
-    
+
     // 直接在这里实现旋转绘制，确保旋转正确应用
     ctx.save()
     ctx.translate(cx, cy)
     ctx.rotate(angle)
     ctx.strokeRect(boxX - cx, boxY - cy, boxWidth, boxHeight)
     ctx.restore()
-    
+
     ctx.setLineDash([])
 
     const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], angle, scale)
     renderTransformHandles(ctx, transformHandles, angle, scale)
   } else {
     // 多个元素
-    const bounds = getCommonBounds(selectedElements, getElementBounds)
+    // 如果提供了原始边界框（旋转时），使用它来保持选框宽高不变
+    // 否则使用当前元素的边界框
+    const bounds = originalBounds || getCommonBounds(selectedElements, getElementBounds)
     if (!bounds) {
       ctx.restore()
       return
@@ -297,6 +313,8 @@ export function renderSelection(
     const y1 = bounds.y
     const x2 = bounds.x + bounds.width
     const y2 = bounds.y + bounds.height
+    // 旋转中心始终使用原始边界框的中心（如果提供了原始边界框）
+    // 否则使用当前边界框的中心
     const cx = bounds.x + bounds.width / 2
     const cy = bounds.y + bounds.height / 2
     const padding = 8 / scale
@@ -318,22 +336,26 @@ export function renderSelection(
     ctx.strokeStyle = selectionColor
     ctx.setLineDash([lineWidth, spaceWidth])
     ctx.lineDashOffset = 0
-    
+
     // 绘制旋转的选中框
     const boxX = x1 - padding
     const boxY = y1 - padding
     const boxWidth = x2 - x1 + padding * 2
     const boxHeight = y2 - y1 + padding * 2
-    
+
     ctx.save()
     ctx.translate(cx, cy)
     ctx.rotate(commonAngle)
     ctx.strokeRect(boxX - cx, boxY - cy, boxWidth, boxHeight)
     ctx.restore()
-    
+
     ctx.setLineDash([])
 
-    const transformHandles = getTransformHandlesFromCoords([x1, y1, x2, y2, cx, cy], commonAngle, scale)
+    const transformHandles = getTransformHandlesFromCoords(
+      [x1, y1, x2, y2, cx, cy],
+      commonAngle,
+      scale
+    )
     renderTransformHandles(ctx, transformHandles, commonAngle, scale)
   }
 

@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineExpose, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,

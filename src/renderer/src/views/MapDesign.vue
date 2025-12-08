@@ -217,6 +217,19 @@ const shapeToolDrawingActive = ref(false)
 const shapeToolType = ref('rect') // 默认选择矩形
 
 // 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
+// 创建一个临时的 renderCanvas 函数，稍后会被 useCanvas 返回的真实函数替换
+let tempRenderCanvas = () => {}
+
+// 先创建 selectTool，以便获取 getOriginalBounds 函数
+const selectTool = useSelectTool({
+  elements,
+  history,
+  renderCanvas: () => tempRenderCanvas(), // 使用临时函数
+  selectedElementIds,
+  canvasState,
+  canvasCursor
+})
+
 const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
   canvasRef,
   editorContainerRef,
@@ -239,8 +252,12 @@ const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
   selectedElementIds,
   selectToolIsSelecting,
   selectToolSelectionStart,
-  selectToolSelectionEnd
+  selectToolSelectionEnd,
+  selectTool.getOriginalBounds
 )
+
+// 更新 selectTool 的 renderCanvas 为真实的函数
+tempRenderCanvas = renderCanvas
 
 // 工具 composables
 const pencilTool = usePencilTool({
@@ -326,14 +343,7 @@ const resourceTool = useResourceTool({
   getCanvasPos
 })
 
-const selectTool = useSelectTool({
-  elements,
-  history,
-  renderCanvas,
-  selectedElementIds,
-  canvasState,
-  canvasCursor
-})
+// selectTool 已经在上面创建（用于获取 getOriginalBounds 函数）
 // 同步 selectTool 的状态
 watch(
   selectTool.isSelecting,

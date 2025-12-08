@@ -5,6 +5,15 @@ import { getElementsInSelectionBox, getCommonBounds } from '../utils/selection.j
 import { getTransformHandlesFromCoords } from '../utils/selectionRender.js'
 
 /**
+ * 规范化角度到 [0, 2π) 范围
+ */
+function normalizeAngle(angle) {
+  while (angle < 0) angle += 2 * Math.PI
+  while (angle >= 2 * Math.PI) angle -= 2 * Math.PI
+  return angle
+}
+
+/**
  * 选框工具 composable（包含移动、调整大小、旋转）
  */
 export function useSelectTool({
@@ -29,6 +38,63 @@ export function useSelectTool({
   function getSelectedElements() {
     const allElements = elements.getAllElements()
     return allElements.filter((el) => selectedElementIds.value.has(el.id))
+  }
+
+  /**
+   * 查找与图形元素关联的填充元素
+   */
+  function getFillElementForShape(shapeElement) {
+    const shapeBounds = getElementBounds(shapeElement)
+    if (!shapeBounds) return null
+
+    // 查找填充元素的中心点是否在图形元素内
+    for (const fillElement of elements.fillElements.value) {
+      const fillBounds = getElementBounds(fillElement)
+      if (fillBounds) {
+        const fillCenterX = fillBounds.x + fillBounds.width / 2
+        const fillCenterY = fillBounds.y + fillBounds.height / 2
+
+        // 检查填充元素的中心点是否在图形元素的边界框内
+        if (
+          fillCenterX >= shapeBounds.x &&
+          fillCenterX <= shapeBounds.x + shapeBounds.width &&
+          fillCenterY >= shapeBounds.y &&
+          fillCenterY <= shapeBounds.y + shapeBounds.height
+        ) {
+          return fillElement
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * 查找与填充元素关联的图形元素
+   */
+  function getShapeElementForFill(fillElement) {
+    const fillBounds = getElementBounds(fillElement)
+    if (!fillBounds) return null
+
+    const fillCenterX = fillBounds.x + fillBounds.width / 2
+    const fillCenterY = fillBounds.y + fillBounds.height / 2
+
+    // 先检查形状元素（从后往前，优先返回最上层的）
+    for (let i = elements.shapeElements.value.length - 1; i >= 0; i--) {
+      const shapeElement = elements.shapeElements.value[i]
+      if (isPointInSelectionBox({ x: fillCenterX, y: fillCenterY }, [shapeElement])) {
+        return shapeElement
+      }
+    }
+
+    // 再检查画笔路径
+    for (let i = elements.freeDrawElements.value.length - 1; i >= 0; i--) {
+      const freeDrawElement = elements.freeDrawElements.value[i]
+      if (isPointInSelectionBox({ x: fillCenterX, y: fillCenterY }, [freeDrawElement])) {
+        return freeDrawElement
+      }
+    }
+
+    return null
   }
 
   /**
@@ -233,12 +299,51 @@ export function useSelectTool({
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
         if (selectedElementIds.value.has(clickedElement.id)) {
           selectedElementIds.value.delete(clickedElement.id)
+          // 如果取消选中图形元素，也取消选中对应的填充元素
+          if (clickedElement.type !== 'fill') {
+            const fillElement = getFillElementForShape(clickedElement)
+            if (fillElement) {
+              selectedElementIds.value.delete(fillElement.id)
+            }
+          } else {
+            // 如果取消选中填充元素，也取消选中对应的图形元素
+            const shapeElement = getShapeElementForFill(clickedElement)
+            if (shapeElement) {
+              selectedElementIds.value.delete(shapeElement.id)
+            }
+          }
         } else {
           selectedElementIds.value.add(clickedElement.id)
+          // 如果选中图形元素，也选中对应的填充元素
+          if (clickedElement.type !== 'fill') {
+            const fillElement = getFillElementForShape(clickedElement)
+            if (fillElement) {
+              selectedElementIds.value.add(fillElement.id)
+            }
+          } else {
+            // 如果选中填充元素，也选中对应的图形元素
+            const shapeElement = getShapeElementForFill(clickedElement)
+            if (shapeElement) {
+              selectedElementIds.value.add(shapeElement.id)
+            }
+          }
         }
       } else {
         selectedElementIds.value.clear()
         selectedElementIds.value.add(clickedElement.id)
+        // 如果选中图形元素，也选中对应的填充元素
+        if (clickedElement.type !== 'fill') {
+          const fillElement = getFillElementForShape(clickedElement)
+          if (fillElement) {
+            selectedElementIds.value.add(fillElement.id)
+          }
+        } else {
+          // 如果选中填充元素，也选中对应的图形元素
+          const shapeElement = getShapeElementForFill(clickedElement)
+          if (shapeElement) {
+            selectedElementIds.value.add(shapeElement.id)
+          }
+        }
       }
       renderCanvas()
       return
@@ -306,54 +411,84 @@ export function useSelectTool({
       if (selectedElements.length === 0) return
 
       if (transformHandleType.value === 'rotation') {
-        // 旋转（参考 excalidraw：只更新角度，不修改坐标，在渲染时应用旋转）
+        // 旋转逻辑参考 excalidraw
         const centerX = pointerDownState.value.center.x
         const centerY = pointerDownState.value.center.y
         const startAngle = pointerDownState.value.startAngle
 
-        const currentAngle = (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
-        const deltaAngle = currentAngle - startAngle
-
-        // 多个元素旋转时，使用共同的旋转角度，避免内容分离
-        // 计算共同的旋转角度（基于第一个元素的原始角度）
-        const firstElement = selectedElements[0]
-        const firstOriginalElement = pointerDownState.value.originalElements.get(firstElement.id)
-        const commonOriginalAngle = firstOriginalElement ? firstOriginalElement.angle || 0 : 0
-        const commonNewAngle = commonOriginalAngle + deltaAngle
+        // 计算当前鼠标位置相对于旋转中心的角度
+        // (5 * Math.PI) / 2 等于 2.5π，也就是 450度，相当于在 atan2 结果上加上 90度
+        // 这是为了让旋转手柄从上方开始（12点钟方向）
+        const centerAngle = (5 * Math.PI) / 2 + Math.atan2(pos.y - centerY, pos.x - centerX)
 
         selectedElements.forEach((element) => {
           const originalElement = pointerDownState.value.originalElements.get(element.id)
           if (!originalElement) return
 
-          // 多个元素旋转时，使用共同的旋转角度
-          // 这样所有元素都会围绕共同的旋转中心旋转，保持相对位置不变
-          element.angle = commonNewAngle
+          // 获取元素的原始角度
+          const origAngle = originalElement.angle || 0
 
-          // 对于有 x, y 坐标的元素（text, resource, fill），需要更新位置
-          // 使其围绕旋转中心旋转
+          // 计算元素中心点（基于原始元素）
+          const bounds = getElementBounds(originalElement)
+          if (!bounds) return
+
+          const elementCenterX = bounds.x + bounds.width / 2
+          const elementCenterY = bounds.y + bounds.height / 2
+
+          // 计算旋转角度增量（从初始状态到当前状态）
+          // excalidraw 使用 centerAngle + origAngle - element.angle
+          // 但我们需要基于原始状态计算，所以使用 centerAngle - startAngle 作为增量
+          // 然后应用到原始角度上
+          const deltaAngle = centerAngle - startAngle
+          const newAngle = normalizeAngle(origAngle + deltaAngle)
+
+          // 旋转元素中心点围绕旋转中心
+          // 使用 deltaAngle 来旋转元素中心点
+          const cos = Math.cos(deltaAngle)
+          const sin = Math.sin(deltaAngle)
+
+          // 计算旋转后的元素中心点
+          const dx = elementCenterX - centerX
+          const dy = elementCenterY - centerY
+          const rotatedCenterX = centerX + dx * cos - dy * sin
+          const rotatedCenterY = centerY + dx * sin + dy * cos
+
+          // 计算中心点的偏移量
+          const offsetX = rotatedCenterX - elementCenterX
+          const offsetY = rotatedCenterY - elementCenterY
+
+          // 更新元素的角度（所有元素使用相同的角度增量）
+          element.angle = newAngle
+
+          // 对于有 x, y 坐标的元素（text, resource, fill），直接更新位置
           if (element.type === 'text' || element.type === 'resource' || element.type === 'fill') {
-            const bounds = getElementBounds(originalElement)
-            if (bounds) {
-              const elementCenterX = bounds.x + bounds.width / 2
-              const elementCenterY = bounds.y + bounds.height / 2
-
-              const cos = Math.cos(deltaAngle)
-              const sin = Math.sin(deltaAngle)
-              const dx = elementCenterX - centerX
-              const dy = elementCenterY - centerY
-              const newCenterX = centerX + dx * cos - dy * sin
-              const newCenterY = centerY + dx * sin + dy * cos
-
-              const offsetX = newCenterX - elementCenterX
-              const offsetY = newCenterY - elementCenterY
-
-              // 更新元素位置
-              element.x = originalElement.x + offsetX
-              element.y = originalElement.y + offsetY
+            element.x = originalElement.x + offsetX
+            element.y = originalElement.y + offsetY
+          } else if (element.type === 'freedraw') {
+            // 对于 freedraw，需要更新所有点的坐标
+            element.points = originalElement.points.map((point) => ({
+              x: point.x + offsetX,
+              y: point.y + offsetY
+            }))
+          } else if (
+            element.type === 'line' ||
+            element.type === 'rect' ||
+            element.type === 'rounded-rect' ||
+            element.type === 'circle' ||
+            element.type === 'star' ||
+            element.type === 'arrow'
+          ) {
+            // 对于形状元素，只更新 start 和 end 的位置，不改变它们的相对位置
+            // 这样元素不会变形，只是整体移动和旋转
+            element.start = {
+              x: originalElement.start.x + offsetX,
+              y: originalElement.start.y + offsetY
+            }
+            element.end = {
+              x: originalElement.end.x + offsetX,
+              y: originalElement.end.y + offsetY
             }
           }
-          // 对于形状元素（line, rect, circle, star, arrow）和 freedraw，
-          // 不修改 start/end/points，只在渲染时应用 angle 旋转
         })
 
         // 处理填充元素的旋转（在选中元素之外，但需要一起旋转的填充元素）
@@ -390,40 +525,44 @@ export function useSelectTool({
                   fillCenterY <= shapeBounds.y + shapeBounds.height
                 ) {
                   // 找到对应的填充元素，一起旋转
-                  const originalFillElement = pointerDownState.value.originalElements.get(
+                  let originalFillElement = pointerDownState.value.originalElements.get(
                     fillElement.id
                   )
                   if (!originalFillElement) {
                     // 如果填充元素不在原始元素列表中，创建一个副本
-                    pointerDownState.value.originalElements.set(fillElement.id, {
-                      ...fillElement,
-                      angle: fillElement.angle || 0,
-                      x: fillElement.x,
-                      y: fillElement.y
-                    })
+                    originalFillElement = JSON.parse(JSON.stringify(fillElement))
+                    pointerDownState.value.originalElements.set(fillElement.id, originalFillElement)
                   }
 
-                  // 使用共同的旋转角度
-                  fillElement.angle = commonNewAngle
+                  // 获取填充元素的原始角度
+                  const origAngle = originalFillElement.angle || 0
 
-                  // 更新填充元素的位置（围绕共同的旋转中心）
-                  const originalFillBounds = getElementBounds(originalFillElement || fillElement)
+                  // 计算填充元素中心点
+                  const originalFillBounds = getElementBounds(originalFillElement)
                   if (originalFillBounds) {
                     const fillElementCenterX = originalFillBounds.x + originalFillBounds.width / 2
                     const fillElementCenterY = originalFillBounds.y + originalFillBounds.height / 2
 
+                    // 计算旋转角度增量（从初始状态到当前状态）
+                    const deltaAngle = centerAngle - startAngle
+                    const newFillAngle = normalizeAngle(origAngle + deltaAngle)
+
+                    // 旋转填充元素中心点围绕旋转中心
                     const fillCos = Math.cos(deltaAngle)
                     const fillSin = Math.sin(deltaAngle)
+
                     const fillDx = fillElementCenterX - centerX
                     const fillDy = fillElementCenterY - centerY
-                    const newFillCenterX = centerX + fillDx * fillCos - fillDy * fillSin
-                    const newFillCenterY = centerY + fillDx * fillSin + fillDy * fillCos
+                    const rotatedFillCenterX = centerX + fillDx * fillCos - fillDy * fillSin
+                    const rotatedFillCenterY = centerY + fillDx * fillSin + fillDy * fillCos
 
-                    const fillOffsetX = newFillCenterX - fillElementCenterX
-                    const fillOffsetY = newFillCenterY - fillElementCenterY
+                    const fillOffsetX = rotatedFillCenterX - fillElementCenterX
+                    const fillOffsetY = rotatedFillCenterY - fillElementCenterY
 
-                    fillElement.x = (originalFillElement || fillElement).x + fillOffsetX
-                    fillElement.y = (originalFillElement || fillElement).y + fillOffsetY
+                    // 更新填充元素的角度和位置
+                    fillElement.angle = newFillAngle
+                    fillElement.x = originalFillElement.x + fillOffsetX
+                    fillElement.y = originalFillElement.y + fillOffsetY
                   }
                 }
               }
@@ -635,9 +774,6 @@ export function useSelectTool({
           ) {
             const shapeBounds = getElementBounds(element)
             if (shapeBounds) {
-              const shapeCenterX = shapeBounds.x + shapeBounds.width / 2
-              const shapeCenterY = shapeBounds.y + shapeBounds.height / 2
-
               elements.fillElements.value.forEach((fillElement) => {
                 const fillBounds = getElementBounds(fillElement)
                 if (fillBounds) {
@@ -750,6 +886,41 @@ export function useSelectTool({
       if (box.width > 5 && box.height > 5) {
         const selectedIds = getElementsInSelectionBox(box, elements)
         selectedElementIds.value = selectedIds
+
+        // 对于选中的图形元素，自动选中对应的填充元素
+        // 对于选中的填充元素，自动选中对应的图形元素
+        const allElements = elements.getAllElements()
+        const selectedElements = allElements.filter((el) => selectedIds.has(el.id))
+
+        // 先处理图形元素 -> 填充元素的关联
+        selectedElements.forEach((element) => {
+          if (
+            element.type !== 'fill' &&
+            (element.type === 'rect' ||
+              element.type === 'rounded-rect' ||
+              element.type === 'circle' ||
+              element.type === 'star' ||
+              element.type === 'arrow' ||
+              element.type === 'line' ||
+              element.type === 'freedraw')
+          ) {
+            const fillElement = getFillElementForShape(element)
+            if (fillElement && !selectedIds.has(fillElement.id)) {
+              selectedElementIds.value.add(fillElement.id)
+            }
+          }
+        })
+
+        // 再处理填充元素 -> 图形元素的关联
+        selectedElements.forEach((element) => {
+          if (element.type === 'fill') {
+            const shapeElement = getShapeElementForFill(element)
+            if (shapeElement && !selectedIds.has(shapeElement.id)) {
+              selectedElementIds.value.add(shapeElement.id)
+            }
+          }
+        })
+
         renderCanvas()
       }
 
@@ -768,12 +939,17 @@ export function useSelectTool({
     })
 
     let centerX, centerY
+    let originalBounds = null
     if (selectedElements.length === 1) {
       const originalElement = originalElements.get(selectedElements[0].id)
       const coords = getElementAbsoluteCoordsLocal(originalElement || selectedElements[0])
       if (coords) {
         centerX = coords[4]
         centerY = coords[5]
+        const bounds = getElementBounds(originalElement || selectedElements[0])
+        if (bounds) {
+          originalBounds = bounds
+        }
       }
     } else {
       const originalElementsArray = Array.from(originalElements.values())
@@ -781,6 +957,7 @@ export function useSelectTool({
       if (bounds) {
         centerX = bounds.x + bounds.width / 2
         centerY = bounds.y + bounds.height / 2
+        originalBounds = bounds
       }
     }
 
@@ -788,6 +965,7 @@ export function useSelectTool({
       originalElements,
       startCoords: { ...pos },
       center: { x: centerX || 0, y: centerY || 0 },
+      originalBounds, // 保存原始边界框，用于旋转时保持选框宽高不变
       startAngle:
         transformHandleType.value === 'rotation'
           ? (5 * Math.PI) / 2 + Math.atan2(pos.y - (centerY || 0), pos.x - (centerX || 0))
@@ -839,6 +1017,23 @@ export function useSelectTool({
     canvasCursor.value = 'default'
   }
 
+  /**
+   * 获取旋转时的原始边界框（用于保持选框宽高不变）
+   * 注意：只在旋转时返回原始边界框，调整大小时返回 null（让选框跟随内容变化）
+   */
+  function getOriginalBounds() {
+    // 只在旋转时使用原始边界框，调整大小时应该使用当前边界框
+    if (
+      isTransforming.value &&
+      transformHandleType.value === 'rotation' &&
+      pointerDownState.value &&
+      pointerDownState.value.originalBounds
+    ) {
+      return pointerDownState.value.originalBounds
+    }
+    return null
+  }
+
   return {
     isDragging,
     isTransforming,
@@ -850,6 +1045,7 @@ export function useSelectTool({
     onMouseDown,
     onMouseMove,
     onMouseUp,
-    updateCursorStyle
+    updateCursorStyle,
+    getOriginalBounds
   }
 }
