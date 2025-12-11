@@ -3,7 +3,7 @@ import { ref } from 'vue'
 /**
  * 油漆桶工具 composable
  */
-export function useBucketTool({ canvasRef, elements, history, renderCanvas, color }) {
+export function useBucketTool({ canvasRef, elements, history, renderCanvas, color, canvasState }) {
   /**
    * 填充颜色
    */
@@ -41,23 +41,23 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     // 由于renderCanvasContent中使用了scale和translate：
     // ctx.scale(scale, scale)
     // ctx.translate(scrollX, scrollY)
-    // 所以画布像素坐标 = (场景坐标 + scrollX) * scale
-    // 但getImageData获取的是画布原始像素，没有应用这些变换
-    // 实际上，画布的尺寸等于内容边界，所以场景坐标可以直接使用
-    // 但为了安全，我们使用场景坐标，因为填充应该在场景坐标系中进行
-    const x = Math.floor(pos.x)
-    const y = Math.floor(pos.y)
+    // 在canvas context中，先scale后translate，所以：
+    // 画布像素坐标 = (场景坐标 + scrollX) * scale
+    // 但还需要考虑contentBounds的偏移和padding
+    const padding = 200 // 与 useCanvas.js 中的 padding 保持一致
+    const pixelX = Math.floor((pos.x + canvasState.scrollX.value) * canvasState.scale.value + padding + canvasState.contentBounds.value.minX)
+    const pixelY = Math.floor((pos.y + canvasState.scrollY.value) * canvasState.scale.value + padding + canvasState.contentBounds.value.minY)
 
     // 检查坐标是否在画布范围内
-    if (x < 0 || x >= width || y < 0 || y >= height) return
+    if (pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height) return
 
-    const startIdx = (y * width + x) * 4
+    const startIdx = (pixelY * width + pixelX) * 4
     const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]]
     const fillColor = hexToRgba(color.value)
 
     if (colorsMatch(startColor, fillColor)) return
 
-    const stack = [[x, y]]
+    const stack = [[pixelX, pixelY]]
     const visited = new Set()
 
     while (stack.length) {
@@ -82,13 +82,22 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     }
 
     // 计算填充区域的边界
+    // 使用 reduce 而不是展开运算符，避免大数组导致调用栈溢出
     const visitedArray = Array.from(visited)
     if (visitedArray.length === 0) return
 
-    const minX = Math.min(...visitedArray.map((key) => parseInt(key.split(',')[0])))
-    const maxX = Math.max(...visitedArray.map((key) => parseInt(key.split(',')[0])))
-    const minY = Math.min(...visitedArray.map((key) => parseInt(key.split(',')[1])))
-    const maxY = Math.max(...visitedArray.map((key) => parseInt(key.split(',')[1])))
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+
+    visitedArray.forEach((key) => {
+      const [x, y] = key.split(',').map(Number)
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    })
 
     // 裁剪 imageData 到填充区域
     const fillWidth = maxX - minX + 1
@@ -117,13 +126,22 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     tempCtx.putImageData(fillImageData, 0, 0)
     const imageDataBase64 = tempCanvas.toDataURL('image/png')
 
-    // 保存填充元素
+    // 将画布像素坐标转换为场景坐标
+    // getImageData 获取的是画布像素坐标，但元素需要存储场景坐标
+    // 画布像素坐标 = (场景坐标 + scrollX) * scale + contentBounds.minX + padding
+    // 所以场景坐标 = (画布像素坐标 - contentBounds.minX - padding) / scale - scrollX
+    const sceneX = (minX - padding - canvasState.contentBounds.value.minX) / canvasState.scale.value - canvasState.scrollX.value
+    const sceneY = (minY - padding - canvasState.contentBounds.value.minY) / canvasState.scale.value - canvasState.scrollY.value
+    const sceneWidth = fillWidth / canvasState.scale.value
+    const sceneHeight = fillHeight / canvasState.scale.value
+
+    // 保存填充元素（使用场景坐标）
     elements.fillElements.value.push({
       type: 'fill',
-      x: minX,
-      y: minY,
-      width: fillWidth,
-      height: fillHeight,
+      x: sceneX,
+      y: sceneY,
+      width: sceneWidth,
+      height: sceneHeight,
       imageDataBase64: imageDataBase64,
       id: Date.now().toString()
     })

@@ -332,7 +332,8 @@ const bucketTool = useBucketTool({
   elements,
   history,
   renderCanvas,
-  color
+  color,
+  canvasState
 })
 
 const resourceTool = useResourceTool({
