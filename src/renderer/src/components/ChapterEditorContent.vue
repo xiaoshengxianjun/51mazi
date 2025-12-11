@@ -127,8 +127,10 @@ function createEditor() {
 
 // 设置章节编辑器内容
 function setChapterContent(editor, content) {
-  if (!editor || !content) return
-  editor.commands.setContent(plainTextToHtml(content))
+  if (!editor) return
+  // 即使内容为空，也要清空编辑器，确保显示空内容而不是保留之前的内容
+  const htmlContent = content ? plainTextToHtml(content) : ''
+  editor.commands.setContent(htmlContent)
 }
 
 // 获取章节编辑器保存内容
