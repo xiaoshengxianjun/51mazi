@@ -22,8 +22,8 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     const ctx = canvasRef.value.getContext('2d')
     history.value.saveState()
 
-    // 先渲染当前画布，获取最新状态
-    renderCanvas()
+    // 先渲染当前画布，获取最新状态（不更新边界，避免不必要的延迟）
+    renderCanvas(false)
 
     // 获取画布尺寸
     const canvasWidth = canvasRef.value.width
@@ -43,10 +43,11 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     // ctx.translate(scrollX, scrollY)
     // 在canvas context中，先scale后translate，所以：
     // 画布像素坐标 = (场景坐标 + scrollX) * scale
-    // 但还需要考虑contentBounds的偏移和padding
-    const padding = 200 // 与 useCanvas.js 中的 padding 保持一致
-    const pixelX = Math.floor((pos.x + canvasState.scrollX.value) * canvasState.scale.value + padding + canvasState.contentBounds.value.minX)
-    const pixelY = Math.floor((pos.y + canvasState.scrollY.value) * canvasState.scale.value + padding + canvasState.contentBounds.value.minY)
+    // 注意：getImageData获取的是画布的原始像素数据，已经应用了scale和translate变换
+    // 背景绘制在场景坐标(-scrollX, -scrollY)，对应像素坐标(0, 0)
+    // 所以场景坐标(x, y)对应的像素坐标为: (x + scrollX) * scale, (y + scrollY) * scale
+    const pixelX = Math.floor((pos.x + canvasState.scrollX.value) * canvasState.scale.value)
+    const pixelY = Math.floor((pos.y + canvasState.scrollY.value) * canvasState.scale.value)
 
     // 检查坐标是否在画布范围内
     if (pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height) return
@@ -128,15 +129,15 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
 
     // 将画布像素坐标转换为场景坐标
     // getImageData 获取的是画布像素坐标，但元素需要存储场景坐标
-    // 画布像素坐标 = (场景坐标 + scrollX) * scale + contentBounds.minX + padding
-    // 所以场景坐标 = (画布像素坐标 - contentBounds.minX - padding) / scale - scrollX
-    const sceneX = (minX - padding - canvasState.contentBounds.value.minX) / canvasState.scale.value - canvasState.scrollX.value
-    const sceneY = (minY - padding - canvasState.contentBounds.value.minY) / canvasState.scale.value - canvasState.scrollY.value
+    // 画布像素坐标 = (场景坐标 + scrollX) * scale
+    // 所以场景坐标 = 画布像素坐标 / scale - scrollX
+    const sceneX = minX / canvasState.scale.value - canvasState.scrollX.value
+    const sceneY = minY / canvasState.scale.value - canvasState.scrollY.value
     const sceneWidth = fillWidth / canvasState.scale.value
     const sceneHeight = fillHeight / canvasState.scale.value
 
-    // 保存填充元素（使用场景坐标）
-    elements.fillElements.value.push({
+    // 创建填充元素（使用场景坐标）
+    const fillElement = {
       type: 'fill',
       x: sceneX,
       y: sceneY,
@@ -144,11 +145,43 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
       height: sceneHeight,
       imageDataBase64: imageDataBase64,
       id: Date.now().toString()
-    })
+    }
 
-    // 重新渲染画布
-    renderCanvas(true)
-    history.value.saveState()
+    // 预加载图片，确保在渲染时图片已经准备好
+    // 这样可以避免 renderFill 中因为图片未加载完成而不绘制的问题
+    const img = new window.Image()
+    let imageReady = false // 防止重复执行
+    
+    // 处理图片加载完成的回调
+    const handleImageReady = () => {
+      if (imageReady) return // 防止重复执行
+      imageReady = true
+      
+      // 图片加载完成后，添加到元素数组并渲染
+      elements.fillElements.value.push(fillElement)
+      // 重新渲染画布
+      renderCanvas(true)
+      history.value.saveState()
+    }
+    
+    img.onload = handleImageReady
+    img.onerror = () => {
+      if (imageReady) return
+      imageReady = true
+      // 即使加载失败，也添加元素（renderFill 会处理未加载的情况）
+      elements.fillElements.value.push(fillElement)
+      renderCanvas(true)
+      history.value.saveState()
+    }
+    
+    // 设置图片源
+    img.src = imageDataBase64
+    
+    // 如果图片已经加载完成（base64 数据通常是同步的），立即执行回调
+    // 注意：需要在设置 src 后检查，因为 base64 数据可能立即加载完成
+    if (img.complete && img.naturalWidth > 0) {
+      handleImageReady()
+    }
   }
 
   /**
