@@ -918,9 +918,12 @@ export function useSelectTool({
       currentRotationAngle.value = 0
       pointerDownState.value = null
 
-      // 如果是多选旋转，旋转完成后隐藏选框（参考excalidraw）
+      // 如果是多选旋转，旋转完成后自动取消选中（参考excalidraw）
       if (wasMultiSelectionRotation) {
         hideMultiSelectionBox.value = true
+        // 清除选中状态
+        selectedElementIds.value.clear()
+        renderCanvas()
       }
 
       if (history.value) {
@@ -1252,13 +1255,11 @@ export function useSelectTool({
    */
   function shouldHideMultiSelectionBox() {
     const selectedElements = getSelectedElements()
-    // 如果是多选且正在旋转，或者旋转后设置了隐藏标志，则隐藏选框
+    // 如果是多选且正在旋转，则隐藏选框
+    // 注意：旋转完成后会自动清除选中状态，所以不需要检查 hideMultiSelectionBox
     if (selectedElements.length > 1) {
       if (isTransforming.value && transformHandleType.value === 'rotation') {
         return true // 旋转时隐藏
-      }
-      if (hideMultiSelectionBox.value) {
-        return true // 旋转后隐藏
       }
     }
     return false
