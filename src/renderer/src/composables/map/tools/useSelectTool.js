@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { getElementBounds } from '../utils/elementBounds.js'
+import { getElementBounds, getRotatedElementBounds } from '../utils/elementBounds.js'
 import { getElementAtPoint } from '../utils/elementDetection.js'
 import { getElementsInSelectionBox, getCommonBounds } from '../utils/selection.js'
 import {
@@ -157,150 +157,32 @@ export function useSelectTool({
       const transformHandles = getTransformHandlesForElement(element)
       return getTransformHandleTypeFromHandles(pos, transformHandles)
     } else {
-      // 多个元素时，需要计算原始边界框和共同角度（与 renderSelection 保持一致）
-      // 先计算共同角度
-      let commonAngle = 0
-      if (selectedElements.length > 0) {
-        const firstAngle = normalizeAngle(selectedElements[0].angle || 0)
-        const angleTolerance = 0.001
-        const allSameAngle = selectedElements.every((el) => {
-          const elAngle = normalizeAngle(el.angle || 0)
-          const diff = Math.abs(elAngle - firstAngle)
-          const normalizedDiff = Math.min(diff, 2 * Math.PI - diff)
-          return normalizedDiff < angleTolerance
-        })
-        if (allSameAngle) {
-          commonAngle = firstAngle
-        } else {
-          commonAngle = firstAngle
+      // 多个元素时，参考excalidraw：多选时选框始终是轴对齐的（不旋转），旋转锚点在正上方
+      // 与 renderSelection 保持一致，使用旋转后元素的实际边界框（轴对齐边界框）
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+
+      selectedElements.forEach((element) => {
+        // 对于旋转后的元素，使用 getRotatedElementBounds 计算实际边界框
+        const bounds = getRotatedElementBounds(element)
+        if (bounds) {
+          minX = Math.min(minX, bounds.x)
+          minY = Math.min(minY, bounds.y)
+          maxX = Math.max(maxX, bounds.x + bounds.width)
+          maxY = Math.max(maxY, bounds.y + bounds.height)
         }
+      })
+
+      if (minX === Infinity) return false
+
+      const bounds = {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY
       }
-
-      // 确保 commonAngle 归一化
-      commonAngle = normalizeAngle(commonAngle)
-
-      // 计算原始边界框（与 renderSelection 保持一致）
-      let bounds = getCommonBounds(selectedElements, getElementBounds)
-      if (!bounds) return false
-
-      // 如果元素有旋转角度，需要计算原始边界框
-      // 检查角度是否接近0或2π（即无旋转）
-      const angleMod = normalizeAngle(commonAngle)
-      if (angleMod > 0.001 && angleMod < 2 * Math.PI - 0.001) {
-        // 多选旋转时，所有元素是围绕一个共同的旋转中心旋转的
-        // 所以我们需要先找到这个共同旋转中心（使用当前公共边界框的中心作为近似）
-        const rotatedCommonBounds = bounds
-
-        // 共同旋转中心（使用当前公共边界框的中心）
-        const commonCenterX = rotatedCommonBounds.x + rotatedCommonBounds.width / 2
-        const commonCenterY = rotatedCommonBounds.y + rotatedCommonBounds.height / 2
-
-        // 反向旋转所有元素的角点，围绕共同旋转中心
-        let minX = Infinity
-        let minY = Infinity
-        let maxX = -Infinity
-        let maxY = -Infinity
-
-        // 使用归一化后的角度进行反向旋转
-        const cos = Math.cos(-angleMod)
-        const sin = Math.sin(-angleMod)
-
-        selectedElements.forEach((element) => {
-          // 计算当前旋转后的边界框（用于获取当前中心点和尺寸）
-          const currentBounds = getElementBounds(element)
-          if (!currentBounds) return
-
-          const currentCenterX = currentBounds.x + currentBounds.width / 2
-          const currentCenterY = currentBounds.y + currentBounds.height / 2
-
-          // 反向旋转当前中心点，得到未旋转状态下的中心点
-          const dx = currentCenterX - commonCenterX
-          const dy = currentCenterY - commonCenterY
-          const unrotatedCenterX = commonCenterX + dx * cos - dy * sin
-          const unrotatedCenterY = commonCenterY + dx * sin + dy * cos
-
-          // 获取元素在未旋转状态下的尺寸
-          if (
-            element.type === 'line' ||
-            element.type === 'rect' ||
-            element.type === 'rounded-rect' ||
-            element.type === 'circle' ||
-            element.type === 'star' ||
-            element.type === 'arrow'
-          ) {
-            // 对于形状元素，计算start/end在未旋转状态下的边界框
-            const startX = element.start.x
-            const startY = element.start.y
-            const endX = element.end.x
-            const endY = element.end.y
-
-            // 反向旋转start和end点
-            const startDx = startX - commonCenterX
-            const startDy = startY - commonCenterY
-            const unrotatedStartX = commonCenterX + startDx * cos - startDy * sin
-            const unrotatedStartY = commonCenterY + startDx * sin + startDy * cos
-
-            const endDx = endX - commonCenterX
-            const endDy = endY - commonCenterY
-            const unrotatedEndX = commonCenterX + endDx * cos - endDy * sin
-            const unrotatedEndY = commonCenterY + endDx * sin + endDy * cos
-
-            // 计算未旋转状态下的边界框
-            const padding = (element.strokeWidth || 2) / 2
-            const unrotatedMinX = Math.min(unrotatedStartX, unrotatedEndX) - padding
-            const unrotatedMinY = Math.min(unrotatedStartY, unrotatedEndY) - padding
-            const unrotatedMaxX = Math.max(unrotatedStartX, unrotatedEndX) + padding
-            const unrotatedMaxY = Math.max(unrotatedStartY, unrotatedEndY) + padding
-
-            const unrotatedWidth = unrotatedMaxX - unrotatedMinX
-            const unrotatedHeight = unrotatedMaxY - unrotatedMinY
-
-            // 基于未旋转状态下的中心点和尺寸，计算边界框
-            minX = Math.min(minX, unrotatedCenterX - unrotatedWidth / 2)
-            minY = Math.min(minY, unrotatedCenterY - unrotatedHeight / 2)
-            maxX = Math.max(maxX, unrotatedCenterX + unrotatedWidth / 2)
-            maxY = Math.max(maxY, unrotatedCenterY + unrotatedHeight / 2)
-          } else if (element.type === 'freedraw') {
-            // 对于freedraw，使用getElementOriginalBounds
-            const originalElementBounds = getElementOriginalBounds(element, getElementBounds)
-            if (!originalElementBounds) return
-
-            // 计算原始边界框的中心点
-            const originalCenterX = originalElementBounds.x + originalElementBounds.width / 2
-            const originalCenterY = originalElementBounds.y + originalElementBounds.height / 2
-
-            // 计算中心点的偏移量
-            const offsetX = unrotatedCenterX - originalCenterX
-            const offsetY = unrotatedCenterY - originalCenterY
-
-            minX = Math.min(minX, originalElementBounds.x + offsetX)
-            minY = Math.min(minY, originalElementBounds.y + offsetY)
-            maxX = Math.max(maxX, originalElementBounds.x + originalElementBounds.width + offsetX)
-            maxY = Math.max(maxY, originalElementBounds.y + originalElementBounds.height + offsetY)
-          } else {
-            // 对于text/resource/fill，使用width/height
-            const width = element.width || 0
-            const height = element.height || 0
-
-            // 基于未旋转状态下的中心点和尺寸，计算边界框
-            minX = Math.min(minX, unrotatedCenterX - width / 2)
-            minY = Math.min(minY, unrotatedCenterY - height / 2)
-            maxX = Math.max(maxX, unrotatedCenterX + width / 2)
-            maxY = Math.max(maxY, unrotatedCenterY + height / 2)
-          }
-        })
-
-        if (minX !== Infinity) {
-          bounds = {
-            x: minX,
-            y: minY,
-            width: maxX - minX,
-            height: maxY - minY
-          }
-        }
-      }
-
-      if (!bounds) return false
 
       const coords = [
         bounds.x,
@@ -310,11 +192,8 @@ export function useSelectTool({
         bounds.x + bounds.width / 2,
         bounds.y + bounds.height / 2
       ]
-      const transformHandles = getTransformHandlesFromCoords(
-        coords,
-        angleMod,
-        canvasState.scale.value
-      )
+      // 多选时选框不旋转，角度始终为0，旋转锚点在正上方
+      const transformHandles = getTransformHandlesFromCoords(coords, 0, canvasState.scale.value)
       return getTransformHandleTypeFromHandles(pos, transformHandles)
     }
   }

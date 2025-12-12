@@ -1,4 +1,5 @@
 // getElementBounds 和 getCommonBounds 通过参数传递，不需要导入
+import { getRotatedElementBounds } from './elementBounds.js'
 
 /**
  * 选中框渲染工具函数
@@ -412,11 +413,34 @@ export function renderSelection(
   } else {
     // 多个元素
     // 参考excalidraw：多选时选框始终是轴对齐的（不旋转），旋转锚点在正上方
-    // 直接使用当前所有元素的轴对齐边界框
-    const bounds = getCommonBounds(selectedElements, getElementBounds)
-    if (!bounds) {
+    // 使用旋转后元素的实际边界框（轴对齐边界框）来计算公共边界框
+    // 这样能确保选框完全包裹住旋转后的元素
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    selectedElements.forEach((element) => {
+      // 对于旋转后的元素，使用 getRotatedElementBounds 计算实际边界框
+      const bounds = getRotatedElementBounds(element)
+      if (bounds) {
+        minX = Math.min(minX, bounds.x)
+        minY = Math.min(minY, bounds.y)
+        maxX = Math.max(maxX, bounds.x + bounds.width)
+        maxY = Math.max(maxY, bounds.y + bounds.height)
+      }
+    })
+
+    if (minX === Infinity) {
       ctx.restore()
       return
+    }
+
+    const bounds = {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
     }
 
     const x1 = bounds.x
