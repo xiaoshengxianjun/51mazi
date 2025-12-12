@@ -25,7 +25,9 @@ export function useCanvas(
   isSelecting,
   selectionStart,
   selectionEnd,
-  getOriginalBounds = null // 可选的函数，用于获取旋转时的原始边界框
+  getOriginalBounds = null, // 可选的函数，用于获取旋转时的原始边界框
+  getRotationAngle = null, // 可选的函数，用于获取旋转时的旋转角度
+  shouldHideMultiSelectionBox = null // 可选的函数，用于判断是否应该隐藏多选选框
 ) {
   /**
    * 更新内容边界
@@ -174,19 +176,25 @@ export function useCanvas(
         .getAllElements()
         .filter((el) => selectedElementIds.value.has(el.id))
       if (selectedElements.length > 0) {
-        renderSelectionBox(
-          ctx,
-          selectedElements,
-          getElementBounds,
-          getElementAbsoluteCoords,
-          getCommonBounds,
-          getTransformHandlesFromCoords,
-          renderTransformHandles,
-          canvasState.scale.value,
-          0, // scrollX已经在context中应用，这里传0
-          0, // scrollY已经在context中应用，这里传0
-          getOriginalBounds ? getOriginalBounds() : null // 传递原始边界框（旋转时保持选框宽高不变）
-        )
+        // 检查是否应该隐藏多选选框（参考excalidraw：多选旋转时隐藏选框）
+        const shouldHide =
+          shouldHideMultiSelectionBox && shouldHideMultiSelectionBox()
+        if (!shouldHide) {
+          renderSelectionBox(
+            ctx,
+            selectedElements,
+            getElementBounds,
+            getElementAbsoluteCoords,
+            getCommonBounds,
+            getTransformHandlesFromCoords,
+            renderTransformHandles,
+            canvasState.scale.value,
+            0, // scrollX已经在context中应用，这里传0
+            0, // scrollY已经在context中应用，这里传0
+            getOriginalBounds ? getOriginalBounds() : null, // 传递原始边界框（旋转时保持选框宽高不变）
+            getRotationAngle ? getRotationAngle() : null // 传递旋转角度（旋转时选框同步旋转）
+          )
+        }
       }
     }
 

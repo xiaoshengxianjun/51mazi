@@ -253,7 +253,9 @@ const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
   selectToolIsSelecting,
   selectToolSelectionStart,
   selectToolSelectionEnd,
-  selectTool.getOriginalBounds
+        selectTool.getOriginalBounds,
+        selectTool.getRotationAngle,
+        selectTool.shouldHideMultiSelectionBox
 )
 
 // 更新 selectTool 的 renderCanvas 为真实的函数

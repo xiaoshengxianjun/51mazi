@@ -5,6 +5,112 @@
  */
 
 /**
+ * 规范化角度到 [0, 2π) 范围
+ */
+function normalizeAngle(angle) {
+  while (angle < 0) angle += 2 * Math.PI
+  while (angle >= 2 * Math.PI) angle -= 2 * Math.PI
+  return angle
+}
+
+/**
+ * 获取元素在未旋转状态下的实际边界框
+ * 这个方法计算的是元素本身的几何边界框，不考虑旋转
+ */
+export function getElementOriginalBounds(element, getElementBounds) {
+  if (element.type === 'freedraw') {
+    // 对于freedraw，需要反向旋转所有点
+    if (!element.points || element.points.length === 0) return null
+    const angle = normalizeAngle(element.angle || 0)
+    if (Math.abs(angle) < 0.001) {
+      // 没有旋转，直接使用getElementBounds
+      return getElementBounds(element)
+    }
+
+    // 计算所有点的中心
+    let sumX = 0
+    let sumY = 0
+    element.points.forEach((point) => {
+      sumX += point.x
+      sumY += point.y
+    })
+    const centerX = sumX / element.points.length
+    const centerY = sumY / element.points.length
+
+    // 反向旋转所有点
+    const cos = Math.cos(-angle)
+    const sin = Math.sin(-angle)
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    element.points.forEach((point) => {
+      const dx = point.x - centerX
+      const dy = point.y - centerY
+      const originalX = centerX + dx * cos - dy * sin
+      const originalY = centerY + dx * sin + dy * cos
+      minX = Math.min(minX, originalX)
+      minY = Math.min(minY, originalY)
+      maxX = Math.max(maxX, originalX)
+      maxY = Math.max(maxY, originalY)
+    })
+
+    const padding = (element.strokeWidth || 5) / 2
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    }
+  } else if (
+    element.type === 'line' ||
+    element.type === 'rect' ||
+    element.type === 'rounded-rect' ||
+    element.type === 'circle' ||
+    element.type === 'star' ||
+    element.type === 'arrow'
+  ) {
+    // 对于形状元素，start和end坐标就是未旋转状态下的坐标
+    // 因为旋转是通过angle属性应用的，start/end本身不包含旋转信息
+    const minX = Math.min(element.start.x, element.end.x)
+    const minY = Math.min(element.start.y, element.end.y)
+    const maxX = Math.max(element.start.x, element.end.x)
+    const maxY = Math.max(element.start.y, element.end.y)
+    const padding = (element.strokeWidth || 2) / 2
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    }
+  } else if (element.type === 'text' || element.type === 'resource' || element.type === 'fill') {
+    // 对于text/resource/fill，x/y/width/height是未旋转状态下的坐标
+    // 但需要考虑旋转后的位置偏移
+    const angle = normalizeAngle(element.angle || 0)
+    if (Math.abs(angle) < 0.001) {
+      // 没有旋转，直接使用getElementBounds
+      return getElementBounds(element)
+    }
+
+    // 对于text/resource/fill，它们的x/y就是未旋转状态下的位置
+    // 所以我们可以直接使用x/y来计算未旋转状态下的边界框
+    const width = element.width || 0
+    const height = element.height || 0
+
+    return {
+      x: element.x,
+      y: element.y,
+      width: width,
+      height: height
+    }
+  }
+
+  // 默认使用getElementBounds
+  return getElementBounds(element)
+}
+
+/**
  * 获取元素的绝对坐标
  */
 export function getElementAbsoluteCoords(element, getElementBounds) {
@@ -236,8 +342,11 @@ export function renderSelection(
   scale,
   scrollX,
   scrollY,
-  originalBounds = null // 可选的原始边界框，用于旋转时保持选框宽高不变
+  originalBounds = null, // 可选的原始边界框，用于旋转时保持选框宽高不变（单选时使用）
+  rotationAngle = null // 可选的旋转角度，用于多选旋转时选框同步旋转（单选时使用，多选时忽略，保留参数以保持兼容性）
 ) {
+  // eslint-disable-next-line no-unused-vars
+  const _ = rotationAngle // 多选时不再使用此参数，但保留以保持函数签名兼容性
   if (selectedElements.length === 0) return
 
   ctx.save()
@@ -302,63 +411,47 @@ export function renderSelection(
     renderTransformHandles(ctx, transformHandles, angle, scale)
   } else {
     // 多个元素
-    // 如果提供了原始边界框（旋转时），使用它来保持选框宽高不变
-    // 否则使用当前元素的边界框
-    const bounds = originalBounds || getCommonBounds(selectedElements, getElementBounds)
+    // 参考excalidraw：多选时选框始终是轴对齐的（不旋转），旋转锚点在正上方
+    // 直接使用当前所有元素的轴对齐边界框
+    const bounds = getCommonBounds(selectedElements, getElementBounds)
     if (!bounds) {
       ctx.restore()
       return
     }
+
     const x1 = bounds.x
     const y1 = bounds.y
     const x2 = bounds.x + bounds.width
     const y2 = bounds.y + bounds.height
-    // 旋转中心始终使用原始边界框的中心（如果提供了原始边界框）
-    // 否则使用当前边界框的中心
     const cx = bounds.x + bounds.width / 2
     const cy = bounds.y + bounds.height / 2
     const padding = 8 / scale
     const lineWidth = 8 / scale
     const spaceWidth = 4 / scale
 
-    // 多个元素时，使用共同的旋转角度（如果有的话）
-    // 如果所有元素都有相同的角度，使用该角度；否则使用0
-    let commonAngle = 0
-    if (selectedElements.length > 0) {
-      const firstAngle = selectedElements[0].angle || 0
-      const allSameAngle = selectedElements.every((el) => (el.angle || 0) === firstAngle)
-      if (allSameAngle) {
-        commonAngle = firstAngle
-      }
-    }
-
     ctx.lineWidth = 1 / scale
     ctx.strokeStyle = selectionColor
     ctx.setLineDash([lineWidth, spaceWidth])
     ctx.lineDashOffset = 0
 
-    // 绘制旋转的选中框
+    // 绘制轴对齐的选中框（不旋转）
     const boxX = x1 - padding
     const boxY = y1 - padding
     const boxWidth = x2 - x1 + padding * 2
     const boxHeight = y2 - y1 + padding * 2
 
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate(commonAngle)
-    ctx.strokeRect(boxX - cx, boxY - cy, boxWidth, boxHeight)
-    ctx.restore()
+    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight)
 
     ctx.setLineDash([])
 
+    // 多选时选框不旋转，角度始终为0，旋转锚点在正上方
     const transformHandles = getTransformHandlesFromCoords(
       [x1, y1, x2, y2, cx, cy],
-      commonAngle,
+      0, // 多选时选框不旋转
       scale
     )
-    renderTransformHandles(ctx, transformHandles, commonAngle, scale)
+    renderTransformHandles(ctx, transformHandles, 0, scale) // 多选时选框不旋转
   }
 
   ctx.restore()
 }
-
