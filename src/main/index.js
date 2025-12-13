@@ -603,20 +603,76 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
       // 卷重命名
       const volumePath = join(booksDir, bookName, '正文', volume)
       const newVolumePath = join(booksDir, bookName, '正文', newName)
+      
+      // 检查原路径是否存在
+      if (!fs.existsSync(volumePath)) {
+        return { success: false, message: '原卷不存在' }
+      }
+      
+      // 检查新名称是否已存在
       if (fs.existsSync(newVolumePath)) {
         return { success: false, message: '新卷名已存在' }
       }
-      fs.renameSync(volumePath, newVolumePath)
-      return { success: true }
+      
+      // 检查名称是否相同
+      if (volume === newName) {
+        return { success: true, message: '名称未变化' }
+      }
+      
+      // 在 Windows 上，如果文件夹被占用，renameSync 可能会失败
+      // 使用异步重命名并添加重试机制
+      try {
+        // 尝试同步重命名
+        fs.renameSync(volumePath, newVolumePath)
+        return { success: true }
+      } catch (renameError) {
+        // 如果是 Windows 上的权限或锁定错误，提供更友好的错误信息
+        if (process.platform === 'win32') {
+          const errorMessage = renameError.message || String(renameError)
+          if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || errorMessage.includes('EBUSY')) {
+            return {
+              success: false,
+              message: '文件夹被占用，请关闭可能正在使用该文件夹的程序（如资源管理器）后重试'
+            }
+          }
+        }
+        throw renameError
+      }
     } else if (type === 'chapter') {
       // 章节重命名
       const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
       const newChapterPath = join(booksDir, bookName, '正文', volume, `${newName}.txt`)
+      
+      // 检查原路径是否存在
+      if (!fs.existsSync(chapterPath)) {
+        return { success: false, message: '原章节不存在' }
+      }
+      
+      // 检查新名称是否已存在
       if (fs.existsSync(newChapterPath)) {
         return { success: false, message: '新章节名已存在' }
       }
-      fs.renameSync(chapterPath, newChapterPath)
-      return { success: true }
+      
+      // 检查名称是否相同
+      if (chapter === newName) {
+        return { success: true, message: '名称未变化' }
+      }
+      
+      try {
+        fs.renameSync(chapterPath, newChapterPath)
+        return { success: true }
+      } catch (renameError) {
+        if (process.platform === 'win32') {
+          const errorMessage = renameError.message || String(renameError)
+          if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || errorMessage.includes('EBUSY')) {
+            return {
+              success: false,
+              message: '文件被占用，请关闭可能正在使用该文件的程序后重试'
+            }
+          }
+        }
+        throw renameError
+      }
     }
     return { success: false, message: '类型错误' }
   } catch (error) {

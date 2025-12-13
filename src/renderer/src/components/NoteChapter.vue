@@ -260,6 +260,23 @@ async function handleChapterClick(data, node) {
   if (data.type === 'chapter') {
     const currentFile = editorStore.file
     if (currentFile && currentFile.path === data.path) return
+
+    // 如果当前打开的文件是章节，且卷名与树节点中的卷名不一致，说明卷名已经改了
+    // 需要先更新 editorStore.file.volume，确保保存时使用正确的卷名
+    if (
+      currentFile &&
+      currentFile.type === 'chapter' &&
+      currentFile.name === data.name &&
+      currentFile.volume !== node.parent.data.name
+    ) {
+      // 卷名已经改了，更新 editorStore.file 中的卷名和路径
+      editorStore.setFile({
+        ...currentFile,
+        volume: node.parent.data.name,
+        path: data.path
+      })
+    }
+
     await editorStore.saveCurrentFileThroughHandler(false)
     // 读取章节内容
     const res = await window.electron.readChapter(props.bookName, node.parent.data.name, data.name)
@@ -387,6 +404,14 @@ async function confirmEdit(node) {
     editingName.value = ''
     return
   }
+
+  // 如果名称没有变化，直接返回
+  if (editingNode.value.name === newName) {
+    editingNode.value = null
+    editingName.value = ''
+    return
+  }
+
   let payload = { type: editingNode.value.type, newName }
   if (editingNode.value.type === 'volume') {
     payload.volume = editingNode.value.name
@@ -399,22 +424,78 @@ async function confirmEdit(node) {
     const result = await window.electron.editNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('编辑成功')
-      // 保存当前选中状态
-      const currentSelectedKey = currentChapterNodeKey.value
+
+      // 保存当前选中状态信息（使用更可靠的方式）
+      const wasSelected = currentChapterNodeKey.value === editingNode.value.path
+      const oldPath = editingNode.value.path
 
       // 重新加载章节数据
       await loadChapters()
 
-      // 恢复选中状态
-      nextTick(() => {
-        if (currentSelectedKey) {
-          currentChapterNodeKey.value = currentSelectedKey
+      // 如果修改的是卷名，且当前打开的文件是该卷下的章节，需要更新 editorStore.file
+      if (editingNode.value.type === 'volume') {
+        const currentFile = editorStore.file
+        if (
+          currentFile &&
+          currentFile.type === 'chapter' &&
+          currentFile.volume === editingNode.value.name
+        ) {
+          // 当前打开的文件是被重命名卷下的章节，需要更新卷名和路径
+          const newVolume = chaptersTree.value.find((v) => v.name === newName)
+          if (newVolume && newVolume.children) {
+            // 找到对应的章节（根据章节名匹配）
+            const updatedChapter = newVolume.children.find((c) => c.name === currentFile.name)
+            if (updatedChapter) {
+              // 更新 editorStore.file 中的卷名和路径
+              editorStore.setFile({
+                ...currentFile,
+                volume: newName,
+                path: updatedChapter.path
+              })
+            }
+          }
         }
-      })
+      }
+
+      // 恢复选中状态：如果之前选中的是被编辑的节点，则选中新名称对应的节点
+      await nextTick()
+      if (wasSelected && editingNode.value.type === 'volume') {
+        // 对于卷，需要根据新名称找到对应的节点
+        const newVolume = chaptersTree.value.find((v) => v.name === newName)
+        if (newVolume) {
+          currentChapterNodeKey.value = newVolume.path
+        }
+      } else if (wasSelected && editingNode.value.type === 'chapter') {
+        // 对于章节，需要根据父卷名和新章节名找到对应的节点
+        const parentVolume = chaptersTree.value.find((v) => v.name === node.parent.data.name)
+        if (parentVolume && parentVolume.children) {
+          const newChapter = parentVolume.children.find((c) => c.name === newName)
+          if (newChapter) {
+            currentChapterNodeKey.value = newChapter.path
+          }
+        }
+      } else if (currentChapterNodeKey.value === oldPath) {
+        // 如果当前选中的仍然是旧路径，尝试更新为新路径
+        if (editingNode.value.type === 'volume') {
+          const newVolume = chaptersTree.value.find((v) => v.name === newName)
+          if (newVolume) {
+            currentChapterNodeKey.value = newVolume.path
+          }
+        } else if (editingNode.value.type === 'chapter') {
+          const parentVolume = chaptersTree.value.find((v) => v.name === node.parent.data.name)
+          if (parentVolume && parentVolume.children) {
+            const newChapter = parentVolume.children.find((c) => c.name === newName)
+            if (newChapter) {
+              currentChapterNodeKey.value = newChapter.path
+            }
+          }
+        }
+      }
     } else {
       ElMessage.error(result.message || '编辑失败')
     }
-  } catch {
+  } catch (error) {
+    console.error('编辑失败:', error)
     ElMessage.error('编辑失败')
   }
   editingNode.value = null
