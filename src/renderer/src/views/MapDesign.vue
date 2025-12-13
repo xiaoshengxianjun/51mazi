@@ -1200,13 +1200,9 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
 
-  // 清理资源拖拽
-  if (resourceTool.dragPreviewEl.value) {
-    try {
-      document.body.removeChild(resourceTool.dragPreviewEl.value)
-    } catch {
-      // 忽略错误
-    }
+  // 清理资源拖拽状态（包括事件监听器和预览元素）
+  if (resourceTool.cleanupDragState) {
+    resourceTool.cleanupDragState()
   }
 })
 </script>

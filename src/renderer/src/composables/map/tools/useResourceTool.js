@@ -18,35 +18,61 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
    * 开始拖拽资源
    */
   function startResourceDrag(resource, event) {
+    // 先清理之前的拖拽状态，避免重复拖拽时状态混乱
+    cleanupDragState()
+    
     draggingResource.value = resource
-    if (!dragPreviewEl.value) {
-      // 支持图标资源
-      if (resource.icon) {
-        // 创建 SVG 图标元素作为拖拽预览
-        dragPreviewEl.value = document.createElement('div')
-        dragPreviewEl.value.innerHTML = `<svg style="width: 40px; height: 40px;"><use xlink:href="#icon-${resource.icon}"></use></svg>`
-        dragPreviewEl.value.style.position = 'fixed'
-        dragPreviewEl.value.style.pointerEvents = 'none'
-        dragPreviewEl.value.style.zIndex = '9999'
-        dragPreviewEl.value.style.width = '40px'
-        dragPreviewEl.value.style.height = '40px'
-      } else {
-        // 兼容旧的图片资源
-        dragPreviewEl.value = document.createElement('img')
-        dragPreviewEl.value.src = resource.url
-        dragPreviewEl.value.style.position = 'fixed'
-        dragPreviewEl.value.style.pointerEvents = 'none'
-        dragPreviewEl.value.style.zIndex = '9999'
-        dragPreviewEl.value.style.width = '40px'
-        dragPreviewEl.value.style.height = '40px'
-      }
-      document.body.appendChild(dragPreviewEl.value)
+    
+    // 支持图标资源
+    if (resource.icon) {
+      // 创建 SVG 图标元素作为拖拽预览
+      dragPreviewEl.value = document.createElement('div')
+      dragPreviewEl.value.innerHTML = `<svg style="width: 40px; height: 40px;"><use xlink:href="#icon-${resource.icon}"></use></svg>`
+      dragPreviewEl.value.style.position = 'fixed'
+      dragPreviewEl.value.style.pointerEvents = 'none'
+      dragPreviewEl.value.style.zIndex = '9999'
+      dragPreviewEl.value.style.width = '40px'
+      dragPreviewEl.value.style.height = '40px'
+    } else {
+      // 兼容旧的图片资源
+      dragPreviewEl.value = document.createElement('img')
+      dragPreviewEl.value.src = resource.url
+      dragPreviewEl.value.style.position = 'fixed'
+      dragPreviewEl.value.style.pointerEvents = 'none'
+      dragPreviewEl.value.style.zIndex = '9999'
+      dragPreviewEl.value.style.width = '40px'
+      dragPreviewEl.value.style.height = '40px'
     }
+    document.body.appendChild(dragPreviewEl.value)
+    
     window.addEventListener('mousemove', onResourceDragMove)
     window.addEventListener('mouseup', onResourceDragEnd)
     if (event) {
       onResourceDragMove(event)
     }
+  }
+
+  /**
+   * 清理拖拽状态（移除事件监听器和预览元素）
+   */
+  function cleanupDragState() {
+    // 移除事件监听器
+    window.removeEventListener('mousemove', onResourceDragMove)
+    window.removeEventListener('mouseup', onResourceDragEnd)
+    
+    // 移除预览元素
+    if (dragPreviewEl.value) {
+      try {
+        if (dragPreviewEl.value.parentNode) {
+          document.body.removeChild(dragPreviewEl.value)
+        }
+      } catch (error) {
+        // 忽略错误（元素可能已经被移除）
+      }
+      dragPreviewEl.value = null
+    }
+    
+    // 注意：不清空 draggingResource.value，因为可能正在使用
   }
 
   /**
@@ -62,7 +88,19 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
    * 拖拽资源结束
    */
   function onResourceDragEnd(e) {
-    if (!draggingResource.value || !canvasRef.value) return
+    // 保存当前拖拽的资源，因为 cleanupDragState 会清理状态
+    const currentResource = draggingResource.value
+    
+    // 先清理拖拽状态
+    cleanupDragState()
+    
+    // 如果没有资源或画布，直接返回
+    if (!currentResource || !canvasRef.value) {
+      draggingResource.value = null
+      return
+    }
+    
+    // 检查是否在画布内释放
     const canvasRect = canvasRef.value.getBoundingClientRect()
     if (
       e.clientX >= canvasRect.left &&
@@ -72,15 +110,11 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
     ) {
       // 使用 getCanvasPos 获取画布坐标
       const pos = getCanvasPos(e)
-      drawResourceOnCanvas(draggingResource.value, pos.x, pos.y)
+      drawResourceOnCanvas(currentResource, pos.x, pos.y)
     }
-    if (dragPreviewEl.value) {
-      document.body.removeChild(dragPreviewEl.value)
-      dragPreviewEl.value = null
-    }
+    
+    // 清空拖拽资源引用
     draggingResource.value = null
-    window.removeEventListener('mousemove', onResourceDragMove)
-    window.removeEventListener('mouseup', onResourceDragEnd)
   }
 
   /**
@@ -134,6 +168,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
     onResourceDragMove,
     onResourceDragEnd,
     onResourceMouseDown,
-    drawResourceOnCanvas
+    drawResourceOnCanvas,
+    cleanupDragState // 导出清理函数，供组件卸载时调用
   }
 }

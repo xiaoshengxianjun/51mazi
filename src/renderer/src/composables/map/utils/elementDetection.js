@@ -72,12 +72,13 @@ export function isPointInElement(point, element) {
  */
 export function getElementAtPoint(point, elements) {
   // 从后往前查找（后绘制的元素在上层）
+  // 注意：顺序必须与渲染顺序一致，资源元素最后渲染，所以放在最后
   const allElements = [
-    ...elements.fillElements.value,
-    ...elements.resourceElements.value,
-    ...elements.textElements.value,
+    ...elements.freeDrawElements.value,
     ...elements.shapeElements.value,
-    ...elements.freeDrawElements.value
+    ...elements.textElements.value,
+    ...elements.fillElements.value,
+    ...elements.resourceElements.value // 最后渲染，最上层
   ]
 
   let clickedFillElement = null

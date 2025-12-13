@@ -140,14 +140,14 @@ export function useCanvas(
       renderFunctions.renderText(ctx, element)
     })
 
-    // 绘制所有资源元素
-    elements.resourceElements.value.forEach((element) => {
-      renderFunctions.renderResource(ctx, element)
-    })
-
-    // 绘制所有填充区域
+    // 绘制所有填充区域（在资源之前，这样资源会显示在填充区域之上）
     elements.fillElements.value.forEach((element) => {
       renderFunctions.renderFill(ctx, element)
+    })
+
+    // 绘制所有资源元素（最后绘制，确保显示在最上层）
+    elements.resourceElements.value.forEach((element) => {
+      renderFunctions.renderResource(ctx, element)
     })
 
     // 绘制当前正在绘制的路径（预览）
