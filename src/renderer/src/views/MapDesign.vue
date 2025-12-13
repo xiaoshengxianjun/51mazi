@@ -1137,13 +1137,11 @@ async function loadMapData() {
       }
       // 重新渲染画布
       renderCanvas(true)
-      // 重置历史记录（加载后作为初始状态）
-      if (history.value) {
-        history.value.init()
-      }
-      // 地图数据加载成功
+      // 注意：历史记录的初始化在 onMounted 中统一处理
+      // 这样加载后的状态会成为历史记录的初始状态
     } else {
       // 没有找到地图数据，使用空白画板
+      // 历史记录会在 onMounted 中初始化为空白状态
     }
   } catch (error) {
     console.error('加载地图数据失败:', error)
@@ -1160,6 +1158,7 @@ onMounted(async () => {
 
   nextTick(async () => {
     if (canvasRef.value) {
+      // 初始化历史记录管理器
       history.value = new HistoryManager(canvasRef.value)
       history.value.renderCallback = renderCanvas
       history.value.getStateCallback = () => ({
@@ -1178,11 +1177,17 @@ onMounted(async () => {
         elements.fillElements.value = state.fillElements || []
         backgroundColor.value = state.backgroundColor || '#ffffff'
       }
-      history.value.init()
 
-      // 加载地图数据（如果有）
+      // 先加载地图数据（如果有），然后再初始化历史记录
+      // 这样加载后的状态会成为历史记录的初始状态
       await loadMapData()
 
+      // 初始化历史记录（将当前状态作为初始状态）
+      // 如果加载了地图数据，初始状态就是加载后的状态
+      // 如果没有加载地图数据，初始状态就是空白画板状态
+      history.value.init()
+
+      // 确保画布已渲染
       renderCanvas()
     }
   })

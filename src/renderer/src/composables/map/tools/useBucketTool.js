@@ -20,6 +20,8 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
   function fillBucket(pos) {
     if (!canvasRef.value || !history.value) return
     const ctx = canvasRef.value.getContext('2d')
+    
+    // 在填充前保存状态（只保存一次）
     history.value.saveState()
 
     // 先渲染当前画布，获取最新状态（不更新边界，避免不必要的延迟）
@@ -161,7 +163,8 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
       elements.fillElements.value.push(fillElement)
       // 重新渲染画布
       renderCanvas(true)
-      history.value.saveState()
+      // 注意：这里不再保存状态，因为已经在填充前保存了
+      // 如果用户想撤销，可以撤销到填充前的状态
     }
     
     img.onload = handleImageReady
@@ -171,7 +174,8 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
       // 即使加载失败，也添加元素（renderFill 会处理未加载的情况）
       elements.fillElements.value.push(fillElement)
       renderCanvas(true)
-      history.value.saveState()
+      // 注意：这里不再保存状态，因为已经在填充前保存了
+      // 如果用户想撤销，可以撤销到填充前的状态
     }
     
     // 设置图片源

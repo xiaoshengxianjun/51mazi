@@ -96,6 +96,8 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
    */
   function drawResourceOnCanvas(resource, x, y) {
     if (!canvasRef.value || !history.value) return
+    
+    // 在创建元素前保存状态
     history.value.saveState()
 
     // 保存资源元素（支持图标和图片两种类型）
@@ -120,7 +122,8 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
 
     // 重新渲染画布
     renderCanvas(true)
-    history.value.saveState()
+    // 注意：这里不再保存状态，因为已经在创建前保存了
+    // 如果用户想撤销，可以撤销到创建前的状态
   }
 
   return {

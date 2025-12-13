@@ -182,6 +182,7 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
     const textString = typeof text === 'string' ? text : String(text || '')
     if (!textString.trim()) return // 如果文本为空，不创建元素
 
+    // 在创建元素前保存状态
     history.value.saveState()
 
     // 计算文字尺寸
@@ -220,7 +221,8 @@ export function useTextTool({ canvasRef, elements, history, renderCanvas, color,
 
     // 重新渲染画布
     renderCanvas(true)
-    history.value.saveState()
+    // 注意：这里不再保存状态，因为已经在创建前保存了
+    // 如果用户想撤销，可以撤销到创建前的状态
   }
 
   /**
