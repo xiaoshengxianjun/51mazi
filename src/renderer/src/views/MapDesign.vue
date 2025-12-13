@@ -896,7 +896,26 @@ async function generatePreviewImage() {
     renderFunctions.renderText(previewCtx, element, false)
   })
 
-  // 绘制所有资源元素（需要等待图片加载，支持图标和图片两种类型）
+  // 绘制所有填充区域（在资源之前，这样资源会显示在填充区域之上）
+  const fillPromises = elements.fillElements.value.map((element) => {
+    return new Promise((resolve) => {
+      if (element.imageDataBase64) {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          previewCtx.drawImage(img, element.x, element.y, element.width, element.height)
+          resolve()
+        }
+        img.onerror = () => resolve()
+        img.src = element.imageDataBase64
+      } else {
+        resolve()
+      }
+    })
+  })
+  await Promise.all(fillPromises)
+
+  // 绘制所有资源元素（最后绘制，确保显示在最上层，需要等待图片加载，支持图标和图片两种类型）
   const resourcePromises = elements.resourceElements.value.map((element) => {
     return new Promise((resolve) => {
       // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
@@ -904,6 +923,7 @@ async function generatePreviewImage() {
         // 将 SVG 图标转换为图片
         const svgSymbol = document.querySelector(`#icon-${element.icon}`)
         if (!svgSymbol) {
+          console.warn(`预览图生成：未找到 SVG 图标 #icon-${element.icon}`)
           resolve()
           return
         }
@@ -926,21 +946,26 @@ async function generatePreviewImage() {
         const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`
 
         img.onload = () => {
-          previewCtx.save()
-          const angle = element.angle || 0
-          if (angle !== 0) {
-            const centerX = element.x
-            const centerY = element.y
-            previewCtx.translate(centerX, centerY)
-            previewCtx.rotate(angle)
-            previewCtx.translate(-centerX, -centerY)
+          try {
+            previewCtx.save()
+            const angle = element.angle || 0
+            if (angle !== 0) {
+              const centerX = element.x
+              const centerY = element.y
+              previewCtx.translate(centerX, centerY)
+              previewCtx.rotate(angle)
+              previewCtx.translate(-centerX, -centerY)
+            }
+            // 使用实际的宽度和高度（支持调整大小）
+            previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+            previewCtx.restore()
+          } catch (error) {
+            console.error(`预览图生成：绘制资源图标失败 (${element.icon}):`, error)
           }
-          // 使用实际的宽度和高度（支持调整大小）
-          previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
-          previewCtx.restore()
           resolve()
         }
-        img.onerror = () => {
+        img.onerror = (error) => {
+          console.error(`预览图生成：加载资源图标失败 (${element.icon}):`, error)
           resolve()
         }
         img.src = dataUrl
@@ -949,49 +974,38 @@ async function generatePreviewImage() {
         const img = new Image()
         img.crossOrigin = 'anonymous'
         img.onload = () => {
-          previewCtx.save()
-          const angle = element.angle || 0
-          if (angle !== 0) {
-            const centerX = element.x
-            const centerY = element.y
-            previewCtx.translate(centerX, centerY)
-            previewCtx.rotate(angle)
-            previewCtx.translate(-centerX, -centerY)
+          try {
+            previewCtx.save()
+            const angle = element.angle || 0
+            if (angle !== 0) {
+              const centerX = element.x
+              const centerY = element.y
+              previewCtx.translate(centerX, centerY)
+              previewCtx.rotate(angle)
+              previewCtx.translate(-centerX, -centerY)
+            }
+            // 使用实际的宽度和高度（支持调整大小）
+            const width = element.width || 40
+            const height = element.height || 40
+            previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+            previewCtx.restore()
+          } catch (error) {
+            console.error(`预览图生成：绘制图片资源失败:`, error)
           }
-          // 使用实际的宽度和高度（支持调整大小）
-          const width = element.width || 40
-          const height = element.height || 40
-          previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
-          previewCtx.restore()
           resolve()
         }
-        img.onerror = () => resolve() // 图片加载失败时也继续
+        img.onerror = (error) => {
+          console.error(`预览图生成：加载图片资源失败:`, error)
+          resolve()
+        }
         img.src = element.url
       } else {
+        console.warn('预览图生成：资源元素既没有 icon 也没有 url', element)
         resolve()
       }
     })
   })
   await Promise.all(resourcePromises)
-
-  // 绘制所有填充区域
-  const fillPromises = elements.fillElements.value.map((element) => {
-    return new Promise((resolve) => {
-      if (element.imageDataBase64) {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = () => {
-          previewCtx.drawImage(img, element.x, element.y, element.width, element.height)
-          resolve()
-        }
-        img.onerror = () => resolve()
-        img.src = element.imageDataBase64
-      } else {
-        resolve()
-      }
-    })
-  })
-  await Promise.all(fillPromises)
 
   previewCtx.restore()
 
