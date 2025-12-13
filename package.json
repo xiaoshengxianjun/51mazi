@@ -38,8 +38,10 @@
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.11.4",
+    "perfect-freehand": "^1.2.2",
     "pinia": "^3.0.3",
     "relation-graph-vue3": "^2.2.11",
+    "roughjs": "^4.6.6",
     "vue-router": "^4.6.0"
   },
   "devDependencies": {
