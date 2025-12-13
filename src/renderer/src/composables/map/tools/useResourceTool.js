@@ -20,13 +20,26 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
   function startResourceDrag(resource, event) {
     draggingResource.value = resource
     if (!dragPreviewEl.value) {
-      dragPreviewEl.value = document.createElement('img')
-      dragPreviewEl.value.src = resource.url
-      dragPreviewEl.value.style.position = 'fixed'
-      dragPreviewEl.value.style.pointerEvents = 'none'
-      dragPreviewEl.value.style.zIndex = '9999'
-      dragPreviewEl.value.style.width = '40px'
-      dragPreviewEl.value.style.height = '40px'
+      // 支持图标资源
+      if (resource.icon) {
+        // 创建 SVG 图标元素作为拖拽预览
+        dragPreviewEl.value = document.createElement('div')
+        dragPreviewEl.value.innerHTML = `<svg style="width: 40px; height: 40px;"><use xlink:href="#icon-${resource.icon}"></use></svg>`
+        dragPreviewEl.value.style.position = 'fixed'
+        dragPreviewEl.value.style.pointerEvents = 'none'
+        dragPreviewEl.value.style.zIndex = '9999'
+        dragPreviewEl.value.style.width = '40px'
+        dragPreviewEl.value.style.height = '40px'
+      } else {
+        // 兼容旧的图片资源
+        dragPreviewEl.value = document.createElement('img')
+        dragPreviewEl.value.src = resource.url
+        dragPreviewEl.value.style.position = 'fixed'
+        dragPreviewEl.value.style.pointerEvents = 'none'
+        dragPreviewEl.value.style.zIndex = '9999'
+        dragPreviewEl.value.style.width = '40px'
+        dragPreviewEl.value.style.height = '40px'
+      }
       document.body.appendChild(dragPreviewEl.value)
     }
     window.addEventListener('mousemove', onResourceDragMove)
@@ -85,17 +98,25 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
     if (!canvasRef.value || !history.value) return
     history.value.saveState()
 
-    // 保存资源元素
-    elements.resourceElements.value.push({
+    // 保存资源元素（支持图标和图片两种类型）
+    const resourceElement = {
       type: 'resource',
-      url: resource.url,
       name: resource.name,
       x: x,
       y: y,
       width: 40,
       height: 40,
       id: Date.now().toString()
-    })
+    }
+    
+    // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
+    if (resource.icon) {
+      resourceElement.icon = resource.icon
+    } else if (resource.url) {
+      resourceElement.url = resource.url
+    }
+
+    elements.resourceElements.value.push(resourceElement)
 
     // 重新渲染画布
     renderCanvas(true)

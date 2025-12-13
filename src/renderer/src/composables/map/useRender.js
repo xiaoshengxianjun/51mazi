@@ -231,6 +231,11 @@ export function useRender(canvasRef) {
     const lineHeight = element.lineHeight || 1.2
     const textAlign = element.textAlign || 'left'
 
+    // 获取应用旋转之前的变换矩阵（只包含 scale 和 translate）
+    // 用于计算像素对齐，确保文字清晰
+    const transform = ctx.getTransform()
+    const currentScale = transform.a // scale 值
+
     // 应用旋转（参考 excalidraw）
     const angle = element.angle || 0
     if (angle !== 0) {
@@ -258,16 +263,75 @@ export function useRender(canvasRef) {
       horizontalOffset = element.width || 0
     }
 
-    // 绘制每一行
+    // 绘制每一行，对齐到像素网格以确保清晰
     lines.forEach((line, index) => {
-      ctx.fillText(line, element.x + horizontalOffset, element.y + index * lineHeightPx)
+      // 计算实际渲染位置（在场景坐标系中）
+      const x = element.x + horizontalOffset
+      const y = element.y + index * lineHeightPx
+
+      // 将场景坐标转换为像素坐标，对齐到整数像素，再转换回场景坐标
+      // 这样可以确保文字在像素网格上渲染，避免模糊
+      // 注意：这里在旋转坐标系中计算，但对齐是在像素坐标系中进行的
+      // 由于旋转是在 ctx 上应用的，我们需要在旋转后的坐标系中对齐
+      const pixelX = x * currentScale + transform.e
+      const pixelY = y * currentScale + transform.f
+      const alignedPixelX = Math.round(pixelX)
+      const alignedPixelY = Math.round(pixelY)
+      const alignedX = (alignedPixelX - transform.e) / currentScale
+      const alignedY = (alignedPixelY - transform.f) / currentScale
+
+      ctx.fillText(line, alignedX, alignedY)
     })
 
     ctx.restore()
   }
 
   /**
-   * 渲染资源
+   * SVG 图标缓存，避免重复创建
+   */
+  const iconImageCache = new Map()
+
+  /**
+   * 将 SVG 图标转换为图片
+   */
+  function svgIconToImage(iconName, size = 40) {
+    const cacheKey = `${iconName}-${size}`
+    if (iconImageCache.has(cacheKey)) {
+      return iconImageCache.get(cacheKey)
+    }
+
+    // 查找 SVG symbol
+    const svgSymbol = document.querySelector(`#icon-${iconName}`)
+    if (!svgSymbol) {
+      return null
+    }
+
+    // 获取 SVG 的 viewBox
+    const viewBox = svgSymbol.getAttribute('viewBox') || '0 0 1024 1024'
+    const [x, y, width, height] = viewBox.split(' ').map(Number)
+
+    // 创建 SVG 字符串
+    const svgContent = svgSymbol.innerHTML
+    const svgString = `
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+           viewBox="${viewBox}" width="${size}" height="${size}">
+        ${svgContent}
+      </svg>
+    `
+
+    // 将 SVG 转换为图片，使用 data: URL 避免 CSP 错误
+    const img = new window.Image()
+    // 使用 data: URL 代替 blob: URL，避免 CSP 策略阻止
+    const encodedSvg = encodeURIComponent(svgString.trim())
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`
+    img.src = dataUrl
+
+    iconImageCache.set(cacheKey, img)
+    return img
+  }
+
+  /**
+   * 渲染资源（支持图标和图片两种类型，支持调整大小）
    */
   function renderResource(ctx, element) {
     ctx.save()
@@ -280,11 +344,45 @@ export function useRender(canvasRef) {
       ctx.rotate(angle)
       ctx.translate(-centerX, -centerY)
     }
-    const img = new window.Image()
-    img.src = element.url
-    img.onload = () => {
-      ctx.drawImage(img, element.x - 20, element.y - 20, 40, 40)
+
+    // 获取资源元素的宽度和高度（支持调整大小）
+    const width = element.width || 40
+    const height = element.height || 40
+    const halfWidth = width / 2
+    const halfHeight = height / 2
+
+    // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
+    if (element.icon) {
+      // 使用实际大小来生成图标图片
+      const iconSize = Math.max(width, height)
+      const img = svgIconToImage(element.icon, iconSize)
+      if (img) {
+        if (img.complete && img.naturalWidth > 0) {
+          // 图片已加载
+          ctx.drawImage(img, element.x - halfWidth, element.y - halfHeight, width, height)
+        } else {
+          // 等待图片加载
+          img.onload = () => {
+            ctx.drawImage(img, element.x - halfWidth, element.y - halfHeight, width, height)
+            // 触发重新渲染
+            if (canvasRef.value) {
+              const renderCanvas = canvasRef.value.__renderCanvas
+              if (renderCanvas) {
+                renderCanvas()
+              }
+            }
+          }
+        }
+      }
+    } else if (element.url) {
+      // 兼容旧的图片资源
+      const img = new window.Image()
+      img.src = element.url
+      img.onload = () => {
+        ctx.drawImage(img, element.x - halfWidth, element.y - halfHeight, width, height)
+      }
     }
+    
     ctx.restore()
   }
 

@@ -10,7 +10,6 @@
     <!-- 工具栏 -->
     <MapToolbar
       v-model="tool"
-      :resources="resources"
       :shape-tool-type="shapeToolType"
       @update:model-value="onToolChange"
       @clear="handleClearCanvas"
@@ -253,9 +252,9 @@ const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
   selectToolIsSelecting,
   selectToolSelectionStart,
   selectToolSelectionEnd,
-        selectTool.getOriginalBounds,
-        selectTool.getRotationAngle,
-        selectTool.shouldHideMultiSelectionBox
+  selectTool.getOriginalBounds,
+  selectTool.getRotationAngle,
+  selectTool.shouldHideMultiSelectionBox
 )
 
 // 更新 selectTool 的 renderCanvas 为真实的函数
@@ -509,19 +508,6 @@ const textInputOverlayStyle = computed(() => {
     color: textTool.editingTextElement.value.color || color.value
   }
 })
-
-// ==================== 资源列表 ====================
-const resources = [
-  { name: '点', url: '/src/assets/images/point.png' },
-  { name: '五角星', url: '/src/assets/images/star.png' },
-  { name: '山', url: '/src/assets/images/mountain.png' },
-  { name: '森林', url: '/src/assets/images/forest.png' },
-  { name: '宫殿', url: '/src/assets/images/palace.png' },
-  { name: '城市', url: '/src/assets/images/city.png' },
-  { name: '村庄', url: '/src/assets/images/village.png' },
-  { name: '湖泊', url: '/src/assets/images/lake.png' },
-  { name: '战役', url: '/src/assets/images/battle.png' }
-]
 
 // ==================== 事件处理 ====================
 function handleCanvasMouseDown(e) {
@@ -910,27 +896,80 @@ async function generatePreviewImage() {
     renderFunctions.renderText(previewCtx, element, false)
   })
 
-  // 绘制所有资源元素（需要等待图片加载）
+  // 绘制所有资源元素（需要等待图片加载，支持图标和图片两种类型）
   const resourcePromises = elements.resourceElements.value.map((element) => {
     return new Promise((resolve) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        previewCtx.save()
-        const angle = element.angle || 0
-        if (angle !== 0) {
-          const centerX = element.x
-          const centerY = element.y
-          previewCtx.translate(centerX, centerY)
-          previewCtx.rotate(angle)
-          previewCtx.translate(-centerX, -centerY)
+      // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
+      if (element.icon) {
+        // 将 SVG 图标转换为图片
+        const svgSymbol = document.querySelector(`#icon-${element.icon}`)
+        if (!svgSymbol) {
+          resolve()
+          return
         }
-        previewCtx.drawImage(img, element.x - 20, element.y - 20, 40, 40)
-        previewCtx.restore()
+
+        const viewBox = svgSymbol.getAttribute('viewBox') || '0 0 1024 1024'
+        const svgContent = svgSymbol.innerHTML
+        // 使用实际的宽度和高度来生成 SVG（支持调整大小）
+        const width = element.width || 40
+        const height = element.height || 40
+        const svgString = `
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+               viewBox="${viewBox}" width="${width}" height="${height}">
+            ${svgContent}
+          </svg>
+        `
+
+        const img = new Image()
+        // 使用 data: URL 代替 blob: URL，避免 CSP 策略阻止
+        const encodedSvg = encodeURIComponent(svgString.trim())
+        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`
+
+        img.onload = () => {
+          previewCtx.save()
+          const angle = element.angle || 0
+          if (angle !== 0) {
+            const centerX = element.x
+            const centerY = element.y
+            previewCtx.translate(centerX, centerY)
+            previewCtx.rotate(angle)
+            previewCtx.translate(-centerX, -centerY)
+          }
+          // 使用实际的宽度和高度（支持调整大小）
+          previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+          previewCtx.restore()
+          resolve()
+        }
+        img.onerror = () => {
+          resolve()
+        }
+        img.src = dataUrl
+      } else if (element.url) {
+        // 兼容旧的图片资源
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          previewCtx.save()
+          const angle = element.angle || 0
+          if (angle !== 0) {
+            const centerX = element.x
+            const centerY = element.y
+            previewCtx.translate(centerX, centerY)
+            previewCtx.rotate(angle)
+            previewCtx.translate(-centerX, -centerY)
+          }
+          // 使用实际的宽度和高度（支持调整大小）
+          const width = element.width || 40
+          const height = element.height || 40
+          previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+          previewCtx.restore()
+          resolve()
+        }
+        img.onerror = () => resolve() // 图片加载失败时也继续
+        img.src = element.url
+      } else {
         resolve()
       }
-      img.onerror = () => resolve() // 图片加载失败时也继续
-      img.src = element.url
     })
   })
   await Promise.all(resourcePromises)

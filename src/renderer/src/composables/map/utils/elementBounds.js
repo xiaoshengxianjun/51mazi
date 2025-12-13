@@ -68,12 +68,14 @@ export function getElementBounds(element) {
       height: element.height || 0
     }
   } else if (element.type === 'resource') {
-    // 资源：使用 x, y, width, height
+    // 资源：使用 x, y, width, height（x, y 是中心点）
+    const width = element.width || 40
+    const height = element.height || 40
     return {
-      x: element.x - 20,
-      y: element.y - 20,
-      width: element.width || 40,
-      height: element.height || 40
+      x: element.x - width / 2,
+      y: element.y - height / 2,
+      width: width,
+      height: height
     }
   } else if (element.type === 'fill') {
     // 填充区域

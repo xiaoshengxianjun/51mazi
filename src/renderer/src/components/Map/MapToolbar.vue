@@ -79,35 +79,23 @@
     </el-tooltip>
 
     <!-- 资源工具 -->
-    <el-popover
-      v-model:visible="resourcePopoverVisible"
-      placement="bottom"
-      :width="420"
-      trigger="click"
-    >
-      <template #reference>
+    <div class="resource-tool-btn-wrapper">
+      <el-tooltip content="资源" placement="bottom" :show-after="2000">
         <div
-          :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
-          @click="handleToolSelect('resource')"
+          :class="['tool-btn', resourcePanelVisible ? 'active' : '']"
+          @click.stop="handleResourceToolClick"
         >
           <SvgIcon name="resource" :size="iconSize" />
         </div>
-      </template>
-      <div class="resource-popover">
-        <div class="resource-grid">
-          <div
-            v-for="(resource, index) in resources"
-            :key="index"
-            class="resource-item"
-            @click="handleResourceSelect(resource)"
-            @mousedown="handleResourceMouseDown(resource, $event)"
-          >
-            <img :src="resource.url" :alt="resource.name" />
-            <span class="resource-name">{{ resource.name }}</span>
-          </div>
-        </div>
-      </div>
-    </el-popover>
+      </el-tooltip>
+      <!-- 资源工具弹出层 -->
+      <ResourceToolPanel
+        :visible="resourcePanelVisible"
+        @resource-select="handleResourceSelect"
+        @resource-mousedown="handleResourceMouseDown"
+        @update:visible="resourcePanelVisible = $event"
+      />
+    </div>
 
     <el-divider direction="vertical" />
 
@@ -129,15 +117,12 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import ShapeToolPanel from './ShapeToolPanel.vue'
+import ResourceToolPanel from './ResourceToolPanel.vue'
 
 const props = defineProps({
   modelValue: {
     type: String,
     required: true
-  },
-  resources: {
-    type: Array,
-    default: () => []
   },
   shapeToolType: {
     type: String,
@@ -161,7 +146,7 @@ const emit = defineEmits([
   'roundness-change'
 ])
 
-const resourcePopoverVisible = ref(false)
+const resourcePanelVisible = ref(false)
 const shapeToolPanelVisible = ref(false)
 
 // 根据选择的图形类型显示对应的图标
@@ -185,6 +170,9 @@ watch(
     if (newTool !== 'shape') {
       shapeToolPanelVisible.value = false
     }
+    if (newTool !== 'resource') {
+      resourcePanelVisible.value = false
+    }
   }
 )
 
@@ -195,6 +183,11 @@ function handleToolSelect(tool) {
 function handleShapeToolClick() {
   emit('update:modelValue', 'shape')
   shapeToolPanelVisible.value = !shapeToolPanelVisible.value
+}
+
+function handleResourceToolClick() {
+  emit('update:modelValue', 'resource')
+  resourcePanelVisible.value = !resourcePanelVisible.value
 }
 
 function handleShapeTypeChange(type) {
@@ -270,32 +263,9 @@ function handleSaveMap() {
     }
   }
 
-  .shape-tool-btn-wrapper {
+  .shape-tool-btn-wrapper,
+  .resource-tool-btn-wrapper {
     position: relative;
-  }
-}
-
-.resource-popover {
-  height: max-content;
-  .resource-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
-    .resource-item {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      img {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-    }
   }
 }
 </style>

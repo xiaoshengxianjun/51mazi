@@ -54,6 +54,7 @@ declare module 'vue' {
     NoteEditorContent: typeof import('./src/components/NoteEditorContent.vue')['default']
     RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
+    ResourceToolPanel: typeof import('./src/components/Map/ResourceToolPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchPanel: typeof import('./src/components/SearchPanel.vue')['default']
