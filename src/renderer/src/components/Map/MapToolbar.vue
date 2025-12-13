@@ -20,7 +20,7 @@
     <el-divider direction="vertical" />
 
     <!-- 绘图工具组 -->
-    <el-tooltip content="背景 (B)" placement="bottom" :show-after="2000">
+    <el-tooltip content="背景 (G)" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'background' ? 'active' : '']"
         @click="handleToolSelect('background')"
@@ -45,7 +45,7 @@
       </div>
     </el-tooltip>
     <div class="shape-tool-btn-wrapper">
-      <el-tooltip content="多边形 (G)" placement="bottom" :show-after="2000">
+      <el-tooltip content="形状 (S)" placement="bottom" :show-after="2000">
         <div
           :class="['tool-btn', modelValue === 'shape' ? 'active' : '']"
           @click.stop="handleShapeToolClick"
@@ -80,7 +80,7 @@
 
     <!-- 资源工具 -->
     <div class="resource-tool-btn-wrapper">
-      <el-tooltip content="资源" placement="bottom" :show-after="2000">
+      <el-tooltip content="资源 (R)" placement="bottom" :show-after="2000">
         <div
           :class="['tool-btn', resourcePanelVisible ? 'active' : '']"
           @click.stop="handleResourceToolClick"

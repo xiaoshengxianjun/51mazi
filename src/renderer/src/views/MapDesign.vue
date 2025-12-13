@@ -771,8 +771,7 @@ function onToolChange(newTool) {
       break
     case 'pencil':
     case 'eraser':
-    case 'line':
-    case 'rect':
+    case 'shape':
       canvasCursor.value = 'crosshair'
       break
     case 'text':
@@ -780,6 +779,7 @@ function onToolChange(newTool) {
       break
     case 'bucket':
     case 'resource':
+    case 'background':
       canvasCursor.value = 'crosshair'
       break
     default:
@@ -1077,23 +1077,26 @@ function handleKeyDown(e) {
       case 'h':
         onToolChange('move')
         break
+      case 'g':
+        onToolChange('background')
+        break
       case 'p':
         onToolChange('pencil')
         break
       case 'e':
         onToolChange('eraser')
         break
-      case 'l':
-        onToolChange('line')
-        break
-      case 'r':
-        onToolChange('rect')
+      case 's':
+        onToolChange('shape')
         break
       case 'b':
         onToolChange('bucket')
         break
       case 't':
         onToolChange('text')
+        break
+      case 'r':
+        onToolChange('resource')
         break
     }
   }
