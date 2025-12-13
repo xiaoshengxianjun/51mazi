@@ -1006,6 +1006,15 @@ function handleKeyDown(e) {
     return
   }
 
+  // Delete 键：删除选中的元素
+  if ((e.key === 'Delete' || e.key === 'Backspace') && tool.value === 'select') {
+    e.preventDefault()
+    if (selectTool.deleteSelectedElements()) {
+      // 删除成功，画布已经重新渲染
+    }
+    return
+  }
+
   // 工具快捷键
   if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
     switch (e.key.toLowerCase()) {

@@ -1265,6 +1265,94 @@ export function useSelectTool({
     return false
   }
 
+  /**
+   * 删除选中的元素
+   */
+  function deleteSelectedElements() {
+    const selectedElements = getSelectedElements()
+    if (selectedElements.length === 0) return false
+
+    // 收集要删除的元素ID（包括关联的填充元素）
+    const idsToDelete = new Set(selectedElementIds.value)
+
+    // 对于选中的图形元素，也删除对应的填充元素
+    selectedElements.forEach((element) => {
+      if (
+        element.type !== 'fill' &&
+        (element.type === 'rect' ||
+          element.type === 'rounded-rect' ||
+          element.type === 'circle' ||
+          element.type === 'star' ||
+          element.type === 'arrow' ||
+          element.type === 'line' ||
+          element.type === 'freedraw')
+      ) {
+        const fillElement = getFillElementForShape(element)
+        if (fillElement) {
+          idsToDelete.add(fillElement.id)
+        }
+      }
+    })
+
+    // 删除元素
+    let deleted = false
+
+    // 从各个元素数组中删除
+    elements.freeDrawElements.value = elements.freeDrawElements.value.filter((el) => {
+      if (idsToDelete.has(el.id)) {
+        deleted = true
+        return false
+      }
+      return true
+    })
+
+    elements.shapeElements.value = elements.shapeElements.value.filter((el) => {
+      if (idsToDelete.has(el.id)) {
+        deleted = true
+        return false
+      }
+      return true
+    })
+
+    elements.textElements.value = elements.textElements.value.filter((el) => {
+      if (idsToDelete.has(el.id)) {
+        deleted = true
+        return false
+      }
+      return true
+    })
+
+    elements.resourceElements.value = elements.resourceElements.value.filter((el) => {
+      if (idsToDelete.has(el.id)) {
+        deleted = true
+        return false
+      }
+      return true
+    })
+
+    elements.fillElements.value = elements.fillElements.value.filter((el) => {
+      if (idsToDelete.has(el.id)) {
+        deleted = true
+        return false
+      }
+      return true
+    })
+
+    if (deleted) {
+      // 清除选中状态
+      selectedElementIds.value.clear()
+      // 重新渲染画布
+      renderCanvas()
+      // 保存历史状态
+      if (history.value) {
+        history.value.saveState()
+      }
+      return true
+    }
+
+    return false
+  }
+
   return {
     isDragging,
     isTransforming,
@@ -1279,6 +1367,7 @@ export function useSelectTool({
     updateCursorStyle,
     getOriginalBounds,
     getRotationAngle,
-    shouldHideMultiSelectionBox
+    shouldHideMultiSelectionBox,
+    deleteSelectedElements
   }
 }
