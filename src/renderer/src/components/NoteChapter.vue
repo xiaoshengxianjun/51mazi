@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineExpose, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import {
   ArrowRight,
   DocumentAdd,
@@ -287,7 +287,9 @@ async function handleChapterClick(data, node) {
         path: data.path,
         volume: node.parent.data.name
       })
-      editorStore.setContent(res.content, { isInitialLoad: true })
+      // 确保内容至少是空字符串，即使文件为空或返回 undefined
+      const content = res.content || ''
+      editorStore.setContent(content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 章节名作为标题
       currentChapterNodeKey.value = data.path // 保持选中态
     } else {
@@ -328,8 +330,8 @@ async function createChapter(volumeId) {
       // 等待一小段时间确保文件系统同步
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // 重新加载章节数据
-      await loadChapters()
+      // 重新加载章节数据并自动选中新创建的章节
+      await loadChapters(true)
 
       // 章节树会自动展开（使用 default-expand-all="true"）
     } else {
