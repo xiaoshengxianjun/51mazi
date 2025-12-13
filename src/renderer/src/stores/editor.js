@@ -20,17 +20,18 @@ export const useEditorStore = defineStore('editor', () => {
   const chapterTargetWords = ref(2000)
   let externalSaveHandler = null
 
-  // 新增：计算实际内容字数（排除换行符等格式字符）
+  // 新增：计算实际内容字数（排除空格、换行符等格式字符）
   const contentWordCount = computed(() => {
     if (!content.value) return 0
-    // 移除换行符、制表符等格式字符，只计算实际内容
-    return content.value.replace(/[\n\r\t]/g, '').length
+    // 移除空格、换行符、制表符等格式字符，只计算实际内容
+    return content.value.replace(/[\s\n\r\t]/g, '').length
   })
 
-  // 辅助函数：计算内容字数
+  // 辅助函数：计算内容字数（排除空格、换行符、制表符）
   function getContentWordCount(text) {
     if (!text) return 0
-    return text.replace(/[\n\r\t]/g, '').length
+    // 移除空格、换行符、制表符等格式字符，只计算实际内容
+    return text.replace(/[\s\n\r\t]/g, '').length
   }
 
   // 开始编辑会话（章节维度，不影响全局统计）

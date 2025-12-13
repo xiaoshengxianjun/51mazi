@@ -1152,9 +1152,11 @@ ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName
   return { success: true, content }
 })
 
-// 计算章节字数
+// 计算章节字数（排除空格、换行符、制表符等格式字符）
 function countChapterWords(content) {
-  return content.length
+  if (!content) return 0
+  // 移除空格、换行符、制表符等格式字符，只计算实际内容
+  return content.replace(/[\s\n\r\t]/g, '').length
 }
 
 // 计算书籍总字数
@@ -1247,8 +1249,9 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   const today = new Date().toISOString().split('T')[0]
   const chapterKey = `${bookName}/${volumeName}/${chapterName}`
 
-  const oldLength = oldContent ? oldContent.length : 0
-  const newLength = newContent ? newContent.length : 0
+  // 使用统一的字数统计函数，排除空格、换行符、制表符
+  const oldLength = countChapterWords(oldContent)
+  const newLength = countChapterWords(newContent)
   const wordChange = newLength - oldLength
 
   // 章节上次统计信息
