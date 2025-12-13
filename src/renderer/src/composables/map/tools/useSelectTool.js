@@ -786,8 +786,15 @@ export function useSelectTool({
             element.type === 'resource' ||
             element.type === 'fill'
           ) {
-            element.x = newElementX
-            element.y = newElementY
+            // 对于资源元素，x, y 是中心点，需要从左上角转换为中心点
+            if (element.type === 'resource') {
+              element.x = newElementX + newElementWidth / 2
+              element.y = newElementY + newElementHeight / 2
+            } else {
+              // text 和 fill 元素使用左上角坐标
+              element.x = newElementX
+              element.y = newElementY
+            }
             if (element.width) {
               element.width = newElementWidth
             }
