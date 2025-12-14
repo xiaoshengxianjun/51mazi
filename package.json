@@ -20,7 +20,8 @@
     "release:win": "npm run build && electron-builder --win --publish=always",
     "release:mac": "npm run build && electron-builder --mac --publish=always",
     "release:linux": "npm run build && electron-builder --linux --publish=always",
-    "release:all": "npm run build && electron-builder --win --mac --linux --publish=always"
+    "release:all": "npm run build && electron-builder --win --mac --linux --publish=always",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
