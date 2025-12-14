@@ -11,6 +11,7 @@ files:
 asarUnpack:
   - resources/**
 win:
+  icon: build/icon.ico
   executableName: 51mazi
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
@@ -18,6 +19,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -28,6 +30,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: build/icon.png
   target:
     - AppImage
     - deb

@@ -1,9 +1,52 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron'
 import { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
+
+// macOS 图标获取函数
+// 注意：nativeImage 只支持 PNG 和 JPEG 格式，不支持 .icns
+// .icns 文件仅用于打包后的应用图标，由 electron-builder 自动处理
+// 开发环境使用 PNG 文件来设置 Dock 图标
+function getMacIcon() {
+  if (process.platform !== 'darwin') {
+    return null
+  }
+
+  // 只在开发环境设置 Dock 图标
+  // 生产环境的图标由 electron-builder 自动处理，不需要手动设置
+  if (!is.dev) {
+    return null
+  }
+
+  // 开发环境：使用 PNG 文件（nativeImage 支持 PNG 和 JPEG）
+  const projectRoot = process.cwd()
+  // 优先使用 build/icon.png，如果没有则使用 resources/icon.png
+  let iconPath = join(projectRoot, 'build/icon.png')
+  if (!fs.existsSync(iconPath)) {
+    iconPath = join(projectRoot, 'resources/icon.png')
+  }
+
+  // 检查文件是否存在
+  if (!fs.existsSync(iconPath)) {
+    console.warn('未找到图标文件，跳过设置 Dock 图标')
+    return null
+  }
+
+  // 使用 nativeImage 加载图标（支持 PNG 和 JPEG）
+  try {
+    const image = nativeImage.createFromPath(iconPath)
+    if (image.isEmpty()) {
+      console.warn('图标文件为空或无法读取:', iconPath)
+      return null
+    }
+    return image
+  } catch (error) {
+    console.warn('加载图标失败:', iconPath, error.message)
+    return null
+  }
+}
 
 // 创建 store 实例
 const store = new Store({
@@ -38,6 +81,9 @@ ipcMain.handle('store:delete', async (_, key) => {
 const bookEditorWindows = new Map()
 
 function createWindow() {
+  // 获取 macOS 图标
+  const macIcon = getMacIcon()
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: '51码字',
@@ -47,7 +93,9 @@ function createWindow() {
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
+    // 设置窗口图标：Linux 使用 PNG，macOS 使用 ICNS
     ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'darwin' && macIcon ? { icon: macIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -80,6 +128,18 @@ function createWindow() {
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
+
+  // 在 macOS 上设置 Dock 图标（开发环境）
+  // 注意：开发环境中系统不会自动应用 squircle，所以我们需要使用已经应用了 squircle 的图标
+  // 图标文件应该已经通过 add-squircle.py 脚本处理过
+  const macIcon = getMacIcon()
+  if (process.platform === 'darwin' && macIcon) {
+    try {
+      app.dock.setIcon(macIcon)
+    } catch (error) {
+      console.warn('设置 Dock 图标失败:', error.message)
+    }
+  }
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -334,6 +394,9 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
       return true
     }
   }
+  // 获取 macOS 图标
+  const macIcon = getMacIcon()
+
   // 新建窗口
   const editorWindow = new BrowserWindow({
     title: `${name} - 51码字`,
@@ -343,7 +406,9 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
+    // 设置窗口图标：Linux 使用 PNG，macOS 使用 ICNS
     ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'darwin' && macIcon ? { icon: macIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -603,22 +668,22 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
       // 卷重命名
       const volumePath = join(booksDir, bookName, '正文', volume)
       const newVolumePath = join(booksDir, bookName, '正文', newName)
-      
+
       // 检查原路径是否存在
       if (!fs.existsSync(volumePath)) {
         return { success: false, message: '原卷不存在' }
       }
-      
+
       // 检查新名称是否已存在
       if (fs.existsSync(newVolumePath)) {
         return { success: false, message: '新卷名已存在' }
       }
-      
+
       // 检查名称是否相同
       if (volume === newName) {
         return { success: true, message: '名称未变化' }
       }
-      
+
       // 在 Windows 上，如果文件夹被占用，renameSync 可能会失败
       // 使用异步重命名并添加重试机制
       try {
@@ -629,7 +694,11 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
         // 如果是 Windows 上的权限或锁定错误，提供更友好的错误信息
         if (process.platform === 'win32') {
           const errorMessage = renameError.message || String(renameError)
-          if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || errorMessage.includes('EBUSY')) {
+          if (
+            errorMessage.includes('EACCES') ||
+            errorMessage.includes('EPERM') ||
+            errorMessage.includes('EBUSY')
+          ) {
             return {
               success: false,
               message: '文件夹被占用，请关闭可能正在使用该文件夹的程序（如资源管理器）后重试'
@@ -642,29 +711,33 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
       // 章节重命名
       const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
       const newChapterPath = join(booksDir, bookName, '正文', volume, `${newName}.txt`)
-      
+
       // 检查原路径是否存在
       if (!fs.existsSync(chapterPath)) {
         return { success: false, message: '原章节不存在' }
       }
-      
+
       // 检查新名称是否已存在
       if (fs.existsSync(newChapterPath)) {
         return { success: false, message: '新章节名已存在' }
       }
-      
+
       // 检查名称是否相同
       if (chapter === newName) {
         return { success: true, message: '名称未变化' }
       }
-      
+
       try {
         fs.renameSync(chapterPath, newChapterPath)
         return { success: true }
       } catch (renameError) {
         if (process.platform === 'win32') {
           const errorMessage = renameError.message || String(renameError)
-          if (errorMessage.includes('EACCES') || errorMessage.includes('EPERM') || errorMessage.includes('EBUSY')) {
+          if (
+            errorMessage.includes('EACCES') ||
+            errorMessage.includes('EPERM') ||
+            errorMessage.includes('EBUSY')
+          ) {
             return {
               success: false,
               message: '文件被占用，请关闭可能正在使用该文件的程序后重试'
@@ -1654,19 +1727,19 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData, mapDa
     }
     const filePath = join(mapsDir, `${mapName}.png`)
     const dataFilePath = join(mapsDir, `${mapName}.data.json`)
-    
+
     // 保存图片（覆盖）
     if (imageData) {
       const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
       const buffer = Buffer.from(base64Data, 'base64')
       fs.writeFileSync(filePath, buffer)
     }
-    
+
     // 保存地图数据（画板内容）
     if (mapData) {
       fs.writeFileSync(dataFilePath, JSON.stringify(mapData, null, 2), 'utf-8')
     }
-    
+
     return {
       success: true,
       path: filePath
