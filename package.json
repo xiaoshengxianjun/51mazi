@@ -1,7 +1,7 @@
 {
   "name": "51mazi",
-  "version": "1.0.0",
-  "description": "An Electron application with Vue",
+  "version": "0.1.0",
+  "description": "A desktop writing software for novel writers",
   "main": "./out/main/index.js",
   "author": "51mazi",
   "homepage": "https://github.com/xiaoshengxianjun/51mazi",
