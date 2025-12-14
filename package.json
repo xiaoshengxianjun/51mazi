@@ -38,6 +38,7 @@
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.11.4",
+    "lucide-vue-next": "^0.561.0",
     "perfect-freehand": "^1.2.2",
     "pinia": "^3.0.3",
     "relation-graph-vue3": "^2.2.11",
