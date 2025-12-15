@@ -24,9 +24,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import NoteChapter from '@renderer/components/NoteChapter.vue'
-import EditorPanel from '@renderer/components/EditorPanel.vue'
-import EditorToolbar from '@renderer/components/EditorToolbar.vue'
+import NoteChapter from '@renderer/components/Editor/NoteChapter.vue'
+import EditorPanel from '@renderer/components/Editor/EditorPanel.vue'
+import EditorToolbar from '@renderer/components/Editor/EditorToolbar.vue'
 
 const route = useRoute()
 

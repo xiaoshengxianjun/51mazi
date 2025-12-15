@@ -19,6 +19,16 @@
         class="chapter-title-input"
         @blur="handleTitleBlur"
       />
+      <!-- 人物高亮开关 -->
+      <el-switch
+        v-if="editorStore.file?.type === 'chapter'"
+        v-model="characterHighlightEnabled"
+        active-text="人物高亮"
+        inactive-text="人物高亮"
+        inline-prompt
+        class="character-highlight-switch"
+        @change="handleCharacterHighlightChange"
+      />
     </div>
     <!-- 正文内容编辑区 -->
     <EditorContent class="editor-content" :editor="editor" />
@@ -64,6 +74,7 @@
 import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditorContent } from '@tiptap/vue-3'
+import { TextSelection } from 'prosemirror-state'
 import { useEditorStore } from '@renderer/stores/editor'
 import SearchPanel from '@renderer/components/Editor/SearchPanel.vue'
 import EditorMenubar from '@renderer/components/Editor/EditorMenubar.vue'
@@ -83,6 +94,8 @@ watch(
   (name) => {
     if (name) {
       editorStore.currentBookName = name
+      // 书籍切换时，加载对应书籍的人物高亮开关状态
+      loadCharacterHighlightState(name)
     }
   },
   { immediate: true }
@@ -131,6 +144,12 @@ let isTitleSaving = false
 // 编辑器内容组件引用
 const chapterEditorContentRef = ref(null)
 const noteEditorContentRef = ref(null)
+
+// 人物高亮相关状态
+const characterHighlightEnabled = ref(false) // 人物高亮开关状态，默认关闭
+const characters = ref([]) // 人物数据列表
+let characterHighlightTimer = null // 人物高亮定时器
+const defaultHighlightColor = '#ffeb3b' // 默认高亮颜色（黄色）
 
 async function handleTitleBlur() {
   const fileType = editorStore.file?.type
@@ -275,6 +294,19 @@ watch(
 
       // 更新样式
       updateEditorStyle()
+
+      // 如果开启了人物高亮，重新应用高亮
+      if (characterHighlightEnabled.value && !isNote) {
+        nextTick(() => {
+          loadCharacters().then(() => {
+            applyCharacterHighlights()
+            // 确保定时器在运行
+            if (!characterHighlightTimer) {
+              startCharacterHighlightTimer()
+            }
+          })
+        })
+      }
 
       // 如果全局格式模式开启，应用到新内容
       nextTick(() => {
@@ -498,12 +530,23 @@ onMounted(async () => {
 
   editorStore.registerExternalSaveHandler(saveFile)
 
+  // 加载当前书籍的人物高亮开关状态
+  if (props.bookName) {
+    await loadCharacterHighlightState(props.bookName)
+  }
+
   // 延迟初始化编辑器，等待文件加载完成
   // 如果 file 已经存在，立即初始化；否则等待 file 变化后再初始化
   if (editorStore.file) {
     await initEditor()
     await nextTick()
     setupCompositionHandlers()
+    // 如果人物高亮已开启，等待编辑器初始化完成后应用高亮
+    if (characterHighlightEnabled.value && editor.value) {
+      await nextTick()
+      applyCharacterHighlights()
+      startCharacterHighlightTimer()
+    }
   }
   // 如果 file 不存在，watch 会在文件加载后触发初始化
 
@@ -529,6 +572,9 @@ onBeforeUnmount(async () => {
       editorElement.removeEventListener('compositionend', compositionEndHandler)
     }
   }
+
+  // 停止人物高亮定时器
+  stopCharacterHighlightTimer()
 
   if (saveTimer.value) clearTimeout(saveTimer.value)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
@@ -647,6 +693,230 @@ async function autoSaveContent() {
   await saveFile(false)
 }
 
+// 加载人物数据
+async function loadCharacters() {
+  if (!props.bookName) return
+  try {
+    const data = await window.electron.readCharacters(props.bookName)
+    characters.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('加载人物数据失败:', error)
+    characters.value = []
+  }
+}
+
+// 清除所有人物高亮（不改变光标位置）
+function clearCharacterHighlights() {
+  if (!editor.value) return
+
+  const { state, view } = editor.value
+  const { tr } = state
+
+  // 保存当前选择位置（使用数字位置，而不是选择对象）
+  const selectionFrom = state.selection.from
+  const selectionTo = state.selection.to
+
+  // 获取 highlight mark 类型
+  const highlightType = state.schema.marks.highlight
+
+  // 遍历文档，移除所有高亮标记
+  state.doc.descendants((node, pos) => {
+    if (node.marks) {
+      node.marks.forEach((mark) => {
+        if (mark.type.name === 'highlight') {
+          // 移除高亮标记，但不改变选择
+          const from = pos
+          const to = pos + node.nodeSize
+          tr.removeMark(from, to, highlightType)
+        }
+      })
+    }
+  })
+
+  // 恢复选择位置（使用 TextSelection.create 创建新的选择对象）
+  if (tr.steps.length > 0) {
+    const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
+    tr.setSelection(newSelection)
+    view.dispatch(tr)
+  }
+}
+
+// 应用人物高亮（不改变光标位置）
+function applyCharacterHighlights() {
+  if (!editor.value || !characterHighlightEnabled.value || characters.value.length === 0) {
+    return
+  }
+
+  const { state, view } = editor.value
+  const { doc, tr, schema } = state
+
+  // 保存当前选择位置（使用数字位置）
+  const selectionFrom = state.selection.from
+  const selectionTo = state.selection.to
+
+  // 先清除之前的人物高亮（在同一事务中）
+  const highlightType = schema.marks.highlight
+  doc.descendants((node, pos) => {
+    if (node.marks) {
+      node.marks.forEach((mark) => {
+        if (mark.type.name === 'highlight') {
+          const from = pos
+          const to = pos + node.nodeSize
+          tr.removeMark(from, to, highlightType)
+        }
+      })
+    }
+  })
+
+  // 为每个人物名创建匹配项
+  const matches = []
+
+  // 转义正则表达式特殊字符的工具函数
+  const escapeRegExp = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // 遍历文档中的所有文本节点，查找人物名匹配
+  characters.value.forEach((character) => {
+    if (!character.name || !character.name.trim()) return
+
+    const characterName = character.name.trim()
+    // 转义特殊字符，用于正则表达式
+    const escapedName = escapeRegExp(characterName)
+    // 创建正则表达式，匹配完整的人物名（不区分大小写）
+    const regex = new RegExp(escapedName, 'gi')
+
+    // 遍历文档中的所有文本节点（使用当前事务的文档）
+    tr.doc.descendants((node, pos) => {
+      if (node.isText) {
+        const text = node.text
+        let match
+
+        // 重置正则表达式的 lastIndex
+        regex.lastIndex = 0
+
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length,
+            text: match[0],
+            color: character.markerColor || defaultHighlightColor
+          })
+        }
+      }
+    })
+  })
+
+  // 按位置排序，从后往前应用高亮（避免位置偏移）
+  matches.sort((a, b) => b.from - a.from)
+
+  // 批量应用高亮
+  matches.forEach((match) => {
+    const highlightMark = highlightType.create({ color: match.color })
+    tr.addMark(match.from, match.to, highlightMark)
+  })
+
+  // 恢复选择位置（使用 TextSelection.create 创建新的选择对象）
+  const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
+  tr.setSelection(newSelection)
+
+  // 应用事务，但不改变焦点
+  if (tr.steps.length > 0) {
+    view.dispatch(tr)
+  }
+}
+
+// 加载人物高亮开关状态（按书籍）
+async function loadCharacterHighlightState(bookName) {
+  if (!bookName) {
+    characterHighlightEnabled.value = false
+    // 清除高亮并停止定时器
+    clearCharacterHighlights()
+    stopCharacterHighlightTimer()
+    return
+  }
+
+  try {
+    const key = `characterHighlight_${bookName}`
+    const savedState = await window.electronStore.get(key)
+    // 如果该书籍有保存的状态，使用保存的状态；否则默认关闭
+    const newState = savedState === true
+    characterHighlightEnabled.value = newState
+
+    // 如果状态是开启的，加载人物数据并应用高亮
+    if (newState) {
+      await loadCharacters()
+      // 等待编辑器初始化完成后再应用高亮
+      await nextTick()
+      if (editor.value && editorStore.file?.type === 'chapter') {
+        applyCharacterHighlights()
+        startCharacterHighlightTimer()
+      }
+    } else {
+      // 如果状态是关闭的，确保清除高亮并停止定时器
+      clearCharacterHighlights()
+      stopCharacterHighlightTimer()
+    }
+  } catch (error) {
+    console.error('加载人物高亮状态失败:', error)
+    characterHighlightEnabled.value = false
+    clearCharacterHighlights()
+    stopCharacterHighlightTimer()
+  }
+}
+
+// 保存人物高亮开关状态（按书籍）
+async function saveCharacterHighlightState(bookName, enabled) {
+  if (!bookName) return
+
+  try {
+    const key = `characterHighlight_${bookName}`
+    await window.electronStore.set(key, enabled)
+  } catch (error) {
+    console.error('保存人物高亮状态失败:', error)
+  }
+}
+
+// 处理人物高亮开关变化
+async function handleCharacterHighlightChange(enabled) {
+  // 保存开关状态到当前书籍的设置中
+  if (props.bookName) {
+    await saveCharacterHighlightState(props.bookName, enabled)
+  }
+
+  if (enabled) {
+    // 开启高亮：加载人物数据并应用高亮
+    await loadCharacters()
+    applyCharacterHighlights()
+    // 启动定时器，定时检查并更新高亮
+    startCharacterHighlightTimer()
+  } else {
+    // 关闭高亮：清除高亮并停止定时器
+    clearCharacterHighlights()
+    stopCharacterHighlightTimer()
+  }
+}
+
+// 启动人物高亮定时器
+function startCharacterHighlightTimer() {
+  stopCharacterHighlightTimer() // 先清除旧的定时器
+
+  // 每 2 秒检查一次并更新高亮
+  characterHighlightTimer = setInterval(() => {
+    if (characterHighlightEnabled.value && editor.value) {
+      applyCharacterHighlights()
+    }
+  }, 2000)
+}
+
+// 停止人物高亮定时器
+function stopCharacterHighlightTimer() {
+  if (characterHighlightTimer) {
+    clearInterval(characterHighlightTimer)
+    characterHighlightTimer = null
+  }
+}
+
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
 
 // 监听当前文件类型，动态设置首行缩进和编辑器模式
@@ -683,10 +953,17 @@ watch(
   padding: 8px 15px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-soft);
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .chapter-title-input {
   font-size: 20px;
   font-weight: bold;
+  flex: 1;
+}
+.character-highlight-switch {
+  flex-shrink: 0;
 }
 .editor-content {
   flex: 1;
