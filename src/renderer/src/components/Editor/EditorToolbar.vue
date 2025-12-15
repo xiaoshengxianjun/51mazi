@@ -41,9 +41,9 @@
 
 <script setup>
 import { ref } from 'vue'
-import RandomName from './RandomName.vue'
+import RandomName from '@renderer/components/RandomName.vue'
 import { useRouter, useRoute } from 'vue-router'
-import SvgIcon from './SvgIcon.vue'
+import SvgIcon from '@renderer/components/SvgIcon.vue'
 
 const randomNameRef = ref(null)
 const router = useRouter()

@@ -148,7 +148,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useEditorStore } from '@renderer/stores/editor'
-import ChapterSettingsDialog from './ChapterSettingsDialog.vue'
+import ChapterSettingsDialog from '@renderer/components/Editor/ChapterSettingsDialog.vue'
 
 const props = defineProps({
   bookName: {

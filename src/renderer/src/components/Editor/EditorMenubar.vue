@@ -130,6 +130,15 @@
           </div>
         </div>
       </el-popover>
+      <el-button
+        v-if="!isNoteEditor"
+        size="small"
+        class="toolbar-item"
+        title="一键排版"
+        @click="handleFormatContent"
+      >
+        <el-icon><Tickets /></el-icon>
+      </el-button>
       <el-button size="small" class="toolbar-item" title="复制" @click="handleCopyContent">
         <el-icon><DocumentCopy /></el-icon>
       </el-button>
@@ -156,7 +165,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { DocumentCopy, Search } from '@element-plus/icons-vue'
+import { DocumentCopy, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { useEditorStore } from '@renderer/stores/editor'
@@ -436,6 +445,101 @@ function handleHeadingChange(level) {
       props.editor.commands.toggleHeading({ level: levelNum })
     }
   }
+}
+
+// 一键排版功能（仅章节编辑器）
+function handleFormatContent() {
+  if (!props.editor) return
+
+  try {
+    // 获取当前文本内容
+    const text = props.editor.getText()
+
+    // 执行排版处理
+    const formattedText = formatText(text)
+
+    // 将排版后的文本设置回编辑器
+    // 章节编辑器使用纯文本格式，需要通过 HTML 转换
+    const formattedHtml = plainTextToHtml(formattedText)
+
+    // 保存当前光标位置
+    const { from } = props.editor.state.selection
+
+    // 设置新内容
+    props.editor.commands.setContent(formattedHtml)
+
+    // 恢复光标位置（如果可能）
+    const newDocSize = props.editor.state.doc.content.size
+    if (newDocSize > 0) {
+      const newPosition = Math.min(from, newDocSize - 1)
+      props.editor.commands.setTextSelection(newPosition)
+    }
+
+    ElMessage.success('排版完成')
+  } catch (error) {
+    console.error('排版失败:', error)
+    ElMessage.error('排版失败：' + (error.message || '未知错误'))
+  }
+}
+
+// 文本排版处理函数
+function formatText(text) {
+  if (!text) return ''
+
+  // 1. 按行分割
+  const lines = text.split('\n')
+
+  // 2. 处理每一行
+  const processedLines = lines.map((line) => {
+    // 清理行首行尾空格
+    return line.trim()
+  })
+
+  // 3. 合并连续空行（最多保留一个空行）
+  const mergedLines = []
+  let lastWasEmpty = false
+
+  for (const line of processedLines) {
+    if (line === '') {
+      // 如果是空行，且上一个不是空行，则添加
+      if (!lastWasEmpty) {
+        mergedLines.push('')
+        lastWasEmpty = true
+      }
+    } else {
+      mergedLines.push(line)
+      lastWasEmpty = false
+    }
+  }
+
+  // 4. 清理开头和结尾的空行
+  while (mergedLines.length > 0 && mergedLines[0] === '') {
+    mergedLines.shift()
+  }
+  while (mergedLines.length > 0 && mergedLines[mergedLines.length - 1] === '') {
+    mergedLines.pop()
+  }
+
+  // 5. 合并为文本
+  return mergedLines.join('\n')
+}
+
+// 将纯文本转换为 HTML（用于章节模式）
+function plainTextToHtml(text) {
+  if (!text) return ''
+  // 1. 按行分割
+  const lines = text.split('\n')
+  // 2. 每行处理缩进和空格
+  const htmlLines = lines.map((line) => {
+    // 替换Tab为8个&nbsp;
+    let html = line.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')
+    // 替换连续空格为 &nbsp;
+    html = html.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length))
+    // 包裹为<p>
+    return html ? `<p>${html}</p>` : ''
+  })
+  // 3. 拼接
+  return htmlLines.join('')
 }
 
 function handleCopyContent() {

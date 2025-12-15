@@ -65,12 +65,12 @@ import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditorContent } from '@tiptap/vue-3'
 import { useEditorStore } from '@renderer/stores/editor'
-import SearchPanel from './SearchPanel.vue'
-import EditorMenubar from './EditorMenubar.vue'
-import EditorStats from './EditorStats.vue'
-import EditorProgress from './EditorProgress.vue'
-import ChapterEditorContent from './ChapterEditorContent.vue'
-import NoteEditorContent from './NoteEditorContent.vue'
+import SearchPanel from '@renderer/components/Editor/SearchPanel.vue'
+import EditorMenubar from '@renderer/components/Editor/EditorMenubar.vue'
+import EditorStats from '@renderer/components/Editor/EditorStats.vue'
+import EditorProgress from '@renderer/components/Editor/EditorProgress.vue'
+import ChapterEditorContent from '@renderer/components/Editor/ChapterEditorContent.vue'
+import NoteEditorContent from '@renderer/components/Editor/NoteEditorContent.vue'
 
 const editorStore = useEditorStore()
 
