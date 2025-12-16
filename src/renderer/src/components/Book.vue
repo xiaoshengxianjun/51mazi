@@ -1,6 +1,8 @@
 <template>
   <div class="book" @click="emit('onOpen')" @contextmenu.prevent="showMenu($event)">
-    <div class="spine"></div>
+    <div class="spine">
+      <div v-for="i in 4" :key="i" class="stitch"></div>
+    </div>
     <div class="cover-bg">
       <div class="title-block">
         <div class="vertical-title" :style="{ fontSize: getTitleFontSize() + 'px' }">
@@ -137,6 +139,15 @@ onBeforeUnmount(() => {
     border-bottom-left-radius: 8px;
     border-right: 2px solid #e5e2d7;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    .stitch {
+      width: 20px;
+      height: 2px;
+      background: #e5e2d7;
+    }
   }
 
   .cover-bg {

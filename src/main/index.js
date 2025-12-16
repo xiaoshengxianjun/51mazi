@@ -284,6 +284,14 @@ ipcMain.handle('read-books-dir', async () => {
       }
     }
   }
+  // 按updatedAt排序，最新的在前
+  // updatedAt格式可能是 "2024/1/1 12:00:00" 或 ISO格式，需要统一处理
+  books.sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(0)
+    const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(0)
+    // 降序排序，最新的在前
+    return dateB.getTime() - dateA.getTime()
+  })
   return books
 })
 
@@ -1207,9 +1215,10 @@ ipcMain.handle(
         return { success: false, message: '笔记名已存在', name: noteName }
       }
       fs.renameSync(oldPath, newPath)
-      return { success: true, name: newName }
     }
-    return { success: true, name: noteName }
+    // 3. 更新书籍元数据（更新updatedAt字段）
+    await updateBookMetadata(bookName)
+    return { success: true, name: newName || noteName }
   }
 )
 
