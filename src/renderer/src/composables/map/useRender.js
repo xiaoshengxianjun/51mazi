@@ -308,7 +308,7 @@ export function useRender(canvasRef) {
 
     // 获取 SVG 的 viewBox
     const viewBox = svgSymbol.getAttribute('viewBox') || '0 0 1024 1024'
-    const [x, y, width, height] = viewBox.split(' ').map(Number)
+    // const [x, y, width, height] = viewBox.split(' ').map(Number)
 
     // 创建 SVG 字符串
     const svgContent = svgSymbol.innerHTML
@@ -382,7 +382,7 @@ export function useRender(canvasRef) {
         ctx.drawImage(img, element.x - halfWidth, element.y - halfHeight, width, height)
       }
     }
-    
+
     ctx.restore()
   }
 

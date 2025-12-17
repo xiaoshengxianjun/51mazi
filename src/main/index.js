@@ -2303,3 +2303,77 @@ ipcMain.handle('delete-organization', async (event, { bookName, organizationName
     throw error
   }
 })
+
+// --------- 禁词管理相关 ---------
+
+// 获取禁词列表
+ipcMain.handle('get-banned-words', async (event, bookName) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    if (!fs.existsSync(bannedWordsPath)) {
+      return { success: true, data: [] }
+    }
+    const data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    return { success: true, data: data.words || [] }
+  } catch (error) {
+    console.error('获取禁词列表失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 添加禁词
+ipcMain.handle('add-banned-word', async (event, bookName, word) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !word) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    let data = { words: [] }
+    if (fs.existsSync(bannedWordsPath)) {
+      data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    }
+    if (!data.words) {
+      data.words = []
+    }
+    // 检查是否已存在
+    if (data.words.includes(word)) {
+      return { success: false, message: '该禁词已存在' }
+    }
+    data.words.push(word)
+    fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('添加禁词失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 删除禁词
+ipcMain.handle('remove-banned-word', async (event, bookName, word) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !word) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    if (!fs.existsSync(bannedWordsPath)) {
+      return { success: false, message: '禁词文件不存在' }
+    }
+    const data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    const index = data.words.indexOf(word)
+    if (index === -1) {
+      return { success: false, message: '禁词不存在' }
+    }
+    data.words.splice(index, 1)
+    fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('删除禁词失败:', error)
+    return { success: false, message: error.message }
+  }
+})

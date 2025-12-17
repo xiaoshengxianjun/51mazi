@@ -35,6 +35,11 @@
         <SvgIcon name="organization" :size="14" />
         <span>组织架构</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleBannedWords">
+        <SvgIcon name="banned-words" :size="14" />
+        <span>禁词管理</span>
+      </el-button>
+      <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
     </div>
   </div>
 </template>
@@ -42,10 +47,12 @@
 <script setup>
 import { ref } from 'vue'
 import RandomName from '@renderer/components/RandomName.vue'
+import BannedWordsDrawer from './BannedWordsDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
 
 const randomNameRef = ref(null)
+const bannedWordsRef = ref(null)
 const router = useRouter()
 const route = useRoute()
 
@@ -94,6 +101,10 @@ const handleOrganization = () => {
   // 跳转到组织架构列表页面，带上当前书籍名
   const bookName = route.query.name
   router.push({ path: '/organization-list', query: { name: bookName } })
+}
+
+const handleBannedWords = () => {
+  bannedWordsRef.value.open()
 }
 </script>
 

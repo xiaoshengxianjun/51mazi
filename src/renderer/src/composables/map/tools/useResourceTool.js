@@ -20,9 +20,9 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
   function startResourceDrag(resource, event) {
     // 先清理之前的拖拽状态，避免重复拖拽时状态混乱
     cleanupDragState()
-    
+
     draggingResource.value = resource
-    
+
     // 支持图标资源
     if (resource.icon) {
       // 创建 SVG 图标元素作为拖拽预览
@@ -44,7 +44,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
       dragPreviewEl.value.style.height = '40px'
     }
     document.body.appendChild(dragPreviewEl.value)
-    
+
     window.addEventListener('mousemove', onResourceDragMove)
     window.addEventListener('mouseup', onResourceDragEnd)
     if (event) {
@@ -59,7 +59,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
     // 移除事件监听器
     window.removeEventListener('mousemove', onResourceDragMove)
     window.removeEventListener('mouseup', onResourceDragEnd)
-    
+
     // 移除预览元素
     if (dragPreviewEl.value) {
       try {
@@ -68,10 +68,11 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
         }
       } catch (error) {
         // 忽略错误（元素可能已经被移除）
+        console.error(error)
       }
       dragPreviewEl.value = null
     }
-    
+
     // 注意：不清空 draggingResource.value，因为可能正在使用
   }
 
@@ -90,16 +91,16 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
   function onResourceDragEnd(e) {
     // 保存当前拖拽的资源，因为 cleanupDragState 会清理状态
     const currentResource = draggingResource.value
-    
+
     // 先清理拖拽状态
     cleanupDragState()
-    
+
     // 如果没有资源或画布，直接返回
     if (!currentResource || !canvasRef.value) {
       draggingResource.value = null
       return
     }
-    
+
     // 检查是否在画布内释放
     const canvasRect = canvasRef.value.getBoundingClientRect()
     if (
@@ -112,7 +113,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
       const pos = getCanvasPos(e)
       drawResourceOnCanvas(currentResource, pos.x, pos.y)
     }
-    
+
     // 清空拖拽资源引用
     draggingResource.value = null
   }
@@ -130,7 +131,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
    */
   function drawResourceOnCanvas(resource, x, y) {
     if (!canvasRef.value || !history.value) return
-    
+
     // 在创建元素前保存状态
     history.value.saveState()
 
@@ -144,7 +145,7 @@ export function useResourceTool({ canvasRef, elements, history, renderCanvas, ge
       height: 40,
       id: Date.now().toString()
     }
-    
+
     // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
     if (resource.icon) {
       resourceElement.icon = resource.icon

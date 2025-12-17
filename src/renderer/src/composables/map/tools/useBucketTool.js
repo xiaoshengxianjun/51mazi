@@ -1,5 +1,3 @@
-import { ref } from 'vue'
-
 /**
  * 油漆桶工具 composable
  */
@@ -20,7 +18,7 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
   function fillBucket(pos) {
     if (!canvasRef.value || !history.value) return
     const ctx = canvasRef.value.getContext('2d')
-    
+
     // 在填充前保存状态（只保存一次）
     history.value.saveState()
 
@@ -153,12 +151,12 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
     // 这样可以避免 renderFill 中因为图片未加载完成而不绘制的问题
     const img = new window.Image()
     let imageReady = false // 防止重复执行
-    
+
     // 处理图片加载完成的回调
     const handleImageReady = () => {
       if (imageReady) return // 防止重复执行
       imageReady = true
-      
+
       // 图片加载完成后，添加到元素数组并渲染
       elements.fillElements.value.push(fillElement)
       // 重新渲染画布
@@ -166,7 +164,7 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
       // 注意：这里不再保存状态，因为已经在填充前保存了
       // 如果用户想撤销，可以撤销到填充前的状态
     }
-    
+
     img.onload = handleImageReady
     img.onerror = () => {
       if (imageReady) return
@@ -177,10 +175,10 @@ export function useBucketTool({ canvasRef, elements, history, renderCanvas, colo
       // 注意：这里不再保存状态，因为已经在填充前保存了
       // 如果用户想撤销，可以撤销到填充前的状态
     }
-    
+
     // 设置图片源
     img.src = imageDataBase64
-    
+
     // 如果图片已经加载完成（base64 数据通常是同步的），立即执行回调
     // 注意：需要在设置 src 后检查，因为 base64 数据可能立即加载完成
     if (img.complete && img.naturalWidth > 0) {

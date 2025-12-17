@@ -3,8 +3,7 @@ import {
   getElementAbsoluteCoords,
   getTransformHandlesFromCoords,
   renderTransformHandles,
-  renderSelection as renderSelectionBox,
-  strokeRectWithRotation
+  renderSelection as renderSelectionBox
 } from './utils/selectionRender.js'
 import { getElementBounds } from './utils/elementBounds.js'
 import { getCommonBounds } from './utils/selection.js'
@@ -177,8 +176,7 @@ export function useCanvas(
         .filter((el) => selectedElementIds.value.has(el.id))
       if (selectedElements.length > 0) {
         // 检查是否应该隐藏多选选框（参考excalidraw：多选旋转时隐藏选框）
-        const shouldHide =
-          shouldHideMultiSelectionBox && shouldHideMultiSelectionBox()
+        const shouldHide = shouldHideMultiSelectionBox && shouldHideMultiSelectionBox()
         if (!shouldHide) {
           renderSelectionBox(
             ctx,

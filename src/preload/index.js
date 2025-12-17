@@ -204,7 +204,15 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-organization-image', { bookName, imageName }),
       // 删除组织架构
       deleteOrganization: ({ bookName, organizationName }) =>
-        ipcRenderer.invoke('delete-organization', { bookName, organizationName })
+        ipcRenderer.invoke('delete-organization', { bookName, organizationName }),
+
+      // --------- 禁词管理相关 ---------
+      // 获取禁词列表
+      getBannedWords: (bookName) => ipcRenderer.invoke('get-banned-words', bookName),
+      // 添加禁词
+      addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
+      // 删除禁词
+      removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word)
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

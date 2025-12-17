@@ -1129,7 +1129,10 @@ export function useSelectTool({
               minX = Math.min(minX, originalElementBounds.x + offsetX)
               minY = Math.min(minY, originalElementBounds.y + offsetY)
               maxX = Math.max(maxX, originalElementBounds.x + originalElementBounds.width + offsetX)
-              maxY = Math.max(maxY, originalElementBounds.y + originalElementBounds.height + offsetY)
+              maxY = Math.max(
+                maxY,
+                originalElementBounds.y + originalElementBounds.height + offsetY
+              )
             } else {
               // 对于text/resource/fill，使用width/height
               const width = element.width || 0
