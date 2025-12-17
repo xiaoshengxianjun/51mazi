@@ -3,7 +3,8 @@
     v-model="visible"
     title="禁词管理"
     direction="rtl"
-    size="360px"
+    size="500px"
+    header-class="drawer-header"
     :close-on-click-modal="true"
   >
     <!-- 新增禁词输入区 -->
@@ -15,9 +16,9 @@
       </el-input>
     </div>
 
+    <el-empty v-if="bannedWords.length === 0" :image-size="200" description="暂无禁词" />
     <!-- 禁词标签列表 -->
-    <div class="words-list">
-      <div v-if="bannedWords.length === 0" class="empty-tip">暂无禁词，请添加</div>
+    <div v-else class="words-list">
       <el-tag
         v-for="word in bannedWords"
         :key="word"
@@ -84,7 +85,7 @@ const handleAddWord = async () => {
   try {
     const result = await window.electron.addBannedWord(props.bookName, word)
     if (result.success) {
-      bannedWords.value.push(word)
+      bannedWords.value.unshift(word)
       newWord.value = ''
       ElMessage.success('添加成功')
     } else {
@@ -151,5 +152,11 @@ defineExpose({
   .word-tag {
     font-size: 14px;
   }
+}
+</style>
+<style lang="scss">
+.drawer-header {
+  margin-bottom: 0px;
+  padding: 15px 20px;
 }
 </style>

@@ -2344,7 +2344,8 @@ ipcMain.handle('add-banned-word', async (event, bookName, word) => {
     if (data.words.includes(word)) {
       return { success: false, message: '该禁词已存在' }
     }
-    data.words.push(word)
+    // 新增禁词插入到数组开头，使最新的显示在前面
+    data.words.unshift(word)
     fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
     return { success: true }
   } catch (error) {
