@@ -9,11 +9,8 @@
   >
     <!-- 新增禁词输入区 -->
     <div class="add-word-section">
-      <el-input v-model="newWord" placeholder="请输入禁词" clearable @keyup.enter="handleAddWord">
-        <template #append>
-          <el-button type="primary" @click="handleAddWord">新增</el-button>
-        </template>
-      </el-input>
+      <el-input v-model="newWord" placeholder="请输入禁词" clearable @keyup.enter="handleAddWord" />
+      <el-button type="primary" @click="handleAddWord">新增</el-button>
     </div>
 
     <el-empty v-if="bannedWords.length === 0" :image-size="200" description="暂无禁词" />
@@ -135,6 +132,8 @@ defineExpose({
 <style lang="scss" scoped>
 .add-word-section {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
 }
 
 .words-list {
