@@ -86,7 +86,8 @@ function getChapterExtensions() {
 function createEditor() {
   const editor = new Editor({
     extensions: getChapterExtensions(),
-    content: plainTextToHtml(props.editorStore.content),
+    // 不在创建时设置内容，由 initEditor 统一控制内容设置时机，避免重复设置
+    content: '',
     editorProps: {
       attributes: {
         class: 'tiptap-editor',

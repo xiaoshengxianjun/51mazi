@@ -29,6 +29,16 @@
         class="character-highlight-switch"
         @change="handleCharacterHighlightChange"
       />
+      <!-- 禁词提示开关 -->
+      <el-switch
+        v-if="editorStore.file?.type === 'chapter'"
+        v-model="bannedWordsHintEnabled"
+        active-text="禁词提示"
+        inactive-text="禁词提示"
+        inline-prompt
+        class="banned-words-hint-switch"
+        @change="handleBannedWordsHintChange"
+      />
     </div>
     <!-- 正文内容编辑区 -->
     <EditorContent class="editor-content" :editor="editor" />
@@ -96,6 +106,8 @@ watch(
       editorStore.currentBookName = name
       // 书籍切换时，加载对应书籍的人物高亮开关状态
       loadCharacterHighlightState(name)
+      // 书籍切换时，加载对应书籍的禁词提示开关状态
+      loadBannedWordsHintState(name)
     }
   },
   { immediate: true }
@@ -150,6 +162,11 @@ const characterHighlightEnabled = ref(false) // 人物高亮开关状态，默�
 const characters = ref([]) // 人物数据列表
 let characterHighlightTimer = null // 人物高亮定时器
 const defaultHighlightColor = '#ffeb3b' // 默认高亮颜色（黄色）
+
+// 禁词提示相关状态
+const bannedWordsHintEnabled = ref(false) // 禁词提示开关状态，默认关闭
+const bannedWords = ref([]) // 禁词数据列表
+let bannedWordsHintTimer = null // 禁词提示定时器
 
 async function handleTitleBlur() {
   const fileType = editorStore.file?.type
@@ -234,6 +251,14 @@ watch(
         await nextTick()
         setupCompositionHandlers()
         // 初始化后，initEditor 已经设置了内容，这里不需要再次设置
+        // 如果是章节编辑器，等待内容渲染完成后加载状态并应用高亮/划线
+        if (newFile?.type === 'chapter' && props.bookName) {
+          await nextTick()
+          await nextTick()
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          await loadCharacterHighlightState(props.bookName)
+          await loadBannedWordsHintState(props.bookName)
+        }
         return
       } catch (error) {
         console.error('初始化编辑器失败:', error)
@@ -259,6 +284,14 @@ watch(
         await nextTick()
         setupCompositionHandlers()
         // 重新初始化后，initEditor 已经设置了内容，这里不需要再次设置
+        // 如果是章节编辑器，等待内容渲染完成后加载状态并应用高亮/划线
+        if (newFile?.type === 'chapter' && props.bookName) {
+          await nextTick()
+          await nextTick()
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          await loadCharacterHighlightState(props.bookName)
+          await loadBannedWordsHintState(props.bookName)
+        }
         return
       } catch (error) {
         console.error('重新初始化编辑器失败:', error)
@@ -303,6 +336,19 @@ watch(
             // 确保定时器在运行
             if (!characterHighlightTimer) {
               startCharacterHighlightTimer()
+            }
+          })
+        })
+      }
+
+      // 如果开启了禁词提示，重新应用划线
+      if (bannedWordsHintEnabled.value && !isNote) {
+        nextTick(() => {
+          loadBannedWords().then(() => {
+            applyBannedWordsStrikes()
+            // 确保定时器在运行
+            if (!bannedWordsHintTimer) {
+              startBannedWordsHintTimer()
             }
           })
         })
@@ -530,22 +576,28 @@ onMounted(async () => {
 
   editorStore.registerExternalSaveHandler(saveFile)
 
-  // 加载当前书籍的人物高亮开关状态
-  if (props.bookName) {
-    await loadCharacterHighlightState(props.bookName)
-  }
-
   // 延迟初始化编辑器，等待文件加载完成
   // 如果 file 已经存在，立即初始化；否则等待 file 变化后再初始化
   if (editorStore.file) {
     await initEditor()
     await nextTick()
     setupCompositionHandlers()
-    // 如果人物高亮已开启，等待编辑器初始化完成后应用高亮
-    if (characterHighlightEnabled.value && editor.value) {
+
+    // 等待编辑器内容完全渲染后再加载状态并应用高亮/划线
+    // 确保内容已经设置完成，特别是对于章节编辑器
+    if (editorStore.file?.type === 'chapter') {
+      // 多等待几个 tick，确保内容已经渲染到 DOM
       await nextTick()
-      applyCharacterHighlights()
-      startCharacterHighlightTimer()
+      await nextTick()
+      // 额外等待一小段时间，确保 TipTap 编辑器内容已经完全渲染
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+
+    // 在编辑器初始化完成后，加载当前书籍的人物高亮和禁词提示开关状态
+    // 这样 loadCharacterHighlightState 和 loadBannedWordsHintState 中的自动应用逻辑才能正常工作
+    if (props.bookName && editor.value && editorStore.file?.type === 'chapter') {
+      await loadCharacterHighlightState(props.bookName)
+      await loadBannedWordsHintState(props.bookName)
     }
   }
   // 如果 file 不存在，watch 会在文件加载后触发初始化
@@ -575,6 +627,9 @@ onBeforeUnmount(async () => {
 
   // 停止人物高亮定时器
   stopCharacterHighlightTimer()
+
+  // 停止禁词提示定时器
+  stopBannedWordsHintTimer()
 
   if (saveTimer.value) clearTimeout(saveTimer.value)
   if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
@@ -848,9 +903,16 @@ async function loadCharacterHighlightState(bookName) {
       await loadCharacters()
       // 等待编辑器初始化完成后再应用高亮
       await nextTick()
+      // 确保编辑器内容已经设置完成（检查文档是否有内容）
       if (editor.value && editorStore.file?.type === 'chapter') {
-        applyCharacterHighlights()
-        startCharacterHighlightTimer()
+        // 等待内容渲染完成
+        await nextTick()
+        // 检查文档是否有内容，如果有内容则应用高亮
+        const docSize = editor.value.state.doc.content.size
+        if (docSize > 0) {
+          applyCharacterHighlights()
+          startCharacterHighlightTimer()
+        }
       }
     } else {
       // 如果状态是关闭的，确保清除高亮并停止定时器
@@ -917,6 +979,239 @@ function stopCharacterHighlightTimer() {
   }
 }
 
+// 加载禁词数据
+async function loadBannedWords() {
+  if (!props.bookName) return
+  try {
+    const result = await window.electron.getBannedWords(props.bookName)
+    if (result.success) {
+      bannedWords.value = result.data || []
+    } else {
+      bannedWords.value = []
+    }
+  } catch (error) {
+    console.error('加载禁词数据失败:', error)
+    bannedWords.value = []
+  }
+}
+
+// 清除所有禁词划线（不改变光标位置）
+function clearBannedWordsStrikes() {
+  if (!editor.value) return
+
+  const { state, view } = editor.value
+  const { tr } = state
+
+  // 保存当前选择位置（使用数字位置）
+  const selectionFrom = state.selection.from
+  const selectionTo = state.selection.to
+
+  // 获取 strike mark 类型
+  const strikeType = state.schema.marks.strike
+
+  // 遍历文档，移除所有划线标记
+  state.doc.descendants((node, pos) => {
+    if (node.marks) {
+      node.marks.forEach((mark) => {
+        if (mark.type.name === 'strike') {
+          // 移除划线标记，但不改变选择
+          const from = pos
+          const to = pos + node.nodeSize
+          tr.removeMark(from, to, strikeType)
+        }
+      })
+    }
+  })
+
+  // 恢复选择位置
+  if (tr.steps.length > 0) {
+    const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
+    tr.setSelection(newSelection)
+    view.dispatch(tr)
+  }
+}
+
+// 应用禁词划线（不改变光标位置）
+function applyBannedWordsStrikes() {
+  if (!editor.value || !bannedWordsHintEnabled.value || bannedWords.value.length === 0) {
+    return
+  }
+
+  const { state, view } = editor.value
+  const { doc, tr, schema } = state
+
+  // 保存当前选择位置（使用数字位置）
+  const selectionFrom = state.selection.from
+  const selectionTo = state.selection.to
+
+  // 先清除之前的禁词划线（在同一事务中）
+  const strikeType = schema.marks.strike
+  doc.descendants((node, pos) => {
+    if (node.marks) {
+      node.marks.forEach((mark) => {
+        if (mark.type.name === 'strike') {
+          const from = pos
+          const to = pos + node.nodeSize
+          tr.removeMark(from, to, strikeType)
+        }
+      })
+    }
+  })
+
+  // 为每个禁词创建匹配项
+  const matches = []
+
+  // 转义正则表达式特殊字符的工具函数
+  const escapeRegExp = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // 遍历文档中的所有文本节点，查找禁词匹配
+  bannedWords.value.forEach((bannedWord) => {
+    if (!bannedWord || !bannedWord.trim()) return
+
+    const word = bannedWord.trim()
+    // 转义特殊字符，用于正则表达式
+    const escapedWord = escapeRegExp(word)
+    // 创建正则表达式，匹配完整的禁词（不区分大小写）
+    const regex = new RegExp(escapedWord, 'gi')
+
+    // 遍历文档中的所有文本节点（使用当前事务的文档）
+    tr.doc.descendants((node, pos) => {
+      if (node.isText) {
+        const text = node.text
+        let match
+
+        // 重置正则表达式的 lastIndex
+        regex.lastIndex = 0
+
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length,
+            text: match[0]
+          })
+        }
+      }
+    })
+  })
+
+  // 按位置排序，从后往前应用划线（避免位置偏移）
+  matches.sort((a, b) => b.from - a.from)
+
+  // 批量应用划线
+  matches.forEach((match) => {
+    tr.addMark(match.from, match.to, strikeType.create())
+  })
+
+  // 恢复选择位置（使用 TextSelection.create 创建新的选择对象）
+  const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
+  tr.setSelection(newSelection)
+
+  // 应用事务，但不改变焦点
+  if (tr.steps.length > 0) {
+    view.dispatch(tr)
+  }
+}
+
+// 加载禁词提示开关状态（按书籍）
+async function loadBannedWordsHintState(bookName) {
+  if (!bookName) {
+    bannedWordsHintEnabled.value = false
+    // 清除划线并停止定时器
+    clearBannedWordsStrikes()
+    stopBannedWordsHintTimer()
+    return
+  }
+
+  try {
+    const key = `bannedWordsHint_${bookName}`
+    const savedState = await window.electronStore.get(key)
+    // 如果该书籍有保存的状态，使用保存的状态；否则默认关闭
+    const newState = savedState === true
+    bannedWordsHintEnabled.value = newState
+
+    // 如果状态是开启的，加载禁词数据并应用划线
+    if (newState) {
+      await loadBannedWords()
+      // 等待编辑器初始化完成后再应用划线
+      await nextTick()
+      // 确保编辑器内容已经设置完成（检查文档是否有内容）
+      if (editor.value && editorStore.file?.type === 'chapter') {
+        // 等待内容渲染完成
+        await nextTick()
+        // 检查文档是否有内容，如果有内容则应用划线
+        const docSize = editor.value.state.doc.content.size
+        if (docSize > 0) {
+          applyBannedWordsStrikes()
+          startBannedWordsHintTimer()
+        }
+      }
+    } else {
+      // 如果状态是关闭的，确保清除划线并停止定时器
+      clearBannedWordsStrikes()
+      stopBannedWordsHintTimer()
+    }
+  } catch (error) {
+    console.error('加载禁词提示状态失败:', error)
+    bannedWordsHintEnabled.value = false
+    clearBannedWordsStrikes()
+    stopBannedWordsHintTimer()
+  }
+}
+
+// 保存禁词提示开关状态（按书籍）
+async function saveBannedWordsHintState(bookName, enabled) {
+  if (!bookName) return
+
+  try {
+    const key = `bannedWordsHint_${bookName}`
+    await window.electronStore.set(key, enabled)
+  } catch (error) {
+    console.error('保存禁词提示状态失败:', error)
+  }
+}
+
+// 处理禁词提示开关变化
+async function handleBannedWordsHintChange(enabled) {
+  // 保存开关状态到当前书籍的设置中
+  if (props.bookName) {
+    await saveBannedWordsHintState(props.bookName, enabled)
+  }
+
+  if (enabled) {
+    // 开启提示：加载禁词数据并应用划线
+    await loadBannedWords()
+    applyBannedWordsStrikes()
+    // 启动定时器，定时检查并更新划线
+    startBannedWordsHintTimer()
+  } else {
+    // 关闭提示：清除划线并停止定时器
+    clearBannedWordsStrikes()
+    stopBannedWordsHintTimer()
+  }
+}
+
+// 启动禁词提示定时器
+function startBannedWordsHintTimer() {
+  stopBannedWordsHintTimer() // 先清除旧的定时器
+
+  // 每 2 秒检查一次并更新划线
+  bannedWordsHintTimer = setInterval(() => {
+    if (bannedWordsHintEnabled.value && editor.value) {
+      applyBannedWordsStrikes()
+    }
+  }, 2000)
+}
+
+// 停止禁词提示定时器
+function stopBannedWordsHintTimer() {
+  if (bannedWordsHintTimer) {
+    clearInterval(bannedWordsHintTimer)
+    bannedWordsHintTimer = null
+  }
+}
+
 const emit = defineEmits(['refresh-notes', 'refresh-chapters'])
 
 // 监听当前文件类型，动态设置首行缩进和编辑器模式
@@ -962,7 +1257,8 @@ watch(
   font-weight: bold;
   flex: 1;
 }
-.character-highlight-switch {
+.character-highlight-switch,
+.banned-words-hint-switch {
   flex-shrink: 0;
 }
 .editor-content {
@@ -1012,6 +1308,15 @@ watch(
   i b {
     font-weight: 700;
     font-style: italic;
+  }
+
+  // 删除线样式 - 用于禁词提示
+  s,
+  strike,
+  del,
+  [data-type='strike'] {
+    text-decoration: line-through;
+    color: red;
   }
 
   // 搜索高亮样式 - 使用选择高亮

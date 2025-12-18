@@ -416,7 +416,8 @@ function buildDecorations(doc, schema) {
 function createEditor() {
   const editor = new Editor({
     extensions: [...getNoteExtensions(), NoteEnterFix, NoteDragHandle],
-    content: props.editorStore.content,
+    // 不在创建时设置内容，由 initEditor 统一控制内容设置时机，避免重复设置
+    content: '',
     editorProps: {
       attributes: {
         class: 'tiptap-editor note-editor',
