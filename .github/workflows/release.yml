@@ -1,0 +1,161 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送以 v 开头的 tag 时触发
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false  # 一个平台失败不影响其他平台
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        continue-on-error: false
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build for macOS
+        if: matrix.os == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+        run: |
+          echo "Building for macOS..."
+          npm run build:mac
+          echo "Build completed, checking output..."
+          ls -la dist/ || echo "dist directory not found"
+
+      - name: Build for Windows
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+        run: |
+          echo "Building for Windows..."
+          npm run build:win
+          echo "Build completed, checking output..."
+          dir dist || echo "dist directory not found"
+
+      - name: Fix app-builder permissions (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Fixing app-builder permissions..."
+          chmod +x node_modules/app-builder-bin/linux/x64/app-builder 2>/dev/null || true
+          chmod +x node_modules/app-builder-bin/linux/arm64/app-builder 2>/dev/null || true
+          find node_modules/app-builder-bin -name "app-builder" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+      - name: Build for Linux
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+        continue-on-error: false
+        run: |
+          echo "Building for Linux..."
+          npm run build:linux || {
+            echo "Build failed, but checking if any artifacts were created..."
+            ls -la dist/ || echo "No dist directory"
+            exit 1
+          }
+          echo "Build completed, checking output..."
+          ls -la dist/ || echo "dist directory not found"
+
+      - name: List build artifacts (macOS/Linux)
+        if: always() && (matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest')
+        shell: bash
+        run: |
+          echo "Listing files in dist directory:"
+          ls -la dist/ || echo "dist directory not found"
+          find dist -type f 2>/dev/null | head -20 || echo "No files found"
+
+      - name: List build artifacts (Windows)
+        if: always() && matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          echo "Listing files in dist directory:"
+          if (Test-Path dist) {
+            Get-ChildItem -Recurse dist | Select-Object -First 20 FullName
+          } else {
+            echo "dist directory not found"
+          }
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-build
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 7
+
+  release-all:
+    needs: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    if: always()  # 即使部分构建失败也创建 release
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List artifacts
+        run: |
+          echo "=== Artifacts Structure ==="
+          find dist -type f 2>/dev/null | head -30 || echo "No artifacts found"
+          echo ""
+          echo "=== Build Artifacts ==="
+          find dist -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.zip" \) 2>/dev/null | head -20 || echo "No build artifacts found"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Release ${{ github.ref_name }}
+            
+            ### 下载安装包
+            
+            - **Windows**: 下载 `.exe` 文件进行安装
+            - **macOS**: 下载 `.dmg` 文件进行安装
+            - **Linux**: 下载 `.AppImage`、`.deb` 或 `.snap` 文件
+            
+            ### 构建信息
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - 提交: ${{ github.sha }}
+          files: |
+            dist/**/*.exe
+            dist/**/*.dmg
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

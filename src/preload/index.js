@@ -16,6 +16,10 @@ if (process.contextIsolated) {
       selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
       // 选择图片文件
       selectImage: () => ipcRenderer.invoke('select-image'),
+      // 显示保存文件对话框
+      showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+      // 写入导出文件
+      writeExportFile: (data) => ipcRenderer.invoke('write-export-file', data),
       // 创建书籍
       createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
       // 读取书籍目录
@@ -48,6 +52,8 @@ if (process.contextIsolated) {
 
       // 获取章节设置
       getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
+      setChapterTargetWords: (bookName, targetWords) =>
+        ipcRenderer.invoke('set-chapter-target-words', { bookName, targetWords }),
 
       // 更新章节格式
       updateChapterFormat: (bookName, settings) =>
@@ -123,6 +129,11 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-map-image', { bookName, mapName }),
       // 删除地图
       deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
+      // 保存地图数据（画板内容）
+      saveMapData: (data) => ipcRenderer.invoke('save-map-data', data),
+      // 加载地图数据（画板内容）
+      loadMapData: ({ bookName, mapName }) =>
+        ipcRenderer.invoke('load-map-data', { bookName, mapName }),
 
       // --------- 人物谱相关 ---------
       // 读取人物谱数据
@@ -193,7 +204,15 @@ if (process.contextIsolated) {
         ipcRenderer.invoke('read-organization-image', { bookName, imageName }),
       // 删除组织架构
       deleteOrganization: ({ bookName, organizationName }) =>
-        ipcRenderer.invoke('delete-organization', { bookName, organizationName })
+        ipcRenderer.invoke('delete-organization', { bookName, organizationName }),
+
+      // --------- 禁词管理相关 ---------
+      // 获取禁词列表
+      getBannedWords: (bookName) => ipcRenderer.invoke('get-banned-words', bookName),
+      // 添加禁词
+      addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
+      // 删除禁词
+      removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word)
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

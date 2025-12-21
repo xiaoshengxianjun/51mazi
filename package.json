@@ -1,10 +1,10 @@
 {
   "name": "51mazi",
-  "version": "1.0.0",
-  "description": "An Electron application with Vue",
+  "version": "0.1.1",
+  "description": "A desktop writing software for novel writers",
   "main": "./out/main/index.js",
   "author": "51mazi",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://github.com/xiaoshengxianjun/51mazi",
   "type": "module",
   "scripts": {
     "format": "prettier --write .",
@@ -16,7 +16,12 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "release:win": "npm run build && electron-builder --win --publish=always",
+    "release:mac": "npm run build && electron-builder --mac --publish=always",
+    "release:linux": "npm run build && electron-builder --linux --publish=always",
+    "release:all": "npm run build && electron-builder --win --mac --linux --publish=always",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -29,12 +34,16 @@
     "@tiptap/extension-text-align": "^3.7.0",
     "@tiptap/starter-kit": "^3.7.0",
     "@tiptap/vue-3": "^3.7.0",
+    "dayjs": "^1.11.19",
     "echarts": "^6.0.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.11.4",
+    "lucide-vue-next": "^0.561.0",
+    "perfect-freehand": "^1.2.2",
     "pinia": "^3.0.3",
     "relation-graph-vue3": "^2.2.11",
+    "roughjs": "^4.6.6",
     "vue-router": "^4.6.0"
   },
   "devDependencies": {

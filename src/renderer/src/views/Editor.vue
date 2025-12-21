@@ -22,11 +22,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import NoteChapter from '@renderer/components/NoteChapter.vue'
-import EditorPanel from '@renderer/components/EditorPanel.vue'
-import EditorToolbar from '@renderer/components/EditorToolbar.vue'
+import NoteChapter from '@renderer/components/Editor/NoteChapter.vue'
+import EditorPanel from '@renderer/components/Editor/EditorPanel.vue'
+import EditorToolbar from '@renderer/components/Editor/EditorToolbar.vue'
 
 const route = useRoute()
 
@@ -42,6 +42,13 @@ if (!bookName) {
   // 回退到 hash/query
   bookName = route.query.name
 }
+
+// 动态更新窗口标题
+onMounted(() => {
+  if (bookName) {
+    document.title = `${bookName} - 51码字`
+  }
+})
 
 const noteChapterRef = ref(null)
 

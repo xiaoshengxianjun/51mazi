@@ -109,7 +109,7 @@ async function updateChartData() {
       const netWordsData = dates.map((date) => {
         let totalNetWords = 0
         // 累加所有书籍在该日期的净增字数
-        Object.values(result.data).forEach(bookStats => {
+        Object.values(result.data).forEach((bookStats) => {
           if (bookStats[date]) {
             totalNetWords += bookStats[date].netWords || 0
           }

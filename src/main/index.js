@@ -1,9 +1,52 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron'
 import { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
+
+// macOS 图标获取函数
+// 注意：nativeImage 只支持 PNG 和 JPEG 格式，不支持 .icns
+// .icns 文件仅用于打包后的应用图标，由 electron-builder 自动处理
+// 开发环境使用 PNG 文件来设置 Dock 图标
+function getMacIcon() {
+  if (process.platform !== 'darwin') {
+    return null
+  }
+
+  // 只在开发环境设置 Dock 图标
+  // 生产环境的图标由 electron-builder 自动处理，不需要手动设置
+  if (!is.dev) {
+    return null
+  }
+
+  // 开发环境：使用 PNG 文件（nativeImage 支持 PNG 和 JPEG）
+  const projectRoot = process.cwd()
+  // 优先使用 build/icon.png，如果没有则使用 resources/icon.png
+  let iconPath = join(projectRoot, 'build/icon.png')
+  if (!fs.existsSync(iconPath)) {
+    iconPath = join(projectRoot, 'resources/icon.png')
+  }
+
+  // 检查文件是否存在
+  if (!fs.existsSync(iconPath)) {
+    console.warn('未找到图标文件，跳过设置 Dock 图标')
+    return null
+  }
+
+  // 使用 nativeImage 加载图标（支持 PNG 和 JPEG）
+  try {
+    const image = nativeImage.createFromPath(iconPath)
+    if (image.isEmpty()) {
+      console.warn('图标文件为空或无法读取:', iconPath)
+      return null
+    }
+    return image
+  } catch (error) {
+    console.warn('加载图标失败:', iconPath, error.message)
+    return null
+  }
+}
 
 // 创建 store 实例
 const store = new Store({
@@ -38,16 +81,21 @@ ipcMain.handle('store:delete', async (_, key) => {
 const bookEditorWindows = new Map()
 
 function createWindow() {
+  // 获取 macOS 图标
+  const macIcon = getMacIcon()
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: '51码字',
-    width: 1000,
+    width: 1100,
     height: 800,
-    minWidth: 1000,
+    minWidth: 1100,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
+    // 设置窗口图标：Linux 使用 PNG，macOS 使用 ICNS
     ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'darwin' && macIcon ? { icon: macIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -80,6 +128,18 @@ function createWindow() {
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
+
+  // 在 macOS 上设置 Dock 图标（开发环境）
+  // 注意：开发环境中系统不会自动应用 squircle，所以我们需要使用已经应用了 squircle 的图标
+  // 图标文件应该已经通过 add-squircle.py 脚本处理过
+  const macIcon = getMacIcon()
+  if (process.platform === 'darwin' && macIcon) {
+    try {
+      app.dock.setIcon(macIcon)
+    } catch (error) {
+      console.warn('设置 Dock 图标失败:', error.message)
+    }
+  }
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -135,6 +195,33 @@ ipcMain.handle('select-image', async () => {
   }
 
   return null
+})
+
+// 选择保存文件路径
+ipcMain.handle('show-save-dialog', async (event, options) => {
+  const result = await dialog.showSaveDialog({
+    title: options.title || '保存文件',
+    defaultPath: options.defaultPath || '',
+    filters: options.filters || [{ name: '文本文件', extensions: ['txt'] }],
+    buttonLabel: options.buttonLabel || '保存'
+  })
+
+  if (!result.canceled && result.filePath) {
+    return { filePath: result.filePath }
+  }
+
+  return null
+})
+
+// 写入导出文件
+ipcMain.handle('write-export-file', async (event, { filePath, content }) => {
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('写入导出文件失败:', error)
+    return { success: false, message: error.message || '写入文件失败' }
+  }
 })
 
 // 创建书籍
@@ -197,7 +284,40 @@ ipcMain.handle('read-books-dir', async () => {
       }
     }
   }
+  // 按updatedAt排序，最新的在前
+  // updatedAt格式可能是 "2024/1/1 12:00:00" 或 ISO格式，需要统一处理
+  books.sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(0)
+    const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(0)
+    // 降序排序，最新的在前
+    return dateB.getTime() - dateA.getTime()
+  })
   return books
+})
+
+ipcMain.handle('get-book-word-count', async (event, bookName) => {
+  if (!bookName) return 0
+  try {
+    const totalWords = await calculateBookWordCount(bookName)
+    const booksDir = store.get('booksDir')
+    if (booksDir) {
+      const metaPath = join(booksDir, bookName, 'mazi.json')
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          meta.totalWords = totalWords
+          meta.updatedAt = new Date().toLocaleString()
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+        } catch (error) {
+          console.error('更新书籍元数据失败:', error)
+        }
+      }
+    }
+    return totalWords
+  } catch (error) {
+    console.error('获取书籍总字数失败:', error)
+    throw error
+  }
 })
 
 // 删除书籍
@@ -282,16 +402,21 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
       return true
     }
   }
+  // 获取 macOS 图标
+  const macIcon = getMacIcon()
+
   // 新建窗口
   const editorWindow = new BrowserWindow({
     title: `${name} - 51码字`,
-    width: 1000,
+    width: 1100,
     height: 800,
-    minWidth: 1000,
+    minWidth: 1100,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
+    // 设置窗口图标：Linux 使用 PNG，macOS 使用 ICNS
     ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'darwin' && macIcon ? { icon: macIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -306,6 +431,10 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   })
   editorWindow.on('closed', () => {
     bookEditorWindows.delete(id)
+  })
+  // 页面加载完成后，确保窗口标题正确显示书籍名称
+  editorWindow.webContents.on('did-finish-load', () => {
+    editorWindow.setTitle(`${name} - 51码字`)
   })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     // 直接跳转到编辑页
@@ -355,17 +484,12 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
   let nextChapterNumber = 1
 
   if (chapters.length > 0) {
-    // 从现有章节名中提取最大编号（只支持数字格式）
     const chapterNumbers = chapters
       .map((file) => {
-        const name = file.name.replace('.txt', '')
-
-        // 只支持数字格式：第1章、第1集等
-        let match = name.match(/^第(\d+)(.+)$/)
-        if (match) {
-          return parseInt(match[1])
+        if (file.isFile() && file.name.endsWith('.txt')) {
+          const parsed = parseChapterName(file.name.replace('.txt', ''))
+          return parsed?.number || 0
         }
-
         return 0
       })
       .filter((num) => num > 0)
@@ -373,18 +497,19 @@ ipcMain.handle('create-chapter', async (event, { bookName, volumeId }) => {
     if (chapterNumbers.length > 0) {
       nextChapterNumber = Math.max(...chapterNumbers) + 1
     } else {
-      // 如果没有标准格式的章节名，使用文件数量+1
       nextChapterNumber = chapters.length + 1
     }
   }
 
   // 获取章节设置
   const chapterSettings = store.get(`chapterSettings:${bookName}`) || {
-    suffixType: '章'
+    chapterFormat: 'number',
+    suffixType: '章',
+    targetWords: 2000
   }
 
   // 根据设置生成章节名称
-  const chapterName = generateChapterName(nextChapterNumber, chapterSettings)
+  const chapterName = `${generateChapterName(nextChapterNumber, chapterSettings)} `
   const filePath = join(volumePath, `${chapterName}.txt`)
 
   fs.writeFileSync(filePath, '')
@@ -422,40 +547,33 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
 
       const files = fs.readdirSync(currentVolumePath, { withFileTypes: true })
 
-      const volumeChapters = []
-      for (const file of files) {
-        if (file.isFile() && file.name.endsWith('.txt')) {
-          volumeChapters.push({
+      const volumeChapters = files
+        .filter((file) => file.isFile() && file.name.endsWith('.txt'))
+        .map((file) => {
+          const name = file.name.replace('.txt', '')
+          const parsed = parseChapterName(name)
+          return {
             id: file.name,
-            name: file.name.replace('.txt', ''),
+            name,
             type: 'chapter',
-            path: join(bookPath, '正文', volumeName, file.name)
-          })
-        }
-      }
-
-      // 按照章节编号排序
-      volumeChapters.sort((a, b) => {
-        // 只支持数字格式：第1章、第1集等
-        const aMatch = a.name.match(/^第(\d+)(.+)$/)
-        const bMatch = b.name.match(/^第(\d+)(.+)$/)
-
-        if (aMatch && bMatch) {
-          // 如果都是标准章节格式，按编号排序
-          const aNum = parseInt(aMatch[1])
-          const bNum = parseInt(bMatch[1])
-          return aNum - bNum
-        } else if (aMatch) {
-          // 如果a是标准格式，b不是，a排在前面
-          return -1
-        } else if (bMatch) {
-          // 如果b是标准格式，a不是，b排在前面
-          return 1
-        } else {
-          // 都不是标准格式，按名称排序
+            path: join(bookPath, '正文', volumeName, file.name),
+            orderValue: parsed?.number || 0,
+            hasOrderValue: Boolean(parsed?.number)
+          }
+        })
+        .sort((a, b) => {
+          if (a.hasOrderValue && b.hasOrderValue) {
+            return a.orderValue - b.orderValue
+          }
+          if (a.hasOrderValue) return -1
+          if (b.hasOrderValue) return 1
           return a.name.localeCompare(b.name)
-        }
-      })
+        })
+
+      for (const chapter of volumeChapters) {
+        delete chapter.orderValue
+        delete chapter.hasOrderValue
+      }
 
       chapters.push({
         id: volumeName,
@@ -490,14 +608,19 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
     }
 
     // 检查章节编号连续性
-    const chapterInfos = chapters.map((file) => ({
-      oldName: file.name.replace('.txt', ''),
-      oldPath: join(volumePath, file.name),
-      file: file
-    }))
+    const chapterInfos = chapters.map((file) => {
+      const oldName = file.name.replace('.txt', '')
+      const parsed = parseChapterName(oldName)
+      return {
+        oldName,
+        oldPath: join(volumePath, file.name),
+        file,
+        parsed
+      }
+    })
 
     const numberingCheck = checkChapterNumbering(
-      chapterInfos.map((info) => ({ name: info.oldName }))
+      chapterInfos.map((info) => ({ name: info.oldName, parsed: info.parsed }))
     )
 
     if (numberingCheck.isSequential) {
@@ -506,14 +629,9 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
 
     // 按章节编号排序
     chapterInfos.sort((a, b) => {
-      const aMatch = a.oldName.match(/^第(\d+)(.+)$/)
-      const bMatch = b.oldName.match(/^第(\d+)(.+)$/)
-
-      if (aMatch && bMatch) {
-        const aNum = parseInt(aMatch[1])
-        const bNum = parseInt(bMatch[1])
-        return aNum - bNum
-      }
+      const aNum = a.parsed?.number || 0
+      const bNum = b.parsed?.number || 0
+      if (aNum && bNum) return aNum - bNum
       return a.oldName.localeCompare(b.oldName)
     })
 
@@ -524,27 +642,9 @@ ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName,
       const newNumber = i + 1
 
       // 提取原有的主题名/描述内容
-      const oldNameMatch = info.oldName.match(/^第(\d+)(.+?)(.*)$/)
-      let themeName = ''
-
-      if (oldNameMatch) {
-        // 保留原有的主题名（第3个捕获组）
-        themeName = (oldNameMatch[3] || '').trim()
-        if (
-          themeName &&
-          !themeName.startsWith('章') &&
-          !themeName.startsWith('集') &&
-          !themeName.startsWith('回')
-        ) {
-          themeName = ' ' + themeName // 添加空格分隔
-        }
-      }
-
-      // 生成新的章节名前缀
+      const description = info.parsed?.description || ''
       const newPrefix = generateChapterName(newNumber, settings)
-
-      // 组合新的章节名：前缀 + 主题名
-      const newName = newPrefix + themeName
+      const newName = description ? `${newPrefix} ${description}` : newPrefix
 
       if (newName !== info.oldName) {
         const newPath = join(volumePath, `${newName}.txt`)
@@ -576,20 +676,84 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
       // 卷重命名
       const volumePath = join(booksDir, bookName, '正文', volume)
       const newVolumePath = join(booksDir, bookName, '正文', newName)
+
+      // 检查原路径是否存在
+      if (!fs.existsSync(volumePath)) {
+        return { success: false, message: '原卷不存在' }
+      }
+
+      // 检查新名称是否已存在
       if (fs.existsSync(newVolumePath)) {
         return { success: false, message: '新卷名已存在' }
       }
-      fs.renameSync(volumePath, newVolumePath)
-      return { success: true }
+
+      // 检查名称是否相同
+      if (volume === newName) {
+        return { success: true, message: '名称未变化' }
+      }
+
+      // 在 Windows 上，如果文件夹被占用，renameSync 可能会失败
+      // 使用异步重命名并添加重试机制
+      try {
+        // 尝试同步重命名
+        fs.renameSync(volumePath, newVolumePath)
+        return { success: true }
+      } catch (renameError) {
+        // 如果是 Windows 上的权限或锁定错误，提供更友好的错误信息
+        if (process.platform === 'win32') {
+          const errorMessage = renameError.message || String(renameError)
+          if (
+            errorMessage.includes('EACCES') ||
+            errorMessage.includes('EPERM') ||
+            errorMessage.includes('EBUSY')
+          ) {
+            return {
+              success: false,
+              message: '文件夹被占用，请关闭可能正在使用该文件夹的程序（如资源管理器）后重试'
+            }
+          }
+        }
+        throw renameError
+      }
     } else if (type === 'chapter') {
       // 章节重命名
       const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
       const newChapterPath = join(booksDir, bookName, '正文', volume, `${newName}.txt`)
+
+      // 检查原路径是否存在
+      if (!fs.existsSync(chapterPath)) {
+        return { success: false, message: '原章节不存在' }
+      }
+
+      // 检查新名称是否已存在
       if (fs.existsSync(newChapterPath)) {
         return { success: false, message: '新章节名已存在' }
       }
-      fs.renameSync(chapterPath, newChapterPath)
-      return { success: true }
+
+      // 检查名称是否相同
+      if (chapter === newName) {
+        return { success: true, message: '名称未变化' }
+      }
+
+      try {
+        fs.renameSync(chapterPath, newChapterPath)
+        return { success: true }
+      } catch (renameError) {
+        if (process.platform === 'win32') {
+          const errorMessage = renameError.message || String(renameError)
+          if (
+            errorMessage.includes('EACCES') ||
+            errorMessage.includes('EPERM') ||
+            errorMessage.includes('EBUSY')
+          ) {
+            return {
+              success: false,
+              message: '文件被占用，请关闭可能正在使用该文件的程序后重试'
+            }
+          }
+        }
+        throw renameError
+      }
     }
     return { success: false, message: '类型错误' }
   } catch (error) {
@@ -623,16 +787,42 @@ ipcMain.handle('get-sort-order', (event, bookName) => {
 // 获取章节设置
 ipcMain.handle('get-chapter-settings', (event, bookName) => {
   const settings = store.get(`chapterSettings:${bookName}`) || {
-    suffixType: '章'
+    suffixType: '章',
+    targetWords: 2000
   }
 
   return {
-    suffixType: settings.suffixType
+    suffixType: settings.suffixType || '章',
+    targetWords: Number.isFinite(Number(settings.targetWords)) ? Number(settings.targetWords) : 2000
+  }
+})
+
+// 设置章节目标字数
+ipcMain.handle('set-chapter-target-words', (event, { bookName, targetWords }) => {
+  if (!bookName) {
+    return { success: false, message: '书籍名称不能为空' }
+  }
+  const numeric = Number(targetWords)
+  const sanitized = Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 2000
+  const existing = store.get(`chapterSettings:${bookName}`) || {
+    suffixType: '章',
+    targetWords: 2000
+  }
+  const updated = {
+    ...existing,
+    targetWords: sanitized
+  }
+  try {
+    store.set(`chapterSettings:${bookName}`, updated)
+    return { success: true, settings: updated }
+  } catch (error) {
+    console.error('更新章节目标字数失败:', error)
+    return { success: false, message: error.message || '更新失败' }
   }
 })
 
 // 更新章节格式
-ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) => {
+ipcMain.handle('update-chapter-format', async (event, { bookName, settings: rawSettings }) => {
   try {
     const booksDir = store.get('booksDir')
     const bookPath = join(booksDir, bookName)
@@ -642,8 +832,16 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
       return { success: false, message: '正文目录不存在' }
     }
 
-    // 保存设置
-    store.set(`chapterSettings:${bookName}`, settings)
+    // 保存设置（补齐默认值）
+    const cleanSettings = {
+      chapterFormat: rawSettings?.chapterFormat === 'hanzi' ? 'hanzi' : 'number',
+      suffixType: rawSettings?.suffixType || '章',
+      targetWords: Number.isFinite(Number(rawSettings?.targetWords))
+        ? Number(rawSettings.targetWords)
+        : 2000
+    }
+    store.set(`chapterSettings:${bookName}`, cleanSettings)
+    const appliedSettings = cleanSettings
 
     // 获取所有卷和章节
     const volumes = fs.readdirSync(volumePath, { withFileTypes: true })
@@ -658,29 +856,18 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
         for (const file of files) {
           if (file.isFile() && file.name.endsWith('.txt')) {
             const oldName = file.name.replace('.txt', '')
+            const parsed = parseChapterName(oldName)
 
-            // 检查是否是标准章节格式（只支持数字格式）
-            let match = oldName.match(/^第(\d+)(.+?)(.*)$/)
-            let chapterNumber, oldType, description
-
-            if (match) {
-              // 数字格式：第1章、第2章等
-              chapterNumber = parseInt(match[1])
-              oldType = match[2] // 原来的类型（如"章"）
-              description = match[3] // 保留后面的描述内容
-            }
-
-            // 如果找到了匹配的格式，则进行重命名
-            if (chapterNumber && oldType && description !== undefined) {
-              // 生成新的前缀（编号+类型），保留描述
-              const newPrefix = generateChapterName(chapterNumber, settings)
-              const newName = newPrefix + description
+            if (parsed) {
+              const { number: chapterNumber, description } = parsed
+              const newPrefix = generateChapterName(chapterNumber, appliedSettings)
+              const suffixText = description ? ` ${description}` : ''
+              const newName = `${newPrefix}${suffixText}`
 
               if (newName !== oldName) {
                 const oldPath = join(currentVolumePath, file.name)
                 const newPath = join(currentVolumePath, `${newName}.txt`)
 
-                // 重命名文件
                 fs.renameSync(oldPath, newPath)
                 totalRenamed++
               }
@@ -701,10 +888,128 @@ ipcMain.handle('update-chapter-format', async (event, { bookName, settings }) =>
   }
 })
 
-// 生成章节名称前缀的辅助函数
+const chineseDigitMap = {
+  零: 0,
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9
+}
+
+const chineseDigitsArray = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+
+const chineseUnitsMap = {
+  十: 10,
+  百: 100,
+  千: 1000,
+  万: 10000
+}
+
+function convertNumberToChinese(num) {
+  const numeric = Number(num)
+  if (!Number.isFinite(numeric) || numeric <= 0) return String(num)
+  if (numeric >= 10000) {
+    const high = Math.floor(numeric / 10000)
+    const rest = numeric % 10000
+    let result = `${convertNumberToChinese(high)}万`
+    if (rest > 0) {
+      let restChinese = convertNumberToChinese(rest)
+      if (rest < 100 && restChinese.startsWith('十')) {
+        restChinese = `一${restChinese}`
+      }
+      result += rest < 1000 ? `零${restChinese}` : restChinese
+    }
+    return result
+  }
+  const str = String(Math.floor(numeric))
+  const units = ['', '十', '百', '千']
+  let result = ''
+  let zeroFlag = false
+
+  for (let i = 0; i < str.length; i++) {
+    const digit = Number(str[i])
+    const position = str.length - i - 1
+
+    if (digit === 0) {
+      zeroFlag = result.length > 0
+      continue
+    }
+
+    if (zeroFlag) {
+      result += '零'
+      zeroFlag = false
+    }
+
+    result += chineseDigitsArray[digit] + (units[position] || '')
+  }
+
+  result = result.replace(/^一十/, '十')
+  return result || '零'
+}
+
+function parseChineseNumber(str) {
+  if (!str) return NaN
+  let total = 0
+  let section = 0
+  let number = 0
+
+  for (const char of str) {
+    if (char === '零') {
+      if (number !== 0) number = 0
+      continue
+    }
+
+    if (chineseDigitMap[char] !== undefined) {
+      number = chineseDigitMap[char]
+    } else if (chineseUnitsMap[char]) {
+      const unitValue = chineseUnitsMap[char]
+      if (unitValue === 10000) {
+        section = (section + number) * unitValue
+        total += section
+        section = 0
+      } else {
+        const multiplier = number === 0 && char === '十' ? 1 : number
+        section += multiplier * unitValue
+      }
+      number = 0
+    } else {
+      return NaN
+    }
+  }
+
+  return total + section + number
+}
+
+function parseChapterName(name) {
+  const match = name.match(/^第(.+?)([章回集节部卷])\s*(.*)$/)
+  if (!match) return null
+  const [, rawNumber, suffix, description] = match
+  let number
+  if (/^\d+$/.test(rawNumber)) {
+    number = parseInt(rawNumber, 10)
+  } else {
+    number = parseChineseNumber(rawNumber)
+  }
+
+  if (!Number.isFinite(number) || number <= 0) return null
+
+  return {
+    number,
+    suffix,
+    description: description || ''
+  }
+}
+
 function generateChapterName(number, settings) {
-  const suffix = settings.suffixType || settings.suffix || '章'
-  return `第${number}${suffix}`
+  const format = settings?.chapterFormat === 'hanzi' ? 'hanzi' : 'number'
+  const suffix = settings?.suffixType || settings?.suffix || '章'
+  const numberPart = format === 'hanzi' ? convertNumberToChinese(number) : String(number)
+  return `第${numberPart}${suffix}`
 }
 
 // 检查章节编号是否连续
@@ -715,13 +1020,9 @@ function checkChapterNumbering(chapters) {
 
   const chapterNumbers = chapters
     .map((chapter) => {
-      const name = chapter.name
-      // 只支持数字格式：第1章、第1集等
-      let match = name.match(/^第(\d+)(.+)$/)
-      if (match) {
-        return parseInt(match[1])
-      }
-      return 0
+      if (chapter.parsed?.number) return chapter.parsed.number
+      const parsed = parseChapterName(chapter.name || '')
+      return parsed?.number || 0
     })
     .filter((num) => num > 0)
     .sort((a, b) => a - b)
@@ -914,9 +1215,10 @@ ipcMain.handle(
         return { success: false, message: '笔记名已存在', name: noteName }
       }
       fs.renameSync(oldPath, newPath)
-      return { success: true, name: newName }
     }
-    return { success: true, name: noteName }
+    // 3. 更新书籍元数据（更新updatedAt字段）
+    await updateBookMetadata(bookName)
+    return { success: true, name: newName || noteName }
   }
 )
 
@@ -932,9 +1234,11 @@ ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName
   return { success: true, content }
 })
 
-// 计算章节字数
+// 计算章节字数（排除空格、换行符、制表符等格式字符）
 function countChapterWords(content) {
-  return content.length
+  if (!content) return 0
+  // 移除空格、换行符、制表符等格式字符，只计算实际内容
+  return content.replace(/[\s\n\r\t]/g, '').length
 }
 
 // 计算书籍总字数
@@ -1027,8 +1331,9 @@ function updateChapterStats(bookName, volumeName, chapterName, oldContent, newCo
   const today = new Date().toISOString().split('T')[0]
   const chapterKey = `${bookName}/${volumeName}/${chapterName}`
 
-  const oldLength = oldContent ? oldContent.length : 0
-  const newLength = newContent ? newContent.length : 0
+  // 使用统一的字数统计函数，排除空格、换行符、制表符
+  const oldLength = countChapterWords(oldContent)
+  const newLength = countChapterWords(newContent)
   const wordChange = newLength - oldLength
 
   // 章节上次统计信息
@@ -1317,6 +1622,8 @@ ipcMain.handle('read-maps', async (event, bookName) => {
       .map((file) => {
         const name = file.split('.').slice(0, -1).join('.')
         const filePath = join(mapsDir, file)
+        const jsonPath = join(mapsDir, `${name}.json`)
+
         let thumbnail = ''
         try {
           const data = fs.readFileSync(filePath)
@@ -1324,9 +1631,28 @@ ipcMain.handle('read-maps', async (event, bookName) => {
         } catch {
           thumbnail = ''
         }
-        return {
+
+        // 读取地图元数据（如果存在）
+        let mapData = {
           id: name,
           name: name,
+          description: ''
+        }
+        if (fs.existsSync(jsonPath)) {
+          try {
+            const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))
+            mapData = {
+              id: jsonData.id || name,
+              name: jsonData.name || name,
+              description: jsonData.description || ''
+            }
+          } catch (error) {
+            console.error(`读取地图元数据失败: ${name}`, error)
+          }
+        }
+
+        return {
+          ...mapData,
           thumbnail
         }
       })
@@ -1354,7 +1680,7 @@ ipcMain.handle('read-map-image', async (event, { bookName, mapName }) => {
 })
 
 // 创建地图（有同名校验）
-ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => {
+ipcMain.handle('create-map', async (event, { bookName, mapName, description, imageData }) => {
   try {
     const booksDir = await store.get('booksDir')
     if (!booksDir) {
@@ -1367,13 +1693,25 @@ ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => 
     }
     // 校验同名文件
     const filePath = join(mapsDir, `${mapName}.png`)
-    if (fs.existsSync(filePath)) {
+    const jsonPath = join(mapsDir, `${mapName}.json`)
+    if (fs.existsSync(filePath) || fs.existsSync(jsonPath)) {
       throw new Error('已存在同名地图文件')
     }
     // 保存图片
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
     fs.writeFileSync(filePath, buffer)
+
+    // 保存地图元数据
+    const mapData = {
+      id: mapName,
+      name: mapName,
+      description: description || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    fs.writeFileSync(jsonPath, JSON.stringify(mapData, null, 2), 'utf-8')
+
     return {
       success: true,
       path: filePath
@@ -1385,7 +1723,7 @@ ipcMain.handle('create-map', async (event, { bookName, mapName, imageData }) => 
 })
 
 // 更新地图（无同名校验）
-ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => {
+ipcMain.handle('update-map', async (event, { bookName, mapName, imageData, mapData }) => {
   try {
     const booksDir = await store.get('booksDir')
     if (!booksDir) {
@@ -1397,10 +1735,20 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => 
       fs.mkdirSync(mapsDir, { recursive: true })
     }
     const filePath = join(mapsDir, `${mapName}.png`)
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+
     // 保存图片（覆盖）
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
-    const buffer = Buffer.from(base64Data, 'base64')
-    fs.writeFileSync(filePath, buffer)
+    if (imageData) {
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      fs.writeFileSync(filePath, buffer)
+    }
+
+    // 保存地图数据（画板内容）
+    if (mapData) {
+      fs.writeFileSync(dataFilePath, JSON.stringify(mapData, null, 2), 'utf-8')
+    }
+
     return {
       success: true,
       path: filePath
@@ -1411,6 +1759,49 @@ ipcMain.handle('update-map', async (event, { bookName, mapName, imageData }) => 
   }
 })
 
+// 保存地图数据（画板内容）
+ipcMain.handle('save-map-data', async (event, { bookName, mapName, mapData }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const bookPath = join(booksDir, bookName)
+    const mapsDir = join(bookPath, 'maps')
+    if (!fs.existsSync(mapsDir)) {
+      fs.mkdirSync(mapsDir, { recursive: true })
+    }
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+    fs.writeFileSync(dataFilePath, JSON.stringify(mapData, null, 2), 'utf-8')
+    return {
+      success: true,
+      path: dataFilePath
+    }
+  } catch (error) {
+    console.error('保存地图数据失败:', error)
+    throw error
+  }
+})
+
+// 加载地图数据（画板内容）
+ipcMain.handle('load-map-data', async (event, { bookName, mapName }) => {
+  try {
+    const booksDir = await store.get('booksDir')
+    if (!booksDir) {
+      throw new Error('未设置书籍目录')
+    }
+    const dataFilePath = join(booksDir, bookName, 'maps', `${mapName}.data.json`)
+    if (!fs.existsSync(dataFilePath)) {
+      return null // 如果没有数据文件，返回null
+    }
+    const data = fs.readFileSync(dataFilePath, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    console.error('加载地图数据失败:', error)
+    return null
+  }
+})
+
 // 删除地图
 ipcMain.handle('delete-map', async (event, { bookName, mapName }) => {
   try {
@@ -1418,11 +1809,24 @@ ipcMain.handle('delete-map', async (event, { bookName, mapName }) => {
     if (!booksDir) {
       throw new Error('未设置书籍目录')
     }
-    const filePath = join(booksDir, bookName, 'maps', `${mapName}.png`)
-    if (!fs.existsSync(filePath)) {
-      throw new Error('地图不存在')
+    const mapsDir = join(booksDir, bookName, 'maps')
+    const filePath = join(mapsDir, `${mapName}.png`)
+    const jsonPath = join(mapsDir, `${mapName}.json`)
+    const dataFilePath = join(mapsDir, `${mapName}.data.json`)
+
+    // 删除图片文件
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
     }
-    fs.unlinkSync(filePath)
+    // 删除元数据文件
+    if (fs.existsSync(jsonPath)) {
+      fs.unlinkSync(jsonPath)
+    }
+    // 删除数据文件
+    if (fs.existsSync(dataFilePath)) {
+      fs.unlinkSync(dataFilePath)
+    }
+
     return { success: true }
   } catch (error) {
     console.error('删除地图失败:', error)
@@ -1897,5 +2301,80 @@ ipcMain.handle('delete-organization', async (event, { bookName, organizationName
   } catch (error) {
     console.error('删除组织架构失败:', error)
     throw error
+  }
+})
+
+// --------- 禁词管理相关 ---------
+
+// 获取禁词列表
+ipcMain.handle('get-banned-words', async (event, bookName) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    if (!fs.existsSync(bannedWordsPath)) {
+      return { success: true, data: [] }
+    }
+    const data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    return { success: true, data: data.words || [] }
+  } catch (error) {
+    console.error('获取禁词列表失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 添加禁词
+ipcMain.handle('add-banned-word', async (event, bookName, word) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !word) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    let data = { words: [] }
+    if (fs.existsSync(bannedWordsPath)) {
+      data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    }
+    if (!data.words) {
+      data.words = []
+    }
+    // 检查是否已存在
+    if (data.words.includes(word)) {
+      return { success: false, message: '该禁词已存在' }
+    }
+    // 新增禁词插入到数组开头，使最新的显示在前面
+    data.words.unshift(word)
+    fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('添加禁词失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 删除禁词
+ipcMain.handle('remove-banned-word', async (event, bookName, word) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !word) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    if (!fs.existsSync(bannedWordsPath)) {
+      return { success: false, message: '禁词文件不存在' }
+    }
+    const data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    const index = data.words.indexOf(word)
+    if (index === -1) {
+      return { success: false, message: '禁词不存在' }
+    }
+    data.words.splice(index, 1)
+    fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('删除禁词失败:', error)
+    return { success: false, message: error.message }
   }
 })

@@ -1,815 +1,1365 @@
 <template>
-  <LayoutTool :title="mapName || '地图设计'">
-    <template #headrAction>
-      <el-button type="primary" @click="handleSave">保存地图</el-button>
-    </template>
-    <template #default>
-      <div class="content">
-        <div class="toolbar">
-          <el-tooltip content="铅笔" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'pencil' ? 'active' : '']"
-              @click="selectTool('pencil')"
-            >
-              <img src="@renderer/assets/pencil.svg" alt="铅笔" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="橡皮擦" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'eraser' ? 'active' : '']"
-              @click="selectTool('eraser')"
-            >
-              <img src="@renderer/assets/eraser.svg" alt="橡皮擦" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="油漆桶" placement="bottom">
-            <div
-              :class="['tool-btn', tool === 'bucket' ? 'active' : '']"
-              @click="selectTool('bucket')"
-            >
-              <img src="@renderer/assets/bucket.svg" alt="油漆桶" />
-            </div>
-          </el-tooltip>
-          <el-tooltip content="文字" placement="bottom">
-            <div :class="['tool-btn', tool === 'text' ? 'active' : '']" @click="selectTool('text')">
-              A
-            </div>
-          </el-tooltip>
-          <el-popover
-            v-model:visible="resourcePopoverVisible"
-            placement="bottom"
-            :width="420"
-            trigger="click"
-          >
-            <template #reference>
-              <div
-                :class="['tool-btn', resourcePopoverVisible ? 'active' : '']"
-                @click="selectTool('resource')"
-              >
-                <el-icon><PictureRounded /></el-icon>
-              </div>
-            </template>
-            <div class="resource-popover">
-              <div class="resource-grid">
-                <div
-                  v-for="(resource, index) in resources"
-                  :key="index"
-                  class="resource-item"
-                  @click="selectResource(resource)"
-                  @mousedown="onResourceMouseDown(resource, $event)"
-                >
-                  <img :src="resource.url" :alt="resource.name" />
-                  <span class="resource-name">{{ resource.name }}</span>
-                </div>
-              </div>
-            </div>
-          </el-popover>
-          <el-tooltip content="撤销" placement="bottom">
-            <div :class="['tool-btn', 'undo-btn']" @click="undo">
-              <img src="@renderer/assets/undo.svg" alt="撤销" />
-            </div>
-          </el-tooltip>
-          <el-divider direction="vertical" />
-          <el-tooltip content="颜色">
-            <div>
-              <el-color-picker v-model="color" />
-            </div>
-          </el-tooltip>
-          <el-divider direction="vertical" />
-          <el-tooltip content="重置缩放">
-            <div class="tool-btn" @click="resetZoom">
-              <el-icon><ZoomIn /></el-icon>
-            </div>
-          </el-tooltip>
-          <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
-          <el-divider direction="vertical" />
-          <el-tooltip v-if="tool === 'pencil' || tool === 'eraser'" content="粗细">
-            <div class="slider-wrap">
-              <el-slider v-model="size" :min="1" :max="40" style="width: 150px" />
-            </div>
-          </el-tooltip>
-        </div>
+  <div class="map-design">
+    <!-- 返回按钮 -->
+    <div class="back-button-container">
+      <el-button text class="back-button" :icon="ArrowLeftBold" @click="handleBack">
+        返回
+      </el-button>
+    </div>
 
-        <div ref="editorContainerRef" class="editor-container" @wheel="handleWheel">
-          <div class="canvas-wrap" :style="canvasWrapStyle">
-            <img
-              v-if="mapImage"
-              ref="mapImageRef"
-              :src="mapImage"
-              :style="imageStyle"
-              class="map-bg"
-              @load="handleImageLoad"
-            />
-            <canvas
-              ref="canvasRef"
-              :width="canvasWidth"
-              :height="canvasHeight"
-              class="draw-canvas"
-              :style="{ cursor: canvasCursor }"
-              @mousedown="startDraw"
-              @mousemove="drawing"
-              @mouseup="endDraw"
-              @mouseleave="endDraw"
-              @touchstart.prevent="startDraw"
-              @touchmove.prevent="drawing"
-              @touchend.prevent="endDraw"
-              @click="handleCanvasClick"
-            ></canvas>
+    <!-- 工具栏 -->
+    <MapToolbar
+      v-model="tool"
+      :shape-tool-type="shapeToolType"
+      @update:model-value="onToolChange"
+      @clear="handleClearCanvas"
+      @resource-select="selectResource"
+      @resource-mousedown="onResourceMouseDown"
+      @shape-type-change="handleShapeTypeChange"
+      @save-map="handleSaveMap"
+    />
 
-            <!-- 文字输入框 -->
-            <div
-              v-if="textInputVisible"
-              class="text-input-overlay"
-              :style="{
-                left: textInputPosition.x + 'px',
-                top: textInputPosition.y + 'px',
-                transform: 'translateY(-50%)'
-              }"
-              @mousedown.stop
-              @click.stop
-            >
-              <input
-                ref="textInputRef"
-                v-model="textInputValue"
-                type="text"
-                class="text-input"
-                placeholder="输入文字..."
-                @keydown.enter="confirmTextInput"
-                @keydown.esc="cancelTextInput"
-                @mousedown.stop
-                @click.stop
-              />
-            </div>
-          </div>
+    <!-- 颜色选择器 -->
+    <Transition name="color-picker-fade">
+      <div v-if="showColorPicker" class="color-picker-container">
+        <el-color-picker
+          v-model="currentColor"
+          :predefine="colorPresets"
+          :show-alpha="false"
+          size="default"
+          @change="handleColorChange"
+        />
+      </div>
+    </Transition>
+
+    <!-- 滑块控制工具 -->
+    <FloatingSidebar
+      :visible="tool === 'pencil' || tool === 'eraser' || tool === 'shape'"
+      :min-top-distance="100"
+      :min-bottom-distance="50"
+    >
+      <template #default="{ draggingDisabled }">
+        <MapSlider
+          v-model="size"
+          :min="sliderConfig.min"
+          :max="sliderConfig.max"
+          :step="sliderConfig.step"
+          :dragging-disabled="draggingDisabled"
+          label="大小"
+        />
+        <MapSlider
+          v-if="tool === 'pencil' || tool === 'shape'"
+          v-model="opacity"
+          :min="opacityConfig.min"
+          :max="opacityConfig.max"
+          :step="opacityConfig.step"
+          :dragging-disabled="draggingDisabled"
+          label="透明度"
+          preview-type="opacity"
+        />
+      </template>
+    </FloatingSidebar>
+
+    <!-- 画布容器 -->
+    <div
+      ref="editorContainerRef"
+      class="editor-container"
+      @wheel="handleWheel"
+      @mousedown="handleContainerMouseDown"
+      @mousemove="handleContainerMouseMove"
+      @mouseup="handleContainerMouseUp"
+      @mouseleave="handleContainerMouseUp"
+    >
+      <div class="canvas-wrap" :style="canvasWrapStyle">
+        <!-- 绘制画布 -->
+        <canvas
+          ref="canvasRef"
+          :width="canvasDisplayWidth"
+          :height="canvasDisplayHeight"
+          class="draw-canvas"
+          :style="{ cursor: canvasCursor }"
+          @mousedown="handleCanvasMouseDown"
+          @mousemove="handleCanvasMouseMove"
+          @mouseup="handleCanvasMouseUp"
+          @mouseleave="handleCanvasMouseUp"
+          @dblclick="handleTextDoubleClick"
+          @touchstart.prevent="handleCanvasMouseDown"
+          @touchmove.prevent="handleCanvasMouseMove"
+          @touchend.prevent="handleCanvasMouseUp"
+        ></canvas>
+
+        <!-- 文字输入框 -->
+        <div
+          v-if="shouldShowTextInput"
+          class="text-input-overlay"
+          :style="textInputOverlayStyle"
+          @mousedown.stop
+          @click.stop
+        >
+          <textarea
+            :ref="(el) => (textTool.textInputRef = el)"
+            v-model="textInputValue"
+            class="text-input"
+            placeholder="输入文字..."
+            :style="{
+              fontSize: (textTool.editingTextElement?.fontSize || 14) + 'px',
+              fontFamily: textTool.editingTextElement?.fontFamily || 'Arial',
+              color: textTool.editingTextElement?.color || color,
+              textAlign: textTool.editingTextElement?.textAlign || 'left',
+              lineHeight: textTool.editingTextElement?.lineHeight || 1.2
+            }"
+            :class="{ 'text-input-editing': tool === 'text' }"
+            @input="textTool.handleTextInput"
+            @keydown.ctrl.enter="textTool.confirmTextInput"
+            @keydown.meta.enter="textTool.confirmTextInput"
+            @keydown.esc="textTool.cancelTextInput"
+            @mousedown.stop
+            @click.stop
+          />
         </div>
       </div>
-    </template>
-  </LayoutTool>
+    </div>
+
+    <!-- 缩放控制器和撤销/回退按钮 -->
+    <MapZoomControls
+      :scale="canvasState.scale.value"
+      :min-scale="canvasState.minScale"
+      :max-scale="canvasState.maxScale"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      @zoom-in="handleZoomIn"
+      @zoom-out="handleZoomOut"
+      @reset-zoom="handleResetZoom"
+      @undo="handleUndo"
+      @redo="handleRedo"
+    />
+  </div>
 </template>
 
 <script setup>
-import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
+import MapToolbar from '@renderer/components/Map/MapToolbar.vue'
+import FloatingSidebar from '@renderer/components/FloatingSidebar.vue'
+import MapSlider from '@renderer/components/Map/MapSlider.vue'
+import MapZoomControls from '@renderer/components/Map/MapZoomControls.vue'
+import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { PictureRounded, ZoomIn } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowLeftBold } from '@element-plus/icons-vue'
+
+// 导入 composables
+import { useCanvasState } from '@renderer/composables/map/useCanvasState'
+import { useCoordinate } from '@renderer/composables/map/useCoordinate'
+import { useHistory, HistoryManager } from '@renderer/composables/map/useHistory'
+import { useElements } from '@renderer/composables/map/useElements'
+import { useRender } from '@renderer/composables/map/useRender'
+import { useCanvas } from '@renderer/composables/map/useCanvas'
+import { usePencilTool } from '@renderer/composables/map/tools/usePencilTool'
+import { useEraserTool } from '@renderer/composables/map/tools/useEraserTool'
+import { useShapeTool } from '@renderer/composables/map/tools/useShapeTool'
+import { useTextTool } from '@renderer/composables/map/tools/useTextTool'
+import { useBucketTool } from '@renderer/composables/map/tools/useBucketTool'
+import { useResourceTool } from '@renderer/composables/map/tools/useResourceTool'
+import { useSelectTool } from '@renderer/composables/map/tools/useSelectTool'
+import { useMoveTool } from '@renderer/composables/map/tools/useMoveTool'
+import { useBackgroundTool } from '@renderer/composables/map/tools/useBackgroundTool'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
-const mapId = route.query.id
 
-const mapName = ref('')
-const isEdit = computed(() => !!mapId)
-const mapImage = ref(null)
+// ==================== 基础数据 ====================
+const mapName = ref(route.query.id || '')
 const editorContainerRef = ref(null)
-const mapImageRef = ref(null)
 const canvasRef = ref(null)
-const canvasWidth = ref(800)
-const canvasHeight = ref(600)
-const scale = ref(1) // 缩放比例
-const minScale = 0.5 // 最小缩放
-const maxScale = 3 // 最大缩放
+const tool = ref('select')
+const color = ref('#222222')
+const backgroundColor = ref('#ffffff')
+const size = ref(5)
+const opacity = ref(100)
+const canvasCursor = ref('default')
+const spaceKeyPressed = ref(false)
 
-const resourcePopoverVisible = ref(false)
-// 图片资源列表
-const resources = [
+// ==================== 使用 Composables ====================
+// 画布状态
+const canvasState = useCanvasState()
+
+// 元素管理
+const elements = useElements()
+
+// 历史记录
+const { history } = useHistory(canvasRef)
+
+// 坐标转换
+const { getCanvasPos } = useCoordinate(
+  canvasRef,
+  editorContainerRef,
+  canvasState.scale,
+  canvasState.scrollX,
+  canvasState.scrollY
+)
+
+// 渲染函数
+const renderFunctions = useRender(canvasRef)
+
+// 选框状态
+const selectedElementIds = ref(new Set())
+
+// 先创建 selectTool 的状态 refs（因为 useCanvas 需要它们）
+const selectToolIsSelecting = ref(false)
+const selectToolSelectionStart = ref(null)
+const selectToolSelectionEnd = ref(null)
+
+// 先创建其他工具的状态 refs（因为 useCanvas 需要它们）
+const pencilToolDrawingActive = ref(false)
+const eraserToolDrawingActive = ref(false)
+const shapeToolDrawingActive = ref(false)
+const shapeToolType = ref('rect') // 默认选择矩形
+
+// 画布管理（先创建，但不依赖工具的状态，使用临时的 refs）
+// 创建一个临时的 renderCanvas 函数，稍后会被 useCanvas 返回的真实函数替换
+let tempRenderCanvas = () => {}
+
+// 先创建 selectTool，以便获取 getOriginalBounds 函数
+const selectTool = useSelectTool({
+  elements,
+  history,
+  renderCanvas: () => tempRenderCanvas(), // 使用临时函数
+  selectedElementIds,
+  canvasState,
+  canvasCursor
+})
+
+const { renderCanvas, canvasWrapStyle, updateContentBounds } = useCanvas(
+  canvasRef,
+  editorContainerRef,
+  canvasState,
+  elements,
   {
-    name: '点',
-    url: '/src/assets/images/point.png'
+    currentFreeDrawPath: elements.currentFreeDrawPath,
+    currentShape: elements.currentShape,
+    drawingActive: computed(() => {
+      return (
+        pencilToolDrawingActive.value ||
+        eraserToolDrawingActive.value ||
+        shapeToolDrawingActive.value
+      )
+    })
   },
-  {
-    name: '五角星',
-    url: '/src/assets/images/star.png'
+  renderFunctions,
+  backgroundColor,
+  tool,
+  selectedElementIds,
+  selectToolIsSelecting,
+  selectToolSelectionStart,
+  selectToolSelectionEnd,
+  selectTool.getOriginalBounds,
+  selectTool.getRotationAngle,
+  selectTool.shouldHideMultiSelectionBox
+)
+
+// 更新 selectTool 的 renderCanvas 为真实的函数
+tempRenderCanvas = renderCanvas
+
+// 工具 composables
+const pencilTool = usePencilTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  color,
+  size,
+  opacity
+})
+// 同步 drawingActive 状态
+watch(
+  pencilTool.drawingActive,
+  (val) => {
+    pencilToolDrawingActive.value = val
   },
-  {
-    name: '山',
-    url: '/src/assets/images/mountain.png'
+  { immediate: true }
+)
+
+const eraserTool = useEraserTool({
+  canvasRef,
+  history,
+  size
+})
+// 同步 drawingActive 状态
+watch(
+  eraserTool.drawingActive,
+  (val) => {
+    eraserToolDrawingActive.value = val
   },
-  {
-    name: '森林',
-    url: '/src/assets/images/forest.png'
+  { immediate: true }
+)
+
+const shapeTool = useShapeTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  color,
+  size,
+  opacity
+})
+// 同步 drawingActive 状态
+watch(
+  shapeTool.drawingActive,
+  (val) => {
+    shapeToolDrawingActive.value = val
   },
-  {
-    name: '宫殿',
-    url: '/src/assets/images/palace.png'
+  { immediate: true }
+)
+// 同步形状类型和边角设置
+watch(
+  shapeToolType,
+  (val) => {
+    shapeTool.setShapeType(val)
   },
-  {
-    name: '城市',
-    url: '/src/assets/images/city.png'
+  { immediate: true }
+)
+
+const textTool = useTextTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  color,
+  getCanvasPos
+})
+
+const bucketTool = useBucketTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  color,
+  canvasState
+})
+
+const resourceTool = useResourceTool({
+  canvasRef,
+  elements,
+  history,
+  renderCanvas,
+  getCanvasPos
+})
+
+// selectTool 已经在上面创建（用于获取 getOriginalBounds 函数）
+// 同步 selectTool 的状态
+watch(
+  selectTool.isSelecting,
+  (val) => {
+    selectToolIsSelecting.value = val
   },
-  {
-    name: '村庄',
-    url: '/src/assets/images/village.png'
+  { immediate: true }
+)
+watch(
+  selectTool.selectionStart,
+  (val) => {
+    selectToolSelectionStart.value = val
   },
-  {
-    name: '湖泊',
-    url: '/src/assets/images/lake.png'
+  { immediate: true }
+)
+watch(
+  selectTool.selectionEnd,
+  (val) => {
+    selectToolSelectionEnd.value = val
   },
-  {
-    name: '战役',
-    url: '/src/assets/images/battle.png'
-  }
+  { immediate: true }
+)
+
+const moveTool = useMoveTool({
+  editorContainerRef,
+  canvasState
+})
+
+const backgroundTool = useBackgroundTool({
+  canvasRef,
+  history,
+  renderCanvas,
+  backgroundColor
+})
+
+// ==================== 颜色预设 ====================
+const colorPresets = [
+  '#000000',
+  '#222222',
+  '#666666',
+  '#999999',
+  '#FFFFFF',
+  '#FF4D4F',
+  '#FF9F1C',
+  '#FFD600',
+  '#00C853',
+  '#1890FF',
+  '#B368FF',
+  '#FF6F91',
+  '#8D99AE',
+  '#A3E635',
+  '#00C9A7',
+  '#13C2C2',
+  '#2F54EB'
 ]
 
-// 工具栏状态
-const tool = ref('pencil') // pencil, eraser, bucket, text
-const color = ref('#222')
-const size = ref(1)
-const drawingActive = ref(false)
-const lastPoint = ref({ x: 0, y: 0 })
-const undoStack = ref([])
+// ==================== 计算属性 ====================
+const showColorPicker = computed(() => {
+  return ['pencil', 'bucket', 'shape', 'text', 'background'].includes(tool.value)
+})
 
-// 拖拽资源图片相关
-const draggingResource = ref(null)
-const dragPreviewEl = ref(null)
-
-// 文字工具相关
-const textInputVisible = ref(false)
-const textInputValue = ref('')
-const textInputPosition = ref({ x: 0, y: 0 })
-const textInputRef = ref(null)
-
-// 画布样式适应容器
-const canvasWrapStyle = computed(() => ({
-  position: 'relative',
-  width: canvasWidth.value + 'px',
-  height: canvasHeight.value + 'px',
-  margin: '0 auto',
-  background: '#fff',
-  boxShadow: '0 2px 8px #0001',
-  transform: `scale(${scale.value})`,
-  transformOrigin: 'center center',
-  transition: 'transform 0.1s ease-out'
-}))
-
-// 计算图片样式，使其适应canvas
-const imageStyle = computed(() => ({
-  position: 'absolute',
-  left: 0,
-  top: 0,
-  width: canvasWidth.value + 'px',
-  height: canvasHeight.value + 'px',
-  zIndex: 0
-}))
-
-// 计算画布鼠标样式
-const canvasCursor = computed(() => {
-  switch (tool.value) {
-    // case 'pencil':
-    //   return 'url(/src/assets/pencil.svg) 8 44, crosshair'
-    // case 'eraser':
-    //   return 'url(/src/assets/eraser.svg) 16 44, crosshair'
-    // case 'bucket':
-    //   return 'url(/src/assets/bucket.svg) 40 20, crosshair'
-    case 'text':
-      return 'text'
-    case 'resource':
-      return 'crosshair'
-    default:
-      return 'default'
+const currentColor = computed({
+  get() {
+    return tool.value === 'background' ? backgroundColor.value : color.value
+  },
+  set(value) {
+    if (tool.value === 'background') {
+      backgroundTool.handleColorChange(value)
+    } else {
+      color.value = value
+    }
   }
 })
 
-// 加载地图图片
-const loadMapImage = async () => {
-  try {
-    mapImage.value = await window.electron.readMapImage({ bookName, mapName: mapId })
-    mapName.value = mapId
-  } catch (error) {
-    console.error('加载地图失败:', error)
-    ElMessage.error('加载地图失败')
+const sliderConfig = computed(() => {
+  if (tool.value === 'eraser') {
+    return { min: 10, max: 50, step: 1 }
+  } else if (tool.value === 'pencil') {
+    return { min: 1, max: 50, step: 1 }
+  } else if (tool.value === 'shape') {
+    return { min: 1, max: 50, step: 1 }
   }
-}
+  return { min: 0, max: 100, step: 1 }
+})
 
-// 图片加载完成后，设置canvas尺寸
-const handleImageLoad = () => {
-  const img = mapImageRef.value
-  if (img) {
-    canvasWidth.value = img.naturalWidth
-    canvasHeight.value = img.naturalHeight
-    nextTick(() => {
-      resetCanvas()
-    })
+const opacityConfig = computed(() => {
+  return { min: 0, max: 100, step: 1 }
+})
+
+const canUndo = computed(() => {
+  return history.value ? history.value.canUndo() : false
+})
+
+const canRedo = computed(() => {
+  return history.value ? history.value.canRedo() : false
+})
+
+// 解包 canvas 尺寸（确保在模板中正确显示）
+const canvasDisplayWidth = computed(() => {
+  return canvasState.canvasDisplayWidth.value
+})
+
+const canvasDisplayHeight = computed(() => {
+  return canvasState.canvasDisplayHeight.value
+})
+
+// 文字输入框值（确保是字符串）
+const textInputValue = computed({
+  get: () => {
+    const value = textTool.textInputValue.value
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'object') return '' // 防止对象被转换为字符串
+    return String(value)
+  },
+  set: (val) => {
+    const stringValue = typeof val === 'string' ? val : ''
+    textTool.textInputValue.value = stringValue
+    // 触发输入处理
+    if (textTool.handleTextInput) {
+      textTool.handleTextInput()
+    }
   }
-}
+})
 
-// 工具栏操作
-function selectTool(t) {
-  tool.value = t
-  if (t === 'pencil') {
-    size.value = 1
-  } else if (t === 'eraser') {
-    size.value = 10
+// 文字输入框是否应该显示
+const shouldShowTextInput = computed(() => {
+  return (
+    tool.value === 'text' && textTool.textInputVisible.value && !!textTool.editingTextElement.value
+  )
+})
+
+// 文字输入框位置样式
+const textInputOverlayStyle = computed(() => {
+  if (
+    !textTool.textInputVisible.value ||
+    !textTool.editingTextElement.value ||
+    !editorContainerRef.value
+  ) {
+    return {}
   }
-}
 
-// 撤销
-function undo() {
-  if (undoStack.value.length > 0) {
-    const ctx = canvasRef.value.getContext('2d')
-    const img = undoStack.value.pop()
-    ctx.putImageData(img, 0, 0)
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+
+  const viewportX =
+    (textTool.textInputPosition.value.x + canvasState.scrollX.value) * canvasState.scale.value +
+    containerRect.left -
+    7
+  const viewportY =
+    (textTool.textInputPosition.value.y + canvasState.scrollY.value) * canvasState.scale.value +
+    containerRect.top -
+    7
+
+  return {
+    position: 'fixed',
+    left: `${viewportX}px`,
+    top: `${viewportY}px`,
+    fontSize: (textTool.editingTextElement.value.fontSize || 14) * canvasState.scale.value + 'px',
+    fontFamily: textTool.editingTextElement.value.fontFamily || 'Arial',
+    color: textTool.editingTextElement.value.color || color.value
   }
-}
+})
 
-// 初始化canvas，绘制底图
-function resetCanvas() {
-  const canvas = canvasRef.value
-  const ctx = canvas.getContext('2d')
-  // 清空
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  // 绘制底图
-  if (mapImage.value) {
-    const img = new window.Image()
-    img.src = mapImage.value
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+// ==================== 事件处理 ====================
+function handleCanvasMouseDown(e) {
+  const pos = getCanvasPos(e)
+
+  if (tool.value === 'move' || spaceKeyPressed.value) {
+    moveTool.onMouseDown(e)
+    return
+  }
+
+  if (tool.value === 'pencil') {
+    pencilTool.onMouseDown(pos)
+  } else if (tool.value === 'eraser') {
+    eraserTool.onMouseDown(pos)
+  } else if (tool.value === 'shape') {
+    shapeTool.onMouseDown(pos)
+  } else if (tool.value === 'bucket') {
+    bucketTool.onMouseDown(pos)
+  } else if (tool.value === 'text') {
+    // 直接调用 textTool.onMouseDown，它内部会处理 confirmTextInput
+    textTool.onMouseDown(e)
+  } else if (tool.value === 'select') {
+    selectTool.onMouseDown(e, pos)
+  } else {
+    if (textTool.textInputVisible.value) {
+      textTool.confirmTextInput()
     }
   }
 }
 
-// 画图相关
-function getCanvasPos(e) {
-  const rect = canvasRef.value.getBoundingClientRect()
-  let x, y
-  if (e.touches) {
-    x = (e.touches[0].clientX - rect.left) / scale.value
-    y = (e.touches[0].clientY - rect.top) / scale.value
-  } else {
-    x = (e.clientX - rect.left) / scale.value
-    y = (e.clientY - rect.top) / scale.value
+function handleCanvasMouseMove(e) {
+  if (moveTool.panning.value) {
+    moveTool.onMouseMove(e)
+    return
   }
-  return { x, y }
+
+  const pos = getCanvasPos(e)
+
+  if (tool.value === 'pencil' && pencilTool.drawingActive.value) {
+    pencilTool.onMouseMove(pos)
+  } else if (tool.value === 'eraser' && eraserTool.drawingActive.value) {
+    eraserTool.onMouseMove(pos)
+  } else if (tool.value === 'shape' && shapeTool.drawingActive.value) {
+    shapeTool.onMouseMove(pos)
+  } else if (tool.value === 'select') {
+    selectTool.onMouseMove(pos)
+    if (
+      !selectTool.isDragging.value &&
+      !selectTool.isTransforming.value &&
+      !selectTool.isSelecting.value
+    ) {
+      selectTool.updateCursorStyle(pos)
+    }
+  }
 }
 
-function startDraw(e) {
-  // 检查当前选中的工具
-  if (tool.value === 'pencil' || tool.value === 'eraser') {
-    // 铅笔工具：绘制线条
-    drawingActive.value = true
-    const { x, y } = getCanvasPos(e)
-    lastPoint.value = { x, y }
-    // 保存撤销栈
-    const ctx = canvasRef.value.getContext('2d')
-    undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-  } else if (tool.value === 'bucket') {
-    // 油漆桶工具：填充
-    fillBucket(e)
-  } else if (tool.value === 'text') {
-    // 文字工具：显示文字输入框
-    showTextInput(e)
-    // 阻止事件冒泡，防止触发 handleCanvasClick
-    e.stopPropagation()
+function handleCanvasMouseUp() {
+  if (moveTool.panning.value) {
+    moveTool.onMouseUp()
+    return
   }
-  // 其他工具（如 resource）不执行绘制操作
-}
 
-function drawing(e) {
-  if (!drawingActive.value) return
-
-  // 只有铅笔和橡皮擦工具才能继续绘制
-  if (tool.value !== 'pencil' && tool.value !== 'eraser') return
-
-  const ctx = canvasRef.value.getContext('2d')
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = size.value
   if (tool.value === 'pencil') {
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = color.value
+    pencilTool.onMouseUp()
   } else if (tool.value === 'eraser') {
-    // 使用白色来擦除，擦过的地方变成白色
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = '#ffffff'
-  }
-  ctx.beginPath()
-  ctx.moveTo(lastPoint.value.x, lastPoint.value.y)
-  const { x, y } = getCanvasPos(e)
-  ctx.lineTo(x, y)
-  ctx.stroke()
-  lastPoint.value = { x, y }
-}
-
-function endDraw() {
-  drawingActive.value = false
-}
-
-// 油漆桶填充（Flood Fill，闭合区域填充）
-function fillBucket(e) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-  const { x, y } = getCanvasPos(e)
-  const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
-  const data = imageData.data
-  const width = imageData.width
-  const height = imageData.height
-
-  // 获取起始像素的rgba
-  const startIdx = (Math.floor(y) * width + Math.floor(x)) * 4
-  const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]]
-
-  // 目标颜色
-  const fillColor = hexToRgba(color.value)
-
-  // 如果起始像素颜色和目标颜色一样，直接返回
-  if (colorsMatch(startColor, fillColor)) return
-
-  // Flood Fill
-  const stack = [[Math.floor(x), Math.floor(y)]]
-  while (stack.length) {
-    const [cx, cy] = stack.pop()
-    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue
-    const idx = (cy * width + cx) * 4
-    const currColor = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]]
-    if (!colorsMatch(currColor, startColor)) continue
-    // 填充颜色
-    data[idx] = fillColor[0]
-    data[idx + 1] = fillColor[1]
-    data[idx + 2] = fillColor[2]
-    data[idx + 3] = fillColor[3]
-    // 四邻域递归
-    stack.push([cx + 1, cy])
-    stack.push([cx - 1, cy])
-    stack.push([cx, cy + 1])
-    stack.push([cx, cy - 1])
-  }
-  ctx.putImageData(imageData, 0, 0)
-}
-
-// 判断颜色是否相等
-function colorsMatch(a, b) {
-  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]
-}
-// 16进制转rgba数组
-function hexToRgba(hex) {
-  let c = hex.replace('#', '')
-  if (c.length === 3)
-    c = c
-      .split('')
-      .map((s) => s + s)
-      .join('')
-  const num = parseInt(c, 16)
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255]
-}
-
-// 键盘事件处理函数
-function handleKeyDown(e) {
-  // 检查是否按下 Ctrl+Z (Windows) 或 Cmd+Z (Mac)
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    e.preventDefault() // 阻止默认行为
-    undo()
+    eraserTool.onMouseUp()
+  } else if (tool.value === 'shape') {
+    shapeTool.onMouseUp()
+  } else if (tool.value === 'select') {
+    selectTool.onMouseUp()
+    canvasCursor.value = 'default'
   }
 }
 
-onMounted(() => {
-  if (isEdit.value) {
-    loadMapImage()
+function handleContainerMouseDown(e) {
+  if (tool.value === 'move' || e.button === 1 || (e.button === 0 && spaceKeyPressed.value)) {
+    moveTool.onMouseDown(e)
+    if (tool.value !== 'move') {
+      canvasCursor.value = 'grabbing'
+    }
+    e.preventDefault()
   }
-  // 添加键盘事件监听
-  window.addEventListener('keydown', handleKeyDown)
-})
+}
 
-// 组件卸载时移除事件监听
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown)
-})
+function handleContainerMouseMove(e) {
+  if (moveTool.panning.value) {
+    moveTool.onMouseMove(e)
+    // 拖拽时触发画布重新渲染
+    renderCanvas(false)
+  }
+}
 
-const handleSave = async () => {
+function handleContainerMouseUp() {
+  if (moveTool.panning.value) {
+    moveTool.onMouseUp()
+    if (tool.value !== 'move' && !spaceKeyPressed.value) {
+      canvasCursor.value = 'default'
+    }
+  }
+}
+
+function handleWheel(e) {
+  e.preventDefault()
+
+  // Shift + 滚轮：平移
+  if (e.shiftKey || tool.value === 'move') {
+    const deltaX = e.deltaX || 0
+    const deltaY = e.deltaY || 0
+    canvasState.scrollX.value += (deltaX * 0.5) / canvasState.scale.value
+    canvasState.scrollY.value += (deltaY * 0.5) / canvasState.scale.value
+    return
+  }
+
+  // Ctrl/Cmd + 滚轮：缩放（以鼠标位置为中心）
+  if (e.ctrlKey || e.metaKey) {
+    if (!editorContainerRef.value) return
+    const containerRect = editorContainerRef.value.getBoundingClientRect()
+    const mouseX = e.clientX - containerRect.left
+    const mouseY = e.clientY - containerRect.top
+
+    const sceneX = mouseX / canvasState.scale.value - canvasState.scrollX.value
+    const sceneY = mouseY / canvasState.scale.value - canvasState.scrollY.value
+
+    const delta = e.deltaY
+    const zoomFactor = 0.1
+    let newScale = canvasState.scale.value
+    if (delta < 0) {
+      newScale = Math.min(canvasState.scale.value + zoomFactor, canvasState.maxScale)
+    } else {
+      newScale = Math.max(canvasState.scale.value - zoomFactor, canvasState.minScale)
+    }
+
+    canvasState.scrollX.value = mouseX / newScale - sceneX
+    canvasState.scrollY.value = mouseY / newScale - sceneY
+    canvasState.scale.value = newScale
+
+    // 触发画布重新渲染
+    renderCanvas(false)
+  }
+}
+
+// 缩放功能（参考 excalidraw）
+function handleZoomIn() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const zoomFactor = 0.1
+  const newScale = Math.min(canvasState.scale.value + zoomFactor, canvasState.maxScale)
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
+}
+
+function handleZoomOut() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const zoomFactor = 0.1
+  const newScale = Math.max(canvasState.scale.value - zoomFactor, canvasState.minScale)
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
+}
+
+function handleResetZoom() {
+  if (!editorContainerRef.value) return
+  const containerRect = editorContainerRef.value.getBoundingClientRect()
+  const centerX = containerRect.width / 2
+  const centerY = containerRect.height / 2
+
+  const sceneX = centerX / canvasState.scale.value - canvasState.scrollX.value
+  const sceneY = centerY / canvasState.scale.value - canvasState.scrollY.value
+
+  const newScale = 1
+
+  canvasState.scrollX.value = centerX / newScale - sceneX
+  canvasState.scrollY.value = centerY / newScale - sceneY
+  canvasState.scale.value = newScale
+
+  // 触发画布重新渲染
+  renderCanvas(false)
+}
+
+function handleColorChange(newColor) {
+  if (tool.value === 'background') {
+    backgroundTool.handleColorChange(newColor)
+  }
+}
+
+function handleShapeTypeChange(newType) {
+  shapeToolType.value = newType
+  // 立即同步到shapeTool
+  shapeTool.setShapeType(newType)
+}
+
+function onToolChange(newTool) {
+  // 如果切换到非文字工具，隐藏文字输入框
+  if (tool.value === 'text' && newTool !== 'text') {
+    if (textTool.textInputVisible.value) {
+      // 先确认输入（保存内容），然后隐藏
+      textTool.confirmTextInput()
+    }
+  }
+
+  // 如果切换到文字工具，确保输入框是隐藏的（只有点击画布后才显示）
+  if (newTool === 'text') {
+    if (textTool.textInputVisible.value) {
+      // 如果输入框已经显示，先确认输入
+      textTool.confirmTextInput()
+    }
+    // 确保输入框是隐藏的，清除所有相关状态
+    textTool.textInputVisible.value = false
+    textTool.editingTextElement.value = null
+    textTool.textInputPosition.value = { x: 0, y: 0 }
+    textTool.textInputValue.value = ''
+  }
+
+  tool.value = newTool
+  if (newTool === 'pencil') {
+    size.value = 5
+  } else if (newTool === 'eraser') {
+    size.value = 30
+  } else if (newTool === 'shape') {
+    size.value = 3
+    // 确保shapeTool的shapeType与shapeToolType同步
+    if (shapeToolType.value) {
+      shapeTool.setShapeType(shapeToolType.value)
+    } else {
+      // 如果没有设置，使用默认值
+      shapeToolType.value = 'line'
+      shapeTool.setShapeType('line')
+    }
+  }
+  selectedElementIds.value.clear()
+
+  // 更新光标样式
+  switch (newTool) {
+    case 'select':
+      canvasCursor.value = 'default'
+      break
+    case 'move':
+      canvasCursor.value = spaceKeyPressed.value ? 'grabbing' : 'grab'
+      break
+    case 'pencil':
+    case 'eraser':
+    case 'shape':
+      canvasCursor.value = 'crosshair'
+      break
+    case 'text':
+      canvasCursor.value = 'text'
+      break
+    case 'bucket':
+    case 'resource':
+    case 'background':
+      canvasCursor.value = 'crosshair'
+      break
+    default:
+      canvasCursor.value = 'default'
+  }
+}
+
+function handleUndo() {
+  if (history.value && history.value.undo()) {
+    ElMessage.success('已撤销')
+  }
+}
+
+function handleRedo() {
+  if (history.value && history.value.redo()) {
+    ElMessage.success('已回退')
+  }
+}
+
+function handleClearCanvas() {
+  ElMessageBox.confirm('确定要清空画板吗？此操作不可撤销。', '确认清空', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+    .then(() => {
+      if (!canvasRef.value || !history.value) return
+      history.value.saveState()
+      elements.clearAll()
+      renderCanvas()
+      history.value.saveState()
+      ElMessage.success('画板已清空')
+    })
+    .catch(() => {
+      // 用户取消
+    })
+}
+
+function selectResource(resource) {
+  resourceTool.selectResource(resource)
+}
+
+function onResourceMouseDown(resource, event) {
+  resourceTool.onResourceMouseDown(resource, event)
+}
+
+function handleTextDoubleClick(e) {
+  if (tool.value === 'text') {
+    textTool.onDoubleClick(e)
+  }
+}
+
+function handleBack() {
+  router.back()
+}
+
+// ==================== 保存地图 ====================
+/**
+ * 生成预览图（参考excalidraw和paint-board）
+ * 创建一个新的canvas，将内容居中绘制，确保保存的图片内容在中间
+ */
+async function generatePreviewImage() {
+  if (!canvasRef.value) return null
+
+  // 先更新内容边界
+  updateContentBounds()
+
+  const bounds = canvasState.contentBounds.value
+  const padding = 100 // 预览图周围的padding
+  const contentWidth = bounds.maxX - bounds.minX
+  const contentHeight = bounds.maxY - bounds.minY
+
+  // 计算预览图尺寸（确保最小尺寸）
+  const previewWidth = Math.max(contentWidth + padding * 2, 1920)
+  const previewHeight = Math.max(contentHeight + padding * 2, 1080)
+
+  // 创建新的canvas用于预览图
+  const previewCanvas = document.createElement('canvas')
+  previewCanvas.width = previewWidth
+  previewCanvas.height = previewHeight
+  const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true })
+
+  if (!previewCtx) return null
+
+  // 设置背景色
+  previewCtx.fillStyle = backgroundColor.value
+  previewCtx.fillRect(0, 0, previewWidth, previewHeight)
+
+  // 计算偏移量，使内容居中
+  const offsetX = (previewWidth - contentWidth) / 2 - bounds.minX
+  const offsetY = (previewHeight - contentHeight) / 2 - bounds.minY
+
+  // 应用偏移量（通过translate）
+  previewCtx.save()
+  previewCtx.translate(offsetX, offsetY)
+
+  // 绘制所有元素（不使用scale和scroll，直接绘制到新canvas）
+  // 绘制所有已完成的画笔路径
+  elements.freeDrawElements.value.forEach((element) => {
+    renderFunctions.renderFreeDrawPath(previewCtx, element, false)
+  })
+
+  // 绘制所有已完成的形状
+  // 注意：renderShape内部使用了rough.canvas(canvasRef.value)，需要临时替换
+  const originalCanvas = canvasRef.value
+  canvasRef.value = previewCanvas
+  elements.shapeElements.value.forEach((element) => {
+    renderFunctions.renderShape(previewCtx, element, false)
+  })
+  canvasRef.value = originalCanvas
+
+  // 绘制所有文字元素
+  elements.textElements.value.forEach((element) => {
+    renderFunctions.renderText(previewCtx, element, false)
+  })
+
+  // 绘制所有填充区域（在资源之前，这样资源会显示在填充区域之上）
+  const fillPromises = elements.fillElements.value.map((element) => {
+    return new Promise((resolve) => {
+      if (element.imageDataBase64) {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          previewCtx.drawImage(img, element.x, element.y, element.width, element.height)
+          resolve()
+        }
+        img.onerror = () => resolve()
+        img.src = element.imageDataBase64
+      } else {
+        resolve()
+      }
+    })
+  })
+  await Promise.all(fillPromises)
+
+  // 绘制所有资源元素（最后绘制，确保显示在最上层，需要等待图片加载，支持图标和图片两种类型）
+  const resourcePromises = elements.resourceElements.value.map((element) => {
+    return new Promise((resolve) => {
+      // 优先使用图标，如果没有图标则使用 URL（兼容旧数据）
+      if (element.icon) {
+        // 将 SVG 图标转换为图片
+        const svgSymbol = document.querySelector(`#icon-${element.icon}`)
+        if (!svgSymbol) {
+          console.warn(`预览图生成：未找到 SVG 图标 #icon-${element.icon}`)
+          resolve()
+          return
+        }
+
+        const viewBox = svgSymbol.getAttribute('viewBox') || '0 0 1024 1024'
+        const svgContent = svgSymbol.innerHTML
+        // 使用实际的宽度和高度来生成 SVG（支持调整大小）
+        const width = element.width || 40
+        const height = element.height || 40
+        const svgString = `
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+               viewBox="${viewBox}" width="${width}" height="${height}">
+            ${svgContent}
+          </svg>
+        `
+
+        const img = new Image()
+        // 使用 data: URL 代替 blob: URL，避免 CSP 策略阻止
+        const encodedSvg = encodeURIComponent(svgString.trim())
+        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`
+
+        img.onload = () => {
+          try {
+            previewCtx.save()
+            const angle = element.angle || 0
+            if (angle !== 0) {
+              const centerX = element.x
+              const centerY = element.y
+              previewCtx.translate(centerX, centerY)
+              previewCtx.rotate(angle)
+              previewCtx.translate(-centerX, -centerY)
+            }
+            // 使用实际的宽度和高度（支持调整大小）
+            previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+            previewCtx.restore()
+          } catch (error) {
+            console.error(`预览图生成：绘制资源图标失败 (${element.icon}):`, error)
+          }
+          resolve()
+        }
+        img.onerror = (error) => {
+          console.error(`预览图生成：加载资源图标失败 (${element.icon}):`, error)
+          resolve()
+        }
+        img.src = dataUrl
+      } else if (element.url) {
+        // 兼容旧的图片资源
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          try {
+            previewCtx.save()
+            const angle = element.angle || 0
+            if (angle !== 0) {
+              const centerX = element.x
+              const centerY = element.y
+              previewCtx.translate(centerX, centerY)
+              previewCtx.rotate(angle)
+              previewCtx.translate(-centerX, -centerY)
+            }
+            // 使用实际的宽度和高度（支持调整大小）
+            const width = element.width || 40
+            const height = element.height || 40
+            previewCtx.drawImage(img, element.x - width / 2, element.y - height / 2, width, height)
+            previewCtx.restore()
+          } catch (error) {
+            console.error(`预览图生成：绘制图片资源失败:`, error)
+          }
+          resolve()
+        }
+        img.onerror = (error) => {
+          console.error(`预览图生成：加载图片资源失败:`, error)
+          resolve()
+        }
+        img.src = element.url
+      } else {
+        console.warn('预览图生成：资源元素既没有 icon 也没有 url', element)
+        resolve()
+      }
+    })
+  })
+  await Promise.all(resourcePromises)
+
+  previewCtx.restore()
+
+  return previewCanvas.toDataURL('image/png', 1.0)
+}
+
+/**
+ * 保存地图（从工具栏触发）
+ * 将画板内容保存成图片并下载到对应目录，作为地图列表页的预览图
+ * 参考excalidraw：同时保存图片预览和画板内容数据
+ */
+async function handleSaveMap() {
   if (!mapName.value) {
     ElMessage.warning('请输入地图名称')
     return
   }
+  if (!canvasRef.value) return
+
   try {
-    // 获取canvas内容
-    const imageData = canvasRef.value.toDataURL('image/png')
+    // 先渲染画布，确保内容是最新的
+    renderCanvas()
+
+    // 生成预览图（内容居中）
+    const imageData = await generatePreviewImage()
+    if (!imageData) {
+      ElMessage.error('生成预览图失败')
+      return
+    }
+
+    // 序列化画板内容数据（包含背景色）
+    const mapData = elements.serialize(backgroundColor.value)
+
+    // 保存图片和数据到文件系统
     await window.electron.updateMap({
       bookName,
       mapName: mapName.value,
-      imageData
+      imageData,
+      mapData
     })
+
     ElMessage.success('保存成功')
-    router.back()
   } catch (error) {
     console.error('保存地图失败:', error)
-    ElMessage.error('保存地图失败')
+    ElMessage.error('保存地图失败: ' + (error.message || '未知错误'))
   }
 }
 
-function selectResource(resource) {
-  // 兼容点击直接拖拽
-  startResourceDrag(resource, null)
-}
-
-function startResourceDrag(resource, event) {
-  draggingResource.value = resource
-  // 创建预览元素
-  if (!dragPreviewEl.value) {
-    dragPreviewEl.value = document.createElement('img')
-    dragPreviewEl.value.src = resource.url
-    dragPreviewEl.value.style.position = 'fixed'
-    dragPreviewEl.value.style.pointerEvents = 'none'
-    dragPreviewEl.value.style.zIndex = 9999
-    dragPreviewEl.value.style.width = '40px'
-    dragPreviewEl.value.style.height = '40px'
-    document.body.appendChild(dragPreviewEl.value)
-  }
-  // 监听全局鼠标移动和松开
-  window.addEventListener('mousemove', onResourceDragMove)
-  window.addEventListener('mouseup', onResourceDragEnd)
-  if (event) {
-    onResourceDragMove(event)
-  }
-}
-
-function onResourceDragMove(e) {
-  if (!dragPreviewEl.value) return
-  dragPreviewEl.value.style.left = e.clientX - 20 + 'px'
-  dragPreviewEl.value.style.top = e.clientY - 20 + 'px'
-}
-
-function onResourceDragEnd(e) {
-  if (!draggingResource.value) return
-  // 判断是否在canvas区域
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-  if (
-    e.clientX >= canvasRect.left &&
-    e.clientX <= canvasRect.right &&
-    e.clientY >= canvasRect.top &&
-    e.clientY <= canvasRect.bottom
-  ) {
-    // 转换为canvas坐标
-    const x = ((e.clientX - canvasRect.left) / canvasRect.width) * canvasRef.value.width
-    const y = ((e.clientY - canvasRect.top) / canvasRect.height) * canvasRef.value.height
-    drawResourceOnCanvas(draggingResource.value, x, y)
-  }
-  // 清理
-  if (dragPreviewEl.value) {
-    document.body.removeChild(dragPreviewEl.value)
-    dragPreviewEl.value = null
-  }
-  draggingResource.value = null
-  window.removeEventListener('mousemove', onResourceDragMove)
-  window.removeEventListener('mouseup', onResourceDragEnd)
-}
-
-function drawResourceOnCanvas(resource, x, y) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-
-  const img = new window.Image()
-  img.src = resource.url
-  img.onload = () => {
-    // 居中绘制，默认40x40
-    ctx.drawImage(img, x - 20, y - 20, 40, 40)
-  }
-}
-
-// 资源图片mousedown时启动拖拽
-function onResourceMouseDown(resource, event) {
-  event.preventDefault()
-  startResourceDrag(resource, event)
-}
-
-// 处理画布缩放
-function handleWheel(e) {
-  e.preventDefault()
-  const delta = e.deltaY
-  const zoomFactor = 0.1 // 每次缩放的步长
-
-  // 计算新的缩放比例
-  let newScale = scale.value
-  if (delta < 0) {
-    // 放大
-    newScale = Math.min(scale.value + zoomFactor, maxScale)
-  } else {
-    // 缩小
-    newScale = Math.max(scale.value - zoomFactor, minScale)
-  }
-
-  scale.value = newScale
-}
-
-// 重置缩放
-function resetZoom() {
-  scale.value = 1
-}
-
-// 显示文字输入框
-function showTextInput(e) {
-  // 获取画布的实际位置和尺寸
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-
-  // 计算鼠标相对于画布的位置
-  const mouseX = e.clientX - canvasRect.left
-  const mouseY = e.clientY - canvasRect.top
-
-  // 将画布坐标转换为容器坐标（考虑缩放）
-  const containerX = mouseX / scale.value
-  const containerY = mouseY / scale.value
-
-  textInputPosition.value = {
-    x: containerX,
-    y: containerY
-  }
-  textInputValue.value = ''
-  textInputVisible.value = true
-
-  // 确保输入框聚焦
-  nextTick(() => {
-    if (textInputRef.value) {
-      textInputRef.value.focus()
-      // 选中所有文本，方便用户直接输入
-      textInputRef.value.select()
-    }
-  })
-}
-
-// 确认文字输入
-function confirmTextInput() {
-  if (textInputValue.value.trim()) {
-    // 输入框位置已经是画布坐标，直接使用
-    const canvasX = textInputPosition.value.x
-    const canvasY = textInputPosition.value.y
-
-    drawTextOnCanvas(textInputValue.value, canvasX, canvasY)
-  }
-  textInputVisible.value = false
-  textInputValue.value = ''
-}
-
-// 取消文字输入
-function cancelTextInput() {
-  textInputVisible.value = false
-  textInputValue.value = ''
-}
-
-// 点击其他地方时隐藏输入框
-function hideTextInput() {
-  if (textInputVisible.value) {
-    textInputVisible.value = false
-    textInputValue.value = ''
-  }
-}
-
-// 在画布上绘制文字
-function drawTextOnCanvas(text, x, y) {
-  const ctx = canvasRef.value.getContext('2d')
-  // 保存撤销栈
-  undoStack.value.push(ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height))
-
-  // 设置文字样式 - 固定12px字号
-  ctx.font = '12px Arial'
-  ctx.fillStyle = color.value
-  ctx.textBaseline = 'top'
-
-  // 绘制文字
-  ctx.fillText(text, x, y)
-}
-
-function handleCanvasClick() {
-  // 如果当前工具是文字工具，不要隐藏输入框
-  if (tool.value === 'text') {
+// ==================== 键盘事件 ====================
+function handleKeyDown(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
     return
   }
-  hideTextInput()
+
+  // Delete 键：删除选中的元素
+  if ((e.key === 'Delete' || e.key === 'Backspace') && tool.value === 'select') {
+    e.preventDefault()
+    if (selectTool.deleteSelectedElements()) {
+      // 删除成功，画布已经重新渲染
+    }
+    return
+  }
+
+  // 工具快捷键
+  if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    switch (e.key.toLowerCase()) {
+      case 'v':
+        onToolChange('select')
+        break
+      case 'h':
+        onToolChange('move')
+        break
+      case 'g':
+        onToolChange('background')
+        break
+      case 'p':
+        onToolChange('pencil')
+        break
+      case 'e':
+        onToolChange('eraser')
+        break
+      case 's':
+        onToolChange('shape')
+        break
+      case 'b':
+        onToolChange('bucket')
+        break
+      case 't':
+        onToolChange('text')
+        break
+      case 'r':
+        onToolChange('resource')
+        break
+    }
+  }
+
+  // 撤销/回退
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    handleUndo()
+  }
+  if (
+    ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') ||
+    ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y')
+  ) {
+    e.preventDefault()
+    handleRedo()
+  }
+
+  // 空格键：临时切换到移动模式
+  if (e.key === ' ' && tool.value !== 'move') {
+    e.preventDefault()
+    spaceKeyPressed.value = true
+    canvasCursor.value = 'grab'
+  }
 }
+
+function handleKeyUp(e) {
+  if (e.key === ' ') {
+    spaceKeyPressed.value = false
+    if (tool.value !== 'move') {
+      canvasCursor.value = 'default'
+    }
+  }
+}
+
+// ==================== 加载地图数据 ====================
+/**
+ * 加载地图数据（画板内容）
+ * 参考excalidraw：从JSON文件恢复画板内容
+ */
+async function loadMapData() {
+  if (!mapName.value || !bookName) return
+
+  try {
+    const mapData = await window.electron.loadMapData({
+      bookName,
+      mapName: mapName.value
+    })
+
+    if (mapData) {
+      // 使用elements的deserialize方法恢复数据，并获取背景色
+      const loadedBackgroundColor = elements.deserialize(mapData)
+      // 恢复背景色
+      if (loadedBackgroundColor) {
+        backgroundColor.value = loadedBackgroundColor
+      }
+      // 重新渲染画布
+      renderCanvas(true)
+      // 注意：历史记录的初始化在 onMounted 中统一处理
+      // 这样加载后的状态会成为历史记录的初始状态
+    } else {
+      // 没有找到地图数据，使用空白画板
+      // 历史记录会在 onMounted 中初始化为空白状态
+    }
+  } catch (error) {
+    console.error('加载地图数据失败:', error)
+    ElMessage.error('加载地图数据失败: ' + error.message)
+  }
+}
+
+// ==================== 生命周期 ====================
+onMounted(async () => {
+  // 设置页面title
+  if (mapName.value) {
+    document.title = mapName.value
+  }
+
+  nextTick(async () => {
+    if (canvasRef.value) {
+      // 初始化历史记录管理器
+      history.value = new HistoryManager(canvasRef.value)
+      history.value.renderCallback = renderCanvas
+      history.value.getStateCallback = () => ({
+        freeDrawElements: elements.freeDrawElements.value,
+        shapeElements: elements.shapeElements.value,
+        textElements: elements.textElements.value,
+        resourceElements: elements.resourceElements.value,
+        fillElements: elements.fillElements.value,
+        backgroundColor: backgroundColor.value
+      })
+      history.value.setStateCallback = (state) => {
+        elements.freeDrawElements.value = state.freeDrawElements || []
+        elements.shapeElements.value = state.shapeElements || []
+        elements.textElements.value = state.textElements || []
+        elements.resourceElements.value = state.resourceElements || []
+        elements.fillElements.value = state.fillElements || []
+        backgroundColor.value = state.backgroundColor || '#ffffff'
+      }
+
+      // 先加载地图数据（如果有），然后再初始化历史记录
+      // 这样加载后的状态会成为历史记录的初始状态
+      await loadMapData()
+
+      // 初始化历史记录（将当前状态作为初始状态）
+      // 如果加载了地图数据，初始状态就是加载后的状态
+      // 如果没有加载地图数据，初始状态就是空白画板状态
+      history.value.init()
+
+      // 确保画布已渲染
+      renderCanvas()
+    }
+  })
+
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('keyup', handleKeyUp)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('keyup', handleKeyUp)
+
+  // 清理资源拖拽状态（包括事件监听器和预览元素）
+  if (resourceTool.cleanupDragState) {
+    resourceTool.cleanupDragState()
+  }
+})
 </script>
 
 <style lang="scss" scoped>
-.content {
-  flex: 1;
-  overflow: hidden;
+.map-design {
+  width: 100vw;
+  height: 100vh;
   display: flex;
-  align-items: center;
   flex-direction: column;
+  background-color: #f3f3f3;
+  position: relative;
+  overflow: hidden;
 
-  .toolbar {
+  .back-button-container {
+    position: fixed;
+    top: 8px;
+    left: 20px;
+    z-index: 1000;
     display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    width: max-content;
-    .tool-btn {
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
-      border-radius: 4px;
-      padding: 6px;
-      color: #000;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid transparent;
-      img {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-      &.active,
-      &:hover {
-        border: 1px solid var(--el-color-primary);
-      }
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    .back-button {
+      height: 42px;
     }
-    .slider-wrap {
-      position: absolute;
-      right: -170px;
-      top: 0;
-      z-index: 1;
-    }
-    .zoom-level {
+    .map-name {
       font-size: 14px;
-      color: var(--text-base);
-      min-width: 60px;
-      text-align: center;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 
   .editor-container {
     flex: 1;
     width: 100%;
-    background-color: #f3f3f3;
-    border-radius: 8px;
-    overflow: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     position: relative;
+    overflow: hidden;
+    background-color: #f3f3f3;
+  }
 
-    .canvas-wrap {
-      position: relative;
-      background: #fff;
-      box-shadow: 0 2px 8px #0001;
-      will-change: transform; // 优化缩放性能
-    }
-    .map-bg {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .draw-canvas {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 1;
+  .canvas-wrap {
+    position: absolute;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    will-change: transform;
+  }
+
+  .draw-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    background: transparent;
+  }
+
+  .selection-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .text-input-overlay {
+    position: absolute;
+    z-index: 3;
+    pointer-events: auto;
+
+    .text-input {
       background: transparent;
-      cursor: crosshair;
-    }
+      border: 1px dashed transparent;
+      border-radius: 2px;
+      padding: 4px 6px;
+      outline: none;
+      min-width: 100px;
+      min-height: 0;
+      max-width: 500px;
+      max-height: 300px;
+      resize: none;
+      overflow: hidden;
+      box-shadow: none;
+      font-family: Arial, sans-serif;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: inherit;
 
-    // 文字输入框样式
-    .text-input-overlay {
-      position: absolute;
-      z-index: 2;
-      pointer-events: auto;
+      &.text-input-editing {
+        border: 1px dashed #409eff;
+      }
 
-      .text-input {
-        background: transparent;
-        border: 1px dashed #ff4444;
-        border-radius: 2px;
-        padding: 2px 4px;
-        font-size: 12px;
-        outline: none;
-        min-width: 100px;
-        box-shadow: none;
-        color: var(--text-base);
-        font-family: Arial, sans-serif;
-
-        &:focus {
-          border: 1px dashed #ff4444;
-          box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
-        }
+      &:focus {
+        border: 1px dashed #409eff;
+        box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.2);
       }
     }
   }
 }
-.resource-popover {
-  height: max-content;
-  .resource-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
-    .resource-item {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      font-size: 14px;
-      img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        cursor: pointer;
-      }
-    }
-  }
+
+// 颜色选择器样式
+.color-picker-container {
+  position: fixed;
+  top: 8px;
+  right: 20px;
+  z-index: 1000;
+  padding: 5px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+// 颜色选择器过渡动画
+.color-picker-fade-enter-active,
+.color-picker-fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.color-picker-fade-enter-from {
+  opacity: 0;
+  transform: translateX(10px) scale(0.95);
+}
+
+.color-picker-fade-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.color-picker-fade-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.color-picker-fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px) scale(0.95);
 }
 </style>

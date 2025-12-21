@@ -1,6 +1,6 @@
 <template>
   <div class="layout-tool">
-    <div class="layout-tool-header">
+    <div :class="{ 'layout-tool-header-fixed': headerFixed }" class="layout-tool-header">
       <el-button class="back-btn" :icon="ArrowLeftBold" text @click="handleBack">
         <span>返回</span>
       </el-button>
@@ -30,6 +30,10 @@ const props = defineProps({
   backTo: {
     type: String,
     default: ''
+  },
+  headerFixed: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -63,6 +67,14 @@ function handleRefresh() {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+}
+.layout-tool-header-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  z-index: 1000;
 }
 .layout-tool-header {
   display: flex;
