@@ -3,6 +3,10 @@ node_modules
 .pnp
 .pnp.js
 
+# Python virtual environment
+.venv
+venv
+
 # Production
 dist
 dist-ssr
