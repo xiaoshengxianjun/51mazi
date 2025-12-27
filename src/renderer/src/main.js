@@ -1,6 +1,8 @@
 import './assets/styles/variables.scss'
 import './assets/styles/icons.scss'
 import './assets/main.css'
+// 引入 iconfont SVG 图标（必须在应用初始化前加载）
+import './assets/icons/iconfont.js'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
