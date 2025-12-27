@@ -92,11 +92,8 @@ function createEditor() {
       attributes: {
         class: 'tiptap-editor',
         style: () => {
-          let fontFamilyStyle = ''
-          if (props.menubarState.fontFamily !== 'inherit') {
-            const fullFontFamily = props.getFontFamily(props.menubarState.fontFamily)
-            fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
-          }
+          const fullFontFamily = props.getFontFamily(props.menubarState.fontFamily)
+          const fontFamilyStyle = `font-family: ${fullFontFamily} !important;`
           return `white-space: pre-wrap; ${fontFamilyStyle} font-size: ${props.menubarState.fontSize} !important; line-height: ${props.menubarState.lineHeight} !important;`
         }
       }

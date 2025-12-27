@@ -138,7 +138,7 @@ const fontFamilyMap = {
 
 // 菜单栏状态
 const menubarState = ref({
-  fontFamily: 'inherit',
+  fontFamily: 'SimHei',
   fontSize: '16px',
   lineHeight: '1.6',
   isBold: false,
@@ -204,13 +204,9 @@ function updateEditorStyle() {
   const editorElement = editor.value.view.dom
   if (editorElement) {
     // 使用setProperty with 'important' 确保样式优先级最高
-    if (menubarState.value.fontFamily !== 'inherit') {
-      // 获取完整的字体族配置（包含回退字体）
-      const fullFontFamily = getFontFamily(menubarState.value.fontFamily)
-      editorElement.style.setProperty('font-family', fullFontFamily, 'important')
-    } else {
-      editorElement.style.removeProperty('font-family')
-    }
+    // 获取完整的字体族配置（包含回退字体）
+    const fullFontFamily = getFontFamily(menubarState.value.fontFamily)
+    editorElement.style.setProperty('font-family', fullFontFamily, 'important')
     editorElement.style.setProperty('font-size', menubarState.value.fontSize, 'important')
     editorElement.style.setProperty('line-height', menubarState.value.lineHeight, 'important')
     // 根据文件类型设置首行缩进（章节：2em；笔记：0）
@@ -447,7 +443,7 @@ async function initEditor() {
       fontFamily:
         settings.fontFamily !== undefined && settings.fontFamily !== null
           ? settings.fontFamily
-          : 'inherit',
+          : 'SimHei',
       fontSize:
         settings.fontSize !== undefined && settings.fontSize !== null ? settings.fontSize : '16px',
       lineHeight:

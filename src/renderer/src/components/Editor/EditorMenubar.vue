@@ -8,7 +8,6 @@
         style="width: 85px"
         title="字体"
       >
-        <el-option label="默认" value="inherit" />
         <el-option label="宋体" value="SimSun" />
         <el-option label="黑体" value="SimHei" />
         <el-option label="楷体" value="KaiTi" />
@@ -182,7 +181,7 @@ const props = defineProps({
   modelValue: {
     type: Object,
     default: () => ({
-      fontFamily: 'inherit',
+      fontFamily: 'SimHei',
       fontSize: '16px',
       lineHeight: '1.6',
       isBold: false,
