@@ -19,7 +19,7 @@
       <div class="type">{{ typeName }}</div>
       <div class="stats">
         <div class="word-count">字数：{{ totalWords }}</div>
-        <div class="update-time">更新：{{ updatedAt }}</div>
+        <div class="update-time">更新：{{ formattedUpdatedAt }}</div>
       </div>
     </div>
     <Teleport to="body">
@@ -42,8 +42,9 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
 
 const emit = defineEmits(['onOpen', 'onEdit', 'onDelete'])
 const props = defineProps({
@@ -65,6 +66,15 @@ const props = defineProps({
 const menuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
+
+// 格式化更新时间
+const formattedUpdatedAt = computed(() => {
+  if (!props.updatedAt || props.updatedAt === '暂无更新') {
+    return '暂无更新'
+  }
+  const date = dayjs(props.updatedAt)
+  return date.isValid() ? date.format('YYYY/MM/DD HH:mm:ss') : props.updatedAt
+})
 
 // 根据书名长度动态计算字号
 function getTitleFontSize() {

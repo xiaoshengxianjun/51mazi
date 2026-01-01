@@ -4,6 +4,7 @@ import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
+import dayjs from 'dayjs'
 
 // macOS 图标获取函数
 // 注意：nativeImage 只支持 PNG 和 JPEG 格式，不支持 .icns
@@ -236,8 +237,8 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   // 2. 写入 mazi.json
   const meta = {
     ...bookInfo,
-    createdAt: new Date().toLocaleString(),
-    updatedAt: new Date().toLocaleString()
+    createdAt: dayjs().format('YYYY/MM/DD HH:mm:ss'),
+    updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss')
   }
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
@@ -306,7 +307,7 @@ ipcMain.handle('get-book-word-count', async (event, bookName) => {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
           meta.totalWords = totalWords
-          meta.updatedAt = new Date().toLocaleString()
+          meta.updatedAt = dayjs().format('YYYY/MM/DD HH:mm:ss')
           fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
         } catch (error) {
           console.error('更新书籍元数据失败:', error)
