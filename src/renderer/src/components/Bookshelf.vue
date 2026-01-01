@@ -160,7 +160,7 @@ const formRef = ref(null)
 const form = ref({
   name: '',
   type: '',
-  targetCount: 10000,
+  targetCount: 100000,
   intro: '',
   originalName: '',
   password: '',
