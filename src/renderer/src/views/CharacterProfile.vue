@@ -81,6 +81,7 @@
         <el-table
           ref="tableRef"
           :data="characters"
+          row-key="id"
           border
           style="width: 100%"
           @row-click="handleEditCharacter"
@@ -414,8 +415,13 @@ async function loadCharacters() {
     const data = await window.electron.readCharacters(bookName)
     let loadedData = Array.isArray(data) ? data : []
 
-    // 数据兼容：将旧的 introduction 字段迁移到 biography 字段
-    loadedData = loadedData.map((character) => {
+    // 数据兼容：将旧的 introduction 字段迁移到 biography 字段，并处理 sort 字段
+    loadedData = loadedData.map((character, index) => {
+      // 如果没有 sort 字段，使用索引作为初始值（兼容旧数据）
+      if (typeof character.sort !== 'number') {
+        character.sort = index
+      }
+
       // 如果存在旧的 introduction 字段且没有 biography 字段，则迁移
       if (character.introduction && !character.biography) {
         return {
@@ -435,6 +441,9 @@ async function loadCharacters() {
         markerColor: character.markerColor || ''
       }
     })
+
+    // 按 sort 字段排序
+    loadedData.sort((a, b) => (a.sort || 0) - (b.sort || 0))
 
     characters.value = loadedData
   } catch (error) {
@@ -520,9 +529,13 @@ async function confirmSave() {
       }
     } else {
       // 创建模式：添加新人物
+      // 计算新的 sort 值（当前最大 sort + 1，如果为空则为 0）
+      const maxSort =
+        characters.value.length > 0 ? Math.max(...characters.value.map((c) => c.sort || 0)) : -1
       characters.value.push({
         ...characterForm,
-        id: genId()
+        id: genId(),
+        sort: maxSort + 1
       })
     }
 
@@ -559,10 +572,14 @@ function handlePresetMarkerClick(color) {
 // 初始化表格拖拽排序
 function initTableDragSort() {
   // 清理之前的实例
-  if (sortableInstance) {
-    sortableInstance.destroy()
-    sortableInstance = null
+  try {
+    if (sortableInstance && typeof sortableInstance.destroy === 'function') {
+      sortableInstance.destroy()
+    }
+  } catch (error) {
+    console.error('清理 SortableJS 实例失败:', error)
   }
+  sortableInstance = null
 
   // 只在表格模式下初始化
   if (viewMode.value !== 'table') return
@@ -579,63 +596,40 @@ function initTableDragSort() {
 
     sortableInstance = Sortable.create(tbody, {
       animation: 150,
-      handle: '.el-table__row', // 拖拽手柄
-      ghostClass: 'sortable-ghost', // 拖拽时的样式类
-      chosenClass: 'sortable-chosen', // 选中时的样式类
-      dragClass: 'sortable-drag', // 拖拽中的样式类
-      filter: '.el-button, .el-button__text, .table-avatar', // 过滤掉不可拖拽的元素
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      filter: '.el-button, .el-button__text, .table-avatar',
       onEnd: (evt) => {
         const { oldIndex, newIndex } = evt
         if (oldIndex === newIndex) return
-
-        // 获取拖拽后的所有行
-        const allRows = Array.from(tbody.querySelectorAll('tr'))
-
-        // 从每一行中获取 row-key（通过 data-key 属性）
-        const rowIds = allRows
-          .map((row) => {
-            // Element Plus 表格会在行上设置 data-key 属性
-            return row.getAttribute('data-key') || ''
-          })
-          .filter(Boolean)
-
-        if (rowIds.length === 0) return
-
-        // 重新排序字符数组
-        reorderCharacters(rowIds)
+        reorderCharacters(oldIndex, newIndex)
       }
     })
   })
 }
 
-// 重新排序人物数组
-function reorderCharacters(newOrderIds) {
-  if (newOrderIds.length === 0) return
+// 重新排序人物数组（根据拖拽后的顺序更新 sort 字段）
+async function reorderCharacters(oldIndex, newIndex) {
+  const list = characters.value
+  if (!list || list.length === 0) return
 
-  const characterMap = new Map()
-  characters.value.forEach((character) => {
-    characterMap.set(String(character.id), character)
+  // 移动数组元素
+  const movedItem = list[oldIndex]
+  list.splice(oldIndex, 1)
+  list.splice(newIndex, 0, movedItem)
+
+  // 更新所有项的 sort 字段为当前索引
+  list.forEach((character, index) => {
+    character.sort = index
   })
 
-  const reordered = []
-  newOrderIds.forEach((id) => {
-    const character = characterMap.get(String(id))
-    if (character) reordered.push(character)
-  })
-
-  // 更新数组
-  characters.value.splice(0, characters.value.length, ...reordered)
+  // 手动触发保存
+  await saveCharacters()
 }
 
 // 监听数据变化，自动保存
 watch(characters, saveCharacters, { deep: true })
-
-// 监听视图模式变化，重新初始化拖拽
-watch(viewMode, () => {
-  nextTick(() => {
-    initTableDragSort()
-  })
-})
 
 // 监听表格数据变化，重新初始化拖拽（仅在表格模式下）
 watch(
@@ -706,20 +700,24 @@ function getAvatarSrc(avatarPath) {
 }
 
 // 组件挂载时加载数据并初始化拖拽
-onMounted(() => {
-  loadCharacters()
-  loadDictionary() // 加载字典数据
-  nextTick(() => {
-    initTableDragSort()
-  })
+onMounted(async () => {
+  await loadCharacters()
+  await loadDictionary() // 加载字典数据
+  // 等待数据加载完成和 DOM 更新后再初始化拖拽
+  await nextTick()
+  initTableDragSort()
 })
 
 // 组件卸载时清理 SortableJS 实例
 onBeforeUnmount(() => {
-  if (sortableInstance) {
-    sortableInstance.destroy()
-    sortableInstance = null
+  try {
+    if (sortableInstance && typeof sortableInstance.destroy === 'function') {
+      sortableInstance.destroy()
+    }
+  } catch (error) {
+    console.error('清理 SortableJS 实例失败:', error)
   }
+  sortableInstance = null
 })
 </script>
 
