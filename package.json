@@ -44,6 +44,7 @@
     "pinia": "^3.0.3",
     "relation-graph-vue3": "^2.2.11",
     "roughjs": "^4.6.6",
+    "sortablejs": "^1.15.6",
     "vue-router": "^4.6.0"
   },
   "devDependencies": {

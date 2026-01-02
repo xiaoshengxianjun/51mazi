@@ -8,6 +8,7 @@
     </template>
     <template #default>
       <el-table
+        ref="tableRef"
         :data="tableData"
         row-key="id"
         border
@@ -82,11 +83,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
+import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
+import Sortable from 'sortablejs'
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -94,6 +96,8 @@ const isEdit = ref(false)
 const dictionary = ref([])
 const bookName = route.query.name || ''
 const formRef = ref(null)
+const tableRef = ref(null)
+const sortableInstances = ref([]) // 存储 SortableJS 实例
 
 // 表单数据
 const entryForm = reactive({
@@ -414,12 +418,161 @@ function resetForm() {
   })
 }
 
+// 初始化表格拖拽排序
+function initTableDragSort() {
+  // 清理之前的实例
+  sortableInstances.value.forEach((instance) => {
+    if (instance) instance.destroy()
+  })
+  sortableInstances.value = []
+
+  nextTick(() => {
+    if (!tableRef.value) return
+
+    const tableEl = tableRef.value.$el
+    if (!tableEl) return
+
+    // 查找所有 tbody（包括嵌套的子表格的 tbody）
+    const tbodyList = tableEl.querySelectorAll('tbody')
+    if (!tbodyList || tbodyList.length === 0) return
+
+    tbodyList.forEach((tbody) => {
+      // 跳过空 tbody
+      const rows = tbody.querySelectorAll('tr')
+      if (!rows || rows.length === 0) return
+
+      const sortableInstance = Sortable.create(tbody, {
+        animation: 150,
+        handle: '.el-table__row', // 拖拽手柄
+        ghostClass: 'sortable-ghost', // 拖拽时的样式类
+        chosenClass: 'sortable-chosen', // 选中时的样式类
+        dragClass: 'sortable-drag', // 拖拽中的样式类
+        filter: '.el-table__expand-icon, .el-button, .el-button__text', // 过滤掉不可拖拽的元素
+        onEnd: (evt) => {
+          const { oldIndex, newIndex } = evt
+          if (oldIndex === newIndex) return
+
+          // 获取拖拽后的所有行
+          const allRows = Array.from(tbody.querySelectorAll('tr'))
+
+          // 从每一行中获取 row-key（通过 data-key 属性）
+          const rowIds = allRows
+            .map((row) => {
+              // Element Plus 表格会在行上设置 data-key 属性
+              return row.getAttribute('data-key') || ''
+            })
+            .filter(Boolean)
+
+          if (rowIds.length === 0) return
+
+          // 判断是否为顶层（通过查找父级结构）
+          const parentRow = tbody.closest('tr')
+          if (!parentRow) {
+            // 顶层节点
+            reorderTopLevelNodes(rowIds)
+          } else {
+            // 子节点，获取父级 ID
+            const parentId = parentRow.getAttribute('data-key')
+            if (parentId) {
+              reorderChildrenNodes(parentId, rowIds)
+            }
+          }
+        }
+      })
+
+      sortableInstances.value.push(sortableInstance)
+    })
+  })
+}
+
+// 重新排序顶层节点
+function reorderTopLevelNodes(newOrderIds) {
+  if (newOrderIds.length === 0) return
+
+  const nodeMap = new Map()
+  dictionary.value.forEach((node) => {
+    nodeMap.set(String(node.id), node)
+  })
+
+  const reordered = []
+  newOrderIds.forEach((id) => {
+    const node = nodeMap.get(String(id))
+    if (node) reordered.push(node)
+  })
+
+  // 更新数组
+  dictionary.value.splice(0, dictionary.value.length, ...reordered)
+}
+
+// 重新排序子节点
+function reorderChildrenNodes(parentId, newOrderIds) {
+  if (newOrderIds.length === 0) return
+
+  // 递归查找父节点
+  function findParentNode(nodes, targetId) {
+    for (const node of nodes) {
+      if (String(node.id) === String(targetId)) {
+        return node
+      }
+      if (node.children && node.children.length > 0) {
+        const found = findParentNode(node.children, targetId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const parentNode = findParentNode(dictionary.value, parentId)
+  if (!parentNode) return
+
+  if (!parentNode.children) {
+    parentNode.children = []
+  }
+
+  const nodeMap = new Map()
+  parentNode.children.forEach((node) => {
+    nodeMap.set(String(node.id), node)
+  })
+
+  const reordered = []
+  newOrderIds.forEach((id) => {
+    const node = nodeMap.get(String(id))
+    if (node) reordered.push(node)
+  })
+
+  // 更新子节点数组
+  parentNode.children.splice(0, parentNode.children.length, ...reordered)
+}
+
 // 监听数据变化，自动保存
 watch(dictionary, saveDictionary, { deep: true })
 
-// 组件挂载时加载数据
+// 监听表格数据变化，重新初始化拖拽
+watch(
+  tableData,
+  () => {
+    nextTick(() => {
+      initTableDragSort()
+    })
+  },
+  { deep: true }
+)
+
+// 组件挂载时加载数据并初始化拖拽
 onMounted(() => {
-  loadDictionary()
+  loadDictionary().then(() => {
+    nextTick(() => {
+      initTableDragSort()
+    })
+  })
+})
+
+// 组件卸载时清理 SortableJS 实例
+onBeforeUnmount(() => {
+  sortableInstances.value.forEach((instance) => {
+    if (instance) instance.destroy()
+  })
+  sortableInstances.value = []
 })
 </script>
 
@@ -460,9 +613,20 @@ onMounted(() => {
       background-color: var(--bg-soft);
     }
   }
+}
 
-  .el-table__expand-icon {
-  }
+// 拖拽排序样式
+:deep(.sortable-ghost) {
+  opacity: 0.4;
+  background-color: var(--bg-soft);
+}
+
+:deep(.sortable-chosen) {
+  background-color: var(--bg-soft);
+}
+
+:deep(.sortable-drag) {
+  opacity: 0.8;
 }
 
 // 响应式设计

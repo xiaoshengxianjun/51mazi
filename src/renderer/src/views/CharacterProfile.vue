@@ -78,7 +78,13 @@
 
       <!-- 表格模式 -->
       <div v-else-if="viewMode === 'table'" class="character-table">
-        <el-table :data="characters" border style="width: 100%" @row-click="handleEditCharacter">
+        <el-table
+          ref="tableRef"
+          :data="characters"
+          border
+          style="width: 100%"
+          @row-click="handleEditCharacter"
+        >
           <el-table-column label="头像" width="80" align="center">
             <template #default="{ row }">
               <div class="table-avatar" @click.stop="previewCharacterAvatar(row)">
@@ -310,11 +316,12 @@
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, reactive, onMounted, watch, toRaw, computed } from 'vue'
+import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
+import Sortable from 'sortablejs'
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -324,6 +331,8 @@ const characters = ref([])
 const dictionary = ref([]) // 字典数据
 const bookName = route.query.name || ''
 const formRef = ref(null)
+const tableRef = ref(null)
+let sortableInstance = null // 存储 SortableJS 实例
 
 const presetMarkerColors = [
   '',
@@ -547,8 +556,99 @@ function handlePresetMarkerClick(color) {
   characterForm.markerColor = color
 }
 
+// 初始化表格拖拽排序
+function initTableDragSort() {
+  // 清理之前的实例
+  if (sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
+  }
+
+  // 只在表格模式下初始化
+  if (viewMode.value !== 'table') return
+
+  nextTick(() => {
+    if (!tableRef.value) return
+
+    const tableEl = tableRef.value.$el
+    if (!tableEl) return
+
+    // 查找 tbody
+    const tbody = tableEl.querySelector('tbody')
+    if (!tbody) return
+
+    sortableInstance = Sortable.create(tbody, {
+      animation: 150,
+      handle: '.el-table__row', // 拖拽手柄
+      ghostClass: 'sortable-ghost', // 拖拽时的样式类
+      chosenClass: 'sortable-chosen', // 选中时的样式类
+      dragClass: 'sortable-drag', // 拖拽中的样式类
+      filter: '.el-button, .el-button__text, .table-avatar', // 过滤掉不可拖拽的元素
+      onEnd: (evt) => {
+        const { oldIndex, newIndex } = evt
+        if (oldIndex === newIndex) return
+
+        // 获取拖拽后的所有行
+        const allRows = Array.from(tbody.querySelectorAll('tr'))
+
+        // 从每一行中获取 row-key（通过 data-key 属性）
+        const rowIds = allRows
+          .map((row) => {
+            // Element Plus 表格会在行上设置 data-key 属性
+            return row.getAttribute('data-key') || ''
+          })
+          .filter(Boolean)
+
+        if (rowIds.length === 0) return
+
+        // 重新排序字符数组
+        reorderCharacters(rowIds)
+      }
+    })
+  })
+}
+
+// 重新排序人物数组
+function reorderCharacters(newOrderIds) {
+  if (newOrderIds.length === 0) return
+
+  const characterMap = new Map()
+  characters.value.forEach((character) => {
+    characterMap.set(String(character.id), character)
+  })
+
+  const reordered = []
+  newOrderIds.forEach((id) => {
+    const character = characterMap.get(String(id))
+    if (character) reordered.push(character)
+  })
+
+  // 更新数组
+  characters.value.splice(0, characters.value.length, ...reordered)
+}
+
 // 监听数据变化，自动保存
 watch(characters, saveCharacters, { deep: true })
+
+// 监听视图模式变化，重新初始化拖拽
+watch(viewMode, () => {
+  nextTick(() => {
+    initTableDragSort()
+  })
+})
+
+// 监听表格数据变化，重新初始化拖拽（仅在表格模式下）
+watch(
+  () => [characters.value, viewMode.value],
+  () => {
+    if (viewMode.value === 'table') {
+      nextTick(() => {
+        initTableDragSort()
+      })
+    }
+  },
+  { deep: true }
+)
 
 // 预览表单中的头像
 function previewFormAvatar() {
@@ -605,10 +705,21 @@ function getAvatarSrc(avatarPath) {
   return `file://${avatarPath}`
 }
 
-// 组件挂载时加载数据
+// 组件挂载时加载数据并初始化拖拽
 onMounted(() => {
   loadCharacters()
   loadDictionary() // 加载字典数据
+  nextTick(() => {
+    initTableDragSort()
+  })
+})
+
+// 组件卸载时清理 SortableJS 实例
+onBeforeUnmount(() => {
+  if (sortableInstance) {
+    sortableInstance.destroy()
+    sortableInstance = null
+  }
 })
 </script>
 
@@ -619,6 +730,20 @@ onMounted(() => {
   margin-bottom: 10px;
 }
 .character-table {
+  // 拖拽排序样式
+  :deep(.sortable-ghost) {
+    opacity: 0.4;
+    background-color: var(--bg-soft);
+  }
+
+  :deep(.sortable-chosen) {
+    background-color: var(--bg-soft);
+  }
+
+  :deep(.sortable-drag) {
+    opacity: 0.8;
+  }
+
   .table-avatar {
     width: 40px;
     height: 40px;
