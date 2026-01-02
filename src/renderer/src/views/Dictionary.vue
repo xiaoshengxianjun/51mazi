@@ -123,7 +123,30 @@ const formRules = {
 async function loadDictionary() {
   try {
     const data = await window.electron.readDictionary(bookName)
-    dictionary.value = data || []
+    let loadedData = Array.isArray(data) ? data : []
+
+    // 为树形数据添加 sort 字段并排序
+    function processTreeData(nodes, startSort = 0) {
+      if (!Array.isArray(nodes)) return []
+
+      return nodes
+        .map((node, index) => {
+          // 如果没有 sort 字段，使用索引作为初始值（兼容旧数据）
+          if (typeof node.sort !== 'number') {
+            node.sort = startSort + index
+          }
+
+          // 递归处理子节点
+          if (node.children && node.children.length > 0) {
+            node.children = processTreeData(node.children, 0)
+          }
+
+          return node
+        })
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0)) // 按 sort 排序
+    }
+
+    dictionary.value = processTreeData(loadedData)
   } catch (error) {
     console.error('加载词条数据失败:', error)
     dictionary.value = []
@@ -134,10 +157,13 @@ async function loadDictionary() {
 async function saveDictionary() {
   try {
     const rawDictionary = JSON.parse(JSON.stringify(toRaw(dictionary.value)))
+    console.log('rawDictionary', rawDictionary)
     const result = await window.electron.writeDictionary(bookName, rawDictionary)
+    console.log('result', result)
     if (!result.success) {
       throw new Error(result.message || '保存失败')
     }
+    console.log('词条数据保存成功')
   } catch (error) {
     console.error('保存词条数据失败:', error)
     ElMessage.error('保存词条数据失败')
@@ -149,10 +175,12 @@ function treeToArray(treeData) {
   const result = []
 
   function traverse(nodes, parentId = 0) {
+    if (!Array.isArray(nodes)) return
     nodes.forEach((node) => {
+      if (!node) return // 跳过 undefined 或 null 节点
       const { children, ...item } = node
       result.push({ ...item, parentId })
-      if (children && children.length > 0) {
+      if (children && Array.isArray(children) && children.length > 0) {
         traverse(children, item.id)
       }
     })
@@ -273,17 +301,35 @@ function updateNodeInTree(treeData, targetId, newData) {
   return false
 }
 
+// 在树结构中查找节点
+function findNodeById(nodes, targetId) {
+  for (const node of nodes) {
+    if (String(node.id) === String(targetId)) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findNodeById(node.children, targetId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // 在树结构中添加新节点
 function addNodeToTree(treeData, newNode) {
   if (newNode.parentId === 0 || !newNode.parentId) {
     treeData.push(newNode)
+    // 按 sort 排序
+    treeData.sort((a, b) => (a.sort || 0) - (b.sort || 0))
   } else {
     // 找到父节点并添加到其children中
     function addToParent(nodes, parentId) {
       for (let node of nodes) {
-        if (node.id === parentId) {
+        if (String(node.id) === String(parentId)) {
           if (!node.children) node.children = []
           node.children.push(newNode)
+          // 按 sort 排序
+          node.children.sort((a, b) => (a.sort || 0) - (b.sort || 0))
           return true
         }
         if (node.children && node.children.length > 0) {
@@ -362,11 +408,28 @@ async function confirmSave() {
       }
     } else {
       // 创建模式：添加新词条
+      // 计算新的 sort 值
+      let newSort = 0
+      if (entryForm.parentId === 0 || !entryForm.parentId) {
+        // 顶层节点：当前最大 sort + 1
+        const topLevelNodes = dictionary.value
+        newSort =
+          topLevelNodes.length > 0 ? Math.max(...topLevelNodes.map((n) => n.sort || 0)) + 1 : 0
+      } else {
+        // 子节点：找到父节点，计算其子节点的最大 sort + 1
+        const parentNode = findNodeById(dictionary.value, entryForm.parentId)
+        if (parentNode) {
+          const siblings = parentNode.children || []
+          newSort = siblings.length > 0 ? Math.max(...siblings.map((n) => n.sort || 0)) + 1 : 0
+        }
+      }
+
       const newNode = {
         id: genId(),
         name: entryForm.name,
         introduction: entryForm.introduction,
         parentId: entryForm.parentId,
+        sort: newSort,
         children: []
       }
       addNodeToTree(dictionary.value, newNode)
@@ -422,7 +485,13 @@ function resetForm() {
 function initTableDragSort() {
   // 清理之前的实例
   sortableInstances.value.forEach((instance) => {
-    if (instance) instance.destroy()
+    try {
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy()
+      }
+    } catch (error) {
+      console.error('清理 SortableJS 实例失败:', error)
+    }
   })
   sortableInstances.value = []
 
@@ -438,44 +507,30 @@ function initTableDragSort() {
 
     tbodyList.forEach((tbody) => {
       // 跳过空 tbody
-      const rows = tbody.querySelectorAll('tr')
+      // 只选择直接子元素 tr（数据行），排除嵌套的 tbody 中的 tr
+      const rows = Array.from(tbody.children).filter((el) => el.tagName === 'TR')
       if (!rows || rows.length === 0) return
+
+      // 判断是否为顶层（通过查找父级结构）
+      const parentRow = tbody.closest('tr')
+      const isTopLevel = !parentRow
+      const parentId = parentRow ? parentRow.getAttribute('data-key') : null
 
       const sortableInstance = Sortable.create(tbody, {
         animation: 150,
-        handle: '.el-table__row', // 拖拽手柄
-        ghostClass: 'sortable-ghost', // 拖拽时的样式类
-        chosenClass: 'sortable-chosen', // 选中时的样式类
-        dragClass: 'sortable-drag', // 拖拽中的样式类
-        filter: '.el-table__expand-icon, .el-button, .el-button__text', // 过滤掉不可拖拽的元素
-        onEnd: (evt) => {
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        filter: '.el-table__expand-icon, .el-button, .el-button__text',
+        draggable: '> tr', // 只允许直接子元素 tr 拖拽
+        onEnd: async (evt) => {
           const { oldIndex, newIndex } = evt
-          if (oldIndex === newIndex) return
+          if (oldIndex === newIndex || oldIndex === null || newIndex === null) return
 
-          // 获取拖拽后的所有行
-          const allRows = Array.from(tbody.querySelectorAll('tr'))
-
-          // 从每一行中获取 row-key（通过 data-key 属性）
-          const rowIds = allRows
-            .map((row) => {
-              // Element Plus 表格会在行上设置 data-key 属性
-              return row.getAttribute('data-key') || ''
-            })
-            .filter(Boolean)
-
-          if (rowIds.length === 0) return
-
-          // 判断是否为顶层（通过查找父级结构）
-          const parentRow = tbody.closest('tr')
-          if (!parentRow) {
-            // 顶层节点
-            reorderTopLevelNodes(rowIds)
-          } else {
-            // 子节点，获取父级 ID
-            const parentId = parentRow.getAttribute('data-key')
-            if (parentId) {
-              reorderChildrenNodes(parentId, rowIds)
-            }
+          if (isTopLevel) {
+            await reorderTopLevelNodes(oldIndex, newIndex)
+          } else if (parentId) {
+            await reorderChildrenNodes(parentId, oldIndex, newIndex)
           }
         }
       })
@@ -485,66 +540,67 @@ function initTableDragSort() {
   })
 }
 
-// 重新排序顶层节点
-function reorderTopLevelNodes(newOrderIds) {
-  if (newOrderIds.length === 0) return
+// 重新排序顶层节点（更新 sort 字段）
+async function reorderTopLevelNodes(oldIndex, newIndex) {
+  const list = dictionary.value
+  if (!list || list.length === 0) return
 
-  const nodeMap = new Map()
-  dictionary.value.forEach((node) => {
-    nodeMap.set(String(node.id), node)
-  })
-
-  const reordered = []
-  newOrderIds.forEach((id) => {
-    const node = nodeMap.get(String(id))
-    if (node) reordered.push(node)
-  })
-
-  // 更新数组
-  dictionary.value.splice(0, dictionary.value.length, ...reordered)
-}
-
-// 重新排序子节点
-function reorderChildrenNodes(parentId, newOrderIds) {
-  if (newOrderIds.length === 0) return
-
-  // 递归查找父节点
-  function findParentNode(nodes, targetId) {
-    for (const node of nodes) {
-      if (String(node.id) === String(targetId)) {
-        return node
-      }
-      if (node.children && node.children.length > 0) {
-        const found = findParentNode(node.children, targetId)
-        if (found) return found
-      }
-    }
-    return null
+  // 边界检查
+  if (oldIndex < 0 || oldIndex >= list.length || newIndex < 0 || newIndex >= list.length) {
+    console.warn('索引超出范围:', { oldIndex, newIndex, length: list.length })
+    return
   }
 
-  const parentNode = findParentNode(dictionary.value, parentId)
+  // 移动数组元素
+  const movedItem = list[oldIndex]
+  if (!movedItem) return
+
+  list.splice(oldIndex, 1)
+  list.splice(newIndex, 0, movedItem)
+
+  // 更新所有项的 sort 字段为当前索引
+  list.forEach((node, index) => {
+    if (node) {
+      node.sort = index
+    }
+  })
+}
+
+// 重新排序子节点（更新 sort 字段）
+async function reorderChildrenNodes(parentId, oldIndex, newIndex) {
+  const parentNode = findNodeById(dictionary.value, parentId)
   if (!parentNode) return
 
   if (!parentNode.children) {
     parentNode.children = []
   }
 
-  const nodeMap = new Map()
-  parentNode.children.forEach((node) => {
-    nodeMap.set(String(node.id), node)
-  })
+  const list = parentNode.children
+  if (!list || list.length === 0) return
 
-  const reordered = []
-  newOrderIds.forEach((id) => {
-    const node = nodeMap.get(String(id))
-    if (node) reordered.push(node)
-  })
+  // 边界检查
+  if (oldIndex < 0 || oldIndex >= list.length || newIndex < 0 || newIndex >= list.length) {
+    console.warn('索引超出范围:', { oldIndex, newIndex, length: list.length })
+    return
+  }
 
-  // 更新子节点数组
-  parentNode.children.splice(0, parentNode.children.length, ...reordered)
+  // 移动数组元素
+  const movedItem = list[oldIndex]
+  if (!movedItem) return
+
+  list.splice(oldIndex, 1)
+  list.splice(newIndex, 0, movedItem)
+
+  // 更新所有项的 sort 字段为当前索引
+  list.forEach((node, index) => {
+    if (node) {
+      node.sort = index
+    }
+  })
 }
 
-// 监听数据变化，自动保存
+// 监听数据变化，自动保存（用于创建/编辑/删除操作）
+// 拖拽操作会手动调用 saveDictionary，但 watch 仍然需要用于其他操作
 watch(dictionary, saveDictionary, { deep: true })
 
 // 监听表格数据变化，重新初始化拖拽
@@ -570,7 +626,13 @@ onMounted(() => {
 // 组件卸载时清理 SortableJS 实例
 onBeforeUnmount(() => {
   sortableInstances.value.forEach((instance) => {
-    if (instance) instance.destroy()
+    try {
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy()
+      }
+    } catch (error) {
+      console.error('清理 SortableJS 实例失败:', error)
+    }
   })
   sortableInstances.value = []
 })
