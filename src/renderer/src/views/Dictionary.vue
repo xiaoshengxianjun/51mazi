@@ -158,13 +158,10 @@ async function loadDictionary() {
 async function saveDictionary() {
   try {
     const rawDictionary = JSON.parse(JSON.stringify(toRaw(dictionary.value)))
-    console.log('rawDictionary', rawDictionary)
     const result = await window.electron.writeDictionary(bookName, rawDictionary)
-    console.log('result', result)
     if (!result.success) {
       throw new Error(result.message || '保存失败')
     }
-    console.log('词条数据保存成功')
   } catch (error) {
     console.error('保存词条数据失败:', error)
     ElMessage.error('保存词条数据失败')
@@ -547,7 +544,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
           draggedItemId = draggedItem.id
         }
       } catch (e) {
-        console.warn('通过 store 获取数据失败:', e)
+        // 通过 store 获取数据失败，将使用备用方法
       }
     }
 
@@ -564,7 +561,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     }
 
     if (!draggedItem || !draggedItemId) {
-      console.warn('无法获取被拖拽行的数据')
       return
     }
 
@@ -588,7 +584,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
           newPositionItem = allTableData[newIndex]
         }
       } catch (e) {
-        console.warn('通过 store 获取新位置数据失败:', e)
+        // 通过 store 获取新位置数据失败，将使用备用方法
       }
     }
 
@@ -604,7 +600,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     }
 
     if (!newPositionItem) {
-      console.warn('无法获取新位置行的数据')
       return
     }
 
@@ -616,10 +611,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
 
     // 检查是否在同一层级
     if (draggedParentId !== newPositionParentId) {
-      console.warn('不允许跨层级拖拽', {
-        draggedParentId,
-        newPositionParentId
-      })
       return
     }
 
@@ -627,7 +618,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     if (draggedItem.children && draggedItem.children.length > 0) {
       const descendantIds = getDescendantIds(draggedItemId)
       if (descendantIds.includes(newPositionItem.id)) {
-        console.warn('不允许将父节点移动到其子节点内部')
         return
       }
     }
@@ -639,7 +629,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     } else {
       const parentNode = findNodeById(dictionary.value, draggedParentId)
       if (!parentNode) {
-        console.warn('无法找到父节点:', draggedParentId)
         return
       }
       if (!parentNode.children) {
@@ -649,7 +638,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     }
 
     if (!targetList || targetList.length === 0) {
-      console.warn('目标列表为空')
       return
     }
 
@@ -675,7 +663,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
       (key) => String(key) === String(draggedItemId)
     )
     if (newIndexInSameLevel === -1) {
-      console.warn('无法在 DOM 同级行中找到被拖拽行')
       return
     }
 
@@ -684,7 +671,6 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
       (item) => String(item.id) === String(draggedItemId)
     )
     if (oldIndexInTargetList === -1) {
-      console.warn('无法在目标列表中找到被拖拽行')
       return
     }
 
@@ -698,18 +684,12 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
       newIndexInTargetList < 0 ||
       newIndexInTargetList >= targetList.length
     ) {
-      console.warn('索引超出范围:', {
-        oldIndexInTargetList,
-        newIndexInTargetList,
-        length: targetList.length
-      })
       return
     }
 
     // 移动数组元素
     const movedItem = targetList[oldIndexInTargetList]
     if (!movedItem) {
-      console.warn('移动项不存在')
       return
     }
 
