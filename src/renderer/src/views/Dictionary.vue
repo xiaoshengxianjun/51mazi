@@ -98,6 +98,7 @@ const bookName = route.query.name || ''
 const formRef = ref(null)
 const tableRef = ref(null)
 const sortableInstances = ref([]) // 存储 SortableJS 实例
+const isDragging = ref(false) // 标记是否正在拖拽，用于防止 watch 重复保存
 
 // 表单数据
 const entryForm = reactive({
@@ -501,107 +502,247 @@ function initTableDragSort() {
     const tableEl = tableRef.value.$el
     if (!tableEl) return
 
-    // 查找所有 tbody（包括嵌套的子表格的 tbody）
-    const tbodyList = tableEl.querySelectorAll('tbody')
-    if (!tbodyList || tbodyList.length === 0) return
+    // Element Plus 树形表格只有一个 tbody，所有行都在这个 tbody 中
+    const tbody = tableEl.querySelector('tbody')
+    if (!tbody) return
 
-    tbodyList.forEach((tbody) => {
-      // 跳过空 tbody
-      // 只选择直接子元素 tr（数据行），排除嵌套的 tbody 中的 tr
-      const rows = Array.from(tbody.children).filter((el) => el.tagName === 'TR')
-      if (!rows || rows.length === 0) return
+    const sortableInstance = Sortable.create(tbody, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      filter: '.el-table__expand-icon, .el-button, .el-button__text',
+      draggable: '> tr', // 只允许直接子元素 tr 拖拽
+      onEnd: async (evt) => {
+        const { oldIndex, newIndex, item } = evt
+        if (oldIndex === newIndex || oldIndex === null || newIndex === null) return
 
-      // 判断是否为顶层（通过查找父级结构）
-      const parentRow = tbody.closest('tr')
-      const isTopLevel = !parentRow
-      const parentId = parentRow ? parentRow.getAttribute('data-key') : null
+        await handleDragEnd(oldIndex, newIndex, item, tbody)
+      }
+    })
 
-      const sortableInstance = Sortable.create(tbody, {
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        chosenClass: 'sortable-chosen',
-        dragClass: 'sortable-drag',
-        filter: '.el-table__expand-icon, .el-button, .el-button__text',
-        draggable: '> tr', // 只允许直接子元素 tr 拖拽
-        onEnd: async (evt) => {
-          const { oldIndex, newIndex } = evt
-          if (oldIndex === newIndex || oldIndex === null || newIndex === null) return
+    sortableInstances.value.push(sortableInstance)
+  })
+}
 
-          if (isTopLevel) {
-            await reorderTopLevelNodes(oldIndex, newIndex)
-          } else if (parentId) {
-            await reorderChildrenNodes(parentId, oldIndex, newIndex)
+// 处理拖拽结束事件
+async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
+  // 设置拖拽标志，防止 watch 触发保存
+  isDragging.value = true
+
+  try {
+    // 重新计算扁平数组（确保数据是最新的）
+    const flatData = treeToArray(dictionary.value)
+
+    // 获取被拖拽行的数据
+    let draggedItem = null
+    let draggedItemId = null
+
+    // 方法1: 通过表格实例的 store 获取
+    if (tableRef.value && tableRef.value.store && tableRef.value.store.state) {
+      try {
+        const allTableData = tableRef.value.store.state.data || []
+        if (allTableData[oldIndex]) {
+          draggedItem = allTableData[oldIndex]
+          draggedItemId = draggedItem.id
+        }
+      } catch (e) {
+        console.warn('通过 store 获取数据失败:', e)
+      }
+    }
+
+    // 方法2: 通过行的名称匹配
+    if (!draggedItem) {
+      const nameCell = draggedRow.querySelector('.entry-name')
+      if (nameCell) {
+        const rowName = nameCell.textContent.trim()
+        draggedItem = flatData.find((item) => item.name === rowName)
+        if (draggedItem) {
+          draggedItemId = draggedItem.id
+        }
+      }
+    }
+
+    if (!draggedItem || !draggedItemId) {
+      console.warn('无法获取被拖拽行的数据')
+      return
+    }
+
+    // 从扁平数组中获取完整的 parentId 信息
+    const flatItem = flatData.find((item) => String(item.id) === String(draggedItemId))
+    if (flatItem) {
+      draggedItem = { ...draggedItem, parentId: flatItem.parentId }
+    }
+
+    const draggedParentId = draggedItem.parentId || 0
+
+    // 获取所有行
+    const allRows = Array.from(tbody.children).filter((el) => el.tagName === 'TR')
+
+    // 获取新位置行的数据
+    let newPositionItem = null
+    if (tableRef.value && tableRef.value.store && tableRef.value.store.state) {
+      try {
+        const allTableData = tableRef.value.store.state.data || []
+        if (allTableData[newIndex]) {
+          newPositionItem = allTableData[newIndex]
+        }
+      } catch (e) {
+        console.warn('通过 store 获取新位置数据失败:', e)
+      }
+    }
+
+    if (!newPositionItem) {
+      const newPositionRow = allRows[newIndex]
+      if (newPositionRow) {
+        const nameCell = newPositionRow.querySelector('.entry-name')
+        if (nameCell) {
+          const rowName = nameCell.textContent.trim()
+          newPositionItem = flatData.find((item) => item.name === rowName)
+        }
+      }
+    }
+
+    if (!newPositionItem) {
+      console.warn('无法获取新位置行的数据')
+      return
+    }
+
+    // 从扁平数组中获取新位置行的 parentId
+    const newPositionFlatItem = flatData.find(
+      (item) => String(item.id) === String(newPositionItem.id)
+    )
+    const newPositionParentId = newPositionFlatItem ? newPositionFlatItem.parentId || 0 : 0
+
+    // 检查是否在同一层级
+    if (draggedParentId !== newPositionParentId) {
+      console.warn('不允许跨层级拖拽', {
+        draggedParentId,
+        newPositionParentId
+      })
+      return
+    }
+
+    // 检查是否试图将父节点移动到其子节点内部
+    if (draggedItem.children && draggedItem.children.length > 0) {
+      const descendantIds = getDescendantIds(draggedItemId)
+      if (descendantIds.includes(newPositionItem.id)) {
+        console.warn('不允许将父节点移动到其子节点内部')
+        return
+      }
+    }
+
+    // 确定目标列表
+    let targetList = null
+    if (draggedParentId === 0) {
+      targetList = dictionary.value
+    } else {
+      const parentNode = findNodeById(dictionary.value, draggedParentId)
+      if (!parentNode) {
+        console.warn('无法找到父节点:', draggedParentId)
+        return
+      }
+      if (!parentNode.children) {
+        parentNode.children = []
+      }
+      targetList = parentNode.children
+    }
+
+    if (!targetList || targetList.length === 0) {
+      console.warn('目标列表为空')
+      return
+    }
+
+    // 从 DOM 中获取所有同级行的 key（按 DOM 顺序）
+    const sameLevelRowKeys = []
+    for (let i = 0; i < allRows.length; i++) {
+      const row = allRows[i]
+      const nameCell = row.querySelector('.entry-name')
+      if (nameCell) {
+        const rowName = nameCell.textContent.trim()
+        const checkItem = flatData.find((item) => item.name === rowName)
+        if (checkItem) {
+          const checkParentId = checkItem.parentId || 0
+          if (checkParentId === draggedParentId) {
+            sameLevelRowKeys.push(checkItem.id)
           }
         }
+      }
+    }
+
+    // 找到被拖拽行在 DOM 同级行中的新位置索引
+    const newIndexInSameLevel = sameLevelRowKeys.findIndex(
+      (key) => String(key) === String(draggedItemId)
+    )
+    if (newIndexInSameLevel === -1) {
+      console.warn('无法在 DOM 同级行中找到被拖拽行')
+      return
+    }
+
+    // 找到被拖拽行在目标列表中的旧索引
+    const oldIndexInTargetList = targetList.findIndex(
+      (item) => String(item.id) === String(draggedItemId)
+    )
+    if (oldIndexInTargetList === -1) {
+      console.warn('无法在目标列表中找到被拖拽行')
+      return
+    }
+
+    // 新位置在目标列表中的索引
+    const newIndexInTargetList = newIndexInSameLevel
+
+    // 边界检查
+    if (
+      oldIndexInTargetList < 0 ||
+      oldIndexInTargetList >= targetList.length ||
+      newIndexInTargetList < 0 ||
+      newIndexInTargetList >= targetList.length
+    ) {
+      console.warn('索引超出范围:', {
+        oldIndexInTargetList,
+        newIndexInTargetList,
+        length: targetList.length
       })
+      return
+    }
 
-      sortableInstances.value.push(sortableInstance)
+    // 移动数组元素
+    const movedItem = targetList[oldIndexInTargetList]
+    if (!movedItem) {
+      console.warn('移动项不存在')
+      return
+    }
+
+    targetList.splice(oldIndexInTargetList, 1)
+    targetList.splice(newIndexInTargetList, 0, movedItem)
+
+    // 更新所有项的 sort 字段为当前索引
+    targetList.forEach((node, index) => {
+      if (node) {
+        node.sort = index
+      }
     })
-  })
-}
 
-// 重新排序顶层节点（更新 sort 字段）
-async function reorderTopLevelNodes(oldIndex, newIndex) {
-  const list = dictionary.value
-  if (!list || list.length === 0) return
-
-  // 边界检查
-  if (oldIndex < 0 || oldIndex >= list.length || newIndex < 0 || newIndex >= list.length) {
-    console.warn('索引超出范围:', { oldIndex, newIndex, length: list.length })
-    return
+    // 保存数据
+    await saveDictionary()
+  } finally {
+    // 重置拖拽标志
+    isDragging.value = false
   }
-
-  // 移动数组元素
-  const movedItem = list[oldIndex]
-  if (!movedItem) return
-
-  list.splice(oldIndex, 1)
-  list.splice(newIndex, 0, movedItem)
-
-  // 更新所有项的 sort 字段为当前索引
-  list.forEach((node, index) => {
-    if (node) {
-      node.sort = index
-    }
-  })
-}
-
-// 重新排序子节点（更新 sort 字段）
-async function reorderChildrenNodes(parentId, oldIndex, newIndex) {
-  const parentNode = findNodeById(dictionary.value, parentId)
-  if (!parentNode) return
-
-  if (!parentNode.children) {
-    parentNode.children = []
-  }
-
-  const list = parentNode.children
-  if (!list || list.length === 0) return
-
-  // 边界检查
-  if (oldIndex < 0 || oldIndex >= list.length || newIndex < 0 || newIndex >= list.length) {
-    console.warn('索引超出范围:', { oldIndex, newIndex, length: list.length })
-    return
-  }
-
-  // 移动数组元素
-  const movedItem = list[oldIndex]
-  if (!movedItem) return
-
-  list.splice(oldIndex, 1)
-  list.splice(newIndex, 0, movedItem)
-
-  // 更新所有项的 sort 字段为当前索引
-  list.forEach((node, index) => {
-    if (node) {
-      node.sort = index
-    }
-  })
 }
 
 // 监听数据变化，自动保存（用于创建/编辑/删除操作）
 // 拖拽操作会手动调用 saveDictionary，但 watch 仍然需要用于其他操作
-watch(dictionary, saveDictionary, { deep: true })
+watch(
+  dictionary,
+  () => {
+    // 如果正在拖拽，不触发自动保存（拖拽操作会手动调用 saveDictionary）
+    if (!isDragging.value) {
+      saveDictionary()
+    }
+  },
+  { deep: true }
+)
 
 // 监听表格数据变化，重新初始化拖拽
 watch(
