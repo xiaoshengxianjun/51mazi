@@ -9,6 +9,7 @@
     <template #default>
       <el-table
         ref="tableRef"
+        :key="tableKey"
         :data="tableData"
         row-key="id"
         border
@@ -99,6 +100,7 @@ const formRef = ref(null)
 const tableRef = ref(null)
 const sortableInstances = ref([]) // 存储 SortableJS 实例
 const isDragging = ref(false) // 标记是否正在拖拽，用于防止 watch 重复保存
+const tableKey = ref(0) // 用于强制表格重新渲染
 
 // 表单数据
 const entryForm = reactive({
@@ -151,21 +153,8 @@ async function loadDictionary() {
 // 保存词条数据
 async function saveDictionary() {
   try {
-    // 移除 sort 字段（如果存在），因为数组顺序就是最终顺序
     const rawDictionary = JSON.parse(JSON.stringify(toRaw(dictionary.value)))
-    const removeSort = (nodes) => {
-      return nodes.map((node) => {
-        // eslint-disable-next-line no-unused-vars
-        const { sort, ...rest } = node
-        const result = { ...rest }
-        if (node.children && node.children.length > 0) {
-          result.children = removeSort(node.children)
-        }
-        return result
-      })
-    }
-    const cleanedDictionary = removeSort(rawDictionary)
-    const result = await window.electron.writeDictionary(bookName, cleanedDictionary)
+    const result = await window.electron.writeDictionary(bookName, rawDictionary)
     if (!result.success) {
       throw new Error(result.message || '保存失败')
     }
@@ -684,7 +673,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     targetList.splice(oldIndexInTargetList, 1)
     targetList.splice(newIndexInTargetList, 0, movedItem)
 
-    // 数组顺序就是最终顺序，不需要 sort 字段
+    tableKey.value++
 
     // 保存数据
     await saveDictionary()
