@@ -415,13 +415,8 @@ async function loadCharacters() {
     const data = await window.electron.readCharacters(bookName)
     let loadedData = Array.isArray(data) ? data : []
 
-    // 数据兼容：将旧的 introduction 字段迁移到 biography 字段，并处理 sort 字段
-    loadedData = loadedData.map((character, index) => {
-      // 如果没有 sort 字段，使用索引作为初始值（兼容旧数据）
-      if (typeof character.sort !== 'number') {
-        character.sort = index
-      }
-
+    // 数据兼容：将旧的 introduction 字段迁移到 biography 字段
+    loadedData = loadedData.map((character) => {
       // 如果存在旧的 introduction 字段且没有 biography 字段，则迁移
       if (character.introduction && !character.biography) {
         return {
@@ -442,9 +437,7 @@ async function loadCharacters() {
       }
     })
 
-    // 按 sort 字段排序
-    loadedData.sort((a, b) => (a.sort || 0) - (b.sort || 0))
-
+    // 直接使用数组顺序，不需要 sort 字段
     characters.value = loadedData
   } catch (error) {
     console.error('加载人物数据失败:', error)
@@ -466,7 +459,12 @@ async function loadDictionary() {
 // 保存人物数据
 async function saveCharacters() {
   try {
-    const rawCharacters = JSON.parse(JSON.stringify(toRaw(characters.value)))
+    // 移除 sort 字段（如果存在），因为数组顺序就是最终顺序
+    const rawCharacters = JSON.parse(JSON.stringify(toRaw(characters.value))).map((character) => {
+      // eslint-disable-next-line no-unused-vars
+      const { sort, ...rest } = character
+      return rest
+    })
     const result = await window.electron.writeCharacters(bookName, rawCharacters)
     if (!result.success) {
       throw new Error(result.message || '保存失败')
@@ -528,14 +526,10 @@ async function confirmSave() {
         characters.value[index] = { ...characterForm }
       }
     } else {
-      // 创建模式：添加新人物
-      // 计算新的 sort 值（当前最大 sort + 1，如果为空则为 0）
-      const maxSort =
-        characters.value.length > 0 ? Math.max(...characters.value.map((c) => c.sort || 0)) : -1
+      // 创建模式：添加新人物（直接添加到数组末尾）
       characters.value.push({
         ...characterForm,
-        id: genId(),
-        sort: maxSort + 1
+        id: genId()
       })
     }
 
@@ -609,20 +603,15 @@ function initTableDragSort() {
   })
 }
 
-// 重新排序人物数组（根据拖拽后的顺序更新 sort 字段）
+// 重新排序人物数组（根据拖拽后的顺序）
 async function reorderCharacters(oldIndex, newIndex) {
   const list = characters.value
   if (!list || list.length === 0) return
 
-  // 移动数组元素
+  // 移动数组元素（数组顺序就是最终顺序）
   const movedItem = list[oldIndex]
   list.splice(oldIndex, 1)
   list.splice(newIndex, 0, movedItem)
-
-  // 更新所有项的 sort 字段为当前索引
-  list.forEach((character, index) => {
-    character.sort = index
-  })
 
   // 手动触发保存
   await saveCharacters()

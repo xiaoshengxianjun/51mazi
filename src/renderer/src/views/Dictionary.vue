@@ -126,27 +126,21 @@ async function loadDictionary() {
     const data = await window.electron.readDictionary(bookName)
     let loadedData = Array.isArray(data) ? data : []
 
-    // 为树形数据添加 sort 字段并排序
-    function processTreeData(nodes, startSort = 0) {
+    // 递归处理树形数据（确保 children 数组存在）
+    function processTreeData(nodes) {
       if (!Array.isArray(nodes)) return []
 
-      return nodes
-        .map((node, index) => {
-          // 如果没有 sort 字段，使用索引作为初始值（兼容旧数据）
-          if (typeof node.sort !== 'number') {
-            node.sort = startSort + index
-          }
+      return nodes.map((node) => {
+        // 递归处理子节点
+        if (node.children && node.children.length > 0) {
+          node.children = processTreeData(node.children)
+        }
 
-          // 递归处理子节点
-          if (node.children && node.children.length > 0) {
-            node.children = processTreeData(node.children, 0)
-          }
-
-          return node
-        })
-        .sort((a, b) => (a.sort || 0) - (b.sort || 0)) // 按 sort 排序
+        return node
+      })
     }
 
+    // 直接使用数组顺序，不需要 sort 字段
     dictionary.value = processTreeData(loadedData)
   } catch (error) {
     console.error('加载词条数据失败:', error)
@@ -157,8 +151,21 @@ async function loadDictionary() {
 // 保存词条数据
 async function saveDictionary() {
   try {
+    // 移除 sort 字段（如果存在），因为数组顺序就是最终顺序
     const rawDictionary = JSON.parse(JSON.stringify(toRaw(dictionary.value)))
-    const result = await window.electron.writeDictionary(bookName, rawDictionary)
+    const removeSort = (nodes) => {
+      return nodes.map((node) => {
+        // eslint-disable-next-line no-unused-vars
+        const { sort, ...rest } = node
+        const result = { ...rest }
+        if (node.children && node.children.length > 0) {
+          result.children = removeSort(node.children)
+        }
+        return result
+      })
+    }
+    const cleanedDictionary = removeSort(rawDictionary)
+    const result = await window.electron.writeDictionary(bookName, cleanedDictionary)
     if (!result.success) {
       throw new Error(result.message || '保存失败')
     }
@@ -316,18 +323,16 @@ function findNodeById(nodes, targetId) {
 // 在树结构中添加新节点
 function addNodeToTree(treeData, newNode) {
   if (newNode.parentId === 0 || !newNode.parentId) {
+    // 顶层节点：直接添加到数组末尾
     treeData.push(newNode)
-    // 按 sort 排序
-    treeData.sort((a, b) => (a.sort || 0) - (b.sort || 0))
   } else {
     // 找到父节点并添加到其children中
     function addToParent(nodes, parentId) {
       for (let node of nodes) {
         if (String(node.id) === String(parentId)) {
           if (!node.children) node.children = []
+          // 子节点：直接添加到数组末尾
           node.children.push(newNode)
-          // 按 sort 排序
-          node.children.sort((a, b) => (a.sort || 0) - (b.sort || 0))
           return true
         }
         if (node.children && node.children.length > 0) {
@@ -405,29 +410,12 @@ async function confirmSave() {
         })
       }
     } else {
-      // 创建模式：添加新词条
-      // 计算新的 sort 值
-      let newSort = 0
-      if (entryForm.parentId === 0 || !entryForm.parentId) {
-        // 顶层节点：当前最大 sort + 1
-        const topLevelNodes = dictionary.value
-        newSort =
-          topLevelNodes.length > 0 ? Math.max(...topLevelNodes.map((n) => n.sort || 0)) + 1 : 0
-      } else {
-        // 子节点：找到父节点，计算其子节点的最大 sort + 1
-        const parentNode = findNodeById(dictionary.value, entryForm.parentId)
-        if (parentNode) {
-          const siblings = parentNode.children || []
-          newSort = siblings.length > 0 ? Math.max(...siblings.map((n) => n.sort || 0)) + 1 : 0
-        }
-      }
-
+      // 创建模式：添加新词条（直接添加到对应层级的数组末尾）
       const newNode = {
         id: genId(),
         name: entryForm.name,
         introduction: entryForm.introduction,
         parentId: entryForm.parentId,
-        sort: newSort,
         children: []
       }
       addNodeToTree(dictionary.value, newNode)
@@ -543,7 +531,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
           draggedItem = allTableData[oldIndex]
           draggedItemId = draggedItem.id
         }
-      } catch (e) {
+      } catch {
         // 通过 store 获取数据失败，将使用备用方法
       }
     }
@@ -583,7 +571,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
         if (allTableData[newIndex]) {
           newPositionItem = allTableData[newIndex]
         }
-      } catch (e) {
+      } catch {
         // 通过 store 获取新位置数据失败，将使用备用方法
       }
     }
@@ -696,12 +684,7 @@ async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
     targetList.splice(oldIndexInTargetList, 1)
     targetList.splice(newIndexInTargetList, 0, movedItem)
 
-    // 更新所有项的 sort 字段为当前索引
-    targetList.forEach((node, index) => {
-      if (node) {
-        node.sort = index
-      }
-    })
+    // 数组顺序就是最终顺序，不需要 sort 字段
 
     // 保存数据
     await saveDictionary()
