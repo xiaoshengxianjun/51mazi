@@ -944,7 +944,7 @@ onBeforeUnmount(() => {
   }
 
   .character-intro {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-base);
     line-height: 1.2;
     margin: 0;

@@ -460,7 +460,12 @@ function createEditor() {
 
 // 设置笔记编辑器内容
 function setNoteContent(editor, content) {
-  if (!editor || !content) return
+  if (!editor) return
+  // 即使内容为空，也要清空编辑器，确保显示空内容而不是保留之前的内容
+  if (!content) {
+    editor.commands.setContent('<p data-note-outline data-level="0"></p>')
+    return
+  }
 
   if (isHtmlContent(content)) {
     // 笔记模式：如果内容是 HTML，直接加载
