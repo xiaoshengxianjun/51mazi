@@ -120,7 +120,6 @@ const editTitleValue = ref('')
 async function loadTimelines() {
   try {
     const data = await window.electron.readTimeline(bookName)
-    console.log(data)
     timelines.value = Array.isArray(data) ? data : []
   } catch {
     timelines.value = []
