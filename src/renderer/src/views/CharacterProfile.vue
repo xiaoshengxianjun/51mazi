@@ -754,11 +754,12 @@ onBeforeUnmount(() => {
     .table-avatar-placeholder {
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      // 使用主题主色调和成功色创建渐变
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--success-green) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: var(--text-gray-lightest);
       font-size: 14px;
       font-weight: bold;
     }
@@ -772,7 +773,7 @@ onBeforeUnmount(() => {
   }
 
   .no-tags {
-    color: #999;
+    color: var(--text-gray-light);
     font-size: 12px;
     text-align: center;
   }
@@ -828,17 +829,17 @@ onBeforeUnmount(() => {
   }
 
   &.male {
-    // border-left: 4px solid #409eff;
-    background: linear-gradient(135deg, rgba(64, 158, 255, 0.05) 0%, rgba(64, 158, 255, 0.02) 100%);
+    // 使用主题主色调创建渐变背景
+    background: linear-gradient(135deg, var(--bg-primary-a5) 0%, var(--bg-primary) 100%);
+    // 添加左侧边框强调
+    border-left: 3px solid var(--primary-color);
   }
 
   &.female {
-    // border-left: 4px solid #f56c6c;
-    background: linear-gradient(
-      135deg,
-      rgba(245, 108, 108, 0.05) 0%,
-      rgba(245, 108, 108, 0.02) 100%
-    );
+    // 使用主题危险色创建渐变背景
+    background: linear-gradient(135deg, var(--bg-primary-a5) 0%, var(--bg-primary) 100%);
+    // 添加左侧边框强调
+    border-left: 3px solid var(--danger-color);
   }
 }
 
@@ -878,11 +879,12 @@ onBeforeUnmount(() => {
     .avatar-placeholder {
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      // 使用主题主色调和成功色创建渐变
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--success-green) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: var(--text-gray-lightest);
       font-size: 18px;
       font-weight: bold;
     }
@@ -912,7 +914,9 @@ onBeforeUnmount(() => {
   .character-age,
   .character-height {
     font-size: 13px;
-    color: var(--text-secondary);
+    // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
+    color: var(--text-base);
+    font-weight: 500; // 增加字重，提升可读性
   }
 
   // 标签样式
@@ -938,18 +942,21 @@ onBeforeUnmount(() => {
     .section-title {
       font-size: 13px;
       font-weight: 600;
-      color: var(--text-secondary);
+      // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
+      color: var(--text-base);
       margin-bottom: 4px;
     }
   }
 
   .character-intro {
     font-size: 12px;
+    // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
     color: var(--text-base);
-    line-height: 1.2;
+    line-height: 1.5; // 增加行高，提升可读性
     margin: 0;
     text-align: left;
     word-break: break-word;
+    font-weight: 400; // 明确设置字重
   }
 
   // 形象介绍：最多显示3行
@@ -989,7 +996,7 @@ onBeforeUnmount(() => {
 
     &:hover {
       background: var(--bg-mute);
-      color: #f56c6c;
+      color: var(--danger-color);
     }
   }
 }
@@ -1043,11 +1050,12 @@ onBeforeUnmount(() => {
     .form-avatar-placeholder {
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #409eff 0%, #67c23a 100%);
+      // 使用主题主色调和成功色创建渐变
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--success-green) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: var(--text-gray-lightest);
       font-size: 24px;
       font-weight: bold;
     }
@@ -1093,14 +1101,16 @@ onBeforeUnmount(() => {
 
     &.empty {
       background: var(--bg-mute);
-      color: var(--text-secondary);
+      // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
+      color: var(--text-base);
       font-size: 12px;
     }
 
     &.active {
       box-shadow:
         0 0 0 2px var(--bg-primary),
-        0 0 0 4px rgba(64, 158, 255, 0.4);
+        0 0 0 4px var(--primary-color);
+      opacity: 0.6; // 添加透明度以显示激活状态
     }
 
     .marker-none {

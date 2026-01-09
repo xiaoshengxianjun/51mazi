@@ -753,10 +753,10 @@ const getEventBarStyle = (event) => {
     height: '36px', // 减少高度，留出上下边距，在40px单元格内居中
     zIndex: 10,
     background: `linear-gradient(135deg, ${event.color || '#409EFF'} 0%, ${adjustBrightness(event.color || '#409EFF', -20)} 100%)`,
-    opacity: 0.7,
+    opacity: 0.85, // 提高不透明度，在暗色模式下更清晰
     borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)', // 增强阴影，在暗色模式下更明显
+    border: '1px solid rgba(255, 255, 255, 0.3)', // 增强边框，提高可见性
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -1032,6 +1032,11 @@ onMounted(() => {
         justify-content: center;
         border-left: 1px solid var(--border-color);
         background-color: transparent;
+        // 使用主题基础文本颜色，在浅色和暗色模式下都有足够的对比度
+        // 浅色模式: #121212 (深色) 在浅色背景上对比度高
+        // 暗色模式: #E5E5E5 (浅色) 在暗色背景上对比度高
+        color: var(--text-base);
+        font-weight: 600; // 增加字重，提升可读性
       }
 
       .col-intro {
@@ -1041,12 +1046,17 @@ onMounted(() => {
         display: flex;
         align-items: center;
         overflow: hidden;
+        // 使用主题基础文本颜色，在浅色和暗色模式下都有足够的对比度
+        color: var(--text-base);
 
         .intro-text {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
+          // 使用主题基础文本颜色，确保在所有主题下都有足够的对比度
+          color: var(--text-base);
+          font-weight: 500; // 增加字重，提升可读性
         }
       }
     }
@@ -1113,10 +1123,11 @@ onMounted(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-right: 1px solid #e4e7ed; // 使用更明显的边框颜色
-      border-bottom: 1px solid #e4e7ed; // 使用更明显的边框颜色
+      border-right: 1px solid var(--border-color-soft);
+      border-bottom: 1px solid var(--border-color-soft);
       font-size: 12px;
       background-color: var(--bg-soft);
+      color: var(--text-base);
       box-sizing: border-box;
       position: relative;
       min-width: 40px;
@@ -1147,14 +1158,14 @@ onMounted(() => {
       .grid-row {
         display: flex;
         height: 40px; // 与事件行高度保持一致
-        border-bottom: 1px solid #e4e7ed;
+        border-bottom: 1px solid var(--border-color-soft);
         min-width: max-content; // 确保行不会被压缩
 
         .grid-cell {
           flex: 0 0 40px;
           width: 40px;
           height: 40px;
-          border-right: 1px solid #e4e7ed;
+          border-right: 1px solid var(--border-color-soft);
           background-color: transparent;
           box-sizing: border-box;
           flex-shrink: 0; // 防止单元格被压缩
@@ -1186,7 +1197,10 @@ onMounted(() => {
           &:hover {
             opacity: 1 !important;
             transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            // 使用更明显的阴影，在暗色模式下也能清晰看到
+            box-shadow:
+              0 4px 12px rgba(0, 0, 0, 0.4),
+              0 0 8px rgba(0, 0, 0, 0.2);
             z-index: 15;
             // 悬停时保持在同一位置，不超出单元格边界
           }
@@ -1196,15 +1210,22 @@ onMounted(() => {
             opacity: 0.9;
             transform: scale(1.05);
             z-index: 20;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            // 拖拽时使用更强的阴影效果
+            box-shadow:
+              0 8px 24px rgba(0, 0, 0, 0.5),
+              0 0 16px rgba(0, 0, 0, 0.3);
             transition: none; // 拖拽时禁用过渡效果，确保响应性
           }
 
           .event-label {
-            color: #000;
+            // 使用主题文字颜色，确保在暗色模式下可见
+            color: var(--text-gray-lightest);
             font-size: 10px;
             font-weight: 600;
-            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+            // 根据主题调整文字阴影，增强可读性
+            text-shadow:
+              0 1px 2px rgba(0, 0, 0, 0.3),
+              0 0 4px rgba(0, 0, 0, 0.2);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1220,10 +1241,13 @@ onMounted(() => {
           .event-progress {
             position: absolute;
             inset: 0;
-            background: rgba(255, 255, 255, 0.25);
+            // 使用半透明背景，根据主题自动适配
+            background: rgba(255, 255, 255, 0.3);
             width: 0%;
             transition: width 0.3s ease;
             pointer-events: none;
+            // 在暗色模式下使用更明显的进度指示
+            border-radius: 8px;
           }
         }
       }
