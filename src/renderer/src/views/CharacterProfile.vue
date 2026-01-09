@@ -806,68 +806,153 @@ onBeforeUnmount(() => {
 
 .character-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-  padding: 8px 0;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  padding: 12px 0;
+  // 添加响应式优化
+  @media (min-width: 1400px) {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
 }
 
 .character-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-color-soft);
+  // 增大圆角，让卡片更圆润
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  overflow: hidden;
+  // 添加多层阴影，增强质感
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.05);
+  // 添加微妙的背景渐变
+  background: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg-primary) 100%);
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px) scale(1.01);
+    // 增强hover时的阴影效果
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.15),
+      0 6px 12px rgba(0, 0, 0, 0.1),
+      0 2px 4px rgba(0, 0, 0, 0.08);
+    border-color: var(--border-color);
 
     .character-actions {
       opacity: 1;
+      transform: scale(1);
+    }
+
+    .character-avatar {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
     }
   }
 
   &.male {
-    // 使用主题主色调创建渐变背景
-    background: linear-gradient(135deg, var(--bg-primary-a5) 0%, var(--bg-primary) 100%);
-    // 添加左侧边框强调
-    border-left: 3px solid var(--primary-color);
+    // 男性卡片：使用蓝色系渐变背景
+    background: linear-gradient(
+      135deg,
+      var(--bg-soft) 0%,
+      var(--bg-primary) 50%,
+      var(--bg-primary) 100%
+    );
+    // 使用伪元素实现左侧边框，避免 border-image 在圆角处的问题
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--primary-color) 0%, var(--info-color) 100%);
+      border-radius: 12px 0 0 12px; // 匹配卡片圆角
+      z-index: 0;
+    }
+
+    &:hover {
+      background: linear-gradient(
+        135deg,
+        var(--bg-soft) 0%,
+        var(--bg-primary-a7) 50%,
+        var(--bg-primary) 100%
+      );
+    }
   }
 
   &.female {
-    // 使用主题危险色创建渐变背景
-    background: linear-gradient(135deg, var(--bg-primary-a5) 0%, var(--bg-primary) 100%);
-    // 添加左侧边框强调
-    border-left: 3px solid var(--danger-color);
+    // 女性卡片：使用红色系渐变背景
+    background: linear-gradient(
+      135deg,
+      var(--bg-soft) 0%,
+      var(--bg-primary) 50%,
+      var(--bg-primary) 100%
+    );
+    // 使用伪元素实现左侧边框，避免 border-image 在圆角处的问题
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--danger-color) 0%, var(--warning-color) 100%);
+      border-radius: 12px 0 0 12px; // 匹配卡片圆角
+      z-index: 0;
+    }
+
+    &:hover {
+      background: linear-gradient(
+        135deg,
+        var(--bg-soft) 0%,
+        var(--bg-primary-a7) 50%,
+        var(--bg-primary) 100%
+      );
+    }
   }
 }
 
 .character-info {
-  padding: 5px 0px;
+  padding: 8px 12px;
+  position: relative;
+  z-index: 1;
 
   .character-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 0 10px;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 0;
     margin-bottom: 8px;
+    // 添加底部边框分隔
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color-soft);
   }
 
   .character-avatar {
-    width: 50px;
-    height: 50px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    // 添加边框和阴影，增强质感
+    border: 3px solid var(--bg-soft);
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.1),
+      0 0 0 1px var(--border-color-soft);
+    background: var(--bg-soft);
 
     &:hover {
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transform: scale(1.08);
+      box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.2),
+        0 0 0 2px var(--primary-color);
+      border-color: var(--primary-color);
     }
 
     .avatar-image {
@@ -921,30 +1006,70 @@ onBeforeUnmount(() => {
 
   // 标签样式
   .character-tags {
-    padding: 0 10px;
+    padding: 0;
     margin-bottom: 8px;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
 
     .tag-item {
       margin: 0;
-      font-size: 12px;
-      border-radius: 4px;
+      font-size: 11px;
+      border-radius: 12px;
+      padding: 3px 8px;
+      font-weight: 500;
+      // 添加微妙的阴影
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      }
     }
   }
 
   // 介绍区域样式
   .character-section {
-    padding: 0 10px;
+    padding: 0;
     margin-bottom: 8px;
+    // 添加背景和边框，增强层次感
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color-soft);
+    transition: all 0.3s ease;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &:hover {
+      background: var(--bg-mute);
+      border-color: var(--border-color);
+    }
 
     .section-title {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
       color: var(--text-base);
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      // 添加图标样式的小装饰
+      position: relative;
+      padding-left: 10px;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 14px;
+        background: var(--primary-color);
+        border-radius: 2px;
+      }
     }
   }
 
@@ -982,21 +1107,34 @@ onBeforeUnmount(() => {
 
 .character-actions {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 12px;
+  right: 12px;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transform: scale(0.9);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  // 添加背景，增强可见性
+  background: var(--bg-primary-a7);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  padding: 4px;
 
   .el-icon {
-    font-size: 24px;
+    font-size: 26px;
     color: var(--text-base);
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &:hover {
-      background: var(--bg-mute);
-      color: var(--danger-color);
+      background: var(--danger-color);
+      color: var(--text-gray-lightest);
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
     }
   }
 }
