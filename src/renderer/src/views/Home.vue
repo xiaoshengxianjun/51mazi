@@ -65,31 +65,22 @@
     </el-dialog>
 
     <!-- 主题设置弹框 -->
-    <el-dialog v-model="showThemeDialog" title="主题设置" width="500" :close-on-click-modal="false">
+    <el-dialog v-model="showThemeDialog" title="主题设置" width="600" :close-on-click-modal="false">
       <div class="theme-selector">
         <div
+          v-for="theme in availableThemes"
+          :key="theme.key"
           class="theme-option"
-          :class="{ active: themeStore.currentTheme === 'light' }"
-          @click="handleThemeChange('light')"
+          :class="{ active: themeStore.currentTheme === theme.key }"
+          @click="handleThemeChange(theme.key)"
         >
-          <div class="theme-preview light"></div>
-          <span>亮色</span>
-        </div>
-        <div
-          class="theme-option"
-          :class="{ active: themeStore.currentTheme === 'dark' }"
-          @click="handleThemeChange('dark')"
-        >
-          <div class="theme-preview dark"></div>
-          <span>暗色</span>
-        </div>
-        <div
-          class="theme-option"
-          :class="{ active: themeStore.currentTheme === 'yellow' }"
-          @click="handleThemeChange('yellow')"
-        >
-          <div class="theme-preview yellow"></div>
-          <span>黄色</span>
+          <div class="theme-preview" :class="theme.key" :style="getPreviewStyle(theme.key)">
+            <div class="preview-content">
+              <div class="preview-header"></div>
+              <div class="preview-body"></div>
+            </div>
+          </div>
+          <span>{{ theme.name }}</span>
         </div>
       </div>
     </el-dialog>
@@ -160,12 +151,25 @@ async function handleConfirmDir() {
   showDirDialog.value = false
 }
 
+// 获取可用主题列表
+const availableThemes = themeStore.getAvailableThemes()
+
+// 获取主题预览样式
+const getPreviewStyle = (themeKey) => {
+  const config = themeStore.getThemeConfig(themeKey)
+  return {
+    '--preview-bg-primary': config.bgPrimary,
+    '--preview-bg-soft': config.bgSoft,
+    '--preview-bg-mute': config.bgMute,
+    '--preview-border-color': config.borderColor
+  }
+}
+
 // 处理主题切换
 const handleThemeChange = (theme) => {
   themeStore.setTheme(theme)
-  ElMessage.success(
-    `已切换到${theme === 'light' ? '亮色' : theme === 'dark' ? '暗色' : '黄色'}主题`
-  )
+  const themeName = themeStore.getThemeName(theme)
+  ElMessage.success(`已切换到${themeName}主题`)
 }
 
 // 跳转到写作指南
@@ -252,33 +256,44 @@ const goToUserGuide = () => {
 }
 
 .theme-preview {
-  width: 60px;
-  height: 60px;
+  width: 100%;
+  height: 80px;
   border-radius: 8px;
   border: 2px solid var(--border-color);
   transition: all 0.3s ease;
+  overflow: hidden;
+  position: relative;
 
-  &.light {
-    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
-    border-color: #e0e0e0;
+  .preview-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  &.dark {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    border-color: #7f8c8d;
+  // 使用CSS变量，从主题配置中动态获取颜色
+  background: var(--preview-bg-primary);
+  border-color: var(--preview-border-color);
+
+  .preview-header {
+    height: 20px;
+    border-bottom: 1px solid;
+    background: var(--preview-bg-soft);
+    border-color: var(--preview-border-color);
   }
 
-  &.yellow {
-    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-    border-color: #d68910;
+  .preview-body {
+    flex: 1;
+    background: var(--preview-bg-mute);
   }
 }
 
 .theme-selector {
-  display: flex;
-  justify-content: center;
-  gap: 50px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
   margin: 20px 0;
+  padding: 10px;
 }
 
 .dialog-content {
