@@ -61,7 +61,6 @@ function handleRefresh() {
 
 <style lang="scss" scoped>
 .layout-tool {
-  padding: 8px 16px;
   background-color: var(--bg-primary);
   height: 100vh;
   display: flex;
@@ -80,7 +79,7 @@ function handleRefresh() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  padding: 8px 16px;
   .header-title {
     margin: 0;
     font-size: 20px;
@@ -94,5 +93,6 @@ function handleRefresh() {
 .layout-tool-main {
   flex: 1;
   overflow-y: auto;
+  padding: 8px 16px;
 }
 </style>
