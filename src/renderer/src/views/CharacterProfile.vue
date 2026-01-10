@@ -42,22 +42,25 @@
                   {{ character.name.charAt(0) }}
                 </div>
               </div>
-              <div class="character-details">
-                <span
-                  v-if="character.markerColor"
-                  class="character-marker"
-                  :style="{ backgroundColor: character.markerColor }"
-                ></span>
-                <span class="character-name">{{ character.name }}</span>
-                <span class="character-age">{{ character.age }}岁</span>
-                <span class="character-height">{{ character.height }}cm</span>
+              <!-- details 和 tags 的容器 -->
+              <div class="character-info-wrapper">
+                <div class="character-details">
+                  <span
+                    v-if="character.markerColor"
+                    class="character-marker"
+                    :style="{ backgroundColor: character.markerColor }"
+                  ></span>
+                  <span class="character-name">{{ character.name }}</span>
+                  <span class="character-age">{{ character.age }}岁</span>
+                  <span class="character-height">{{ character.height }}cm</span>
+                </div>
+                <!-- 标签显示区域 -->
+                <div v-if="character.tags && character.tags.length > 0" class="character-tags">
+                  <el-tag v-for="tag in character.tags" :key="tag" size="small" class="tag-item">
+                    {{ tag }}
+                  </el-tag>
+                </div>
               </div>
-            </div>
-            <!-- 标签显示区域 -->
-            <div v-if="character.tags && character.tags.length > 0" class="character-tags">
-              <el-tag v-for="tag in character.tags" :key="tag" size="small" class="tag-item">
-                {{ tag }}
-              </el-tag>
             </div>
             <!-- 形象介绍 -->
             <div v-if="character.appearance" class="character-section">
@@ -807,7 +810,7 @@ onBeforeUnmount(() => {
 .character-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  gap: 15px;
   padding: 12px 0;
   // 添加响应式优化
   @media (min-width: 1400px) {
@@ -921,14 +924,19 @@ onBeforeUnmount(() => {
 
   .character-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: flex-start;
-    gap: 14px;
+    gap: 10px;
     padding: 0;
     margin-bottom: 8px;
-    // 添加底部边框分隔
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color-soft);
+  }
+
+  // details 和 tags 的容器
+  .character-info-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .character-avatar {
@@ -941,7 +949,7 @@ onBeforeUnmount(() => {
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     // 添加边框和阴影，增强质感
-    border: 3px solid var(--bg-soft);
+    border: 2px solid var(--bg-soft);
     box-shadow:
       0 2px 8px rgba(0, 0, 0, 0.1),
       0 0 0 1px var(--border-color-soft);
@@ -979,7 +987,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1;
+    flex-wrap: wrap;
 
     .character-marker {
       width: 10px;
@@ -1007,7 +1015,7 @@ onBeforeUnmount(() => {
   // 标签样式
   .character-tags {
     padding: 0;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -1016,7 +1024,7 @@ onBeforeUnmount(() => {
       margin: 0;
       font-size: 11px;
       border-radius: 12px;
-      padding: 3px 8px;
+      padding: 2px 6px;
       font-weight: 500;
       // 添加微妙的阴影
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1107,8 +1115,8 @@ onBeforeUnmount(() => {
 
 .character-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 4px;
+  right: 4px;
   opacity: 0;
   transform: scale(0.9);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
