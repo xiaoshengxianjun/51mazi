@@ -855,14 +855,11 @@ onBeforeUnmount(() => {
   }
 
   &.male {
-    // 男性卡片：使用蓝色系渐变背景
-    background: linear-gradient(
-      135deg,
-      var(--bg-soft) 0%,
-      var(--bg-primary) 50%,
-      var(--bg-primary) 100%
-    );
-    // 使用伪元素实现左侧边框，避免 border-image 在圆角处的问题
+    // 男性卡片：使用固定的蓝白色背景，不跟随主题变化
+    background: linear-gradient(135deg, #f5f8ff 0%, #f0f5ff 100%);
+    border-color: #e0e8f5;
+
+    // 使用伪元素实现左侧边框
     &::after {
       content: '';
       position: absolute;
@@ -870,30 +867,23 @@ onBeforeUnmount(() => {
       top: 0;
       bottom: 0;
       width: 4px;
-      background: linear-gradient(180deg, var(--primary-color) 0%, var(--info-color) 100%);
+      background: linear-gradient(180deg, #4a90e2 0%, #5ba3f5 100%);
       border-radius: 12px 0 0 12px; // 匹配卡片圆角
       z-index: 0;
     }
 
     &:hover {
-      background: linear-gradient(
-        135deg,
-        var(--bg-soft) 0%,
-        var(--bg-primary-a7) 50%,
-        var(--bg-primary) 100%
-      );
+      background: linear-gradient(135deg, #e6f0ff 0%, #e0ebff 100%);
+      border-color: #d0dbf0;
     }
   }
 
   &.female {
-    // 女性卡片：使用红色系渐变背景
-    background: linear-gradient(
-      135deg,
-      var(--bg-soft) 0%,
-      var(--bg-primary) 50%,
-      var(--bg-primary) 100%
-    );
-    // 使用伪元素实现左侧边框，避免 border-image 在圆角处的问题
+    // 女性卡片：使用固定的粉白色背景，不跟随主题变化
+    background: linear-gradient(135deg, #fff9fb 0%, #fff5f8 100%);
+    border-color: #f5e0e8;
+
+    // 使用伪元素实现左侧边框
     &::after {
       content: '';
       position: absolute;
@@ -901,18 +891,14 @@ onBeforeUnmount(() => {
       top: 0;
       bottom: 0;
       width: 4px;
-      background: linear-gradient(180deg, var(--danger-color) 0%, var(--warning-color) 100%);
+      background: linear-gradient(180deg, #ff6b9d 0%, #ff8fb3 100%);
       border-radius: 12px 0 0 12px; // 匹配卡片圆角
       z-index: 0;
     }
 
     &:hover {
-      background: linear-gradient(
-        135deg,
-        var(--bg-soft) 0%,
-        var(--bg-primary-a7) 50%,
-        var(--bg-primary) 100%
-      );
+      background: linear-gradient(135deg, #fff0f5 0%, #ffebf0 100%);
+      border-color: #f0d5e0;
     }
   }
 }
@@ -1001,14 +987,15 @@ onBeforeUnmount(() => {
   .character-name {
     font-size: 16px;
     font-weight: 600;
-    color: var(--text-base);
+    // 固定黑色，不跟随主题变化
+    color: #121212;
   }
 
   .character-age,
   .character-height {
     font-size: 13px;
-    // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
-    color: var(--text-base);
+    // 固定黑色，不跟随主题变化
+    color: #121212;
     font-weight: 500; // 增加字重，提升可读性
   }
 
@@ -1042,7 +1029,7 @@ onBeforeUnmount(() => {
     padding: 0;
     margin-bottom: 8px;
     // 添加背景和边框，增强层次感
-    background: var(--bg-primary);
+    background: transparent;
     border-radius: 8px;
     padding: 8px 10px;
     border: 1px solid var(--border-color-soft);
@@ -1052,16 +1039,11 @@ onBeforeUnmount(() => {
       margin-bottom: 0;
     }
 
-    &:hover {
-      background: var(--bg-mute);
-      border-color: var(--border-color);
-    }
-
     .section-title {
       font-size: 13px;
       font-weight: 700;
-      // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
-      color: var(--text-base);
+      // 固定黑色，不跟随主题变化
+      color: #121212;
       margin-bottom: 6px;
       // 添加图标样式的小装饰
       position: relative;
@@ -1075,7 +1057,8 @@ onBeforeUnmount(() => {
         transform: translateY(-50%);
         width: 3px;
         height: 14px;
-        background: var(--primary-color);
+        // 使用固定的蓝色，不跟随主题
+        background: #4a90e2;
         border-radius: 2px;
       }
     }
@@ -1083,8 +1066,8 @@ onBeforeUnmount(() => {
 
   .character-intro {
     font-size: 12px;
-    // 使用主题基础文本颜色，确保在浅色和暗色模式下都有足够的对比度
-    color: var(--text-base);
+    // 固定黑色，不跟随主题变化
+    color: #121212;
     line-height: 1.5; // 增加行高，提升可读性
     margin: 0;
     text-align: left;

@@ -20,6 +20,7 @@
             <template #graph-plug>
               <RadialMenu
                 v-if="showRadialMenu"
+                :is-root="isSelectedNodeRoot"
                 :style="{
                   width: nodeMenuPanel.width + 'px',
                   height: nodeMenuPanel.height + 'px',
@@ -136,7 +137,7 @@
 
 <script setup>
 import LayoutTool from '@renderer/components/LayoutTool.vue'
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Check } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -333,6 +334,14 @@ const nodeMenuPanel = ref({
   height: 160,
   x: 0,
   y: 0
+})
+
+// 计算当前选中的节点是否为根节点
+const isSelectedNodeRoot = computed(() => {
+  if (!selectedNode.value) return false
+  // 根节点判断：没有父节点（没有连线指向该节点）
+  const hasParent = relationshipData.lines.some((line) => line.to === selectedNode.value.id)
+  return !hasParent
 })
 
 // 节点点击事件，显示环绕菜单

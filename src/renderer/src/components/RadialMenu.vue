@@ -15,7 +15,7 @@
         d="M269.59,188.46c-4.36,-26.73 -34.27,-56.7 -56.69,-56.7l-3.95,0l0,-61.78l0,-61.71l7.84,0.69c91.98,8.52 166.11,82.6 174.22,174l0.95,10.65l-60.78,0l-60.78,0l-0.82,-5.15z"
         @mouseenter="hover = 'delete'"
         @mouseleave="hover = ''"
-        @click.stop="$emit('delete')"
+        @click.stop="handleDelete"
       />
       <path
         class="c-svg-button"
@@ -57,7 +57,7 @@
     </div>
     <div
       class="icon delete"
-      @click.stop="$emit('delete')"
+      @click.stop="handleDelete"
       @mouseenter="hover = 'delete'"
       @mouseleave="hover = ''"
     >
@@ -108,13 +108,29 @@
 
 <script setup>
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 /**
  * 环绕菜单组件
  * @prop {Boolean} isRoot 是否为根节点，根节点不显示删除按钮
  * @emits info, add, link, delete
  */
-defineEmits(['info', 'add', 'link', 'delete'])
+const props = defineProps({
+  isRoot: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const emit = defineEmits(['info', 'add', 'link', 'delete'])
 const hover = ref('')
+
+const handleDelete = () => {
+  if (props.isRoot) {
+    ElMessage.error('根节点不能删除')
+    return
+  }
+  emit('delete')
+}
 </script>
 
 <style scoped>
