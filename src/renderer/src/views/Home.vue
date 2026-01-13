@@ -101,10 +101,15 @@
     </el-dialog>
 
     <!-- 赞助作者弹框 -->
-    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="420px" align-center>
+    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="420px" align-center center>
       <div class="dialog-content">
         <img :src="rewardQrcode" alt="赞助二维码" class="dialog-image" />
+        <p class="dialog-text">各位大哥大姐，求个赏呗，感谢支持！</p>
       </div>
+      <template #footer>
+        <el-button type="primary" @click="showSponsorDialog = false">考虑一下</el-button>
+        <el-button type="primary" @click="showSponsorDialog = false">朕已恩赏</el-button>
+      </template>
     </el-dialog>
 
     <!-- 书架密码设置组件 -->

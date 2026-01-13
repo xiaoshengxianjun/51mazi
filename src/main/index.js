@@ -1452,6 +1452,12 @@ ipcMain.handle('get-book-daily-stats', async (event, bookName) => {
 // 新增：获取所有书籍的每日净增字数统计
 ipcMain.handle('get-all-books-daily-stats', async () => {
   try {
+    // 先判断 booksDir 是否存在且有数据
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) {
+      return { success: true, data: {} }
+    }
+
     const stats = readStats()
     if (!stats.bookDailyStats) {
       return { success: true, data: {} }
