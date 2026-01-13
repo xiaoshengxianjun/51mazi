@@ -29,8 +29,26 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  # 明确指定只生成 DMG 格式，这样才会有拖拽安装界面
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
 dmg:
   artifactName: ${name}-${version}.${ext}
+  # DMG 窗口配置，提供更好的用户体验
+  window:
+    width: 540
+    height: 380
+  # 在 DMG 中显示应用程序和应用程序文件夹的快捷方式
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 linux:
   icon: build/icon.png
   target:
