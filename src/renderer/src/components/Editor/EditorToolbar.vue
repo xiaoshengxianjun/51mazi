@@ -11,13 +11,17 @@
         <SvgIcon name="map" :size="14" />
         <span>设计地图</span>
       </el-button>
-      <el-button class="tool-btn" @click="handleTimeline">
-        <SvgIcon name="timeline" :size="14" />
-        <span>时间线</span>
-      </el-button>
       <el-button class="tool-btn" @click="handleEntryDictionary">
         <SvgIcon name="dictionary" :size="14" />
         <span>词条字典</span>
+      </el-button>
+      <el-button class="tool-btn" @click="handleOrganization">
+        <SvgIcon name="organization" :size="14" />
+        <span>组织架构</span>
+      </el-button>
+      <el-button class="tool-btn" @click="handleBannedWords">
+        <SvgIcon name="banned-words" :size="14" />
+        <span>禁词管理</span>
       </el-button>
       <el-button class="tool-btn" @click="handleCharacterProfile">
         <SvgIcon name="character" :size="14" />
@@ -27,17 +31,13 @@
         <SvgIcon name="relationship" :size="14" />
         <span>关系图</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleTimeline">
+        <SvgIcon name="timeline" :size="14" />
+        <span>时间线</span>
+      </el-button>
       <el-button class="tool-btn" @click="handleEventsSequence">
         <SvgIcon name="gantt" :size="14" />
         <span>事序图</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleOrganization">
-        <SvgIcon name="organization" :size="14" />
-        <span>组织架构</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleBannedWords">
-        <SvgIcon name="banned-words" :size="14" />
-        <span>禁词管理</span>
       </el-button>
       <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
     </div>

@@ -26,6 +26,7 @@
         active-text="人物高亮"
         inactive-text="人物高亮"
         inline-prompt
+        style="--el-switch-off-color: #999999"
         class="character-highlight-switch"
         @change="handleCharacterHighlightChange"
       />
@@ -36,6 +37,7 @@
         active-text="禁词提示"
         inactive-text="禁词提示"
         inline-prompt
+        style="--el-switch-off-color: #999999"
         class="banned-words-hint-switch"
         @change="handleBannedWordsHintChange"
       />

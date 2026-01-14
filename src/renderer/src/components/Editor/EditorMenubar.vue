@@ -138,6 +138,24 @@
       >
         <el-icon><Tickets /></el-icon>
       </el-button>
+      <el-button
+        size="small"
+        class="toolbar-item"
+        title="撤销 (Ctrl+Z)"
+        :disabled="!canUndo"
+        @click="handleUndo"
+      >
+        <Undo :size="12" />
+      </el-button>
+      <el-button
+        size="small"
+        class="toolbar-item"
+        title="回退 (Ctrl+Shift+Z)"
+        :disabled="!canRedo"
+        @click="handleRedo"
+      >
+        <Redo :size="12" />
+      </el-button>
       <el-button size="small" class="toolbar-item" title="复制" @click="handleCopyContent">
         <el-icon><DocumentCopy /></el-icon>
       </el-button>
@@ -166,6 +184,7 @@
 import { computed, ref } from 'vue'
 import { DocumentCopy, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Redo, Undo } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEditorStore } from '@renderer/stores/editor'
 
@@ -196,6 +215,18 @@ const editorStore = useEditorStore()
 
 // 判断是否为笔记编辑器
 const isNoteEditor = computed(() => editorStore.file?.type === 'note')
+
+// 检查是否可以撤销
+const canUndo = computed(() => {
+  if (!props.editor) return false
+  return props.editor.can().undo()
+})
+
+// 检查是否可以回退
+const canRedo = computed(() => {
+  if (!props.editor) return false
+  return props.editor.can().redo()
+})
 
 // 使用 computed 来双向绑定
 const fontFamily = computed({
@@ -552,6 +583,18 @@ function handleToggleSearchPanel() {
   emit('toggle-search')
 }
 
+// 撤销操作
+function handleUndo() {
+  if (!props.editor || !canUndo.value) return
+  props.editor.commands.undo()
+}
+
+// 回退操作
+function handleRedo() {
+  if (!props.editor || !canRedo.value) return
+  props.editor.commands.redo()
+}
+
 function handleSave() {
   emit('save')
 }
@@ -703,6 +746,10 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+  .el-button--small {
+    padding: 5px 8px;
+    min-width: 24px;
   }
 }
 .toolbar-item {
