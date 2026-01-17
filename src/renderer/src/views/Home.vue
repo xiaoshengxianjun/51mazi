@@ -107,8 +107,8 @@
         <p class="dialog-text">各位大哥大姐，求个赏呗，感谢支持！</p>
       </div>
       <template #footer>
-        <el-button type="primary" @click="showSponsorDialog = false">考虑一下</el-button>
-        <el-button type="primary" @click="showSponsorDialog = false">朕已恩赏</el-button>
+        <el-button type="primary" @click="handleConsiderClick">考虑一下</el-button>
+        <el-button type="primary" @click="handleRewardClick">朕已恩赏</el-button>
       </template>
     </el-dialog>
 
@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
@@ -165,27 +165,28 @@ onUnmounted(() => {
 // 检查是否需要自动显示赞助弹框
 async function checkAutoShowSponsorDialog() {
   try {
-    // 检查是否已经显示过赞助弹框
-    const hasShown = await window.electronStore?.get('home.sponsorDialogShown')
-    if (hasShown) {
-      return // 已经显示过，不再自动显示
-    }
-
-    // 检查是否是第一次打开首页
-    const firstVisitTime = await window.electronStore?.get('home.firstVisitTime')
     const now = Date.now()
     const oneHour = 60 * 60 * 1000 // 1小时的毫秒数
 
+    // 检查是否是第一次打开首页
+    const firstVisitTime = await window.electronStore?.get('home.firstVisitTime')
     if (!firstVisitTime) {
       // 第一次打开首页，记录当前时间
       await window.electronStore?.set('home.firstVisitTime', now)
       // 设置1小时后自动显示
-      const delay = oneHour
       sponsorDialogTimer = setTimeout(() => {
         showSponsorDialog.value = true
-      }, delay)
-    } else {
-      // 不是第一次打开，检查是否已经过了1小时
+      }, oneHour)
+      return
+    }
+
+    // 检查最后一次关闭时间和操作
+    const lastCloseTime = await window.electronStore?.get('home.sponsorDialogLastCloseTime')
+    const lastAction = await window.electronStore?.get('home.sponsorDialogLastAction')
+    const considerCount = (await window.electronStore?.get('home.sponsorDialogConsiderCount')) || 0
+
+    // 如果没有关闭记录，说明还没有显示过，使用首次访问逻辑
+    if (!lastCloseTime) {
       const elapsed = now - firstVisitTime
       if (elapsed >= oneHour) {
         // 已经过了1小时，立即显示
@@ -197,28 +198,114 @@ async function checkAutoShowSponsorDialog() {
           showSponsorDialog.value = true
         }, remaining)
       }
+      return
+    }
+
+    // 根据上次操作决定下次显示时间
+    let nextShowDelay = 0
+    if (lastAction === 'reward') {
+      // 点击"朕已恩赏"，15天后显示
+      nextShowDelay = 15 * 24 * 60 * 60 * 1000 // 15天
+    } else if (lastAction === 'consider') {
+      // 点击"考虑一下"
+      if (considerCount >= 3) {
+        // 连续3次点击"考虑一下"，改为1天显示一次
+        nextShowDelay = 24 * 60 * 60 * 1000 // 1天
+      } else {
+        // 前3次点击"考虑一下"，3天后显示
+        nextShowDelay = 3 * 24 * 60 * 60 * 1000 // 3天
+      }
+    }
+
+    // 计算距离上次关闭已经过了多长时间
+    const elapsed = now - lastCloseTime
+    if (elapsed >= nextShowDelay) {
+      // 已经过了设定时间，立即显示
+      showSponsorDialog.value = true
+    } else {
+      // 还没到时间，设置定时器
+      const remaining = nextShowDelay - elapsed
+      sponsorDialogTimer = setTimeout(() => {
+        showSponsorDialog.value = true
+      }, remaining)
     }
   } catch (error) {
     console.error('检查自动显示赞助弹框失败:', error)
   }
 }
 
-// 监听赞助弹框的显示，记录已显示状态
-watch(showSponsorDialog, async (newVal) => {
-  if (newVal) {
-    // 弹框显示时，记录已显示状态
-    try {
-      await window.electronStore?.set('home.sponsorDialogShown', true)
-      // 清理定时器（如果存在）
-      if (sponsorDialogTimer) {
-        clearTimeout(sponsorDialogTimer)
-        sponsorDialogTimer = null
-      }
-    } catch (error) {
-      console.error('记录赞助弹框显示状态失败:', error)
+// 处理"考虑一下"点击
+async function handleConsiderClick() {
+  try {
+    showSponsorDialog.value = false
+
+    // 记录关闭时间和操作
+    const now = Date.now()
+    await window.electronStore?.set('home.sponsorDialogLastCloseTime', now)
+    await window.electronStore?.set('home.sponsorDialogLastAction', 'consider')
+
+    // 获取并更新"考虑一下"的连续点击次数
+    const considerCount = (await window.electronStore?.get('home.sponsorDialogConsiderCount')) || 0
+    const newConsiderCount = considerCount + 1
+    await window.electronStore?.set('home.sponsorDialogConsiderCount', newConsiderCount)
+
+    // 根据连续点击次数决定下次显示延迟
+    let nextShowDelay = 0
+    if (newConsiderCount >= 3) {
+      // 连续3次点击"考虑一下"，改为1天显示一次
+      nextShowDelay = 24 * 60 * 60 * 1000 // 1天
+    } else {
+      // 前3次点击"考虑一下"，3天后显示
+      nextShowDelay = 3 * 24 * 60 * 60 * 1000 // 3天
     }
+
+    // 清理旧定时器
+    if (sponsorDialogTimer) {
+      clearTimeout(sponsorDialogTimer)
+      sponsorDialogTimer = null
+    }
+
+    // 设置新的定时器
+    sponsorDialogTimer = setTimeout(() => {
+      showSponsorDialog.value = true
+    }, nextShowDelay)
+  } catch (error) {
+    console.error('处理"考虑一下"点击失败:', error)
+    showSponsorDialog.value = false
   }
-})
+}
+
+// 处理"朕已恩赏"点击
+async function handleRewardClick() {
+  try {
+    showSponsorDialog.value = false
+
+    // 记录关闭时间和操作
+    const now = Date.now()
+    await window.electronStore?.set('home.sponsorDialogLastCloseTime', now)
+    await window.electronStore?.set('home.sponsorDialogLastAction', 'reward')
+
+    // 重置"考虑一下"的连续点击次数（因为用户点击了"朕已恩赏"）
+    await window.electronStore?.set('home.sponsorDialogConsiderCount', 0)
+
+    // 15天后显示
+    const nextShowDelay = 15 * 24 * 60 * 60 * 1000 // 15天
+
+    // 清理旧定时器
+    if (sponsorDialogTimer) {
+      clearTimeout(sponsorDialogTimer)
+      sponsorDialogTimer = null
+    }
+
+    // 设置新的定时器
+    sponsorDialogTimer = setTimeout(() => {
+      showSponsorDialog.value = true
+    }, nextShowDelay)
+  } catch (error) {
+    console.error('处理"朕已恩赏"点击失败:', error)
+    showSponsorDialog.value = false
+  }
+}
 
 // 选择目录
 async function handleChooseDir() {
