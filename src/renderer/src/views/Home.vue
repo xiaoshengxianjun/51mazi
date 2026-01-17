@@ -118,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
@@ -137,6 +137,9 @@ const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.
 const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
+// 定时器 ID
+let sponsorDialogTimer = null
+
 // 检查本地存储是否有bookDir
 onMounted(async () => {
   const dir = await window.electronStore?.get('booksDir')
@@ -147,6 +150,74 @@ onMounted(async () => {
   }
   // 初始化主题
   await themeStore.initTheme()
+  // 检查是否需要自动显示赞助弹框
+  await checkAutoShowSponsorDialog()
+})
+
+// 清理定时器
+onUnmounted(() => {
+  if (sponsorDialogTimer) {
+    clearTimeout(sponsorDialogTimer)
+    sponsorDialogTimer = null
+  }
+})
+
+// 检查是否需要自动显示赞助弹框
+async function checkAutoShowSponsorDialog() {
+  try {
+    // 检查是否已经显示过赞助弹框
+    const hasShown = await window.electronStore?.get('home.sponsorDialogShown')
+    if (hasShown) {
+      return // 已经显示过，不再自动显示
+    }
+
+    // 检查是否是第一次打开首页
+    const firstVisitTime = await window.electronStore?.get('home.firstVisitTime')
+    const now = Date.now()
+    const oneHour = 60 * 60 * 1000 // 1小时的毫秒数
+
+    if (!firstVisitTime) {
+      // 第一次打开首页，记录当前时间
+      await window.electronStore?.set('home.firstVisitTime', now)
+      // 设置1小时后自动显示
+      const delay = oneHour
+      sponsorDialogTimer = setTimeout(() => {
+        showSponsorDialog.value = true
+      }, delay)
+    } else {
+      // 不是第一次打开，检查是否已经过了1小时
+      const elapsed = now - firstVisitTime
+      if (elapsed >= oneHour) {
+        // 已经过了1小时，立即显示
+        showSponsorDialog.value = true
+      } else {
+        // 还没到1小时，设置定时器
+        const remaining = oneHour - elapsed
+        sponsorDialogTimer = setTimeout(() => {
+          showSponsorDialog.value = true
+        }, remaining)
+      }
+    }
+  } catch (error) {
+    console.error('检查自动显示赞助弹框失败:', error)
+  }
+}
+
+// 监听赞助弹框的显示，记录已显示状态
+watch(showSponsorDialog, async (newVal) => {
+  if (newVal) {
+    // 弹框显示时，记录已显示状态
+    try {
+      await window.electronStore?.set('home.sponsorDialogShown', true)
+      // 清理定时器（如果存在）
+      if (sponsorDialogTimer) {
+        clearTimeout(sponsorDialogTimer)
+        sponsorDialogTimer = null
+      }
+    } catch (error) {
+      console.error('记录赞助弹框显示状态失败:', error)
+    }
+  }
 })
 
 // 选择目录
