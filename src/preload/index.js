@@ -212,7 +212,42 @@ if (process.contextIsolated) {
       // 添加禁词
       addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
       // 删除禁词
-      removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word)
+      removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word),
+
+      // --------- 自动更新相关 ---------
+      // 手动检查更新
+      checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+      // 下载更新
+      downloadUpdate: () => ipcRenderer.invoke('download-update'),
+      // 安装更新并重启
+      quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+      // 获取当前版本
+      getAppVersion: () => ipcRenderer.invoke('get-app-version')
+    })
+
+    // 监听更新事件
+    ipcRenderer.on('update-checking', () => {
+      window.dispatchEvent(new CustomEvent('update-checking'))
+    })
+
+    ipcRenderer.on('update-available', (_, info) => {
+      window.dispatchEvent(new CustomEvent('update-available', { detail: info }))
+    })
+
+    ipcRenderer.on('update-not-available', () => {
+      window.dispatchEvent(new CustomEvent('update-not-available'))
+    })
+
+    ipcRenderer.on('update-error', (_, error) => {
+      window.dispatchEvent(new CustomEvent('update-error', { detail: error }))
+    })
+
+    ipcRenderer.on('update-download-progress', (_, progress) => {
+      window.dispatchEvent(new CustomEvent('update-download-progress', { detail: progress }))
+    })
+
+    ipcRenderer.on('update-downloaded', (_, info) => {
+      window.dispatchEvent(new CustomEvent('update-downloaded', { detail: info }))
     })
     contextBridge.exposeInMainWorld('api', api)
     // 存储

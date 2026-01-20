@@ -34,6 +34,10 @@
           <i class="el-icon-lock"></i>
           书架密码
         </div>
+        <div class="menu-item" @click="handleCheckUpdate">
+          <i class="el-icon-refresh"></i>
+          检查更新
+        </div>
       </div>
     </div>
 
@@ -114,6 +118,65 @@
 
     <!-- 书架密码设置组件 -->
     <BookshelfPasswordSettings v-model="showPasswordDialog" />
+
+    <!-- 更新提示弹框 -->
+    <el-dialog
+      v-model="showUpdateDialog"
+      :title="updateDialogTitle"
+      width="500px"
+      :close-on-click-modal="false"
+      align-center
+    >
+      <div class="update-dialog-content">
+        <div v-if="updateInfo">
+          <p class="update-text">
+            <strong>新版本：{{ updateInfo.version }}</strong>
+          </p>
+          <p v-if="updateInfo.releaseDate" class="update-text">
+            发布日期：{{ formatDate(updateInfo.releaseDate) }}
+          </p>
+          <div v-if="updateInfo.releaseNotes" class="update-notes">
+            <p><strong>更新内容：</strong></p>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+          <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
+          </div>
+        </div>
+        <div v-if="isDownloading" class="download-progress">
+          <el-progress
+            :percentage="downloadProgress"
+            :status="downloadProgress === 100 ? 'success' : ''"
+          />
+          <p class="progress-text">正在下载更新... {{ Math.round(downloadProgress) }}%</p>
+        </div>
+        <div v-if="isDownloaded" class="download-complete">
+          <el-alert type="success" :closable="false">
+            <template #title>
+              <span>更新已下载完成，点击"立即安装"重启应用以完成更新</span>
+            </template>
+          </el-alert>
+        </div>
+      </div>
+      <template #footer>
+        <el-button v-if="!isDownloading && !isDownloaded" @click="showUpdateDialog = false">
+          稍后提醒
+        </el-button>
+        <el-button
+          v-if="!isDownloading && !isDownloaded"
+          type="primary"
+          @click="handleDownloadUpdate"
+        >
+          下载更新
+        </el-button>
+        <el-button
+          v-if="isDownloaded"
+          type="primary"
+          :loading="isInstalling"
+          @click="handleInstallUpdate"
+        >
+          立即安装
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -123,7 +186,7 @@ import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
 import { useThemeStore } from '@renderer/stores/theme'
-import { ElDialog, ElMessage } from 'element-plus'
+import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 
 const router = useRouter()
 const showDirDialog = ref(false)
@@ -136,6 +199,16 @@ const themeStore = useThemeStore()
 const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
 const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
+
+// 更新相关状态
+const showUpdateDialog = ref(false)
+const updateInfo = ref(null)
+const isDownloading = ref(false)
+const isDownloaded = ref(false)
+const isInstalling = ref(false)
+const downloadProgress = ref(0)
+const currentVersion = ref('')
+const updateDialogTitle = ref('检查更新')
 
 // 定时器 ID
 let sponsorDialogTimer = null
@@ -152,6 +225,10 @@ onMounted(async () => {
   await themeStore.initTheme()
   // 检查是否需要自动显示赞助弹框
   await checkAutoShowSponsorDialog()
+  // 获取当前版本
+  await getCurrentVersion()
+  // 监听更新事件
+  setupUpdateListeners()
 })
 
 // 清理定时器
@@ -348,6 +425,146 @@ const handleThemeChange = (theme) => {
 const goToUserGuide = () => {
   router.push('/user-guide')
 }
+
+// 获取当前版本
+async function getCurrentVersion() {
+  try {
+    const result = await window.electron?.getAppVersion()
+    if (result?.version) {
+      currentVersion.value = result.version
+    }
+  } catch (error) {
+    console.error('获取当前版本失败:', error)
+  }
+}
+
+// 设置更新事件监听
+function setupUpdateListeners() {
+  // 正在检查更新
+  window.addEventListener('update-checking', () => {
+    updateDialogTitle.value = '正在检查更新...'
+    showUpdateDialog.value = true
+  })
+
+  // 发现新版本
+  window.addEventListener('update-available', (event) => {
+    updateInfo.value = event.detail
+    updateDialogTitle.value = '发现新版本'
+    isDownloading.value = false
+    isDownloaded.value = false
+    downloadProgress.value = 0
+    showUpdateDialog.value = true
+  })
+
+  // 当前已是最新版本
+  window.addEventListener('update-not-available', () => {
+    ElMessage.success('当前已是最新版本')
+    if (showUpdateDialog.value) {
+      showUpdateDialog.value = false
+    }
+  })
+
+  // 更新检查出错
+  window.addEventListener('update-error', (event) => {
+    ElMessage.error(`更新检查失败: ${event.detail.message}`)
+    if (showUpdateDialog.value) {
+      showUpdateDialog.value = false
+    }
+  })
+
+  // 下载进度
+  window.addEventListener('update-download-progress', (event) => {
+    isDownloading.value = true
+    downloadProgress.value = event.detail.percent || 0
+  })
+
+  // 下载完成
+  window.addEventListener('update-downloaded', () => {
+    isDownloading.value = false
+    isDownloaded.value = true
+    downloadProgress.value = 100
+    ElMessage.success('更新下载完成')
+  })
+}
+
+// 手动检查更新
+async function handleCheckUpdate() {
+  try {
+    updateDialogTitle.value = '正在检查更新...'
+    showUpdateDialog.value = true
+    const result = await window.electron?.checkForUpdate()
+    if (!result?.success) {
+      ElMessage.warning(result?.message || '检查更新失败')
+      showUpdateDialog.value = false
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+    ElMessage.error('检查更新失败')
+    showUpdateDialog.value = false
+  }
+}
+
+// 下载更新
+async function handleDownloadUpdate() {
+  try {
+    isDownloading.value = true
+    downloadProgress.value = 0
+    const result = await window.electron?.downloadUpdate()
+    if (!result?.success) {
+      ElMessage.error(result?.message || '下载更新失败')
+      isDownloading.value = false
+    }
+  } catch (error) {
+    console.error('下载更新失败:', error)
+    ElMessage.error('下载更新失败')
+    isDownloading.value = false
+  }
+}
+
+// 安装更新
+async function handleInstallUpdate() {
+  try {
+    isInstalling.value = true
+    const result = await window.electron?.quitAndInstall()
+    if (!result?.success) {
+      ElMessage.error(result?.message || '安装更新失败')
+      isInstalling.value = false
+    }
+  } catch (error) {
+    console.error('安装更新失败:', error)
+    ElMessage.error('安装更新失败')
+    isInstalling.value = false
+  }
+}
+
+// 格式化日期
+function formatDate(dateString) {
+  if (!dateString) return ''
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  } catch {
+    return dateString
+  }
+}
+
+// 格式化更新日志
+function formatReleaseNotes(notes) {
+  if (!notes) return ''
+  // 将换行符转换为 <br>
+  if (typeof notes === 'string') {
+    return notes.replace(/\n/g, '<br>')
+  }
+  // 如果是数组，转换为HTML列表
+  if (Array.isArray(notes)) {
+    return notes.map((note) => `<li>${note}</li>`).join('')
+  }
+  return String(notes)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -498,5 +715,54 @@ const goToUserGuide = () => {
   align-items: center;
   margin-right: 0;
   height: 32px;
+}
+
+.update-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.update-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-base);
+  line-height: 1.6;
+}
+
+.update-notes {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: var(--bg-mute);
+  border-radius: 6px;
+
+  p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: var(--text-base);
+  }
+}
+
+.release-notes {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.download-progress {
+  margin-top: 12px;
+
+  .progress-text {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+}
+
+.download-complete {
+  margin-top: 12px;
 }
 </style>

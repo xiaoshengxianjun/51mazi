@@ -5,6 +5,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
 import dayjs from 'dayjs'
+import pkg from 'electron-updater'
+const { autoUpdater } = pkg
 
 // macOS 图标获取函数
 // 注意：nativeImage 只支持 PNG 和 JPEG 格式，不支持 .icns
@@ -81,12 +83,81 @@ ipcMain.handle('store:delete', async (_, key) => {
 // 维护已打开书籍编辑窗口的映射
 const bookEditorWindows = new Map()
 
+// 维护主窗口引用（用于发送更新消息）
+let mainWindow = null
+
+// 配置自动更新
+autoUpdater.autoDownload = false // 不自动下载，等待用户确认
+autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装更新
+
+// 设置更新事件处理器
+function setupUpdaterEvents() {
+  // 开发环境不检查更新
+  if (is.dev) {
+    return
+  }
+
+  // 检查更新事件
+  autoUpdater.on('checking-for-update', () => {
+    console.log('正在检查更新...')
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-checking')
+    }
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('发现新版本:', info.version)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseDate: info.releaseDate,
+        releaseNotes: info.releaseNotes
+      })
+    }
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('当前已是最新版本')
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-not-available')
+    }
+  })
+
+  autoUpdater.on('error', (error) => {
+    console.error('更新检查出错:', error)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-error', {
+        message: error.message || '检查更新时发生错误'
+      })
+    }
+  })
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-download-progress', {
+        percent: progressObj.percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total
+      })
+    }
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('更新下载完成:', info.version)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version
+      })
+    }
+  })
+}
+
 function createWindow() {
   // 获取 macOS 图标
   const macIcon = getMacIcon()
 
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     title: '51码字',
     width: 1100,
     height: 800,
@@ -153,6 +224,29 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+
+  // 在窗口创建后设置更新事件监听器
+  setupUpdaterEvents()
+
+  // 应用启动后延迟检查更新（仅生产环境）
+  if (!is.dev) {
+    // 延迟5秒后检查更新，避免影响应用启动速度
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((error) => {
+        console.error('自动检查更新失败:', error)
+      })
+    }, 5000)
+
+    // 设置定时检查更新（每4小时检查一次）
+    setInterval(
+      () => {
+        autoUpdater.checkForUpdates().catch((error) => {
+          console.error('定时检查更新失败:', error)
+        })
+      },
+      4 * 60 * 60 * 1000
+    )
+  }
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -2384,4 +2478,53 @@ ipcMain.handle('remove-banned-word', async (event, bookName, word) => {
     console.error('删除禁词失败:', error)
     return { success: false, message: error.message }
   }
+})
+
+// --------- 自动更新相关 ---------
+
+// 手动检查更新
+ipcMain.handle('check-for-update', async () => {
+  if (is.dev) {
+    return { success: false, message: '开发环境不支持更新检查' }
+  }
+  try {
+    await autoUpdater.checkForUpdates()
+    return { success: true }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+    return { success: false, message: error.message || '检查更新失败' }
+  }
+})
+
+// 下载更新
+ipcMain.handle('download-update', async () => {
+  if (is.dev) {
+    return { success: false, message: '开发环境不支持更新下载' }
+  }
+  try {
+    await autoUpdater.downloadUpdate()
+    return { success: true }
+  } catch (error) {
+    console.error('下载更新失败:', error)
+    return { success: false, message: error.message || '下载更新失败' }
+  }
+})
+
+// 安装更新并重启应用
+ipcMain.handle('quit-and-install', async () => {
+  if (is.dev) {
+    return { success: false, message: '开发环境不支持更新安装' }
+  }
+  try {
+    autoUpdater.quitAndInstall(false, true)
+    return { success: true }
+  } catch (error) {
+    console.error('安装更新失败:', error)
+    return { success: false, message: error.message || '安装更新失败' }
+  }
+})
+
+// 获取当前版本
+ipcMain.handle('get-app-version', async () => {
+  return { version: app.getVersion() }
 })
