@@ -177,6 +177,13 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 感谢gif图片遮罩层 -->
+    <Transition name="fade">
+      <div v-if="showRewardGif" class="reward-gif-overlay" @click="showRewardGif = false">
+        <img :src="xiezhulongenGif" alt="谢主隆恩" class="reward-gif-image" />
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -195,9 +202,11 @@ const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
+const showRewardGif = ref(false)
 const themeStore = useThemeStore()
 const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
 const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
+const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
 // 更新相关状态
@@ -356,6 +365,13 @@ async function handleConsiderClick() {
 async function handleRewardClick() {
   try {
     showSponsorDialog.value = false
+
+    // 显示感谢gif图片
+    showRewardGif.value = true
+    // 3秒后自动隐藏
+    setTimeout(() => {
+      showRewardGif.value = false
+    }, 3000)
 
     // 记录关闭时间和操作
     const now = Date.now()
@@ -764,5 +780,37 @@ function formatReleaseNotes(notes) {
 
 .download-complete {
   margin-top: 12px;
+}
+
+.reward-gif-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  cursor: pointer;
+}
+
+.reward-gif-image {
+  max-width: 500px;
+  max-height: 500px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+// 淡入淡出动画
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
