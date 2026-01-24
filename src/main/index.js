@@ -346,6 +346,7 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   }
 
   // 3. 写入 mazi.json（移除临时字段 coverImagePath）
+  // eslint-disable-next-line no-unused-vars
   const { coverImagePath, ...bookData } = bookInfo
   const meta = {
     ...bookData,
@@ -524,6 +525,7 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
       const newMetaPath = join(newBookPath, 'mazi.json')
 
       // 合并新旧数据，保留原有数据，移除临时字段
+      // eslint-disable-next-line no-unused-vars
       const { coverImagePath, ...bookData } = bookInfo
       const mergedMeta = {
         ...existingMeta,
@@ -534,6 +536,7 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
       fs.writeFileSync(newMetaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     } else {
       // 书名未变化，直接更新元数据
+      // eslint-disable-next-line no-unused-vars
       const { coverImagePath, ...bookData } = bookInfo
       const mergedMeta = {
         ...existingMeta,
