@@ -110,8 +110,21 @@ async function loadCoverImage() {
   try {
     const booksDir = await window.electronStore.get('booksDir')
     const coverPath = `${booksDir}/${props.bookName}/${props.coverUrl}`
-    // 检查文件是否存在（通过尝试加载）
-    coverImageUrl.value = `file://${coverPath}`
+    // 添加时间戳参数避免浏览器缓存
+    // 使用 updatedAt 的时间戳，确保书籍更新时图片也会刷新
+    // 如果 updatedAt 不可用，使用当前时间戳
+    let timestamp = Date.now()
+    if (props.updatedAt && props.updatedAt !== '暂无更新') {
+      try {
+        const date = new Date(props.updatedAt)
+        if (!isNaN(date.getTime())) {
+          timestamp = date.getTime()
+        }
+      } catch (e) {
+        // 如果解析失败，使用当前时间戳
+      }
+    }
+    coverImageUrl.value = `file://${coverPath}?t=${timestamp}`
   } catch (error) {
     console.error('加载封面图片失败:', error)
     coverImageUrl.value = ''
@@ -122,9 +135,10 @@ onMounted(() => {
   loadCoverImage()
 })
 
-// 监听封面URL和书名变化
+// 监听封面URL、书名和更新时间变化
+// 当 updatedAt 变化时也会重新加载图片，确保封面图片更新后能正确显示
 watch(
-  () => [props.coverUrl, props.bookName],
+  () => [props.coverUrl, props.bookName, props.updatedAt],
   () => {
     loadCoverImage()
   },

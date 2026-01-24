@@ -29,102 +29,112 @@
       </el-dropdown> -->
     </div>
 
-    <!-- 新建/编辑书籍弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑书籍' : '新建书籍'" width="500px">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item prop="name" label="书名">
-          <el-input
-            v-model="form.name"
-            placeholder="请输入书籍名称（最多15个字符）"
-            maxlength="15"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item prop="type" label="类型">
-          <el-select v-model="form.type" placeholder="请选择类型">
-            <el-option
-              v-for="item in BOOK_TYPES"
-              :key="item.value + item.label"
-              :label="item.label"
-              :value="item.value"
+    <!-- 新建/编辑书籍抽屉 -->
+    <el-drawer
+      v-model="dialogVisible"
+      :title="isEdit ? '编辑书籍' : '新建书籍'"
+      size="600px"
+      direction="rtl"
+      class="book-drawer"
+    >
+      <div class="drawer-content">
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="80px" class="drawer-form">
+          <el-form-item prop="name" label="书名">
+            <el-input
+              v-model="form.name"
+              placeholder="请输入书籍名称（最多15个字符）"
+              maxlength="15"
+              show-word-limit
             />
-          </el-select>
-        </el-form-item>
-        <el-form-item prop="targetCount" label="目标字数">
-          <el-input
-            v-model="form.targetCount"
-            placeholder="请输入目标字数"
-            type="number"
-            :min="10000"
-            :max="10000000"
-            :step="10000"
-          />
-        </el-form-item>
-        <el-form-item prop="intro" label="简介">
-          <el-input v-model="form.intro" type="textarea" :rows="5" placeholder="请输入简介" />
-        </el-form-item>
-        <el-form-item prop="password" label="密码">
-          <el-input
-            v-model="form.password"
-            type="password"
-            placeholder="请输入4-8位数字或字母组合（可选）"
-            maxlength="8"
-            show-password
-          />
-        </el-form-item>
-        <el-form-item prop="confirmPassword" label="确认密码">
-          <el-input
-            v-model="form.confirmPassword"
-            type="password"
-            placeholder="请再次输入密码"
-            maxlength="8"
-            show-password
-          />
-        </el-form-item>
-        <el-form-item label="封面颜色">
-          <div class="cover-color-selector">
-            <div class="preset-colors">
-              <div
-                v-for="color in presetColors"
-                :key="color.value"
-                class="color-item"
-                :class="{ active: form.coverColor === color.value }"
-                :style="{ backgroundColor: color.value }"
-                :title="color.label"
-                @click="form.coverColor = color.value"
+          </el-form-item>
+          <el-form-item prop="type" label="类型">
+            <el-select v-model="form.type" placeholder="请选择类型">
+              <el-option
+                v-for="item in BOOK_TYPES"
+                :key="item.value + item.label"
+                :label="item.label"
+                :value="item.value"
               />
+            </el-select>
+          </el-form-item>
+          <el-form-item prop="targetCount" label="目标字数">
+            <el-input
+              v-model="form.targetCount"
+              placeholder="请输入目标字数"
+              type="number"
+              :min="10000"
+              :max="10000000"
+              :step="10000"
+            />
+          </el-form-item>
+          <el-form-item prop="intro" label="简介">
+            <el-input v-model="form.intro" type="textarea" :rows="5" placeholder="请输入简介" />
+          </el-form-item>
+          <el-form-item prop="password" label="密码">
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="请输入4-8位数字或字母组合（可选）"
+              maxlength="8"
+              show-password
+            />
+          </el-form-item>
+          <el-form-item prop="confirmPassword" label="确认密码">
+            <el-input
+              v-model="form.confirmPassword"
+              type="password"
+              placeholder="请再次输入密码"
+              maxlength="8"
+              show-password
+            />
+          </el-form-item>
+          <el-form-item label="封面颜色">
+            <div class="cover-color-selector">
+              <div class="preset-colors">
+                <div
+                  v-for="color in presetColors"
+                  :key="color.value"
+                  class="color-item"
+                  :class="{ active: form.coverColor === color.value }"
+                  :style="{ backgroundColor: color.value }"
+                  :title="color.label"
+                  @click="form.coverColor = color.value"
+                />
+              </div>
+              <el-color-picker v-model="form.coverColor" />
             </div>
-            <el-color-picker v-model="form.coverColor" />
-          </div>
-        </el-form-item>
-        <el-form-item label="封面图片">
-          <div class="cover-image-selector">
-            <div v-if="form.coverImagePreview" class="cover-preview">
-              <img :src="form.coverImagePreview" alt="封面预览" />
-              <el-button
-                type="danger"
-                size="small"
-                circle
-                class="remove-btn"
-                @click="handleRemoveCoverImage"
-              >
-                <el-icon><Delete /></el-icon>
+          </el-form-item>
+          <el-form-item label="封面图片">
+            <div class="cover-image-selector">
+              <div v-if="form.coverImagePreview" class="cover-preview">
+                <img :src="form.coverImagePreview" alt="封面预览" />
+                <el-button
+                  type="danger"
+                  size="small"
+                  circle
+                  class="remove-btn"
+                  @click="handleRemoveCoverImage"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
+              <el-button v-else type="primary" :icon="Plus" @click="handleSelectCoverImage">
+                选择封面图片
               </el-button>
+              <div v-if="form.coverImagePath" class="cover-path">
+                {{ form.coverImagePath }}
+              </div>
             </div>
-            <el-button v-else type="primary" :icon="Plus" @click="handleSelectCoverImage">
-              选择封面图片
-            </el-button>
-            <div v-if="form.coverImagePath" class="cover-path">
-              {{ form.coverImagePath }}
-            </div>
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleConfirm">{{ isEdit ? '保存' : '创建' }}</el-button>
-      </template>
-    </el-dialog>
+          </el-form-item>
+        </el-form>
+        <div class="drawer-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleConfirm">
+            {{ isEdit ? '保存' : '创建' }}
+          </el-button>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- 密码验证弹框 -->
     <el-dialog v-model="passwordDialogVisible" title="密码验证" width="400px">
@@ -589,6 +599,48 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+// 抽屉组件样式
+:deep(.book-drawer) {
+  .el-drawer__header {
+    margin-bottom: 16px;
+  }
+  .el-drawer__body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+// 抽屉内容区域
+.drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+// 抽屉表单区域（可滚动）
+.drawer-form {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  padding-bottom: 0;
+}
+
+// 抽屉底部按钮区域（固定在底部）
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #ebeef5;
+  background: #fff;
+  flex-shrink: 0; // 防止被压缩
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05); // 添加阴影，增强固定效果
+}
+
 // 封面颜色选择器样式
 .cover-color-selector {
   display: flex;
@@ -623,20 +675,28 @@ onBeforeUnmount(() => {
   gap: 8px;
   .cover-preview {
     position: relative;
-    width: 200px;
-    height: 120px;
+    width: 100%;
+    max-width: 400px;
+    height: 200px;
     border: 1px solid #dcdfe6;
     border-radius: 4px;
     overflow: hidden;
+    background: #f5f7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain; // 完整显示图片，不裁剪
     }
     .remove-btn {
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
     }
   }
   .cover-path {

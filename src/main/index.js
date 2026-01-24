@@ -525,12 +525,22 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
 
       // 合并新旧数据，保留原有数据，移除临时字段
       const { coverImagePath, ...bookData } = bookInfo
-      const mergedMeta = { ...existingMeta, ...bookData, coverUrl }
+      const mergedMeta = {
+        ...existingMeta,
+        ...bookData,
+        coverUrl,
+        updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss') // 更新修改时间
+      }
       fs.writeFileSync(newMetaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     } else {
       // 书名未变化，直接更新元数据
       const { coverImagePath, ...bookData } = bookInfo
-      const mergedMeta = { ...existingMeta, ...bookData, coverUrl }
+      const mergedMeta = {
+        ...existingMeta,
+        ...bookData,
+        coverUrl,
+        updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss') // 更新修改时间
+      }
       fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     }
 
