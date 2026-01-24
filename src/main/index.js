@@ -328,9 +328,28 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
   if (!fs.existsSync(bookPath)) {
     fs.mkdirSync(bookPath)
   }
-  // 2. 写入 mazi.json
+
+  // 2. 处理封面图片（如果有）
+  let coverUrl = bookInfo.coverUrl || null
+  if (bookInfo.coverImagePath && fs.existsSync(bookInfo.coverImagePath)) {
+    try {
+      // 获取文件扩展名
+      const ext = bookInfo.coverImagePath.split('.').pop()?.toLowerCase() || 'jpg'
+      const coverFileName = `cover.${ext}`
+      const coverPath = join(bookPath, coverFileName)
+      // 复制图片文件
+      fs.copyFileSync(bookInfo.coverImagePath, coverPath)
+      coverUrl = coverFileName
+    } catch (error) {
+      console.error('复制封面图片失败:', error)
+    }
+  }
+
+  // 3. 写入 mazi.json（移除临时字段 coverImagePath）
+  const { coverImagePath, ...bookData } = bookInfo
   const meta = {
-    ...bookInfo,
+    ...bookData,
+    coverUrl,
     createdAt: dayjs().format('YYYY/MM/DD HH:mm:ss'),
     updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss')
   }
@@ -445,7 +464,7 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
 
     // 如果传入了原始名称，使用原始名称定位文件夹
     const originalName = bookInfo.originalName || bookInfo.name
-    const bookPath = join(booksDir, originalName)
+    let bookPath = join(booksDir, originalName)
 
     if (!fs.existsSync(bookPath)) {
       return { success: false, message: '书籍不存在' }
@@ -455,6 +474,38 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
 
     // 读取现有元数据
     const existingMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+
+    // 处理封面图片（如果有新的封面图片）
+    let coverUrl = bookInfo.coverUrl || existingMeta.coverUrl || null
+    if (bookInfo.coverImagePath && fs.existsSync(bookInfo.coverImagePath)) {
+      try {
+        // 删除旧的封面图片（如果存在）
+        if (existingMeta.coverUrl) {
+          const oldCoverPath = join(bookPath, existingMeta.coverUrl)
+          if (fs.existsSync(oldCoverPath)) {
+            fs.unlinkSync(oldCoverPath)
+          }
+        }
+        // 获取文件扩展名
+        const ext = bookInfo.coverImagePath.split('.').pop()?.toLowerCase() || 'jpg'
+        const coverFileName = `cover.${ext}`
+        const coverPath = join(bookPath, coverFileName)
+        // 复制图片文件
+        fs.copyFileSync(bookInfo.coverImagePath, coverPath)
+        coverUrl = coverFileName
+      } catch (error) {
+        console.error('复制封面图片失败:', error)
+      }
+    } else if (bookInfo.coverUrl === null || bookInfo.coverUrl === '') {
+      // 如果明确设置为空，删除封面图片
+      if (existingMeta.coverUrl) {
+        const oldCoverPath = join(bookPath, existingMeta.coverUrl)
+        if (fs.existsSync(oldCoverPath)) {
+          fs.unlinkSync(oldCoverPath)
+        }
+      }
+      coverUrl = null
+    }
 
     // 如果书名发生变化，需要重命名文件夹
     if (bookInfo.name !== originalName) {
@@ -467,16 +518,19 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
 
       // 重命名文件夹
       fs.renameSync(bookPath, newBookPath)
+      bookPath = newBookPath
 
       // 更新元数据路径
       const newMetaPath = join(newBookPath, 'mazi.json')
 
-      // 合并新旧数据，保留原有数据
-      const mergedMeta = { ...existingMeta, ...bookInfo }
+      // 合并新旧数据，保留原有数据，移除临时字段
+      const { coverImagePath, ...bookData } = bookInfo
+      const mergedMeta = { ...existingMeta, ...bookData, coverUrl }
       fs.writeFileSync(newMetaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     } else {
       // 书名未变化，直接更新元数据
-      const mergedMeta = { ...existingMeta, ...bookInfo }
+      const { coverImagePath, ...bookData } = bookInfo
+      const mergedMeta = { ...existingMeta, ...bookData, coverUrl }
       fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     }
 

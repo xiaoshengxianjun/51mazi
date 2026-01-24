@@ -81,6 +81,44 @@
             show-password
           />
         </el-form-item>
+        <el-form-item label="封面颜色">
+          <div class="cover-color-selector">
+            <div class="preset-colors">
+              <div
+                v-for="color in presetColors"
+                :key="color.value"
+                class="color-item"
+                :class="{ active: form.coverColor === color.value }"
+                :style="{ backgroundColor: color.value }"
+                :title="color.label"
+                @click="form.coverColor = color.value"
+              />
+            </div>
+            <el-color-picker v-model="form.coverColor" />
+          </div>
+        </el-form-item>
+        <el-form-item label="封面图片">
+          <div class="cover-image-selector">
+            <div v-if="form.coverImagePreview" class="cover-preview">
+              <img :src="form.coverImagePreview" alt="封面预览" />
+              <el-button
+                type="danger"
+                size="small"
+                circle
+                class="remove-btn"
+                @click="handleRemoveCoverImage"
+              >
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+            <el-button v-else type="primary" :icon="Plus" @click="handleSelectCoverImage">
+              选择封面图片
+            </el-button>
+            <div v-if="form.coverImagePath" class="cover-path">
+              {{ form.coverImagePath }}
+            </div>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -127,6 +165,8 @@
         :total-words="book.totalWords"
         :updated-at="book.updatedAt"
         :cover-url="book.coverUrl"
+        :cover-color="book.coverColor"
+        :book-name="book.name"
         @on-open="onOpen(book)"
         @on-edit="onEdit(book)"
         @on-delete="onDelete(book)"
@@ -142,7 +182,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
 import WordCountChart from './WordCountChart.vue'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh, Delete } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES } from '@renderer/constants/config'
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
@@ -164,8 +204,23 @@ const form = ref({
   intro: '',
   originalName: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  coverColor: '#22345c', // 默认封面颜色
+  coverImagePath: '', // 封面图片路径（用于保存）
+  coverImagePreview: '' // 封面图片预览（base64或本地路径）
 })
+
+// 预设封面颜色
+const presetColors = [
+  { label: '深蓝', value: '#22345c' },
+  { label: '深绿', value: '#2d4a3e' },
+  { label: '深红', value: '#4a2d2d' },
+  { label: '深紫', value: '#3d2d4a' },
+  { label: '深棕', value: '#4a3d2d' },
+  { label: '深灰', value: '#3d3d3d' },
+  { label: '墨绿', value: '#1e3a2e' },
+  { label: '藏青', value: '#1e2a3a' }
+]
 const rules = ref({
   name: [
     { required: true, message: '请输入书籍名称', trigger: 'blur' },
@@ -272,6 +327,16 @@ function executeEditBook(book) {
   form.value.intro = book.intro
   form.value.password = book.password || ''
   form.value.confirmPassword = book.password || ''
+  form.value.coverColor = book.coverColor || '#22345c'
+  // 编辑模式下，coverImagePath 应该为空（除非用户选择新图片）
+  // coverImagePreview 用于显示原有封面
+  form.value.coverImagePath = ''
+  // 如果有封面图片，需要加载预览
+  if (book.coverUrl) {
+    loadCoverImagePreview(book.name, book.coverUrl)
+  } else {
+    form.value.coverImagePreview = ''
+  }
   // 保存原始书名，用于定位文件夹
   form.value.originalName = book.name
 }
@@ -362,6 +427,26 @@ async function handleConfirm() {
       const randomId = isEdit.value
         ? editBookId.value
         : Date.now().toString() + Math.floor(Math.random() * 10000).toString()
+      // 处理封面URL：如果有新图片则使用新图片，否则在编辑模式下保留原封面
+      let coverUrl = null
+      if (form.value.coverImagePath) {
+        // 有新图片，使用新图片（主进程会根据扩展名生成文件名）
+        const ext = form.value.coverImagePath.split('.').pop()?.toLowerCase() || 'jpg'
+        coverUrl = `cover.${ext}`
+      } else if (isEdit.value) {
+        // 编辑模式且没有新图片
+        const currentBook = books.value.find((b) => b.id === editBookId.value)
+        if (currentBook && currentBook.coverUrl) {
+          // 如果还有预览（说明用户没有移除），保留原有封面
+          if (form.value.coverImagePreview) {
+            coverUrl = currentBook.coverUrl
+          } else {
+            // 用户移除了封面，设置为 null
+            coverUrl = null
+          }
+        }
+      }
+
       const bookData = {
         id: randomId,
         name: form.value.name,
@@ -369,7 +454,10 @@ async function handleConfirm() {
         typeName: BOOK_TYPES.find((item) => item.value === form.value.type)?.label,
         targetCount: form.value.targetCount,
         intro: form.value.intro,
-        password: form.value.password || null
+        password: form.value.password || null,
+        coverColor: form.value.coverColor || '#22345c',
+        coverUrl, // 封面URL（相对路径或null）
+        coverImagePath: form.value.coverImagePath // 临时字段，用于主进程复制文件
       }
       if (isEdit.value && editBookId.value) {
         // 编辑模式，调用 updateBook
@@ -406,7 +494,50 @@ function handleNewBook() {
   form.value.originalName = ''
   form.value.password = ''
   form.value.confirmPassword = ''
+  form.value.coverColor = '#22345c'
+  form.value.coverImagePath = ''
+  form.value.coverImagePreview = ''
   dialogVisible.value = true
+}
+
+// 选择封面图片
+async function handleSelectCoverImage() {
+  try {
+    const result = await window.electron.selectImage()
+    if (result && result.filePath) {
+      // 保存原始路径用于后续复制
+      form.value.coverImagePath = result.filePath
+      // 创建预览（使用 file:// 协议）
+      form.value.coverImagePreview = `file://${result.filePath}`
+    }
+  } catch (error) {
+    console.error('选择封面图片失败:', error)
+    ElMessage.error('选择图片失败')
+  }
+}
+
+// 移除封面图片
+function handleRemoveCoverImage() {
+  form.value.coverImagePath = ''
+  form.value.coverImagePreview = ''
+}
+
+// 加载封面图片预览（编辑时使用）
+async function loadCoverImagePreview(bookName, coverUrl) {
+  try {
+    // coverUrl 可能是相对路径（如 cover.jpg）或绝对路径
+    // 如果是相对路径，需要构建完整路径
+    if (coverUrl && !coverUrl.startsWith('file://') && !coverUrl.startsWith('http')) {
+      const booksDir = await window.electronStore.get('booksDir')
+      const coverPath = `${booksDir}/${bookName}/${coverUrl}`
+      form.value.coverImagePreview = `file://${coverPath}`
+    } else {
+      form.value.coverImagePreview = coverUrl
+    }
+  } catch (error) {
+    console.error('加载封面预览失败:', error)
+    form.value.coverImagePreview = ''
+  }
 }
 
 // 刷新图表数据
@@ -456,5 +587,62 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+// 封面颜色选择器样式
+.cover-color-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  .preset-colors {
+    display: flex;
+    gap: 8px;
+    .color-item {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      &:hover {
+        transform: scale(1.1);
+        border-color: #409eff;
+      }
+      &.active {
+        border-color: #409eff;
+        box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+      }
+    }
+  }
+}
+
+// 封面图片选择器样式
+.cover-image-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  .cover-preview {
+    position: relative;
+    width: 200px;
+    height: 120px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    overflow: hidden;
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+    }
+  }
+  .cover-path {
+    font-size: 12px;
+    color: #909399;
+    word-break: break-all;
+  }
 }
 </style>

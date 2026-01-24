@@ -1,21 +1,31 @@
 <template>
-  <div class="book" @click="emit('onOpen')" @contextmenu.prevent="showMenu($event)">
-    <div class="spine">
+  <div
+    class="book"
+    :class="{ 'has-cover-image': hasCoverImage }"
+    :style="{ backgroundColor: coverColor }"
+    @click="emit('onOpen')"
+    @contextmenu.prevent="showMenu($event)"
+  >
+    <!-- 书脊：只在没有封面图片时显示 -->
+    <div v-if="!hasCoverImage" class="spine">
       <div v-for="i in 4" :key="i" class="stitch"></div>
     </div>
-    <div class="cover-bg">
-      <div class="title-block">
+    <div class="cover-bg" :style="coverBgStyle">
+      <!-- 标题块：只在没有封面图片时显示 -->
+      <div v-if="!hasCoverImage" class="title-block">
         <div class="vertical-title" :style="{ fontSize: getTitleFontSize() + 'px' }">
           {{ name }}
         </div>
       </div>
-      <div class="cover-illustration">
+      <!-- 插画区域：只在没有封面图片时显示 -->
+      <div v-if="!hasCoverImage" class="cover-illustration">
         <slot name="cover-illustration">
           <!-- 可插入插画SVG或图片 -->
         </slot>
       </div>
     </div>
-    <div class="info">
+    <!-- 信息区域：有封面图片时默认隐藏，悬停时显示 -->
+    <div class="info" :class="{ 'show-on-hover': hasCoverImage }">
       <div class="type">{{ typeName }}</div>
       <div class="stats">
         <div class="word-count">字数：{{ totalWords }}</div>
@@ -42,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
@@ -60,12 +70,66 @@ const props = defineProps({
     type: String,
     default: '暂无更新'
   },
-  coverUrl: String
+  coverUrl: String,
+  coverColor: {
+    type: String,
+    default: '#22345c'
+  },
+  bookName: String // 用于构建封面图片路径
 })
 
 const menuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
+const coverImageUrl = ref('')
+
+// 判断是否有封面图片
+const hasCoverImage = computed(() => {
+  return !!coverImageUrl.value
+})
+
+// 封面背景样式
+const coverBgStyle = computed(() => {
+  if (coverImageUrl.value) {
+    return {
+      backgroundImage: `url(${coverImageUrl.value})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    }
+  }
+  return {}
+})
+
+// 加载封面图片
+async function loadCoverImage() {
+  if (!props.coverUrl || !props.bookName) {
+    coverImageUrl.value = ''
+    return
+  }
+  try {
+    const booksDir = await window.electronStore.get('booksDir')
+    const coverPath = `${booksDir}/${props.bookName}/${props.coverUrl}`
+    // 检查文件是否存在（通过尝试加载）
+    coverImageUrl.value = `file://${coverPath}`
+  } catch (error) {
+    console.error('加载封面图片失败:', error)
+    coverImageUrl.value = ''
+  }
+}
+
+onMounted(() => {
+  loadCoverImage()
+})
+
+// 监听封面URL和书名变化
+watch(
+  () => [props.coverUrl, props.bookName],
+  () => {
+    loadCoverImage()
+  },
+  { immediate: false }
+)
 
 // 格式化更新时间
 const formattedUpdatedAt = computed(() => {
@@ -123,10 +187,9 @@ onBeforeUnmount(() => {
   position: relative;
   width: 220px;
   height: 310px;
-  background: #22345c;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.15);
-  overflow: visible;
+  overflow: hidden; // 有封面图片时隐藏溢出
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -137,6 +200,15 @@ onBeforeUnmount(() => {
   cursor: pointer;
   &:hover {
     transform: scale(1.02);
+  }
+
+  // 有封面图片时的样式
+  &.has-cover-image {
+    overflow: hidden;
+    .cover-bg {
+      padding: 0; // 移除内边距，让图片占满整个区域
+      border-radius: 8px;
+    }
   }
 
   .spine {
@@ -172,6 +244,11 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     height: 100%;
     overflow: hidden;
+
+    // 有封面图片时，移除内边距，让图片占满
+    .has-cover-image & {
+      padding: 0;
+    }
   }
 
   .title-block {
@@ -227,6 +304,31 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+
+    // 有封面图片时，默认隐藏，悬停时显示
+    &.show-on-hover {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.85) 0%,
+        rgba(0, 0, 0, 0.7) 60%,
+        transparent 100%
+      );
+      opacity: 0;
+      transform: translateY(100%);
+      pointer-events: none;
+      z-index: 10; // 确保信息显示在图片上方
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+    }
+
     .type {
       font-size: 16px;
       color: #fff;
@@ -240,6 +342,15 @@ onBeforeUnmount(() => {
       font-size: 13px;
       color: #fff;
       font-family: 'STKaiti', 'KaiTi', serif;
+    }
+  }
+
+  // 悬停时显示信息
+  &.has-cover-image:hover {
+    .info.show-on-hover {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
     }
   }
 }
