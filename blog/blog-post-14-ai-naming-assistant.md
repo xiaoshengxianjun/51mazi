@@ -157,23 +157,49 @@ AI 生成的名字既富有创意，又符合文化背景：
 - 符合文化背景和命名习惯
 - 富有创意，朗朗上口
 
-**提示词示例：**
-```
-请生成24个中国人名，要求：
-- 性别：男
-- 名字长度：3个字
-- 要求名称有创意、符合文化背景、朗朗上口
+**核心代码示例：**
 
-请直接返回名称列表，每行一个名称，不要添加序号或其他说明。
-所有名字必须是纯中文。
+```javascript
+// src/main/services/deepseek.js
+async generateNames(options = {}) {
+  const { type = 'cn', surname = '', gender = '', count = 24 } = options
+  
+  let prompt = `请生成${count}个${typeMap[type]}，要求：\n`
+  
+  // 重要：所有名字必须使用中文
+  prompt += `- **重要：所有名字必须使用中文汉字，不能包含日文假名、英文字母或其他非中文字符**\n`
+  
+  if (type === 'jp') {
+    // 日本人名要求使用中文音译
+    prompt += `- 这是日本人名，但必须使用中文汉字音译（如：田中太郎、佐藤花子）\n`
+    prompt += `- 不能使用日文假名，必须全部使用中文汉字\n`
+  } else if (type === 'en') {
+    // 西方人名要求使用中文音译
+    prompt += `- 这是西方人名，但必须使用中文汉字音译（如：约翰·史密斯）\n`
+    prompt += `- 不能使用英文字母，必须全部使用中文汉字\n`
+  }
+  
+  prompt += `\n请直接返回名称列表，每行一个名称，不要添加序号或其他说明。`
+  
+  // 调用 AI API
+  const result = await this.chat({ messages, temperature: 0.9 })
+  
+  // 后处理：过滤非中文字符
+  names = names.filter((name) => {
+    const hasNonChinese = /[a-zA-Z\u3040-\u309F\u30A0-\u30FF]/.test(name)
+    return !hasNonChinese
+  })
+  
+  return names
+}
 ```
 
 ### 2. 后处理过滤
 
 即使 AI 返回了非中文名字，我们也会进行过滤：
 
-- 自动过滤日文假名
-- 自动过滤英文字母
+- 自动过滤日文假名（`\u3040-\u309F\u30A0-\u30FF`）
+- 自动过滤英文字母（`a-zA-Z`）
 - 确保返回的都是纯中文名字
 
 ### 3. 频率限制与成本控制
@@ -181,6 +207,31 @@ AI 生成的名字既富有创意，又符合文化背景：
 - 每分钟最多 10 次请求
 - 防止过度使用，控制成本
 - 友好的等待提示
+
+**前端防抖处理：**
+
+```javascript
+// src/renderer/src/components/RandomName.vue
+let generateTimer = null
+
+async function handleGenerateNames() {
+  // 如果正在生成，直接返回
+  if (generating.value) return
+  
+  // 清除之前的定时器
+  if (generateTimer) clearTimeout(generateTimer)
+  
+  // 防抖：300ms 内的重复点击会被忽略
+  generateTimer = setTimeout(async () => {
+    if (useAI.value) {
+      await generateNamesWithAIService()
+    } else {
+      generateNamesLocal()
+    }
+    generateTimer = null
+  }, 300)
+}
+```
 
 ## 🎨 用户体验优化
 
@@ -265,6 +316,21 @@ AI 不是要替代创作者的创造力，而是要**解放创作者的时间**�
 
 **51mazi** - 让 AI 成为你的创作助手，而不是替代你的创造力！
 
+### 📚 相关链接
+
+- **项目地址**: [GitHub - 51mazi](https://github.com/xiaoshengxianjun/51mazi)，给个 Star 哦~
+- **AI 起名功能代码**: [src/renderer/src/components/RandomName.vue](https://github.com/xiaoshengxianjun/51mazi/blob/main/src/renderer/src/components/RandomName.vue)
+- **DeepSeek 服务层**: [src/main/services/deepseek.js](https://github.com/xiaoshengxianjun/51mazi/blob/main/src/main/services/deepseek.js)
+- **DeepSeek 官方文档**: [DeepSeek API Documentation](https://platform.deepseek.com/api-docs/)
+
+### 🏷️ 标签
+
+`#AI起名` `#DeepSeek` `#智能创作` `#小说写作` `#AI辅助` `#提示词工程` `#Electron` `#Vue3` `#用户体验` `#创作效率`
+
 ---
+
+> 💡 **如果这篇文章对你有帮助，请给个 ⭐️ 支持一下！**
+>
+> 💡 **想深入了解实现细节？欢迎查看 GitHub 上对应的代码文件，每个模块都有详细的注释说明！**
 
 *本文基于 51mazi v0.1.8 版本，DeepSeek AI 随机起名功能*

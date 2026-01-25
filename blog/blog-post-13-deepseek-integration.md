@@ -74,6 +74,47 @@ DeepSeek 作为国内领先的大语言模型服务，具有以下优势：
 - 使用 Map 跟踪正在进行的请求，防止重复提交
 - 针对不同错误码提供友好的错误提示
 
+**核心代码示例：**
+
+```javascript
+// src/main/services/deepseek.js
+class DeepSeekService {
+  constructor() {
+    this.apiKey = null
+    // 请求频率限制：每分钟最多 10 次请求
+    this.rateLimit = {
+      maxRequests: 10,
+      windowMs: 60 * 1000,
+      requests: []
+    }
+    this.pendingRequests = new Map()
+  }
+
+  // 检查请求频率限制
+  checkRateLimit(requestId) {
+    const now = Date.now()
+    const { maxRequests, windowMs, requests } = this.rateLimit
+    
+    // 清理过期的请求记录
+    const validRequests = requests.filter((time) => now - time < windowMs)
+    this.rateLimit.requests = validRequests
+    
+    // 检查是否超过限制
+    if (validRequests.length >= maxRequests) {
+      const oldestRequest = validRequests[0]
+      const waitTime = Math.ceil((oldestRequest + windowMs - now) / 1000)
+      throw new Error(
+        `请求频率过高，请稍后再试。当前限制：每分钟 ${maxRequests} 次请求，还需等待约 ${waitTime} 秒`
+      )
+    }
+    
+    // 记录本次请求
+    this.rateLimit.requests.push(now)
+    this.pendingRequests.set(requestId, now)
+  }
+}
+```
+
 ### 2. IPC 通信设计
 
 通过 Electron 的 IPC 机制，在主进程和渲染进程之间建立安全的通信通道：
@@ -87,6 +128,28 @@ DeepSeek 作为国内领先的大语言模型服务，具有以下优势：
 **Preload 脚本：**
 - 通过 `contextBridge` 安全暴露 API
 - 渲染进程通过 `window.electron` 访问
+
+**核心代码示例：**
+
+```javascript
+// src/main/index.js - IPC 处理器
+ipcMain.handle('deepseek:generate-names', async (event, options) => {
+  try {
+    const names = await deepseekService.generateNames(options)
+    return { success: true, names }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+// src/preload/index.js - 安全暴露 API
+contextBridge.exposeInMainWorld('electron', {
+  deepseek: {
+    generateNames: (options) => 
+      ipcRenderer.invoke('deepseek:generate-names', options)
+  }
+})
+```
 
 ### 3. 前端集成
 
@@ -184,6 +247,36 @@ AI 功能失败时，应该有降级方案：
 **查看完整代码：**
 👉 [GitHub 仓库](https://github.com/xiaoshengxianjun/51mazi)
 
+**前端调用示例：**
+
+```javascript
+// src/renderer/src/components/RandomName.vue
+async function generateNamesWithAIService() {
+  generating.value = true
+  try {
+    const result = await generateNamesWithAI({
+      type: type.value,
+      surname: surname.value,
+      gender: gender.value,
+      count: 24
+    })
+    
+    if (result.success && result.names.length > 0) {
+      names.value = result.names
+      ElMessage.success(`AI 生成了 ${result.names.length} 个名字`)
+    } else {
+      // 降级到本地生成
+      generateNamesLocal()
+    }
+  } catch (error) {
+    ElMessage.error('AI 起名失败，使用本地生成')
+    generateNamesLocal()
+  } finally {
+    generating.value = false
+  }
+}
+```
+
 ## 🎉 总结
 
 通过本文的介绍，我们了解了在 Electron 应用中接入 DeepSeek AI 的完整方案：
@@ -207,6 +300,21 @@ AI 功能失败时，应该有降级方案：
 
 **51mazi** - 让小说创作更高效、更智能！
 
+### 📚 相关链接
+
+- **项目地址**: [GitHub - 51mazi](https://github.com/xiaoshengxianjun/51mazi)，给个 Star 哦~
+- **DeepSeek 官方文档**: [DeepSeek API Documentation](https://platform.deepseek.com/api-docs/)
+- **Electron 官方文档**: [Electron Documentation](https://www.electronjs.org/docs)
+- **Vue 3 官方文档**: [Vue 3 Documentation](https://vuejs.org/)
+
+### 🏷️ 标签
+
+`#DeepSeek` `#AI集成` `#Electron` `#Vue3` `#IPC通信` `#频率限制` `#API安全` `#桌面应用` `#前端开发` `#AI辅助`
+
 ---
+
+> 💡 **如果这篇文章对你有帮助，请给个 ⭐️ 支持一下！**
+>
+> 💡 **想深入了解实现细节？欢迎查看 GitHub 上对应的代码文件，每个模块都有详细的注释说明！**
 
 *本文基于 51mazi v0.1.8 版本，DeepSeek API 集成方案*
