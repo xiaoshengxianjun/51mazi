@@ -10,6 +10,14 @@ class DeepSeekService {
   constructor() {
     this.apiKey = null
     this.baseURL = DEEPSEEK_API_BASE
+    // 请求频率限制：每分钟最多 10 次请求
+    this.rateLimit = {
+      maxRequests: 10, // 最大请求数
+      windowMs: 60 * 1000, // 时间窗口（毫秒）
+      requests: [] // 请求时间戳数组
+    }
+    // 正在进行的请求（防止重复调用）
+    this.pendingRequests = new Map()
   }
 
   /**
@@ -41,6 +49,63 @@ class DeepSeekService {
   }
 
   /**
+   * 检查请求频率限制
+   * @param {string} requestId - 请求唯一标识
+   * @throws {Error} 如果超过频率限制
+   */
+  checkRateLimit(requestId) {
+    const now = Date.now()
+    const { maxRequests, windowMs, requests } = this.rateLimit
+
+    // 清理过期的请求记录
+    const validRequests = requests.filter((time) => now - time < windowMs)
+    this.rateLimit.requests = validRequests
+
+    // 检查是否超过限制
+    if (validRequests.length >= maxRequests) {
+      const oldestRequest = validRequests[0]
+      const waitTime = Math.ceil((oldestRequest + windowMs - now) / 1000)
+      throw new Error(
+        `请求频率过高，请稍后再试。当前限制：每分钟 ${maxRequests} 次请求，还需等待约 ${waitTime} 秒`
+      )
+    }
+
+    // 检查是否有相同请求正在进行
+    if (this.pendingRequests.has(requestId)) {
+      throw new Error('相同请求正在进行中，请勿重复提交')
+    }
+
+    // 记录本次请求
+    this.rateLimit.requests.push(now)
+    this.pendingRequests.set(requestId, now)
+  }
+
+  /**
+   * 清除请求记录
+   * @param {string} requestId - 请求唯一标识
+   */
+  clearRequest(requestId) {
+    this.pendingRequests.delete(requestId)
+  }
+
+  /**
+   * 生成请求唯一标识
+   * @param {Object} options - 请求选项
+   * @returns {string} 请求 ID
+   */
+  generateRequestId(options) {
+    // 基于请求内容生成唯一 ID，相同内容的请求会被识别为重复
+    const key = JSON.stringify({
+      model: options.model,
+      messages: options.messages?.map((m) => ({
+        role: m.role,
+        content: m.content?.substring(0, 50)
+      }))
+    })
+    return `req_${key.substring(0, 50)}_${Date.now()}`
+  }
+
+  /**
    * 调用 DeepSeek Chat API
    * @param {Object} options - 请求选项
    * @param {Array} options.messages - 消息数组
@@ -48,6 +113,7 @@ class DeepSeekService {
    * @param {number} options.temperature - 温度参数，0-2，默认 0.7
    * @param {number} options.max_tokens - 最大 token 数
    * @param {boolean} options.stream - 是否流式输出，默认 false
+   * @param {string} options.requestId - 请求唯一标识（可选，用于防重复）
    * @returns {Promise<Object>} API 响应
    */
   async chat(options = {}) {
@@ -55,15 +121,21 @@ class DeepSeekService {
       throw new Error('DeepSeek API Key 未设置，请在设置中配置')
     }
 
-    const {
-      messages = [],
-      model = DEFAULT_MODEL,
-      temperature = 0.7,
-      max_tokens = 2000,
-      stream = false
-    } = options
+    // 生成请求 ID
+    const requestId = options.requestId || this.generateRequestId(options)
+
+    // 检查频率限制（在 try 外，如果失败直接抛出，不记录为 pending）
+    this.checkRateLimit(requestId)
 
     try {
+      const {
+        messages = [],
+        model = DEFAULT_MODEL,
+        temperature = 0.7,
+        max_tokens = 2000,
+        stream = false
+      } = options
+
       const response = await fetch(`${this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -117,7 +189,15 @@ class DeepSeekService {
       }
     } catch (error) {
       console.error('DeepSeek API 调用失败:', error)
+      // 如果是频率限制错误，不清除 pendingRequests（允许稍后重试）
+      // 其他错误清除 pendingRequests
+      if (!error.message?.includes('请求频率过高') && !error.message?.includes('正在进行中')) {
+        this.clearRequest(requestId)
+      }
       throw error
+    } finally {
+      // 只有在请求成功时才清除（失败时已在 catch 中处理）
+      // 这里不做任何操作，避免重复清除
     }
   }
 
@@ -201,6 +281,9 @@ class DeepSeekService {
 
     let prompt = `请生成${count}个${typeMap[type] || '名称'}，要求：\n`
 
+    // 重要：所有名字必须使用中文，这是用于中文小说写作
+    prompt += `- **重要：所有名字必须使用中文汉字，不能包含日文假名、英文字母或其他非中文字符**\n`
+
     if (type === 'cn' || type === 'jp' || type === 'en') {
       if (surname) prompt += `- 姓氏：${surname}\n`
       if (gender) prompt += `- 性别：${gender}\n`
@@ -208,18 +291,30 @@ class DeepSeekService {
         prompt += `- 名字长度：${nameLength}个字\n`
         if (middleChar) prompt += `- 中间字：${middleChar}\n`
       }
-      prompt += `- 要求名称有创意、符合文化背景、朗朗上口\n`
+
+      if (type === 'jp') {
+        // 日本人名要求使用中文音译
+        prompt += `- 这是日本人名，但必须使用中文汉字音译（如：田中太郎、佐藤花子、铃木健一）\n`
+        prompt += `- 不能使用日文假名（如：たなか、さとう），必须全部使用中文汉字\n`
+      } else if (type === 'en') {
+        // 西方人名要求使用中文音译
+        prompt += `- 这是西方人名，但必须使用中文汉字音译（如：约翰·史密斯、玛丽·威廉姆斯、詹姆斯·布朗）\n`
+        prompt += `- 不能使用英文字母，必须全部使用中文汉字，姓氏和名字之间用中文顿号"·"分隔\n`
+      } else {
+        prompt += `- 要求名称有创意、符合文化背景、朗朗上口\n`
+      }
     } else {
       if (surname) prompt += `- 前缀或核心词：${surname}\n`
       prompt += `- 要求名称有创意、符合${typeMap[type]}的特点\n`
     }
 
-    prompt += `\n请直接返回名称列表，每行一个名称，不要添加序号或其他说明。`
+    prompt += `\n请直接返回名称列表，每行一个名称，不要添加序号或其他说明。所有名字必须是纯中文。`
 
     const messages = [
       {
         role: 'system',
-        content: '你是一个专业的起名助手，擅长生成各种类型的名称。'
+        content:
+          '你是一个专业的起名助手，擅长生成各种类型的名称。重要：你生成的所有名字必须使用中文汉字，不能包含任何日文假名、英文字母或其他非中文字符。这是用于中文小说写作，所有人物名都必须是纯中文。'
       },
       {
         role: 'user',
@@ -227,18 +322,29 @@ class DeepSeekService {
       }
     ]
 
+    // 为起名请求生成唯一 ID（基于参数）
+    const requestId = `generateNames_${type}_${surname}_${gender}_${Date.now()}`
     const result = await this.chat({
       messages,
       temperature: 0.9, // 提高创造性
-      max_tokens: 1000
+      max_tokens: 1000,
+      requestId
     })
 
     // 解析返回的名称列表
-    const names = result.content
+    let names = result.content
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line && !line.match(/^\d+[.、]/)) // 过滤序号
       .slice(0, count)
+
+    // 过滤掉包含非中文字符的名字（确保只返回纯中文名字）
+    names = names.filter((name) => {
+      // 检查是否包含日文假名、英文字母等非中文字符
+      // 允许：中文汉字、中文标点（如：·、-、'等）
+      const hasNonChinese = /[a-zA-Z\u3040-\u309F\u30A0-\u30FF]/.test(name)
+      return !hasNonChinese
+    })
 
     return names.length > 0 ? names : []
   }
@@ -248,6 +354,7 @@ class DeepSeekService {
    * @returns {Promise<{isValid: boolean, message?: string}>}
    */
   async validateApiKey() {
+    const requestId = `validateApiKey_${Date.now()}`
     try {
       if (!this.apiKey) {
         return { isValid: false, message: 'API Key 未设置' }
@@ -256,7 +363,8 @@ class DeepSeekService {
       // 发送一个简单的测试请求
       await this.chat({
         messages: [{ role: 'user', content: 'test' }],
-        max_tokens: 5
+        max_tokens: 5,
+        requestId
       })
       return { isValid: true }
     } catch (error) {

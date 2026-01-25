@@ -57,18 +57,19 @@
               </div>
             </el-form-item>
           </template>
-          <el-form-item>
-            <el-checkbox v-model="useAI">使用 AI 生成（需要配置 API Key）</el-checkbox>
-          </el-form-item>
         </el-form>
         <el-button
           type="primary"
           style="width: 100%"
           :loading="generating"
+          :disabled="generating"
           @click="handleGenerateNames"
         >
           {{ useAI ? 'AI 生成名字' : '生成名字' }}
         </el-button>
+        <el-checkbox v-model="useAI" :disabled="generating">
+          使用 AI 生成（需要配置 API Key）
+        </el-checkbox>
       </div>
       <!-- 右侧名字列表 -->
       <div class="name-list">
@@ -180,14 +181,31 @@ function randomSuffix() {
   customSuffix.value = suffixPool[Math.floor(Math.random() * suffixPool.length)]
 }
 
+// 防抖处理：避免快速点击
+let generateTimer = null
+
 async function handleGenerateNames() {
-  if (useAI.value) {
-    // 使用 AI 生成
-    await generateNamesWithAIService()
-  } else {
-    // 使用本地生成
-    generateNamesLocal()
+  // 如果正在生成，直接返回
+  if (generating.value) {
+    return
   }
+
+  // 清除之前的定时器
+  if (generateTimer) {
+    clearTimeout(generateTimer)
+  }
+
+  // 防抖：300ms 内的重复点击会被忽略
+  generateTimer = setTimeout(async () => {
+    if (useAI.value) {
+      // 使用 AI 生成
+      await generateNamesWithAIService()
+    } else {
+      // 使用本地生成
+      generateNamesLocal()
+    }
+    generateTimer = null
+  }, 300)
 }
 
 async function generateNamesWithAIService() {

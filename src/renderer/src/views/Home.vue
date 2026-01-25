@@ -34,13 +34,13 @@
           <i class="el-icon-lock"></i>
           书架密码
         </div>
-        <div class="menu-item" @click="handleCheckUpdate">
-          <i class="el-icon-refresh"></i>
-          检查更新
-        </div>
         <div class="menu-item" @click="handleOpenDeepSeekSettings">
           <i class="el-icon-setting"></i>
           AI 设置
+        </div>
+        <div class="menu-item" @click="handleCheckUpdate">
+          <i class="el-icon-refresh"></i>
+          检查更新
         </div>
       </div>
     </div>
