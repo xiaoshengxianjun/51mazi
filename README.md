@@ -360,7 +360,7 @@ npm run build:linux
 ### 📚 相关链接
 - **项目地址**: [GitHub - 51mazi](https://github.com/xiaoshengxianjun/51mazi)
 - **技术栈**: Electron + Vue 3 + TipTap + Element Plus + Pinia + DeepSeek AI
-- **关键词**: 桌面应用、富文本编辑、Canvas 绘图、关系图谱、小说写作、词条字典、禁词检测、人物高亮、AI 辅助、智能起名
+- **关键词**: 桌面应用、富文本编辑、Canvas 绘图、关系图谱、小说写作、词条字典、禁词检测、人物高亮、AI辅助、AI写作，智能起名
 
 ## 📞 联系与支持
 
@@ -378,7 +378,7 @@ npm run build:linux
 感谢每一位支持本项目的朋友！
 
 ## 🏷️ 标签
-`#Electron` `#Vue3` `#桌面应用` `#富文本编辑` `#Canvas绘图` `#关系图谱` `#小说写作` `#前端开发` `#词条字典` `#禁词检测` `#人物高亮` `#AI辅助` `#DeepSeek` `#智能起名`
+`#Electron` `#Vue3` `#桌面应用` `#富文本编辑` `#Canvas绘图` `#关系图谱` `#小说写作` `#前端开发` `#词条字典` `#禁词检测` `#人物高亮` `#AI辅助` `#AI写作` `#DeepSeek` `#智能起名`
 
 ---
 
