@@ -40,7 +40,7 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="handleClose" :disabled="validating || saving">取消</el-button>
+      <el-button :disabled="validating || saving" @click="handleClose">取消</el-button>
       <el-button :loading="validating" :disabled="validating || saving" @click="handleValidate">
         验证
       </el-button>
@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getDeepSeekApiKey,
