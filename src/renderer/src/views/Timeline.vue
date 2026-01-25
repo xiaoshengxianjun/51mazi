@@ -224,7 +224,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .timeline-main {
   flex: 1;
   width: 100%;
