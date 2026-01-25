@@ -57,8 +57,18 @@
               </div>
             </el-form-item>
           </template>
+          <el-form-item>
+            <el-checkbox v-model="useAI">使用 AI 生成（需要配置 API Key）</el-checkbox>
+          </el-form-item>
         </el-form>
-        <el-button type="primary" style="width: 100%" @click="generateNames">生成名字</el-button>
+        <el-button
+          type="primary"
+          style="width: 100%"
+          :loading="generating"
+          @click="handleGenerateNames"
+        >
+          {{ useAI ? 'AI 生成名字' : '生成名字' }}
+        </el-button>
       </div>
       <!-- 右侧名字列表 -->
       <div class="name-list">
@@ -94,6 +104,7 @@ import {
   ELIXIR_SUFFIXES,
   CORE_WORDS
 } from '../constants/config'
+import { generateNamesWithAI } from '@renderer/service/deepseek'
 
 const types = [
   { label: '中国人名', value: 'cn' },
@@ -113,6 +124,8 @@ const middleChar = ref('')
 const names = ref([])
 const visible = ref(false)
 const customSuffix = ref('')
+const useAI = ref(false)
+const generating = ref(false)
 
 function open() {
   visible.value = true
@@ -167,7 +180,45 @@ function randomSuffix() {
   customSuffix.value = suffixPool[Math.floor(Math.random() * suffixPool.length)]
 }
 
-function generateNames() {
+async function handleGenerateNames() {
+  if (useAI.value) {
+    // 使用 AI 生成
+    await generateNamesWithAIService()
+  } else {
+    // 使用本地生成
+    generateNamesLocal()
+  }
+}
+
+async function generateNamesWithAIService() {
+  generating.value = true
+  try {
+    const result = await generateNamesWithAI({
+      type: type.value,
+      surname: surname.value,
+      gender: gender.value,
+      nameLength: nameLength.value,
+      middleChar: middleChar.value,
+      count: 24
+    })
+
+    if (result.success && result.names.length > 0) {
+      names.value = result.names
+      ElMessage.success(`AI 生成了 ${result.names.length} 个名字`)
+    } else {
+      ElMessage.warning(result.message || 'AI 生成失败，使用本地生成')
+      generateNamesLocal() // 降级到本地生成
+    }
+  } catch (error) {
+    console.error('AI 起名失败:', error)
+    ElMessage.error('AI 起名失败，使用本地生成')
+    generateNamesLocal() // 降级到本地生成
+  } finally {
+    generating.value = false
+  }
+}
+
+function generateNamesLocal() {
   const result = []
   if (type.value === 'cn') {
     const chars = gender.value === '男' ? CHINESE_MALE_CHARS : CHINESE_FEMALE_CHARS

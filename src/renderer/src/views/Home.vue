@@ -38,6 +38,10 @@
           <i class="el-icon-refresh"></i>
           检查更新
         </div>
+        <div class="menu-item" @click="handleOpenDeepSeekSettings">
+          <i class="el-icon-setting"></i>
+          AI 设置
+        </div>
       </div>
     </div>
 
@@ -119,6 +123,9 @@
     <!-- 书架密码设置组件 -->
     <BookshelfPasswordSettings v-model="showPasswordDialog" />
 
+    <!-- DeepSeek AI 设置 -->
+    <DeepSeekSettings ref="deepSeekSettingsRef" />
+
     <!-- 更新提示弹框 -->
     <el-dialog
       v-model="showUpdateDialog"
@@ -138,7 +145,7 @@
           <div v-if="updateInfo.releaseNotes" class="update-notes">
             <p><strong>更新内容：</strong></p>
             <!-- eslint-disable-next-line vue/no-v-html -->
-          <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
+            <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
           </div>
         </div>
         <div v-if="isDownloading" class="download-progress">
@@ -192,6 +199,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
+import DeepSeekSettings from '@renderer/components/DeepSeekSettings.vue'
 import { useThemeStore } from '@renderer/stores/theme'
 import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 
@@ -202,8 +210,10 @@ const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
+const showDeepSeekDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
+const deepSeekSettingsRef = ref(null)
 const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
 const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
@@ -221,6 +231,13 @@ const updateDialogTitle = ref('检查更新')
 
 // 定时器 ID
 let sponsorDialogTimer = null
+
+// 打开 DeepSeek 设置
+function handleOpenDeepSeekSettings() {
+  if (deepSeekSettingsRef.value) {
+    deepSeekSettingsRef.value.open()
+  }
+}
 
 // 检查本地存储是否有bookDir
 onMounted(async () => {

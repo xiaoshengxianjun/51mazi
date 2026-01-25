@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
 import dayjs from 'dayjs'
 import pkg from 'electron-updater'
+import deepseekService from './services/deepseek.js'
 const { autoUpdater } = pkg
 
 // macOS 图标获取函数
@@ -2594,4 +2595,71 @@ ipcMain.handle('quit-and-install', async () => {
 // 获取当前版本
 ipcMain.handle('get-app-version', async () => {
   return { version: app.getVersion() }
+})
+
+// --------- DeepSeek AI 相关 ---------
+
+// 初始化 DeepSeek 服务（从 store 读取 API Key）
+deepseekService.initApiKey((key) => store.get(key))
+
+// 设置 DeepSeek API Key
+ipcMain.handle('deepseek:set-api-key', async (_, apiKey) => {
+  try {
+    deepseekService.setApiKey(apiKey)
+    // 保存到 store
+    store.set('deepseek.apiKey', apiKey)
+    return { success: true }
+  } catch (error) {
+    console.error('设置 DeepSeek API Key 失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 获取 DeepSeek API Key
+ipcMain.handle('deepseek:get-api-key', async () => {
+  try {
+    const apiKey = await deepseekService.getApiKey()
+    // 如果服务中没有，从 store 读取
+    if (!apiKey) {
+      const storedKey = store.get('deepseek.apiKey', null)
+      if (storedKey) {
+        deepseekService.setApiKey(storedKey)
+        return { success: true, apiKey: storedKey }
+      }
+    }
+    return { success: true, apiKey: apiKey || null }
+  } catch (error) {
+    console.error('获取 DeepSeek API Key 失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// AI 随机起名
+ipcMain.handle('deepseek:generate-names', async (_, options) => {
+  try {
+    // 确保 API Key 已初始化
+    await deepseekService.initApiKey((key) => store.get(key))
+    const names = await deepseekService.generateNames(options)
+    return { success: true, names }
+  } catch (error) {
+    console.error('AI 起名失败:', error)
+    return { success: false, message: error.message, names: [] }
+  }
+})
+
+// 验证 API Key
+ipcMain.handle('deepseek:validate-api-key', async () => {
+  try {
+    // 确保 API Key 已初始化
+    await deepseekService.initApiKey((key) => store.get(key))
+    const result = await deepseekService.validateApiKey()
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    console.error('验证 API Key 失败:', error)
+    return {
+      success: false,
+      isValid: false,
+      message: error.message || '验证过程中发生未知错误'
+    }
+  }
 })

@@ -212,7 +212,8 @@ if (process.contextIsolated) {
       // 添加禁词
       addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
       // 删除禁词
-      removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word),
+      removeBannedWord: (bookName, word) =>
+        ipcRenderer.invoke('remove-banned-word', bookName, word),
 
       // --------- 自动更新相关 ---------
       // 手动检查更新
@@ -222,7 +223,17 @@ if (process.contextIsolated) {
       // 安装更新并重启
       quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
       // 获取当前版本
-      getAppVersion: () => ipcRenderer.invoke('get-app-version')
+      getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+      // --------- DeepSeek AI 相关 ---------
+      // 设置 API Key
+      setDeepSeekApiKey: (apiKey) => ipcRenderer.invoke('deepseek:set-api-key', apiKey),
+      // 获取 API Key
+      getDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:get-api-key'),
+      // AI 随机起名
+      generateNamesWithAI: (options) => ipcRenderer.invoke('deepseek:generate-names', options),
+      // 验证 API Key
+      validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key')
     })
 
     // 监听更新事件

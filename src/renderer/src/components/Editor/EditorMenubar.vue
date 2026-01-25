@@ -187,6 +187,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Redo, Undo } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEditorStore } from '@renderer/stores/editor'
+import SvgIcon from '@renderer/components/SvgIcon.vue'
 
 const props = defineProps({
   editor: {
