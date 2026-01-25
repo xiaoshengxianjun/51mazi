@@ -63,6 +63,10 @@ AI 生成的名字既富有创意，又符合文化背景：
 
 在 51mazi 中，AI 随机起名功能支持多种使用场景：
 
+![随机起名功能](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/random-name.png)
+
+*AI 随机起名功能界面 - 支持多种类型、参数设置和批量生成*
+
 **场景一：快速起名**
 - 用户需要快速为角色起名
 - 选择类型（中国人名/日本人名/西方人名）
