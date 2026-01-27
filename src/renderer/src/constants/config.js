@@ -1,27 +1,167 @@
-// 书籍类型常量
-const BOOK_TYPES = [
-  { label: '玄幻', value: 'xuanhua' },
-  { label: '仙侠', value: 'xianxia' },
-  { label: '奇幻', value: 'qihuan' },
-  { label: '都市', value: 'dushi' },
-  { label: '科幻', value: 'kehuan' },
-  { label: '武侠', value: 'wuxia' },
-  { label: '言情', value: 'yanqing' },
-  { label: '历史', value: 'lishi' },
-  { label: '悬疑', value: 'xuanyi' },
-  { label: '军事', value: 'junshi' },
-  { label: '游戏', value: 'youxi' },
-  { label: '体育', value: 'tiyu' },
-  { label: '现实', value: 'xianshi' },
-  { label: '同人', value: 'tongren' },
-  { label: '青春', value: 'qingchun' },
-  { label: '职场', value: 'zhichang' },
-  { label: '校园', value: 'xiaoyuan' },
-  { label: '二次元', value: 'erciyuan' },
-  { label: '轻小说', value: 'qingxiaoshuo' },
-  { label: '短篇', value: 'duanpian' },
-  { label: '其他', value: 'other' }
+// 书籍类型：大类 + 细类（一级分类下分二级子类型，参考起点等平台）
+// 每个大类的第一项为「通用」，value 沿用旧值，用于兼容已有书籍数据
+const BOOK_TYPE_GROUPS = [
+  {
+    groupLabel: '玄幻',
+    options: [
+      { label: '玄幻（通用）', value: 'xuanhua' },
+      { label: '东方玄幻', value: 'xuanhua_dfxh' },
+      { label: '异世大陆', value: 'xuanhua_ysdl' },
+      { label: '王朝争霸', value: 'xuanhua_wczb' },
+      { label: '高武世界', value: 'xuanhua_gwsj' }
+    ]
+  },
+  {
+    groupLabel: '奇幻',
+    options: [
+      { label: '奇幻（通用）', value: 'qihuan' },
+      { label: '现代魔法', value: 'qihuan_xdmf' },
+      { label: '剑与魔法', value: 'qihuan_jymf' },
+      { label: '史诗奇幻', value: 'qihuan_ssqh' },
+      { label: '神秘幻想', value: 'qihuan_smhx' },
+      { label: '历史神话', value: 'qihuan_lssh' },
+      { label: '另类幻想', value: 'qihuan_llhx' }
+    ]
+  },
+  {
+    groupLabel: '武侠',
+    options: [
+      { label: '武侠（通用）', value: 'wuxia' },
+      { label: '传统武侠', value: 'wuxia_ctwx' },
+      { label: '武侠幻想', value: 'wuxia_wxhx' },
+      { label: '国术无双', value: 'wuxia_gsws' },
+      { label: '古武未来', value: 'wuxia_gwwl' },
+      { label: '武侠同人', value: 'wuxia_wxtr' }
+    ]
+  },
+  {
+    groupLabel: '仙侠',
+    options: [
+      { label: '仙侠（通用）', value: 'xianxia' },
+      { label: '修真文明', value: 'xianxia_xzwm' },
+      { label: '幻想修仙', value: 'xianxia_hxxu' },
+      { label: '现代修真', value: 'xianxia_xdxu' },
+      { label: '神话修真', value: 'xianxia_shxu' },
+      { label: '古典仙侠', value: 'xianxia_gdxx' }
+    ]
+  },
+  {
+    groupLabel: '都市',
+    options: [
+      { label: '都市（通用）', value: 'dushi' },
+      { label: '都市生活', value: 'dushi_sh' },
+      { label: '都市异能', value: 'dushi_yn' },
+      { label: '都市高武', value: 'dushi_gw' },
+      { label: '异术超能', value: 'dushi_yscn' },
+      { label: '青春校园', value: 'dushi_qcxy' },
+      { label: '娱乐明星', value: 'dushi_ylmx' },
+      { label: '商战职场', value: 'dushi_szzc' },
+      { label: '爱情婚姻', value: 'dushi_ahyh' }
+    ]
+  },
+  {
+    groupLabel: '现实',
+    options: [
+      { label: '现实（通用）', value: 'xianshi' },
+      { label: '时代叙事', value: 'xianshi_sdxs' },
+      { label: '家庭伦理', value: 'xianshi_jtll' },
+      { label: '女性题材', value: 'xianshi_nxtc' },
+      { label: '青年故事', value: 'xianshi_qngs' },
+      { label: '社会悬疑', value: 'xianshi_shxy' },
+      { label: '人间百态', value: 'xianshi_rjbt' },
+      { label: '成功励志', value: 'xianshi_cglz' }
+    ]
+  },
+  {
+    groupLabel: '言情',
+    options: [
+      { label: '言情（通用）', value: 'yanqing' },
+      { label: '现代言情', value: 'yanqing_xdyq' },
+      { label: '古代言情', value: 'yanqing_gdyq' },
+      { label: '浪漫青春', value: 'yanqing_lmqc' },
+      { label: '悬疑言情', value: 'yanqing_xyyq' }
+    ]
+  },
+  {
+    groupLabel: '科幻',
+    options: [
+      { label: '科幻（通用）', value: 'kehuan' },
+      { label: '星际文明', value: 'kehuan_xjwm' },
+      { label: '时空穿梭', value: 'kehuan_skcs' },
+      { label: '未来世界', value: 'kehuan_wlsj' },
+      { label: '进化变异', value: 'kehuan_jhby' },
+      { label: '末世危机', value: 'kehuan_mswj' }
+    ]
+  },
+  {
+    groupLabel: '悬疑',
+    options: [
+      { label: '悬疑（通用）', value: 'xuanyi' },
+      { label: '侦探推理', value: 'xuanyi_zttl' },
+      { label: '诡秘悬疑', value: 'xuanyi_gmxy' },
+      { label: '恐怖惊悚', value: 'xuanyi_kbjs' }
+    ]
+  },
+  {
+    groupLabel: '军事',
+    options: [
+      { label: '军事（通用）', value: 'junshi' },
+      { label: '军旅生涯', value: 'junshi_jlsy' },
+      { label: '军事战争', value: 'junshi_jszz' },
+      { label: '战争幻想', value: 'junshi_zzhx' },
+      { label: '抗战烽火', value: 'junshi_kzfh' },
+      { label: '谍战特工', value: 'junshi_dztg' }
+    ]
+  },
+  {
+    groupLabel: '历史',
+    options: [
+      { label: '历史（通用）', value: 'lishi' },
+      { label: '架空历史', value: 'lishi_jkls' },
+      { label: '秦汉三国', value: 'lishi_qhsg' },
+      { label: '上古先秦', value: 'lishi_sgxq' },
+      { label: '两晋隋唐', value: 'lishi_ljsu' },
+      { label: '两宋元明', value: 'lishi_lsym' },
+      { label: '清史民国', value: 'lishi_qsmg' },
+      { label: '历史传记', value: 'lishi_lszj' }
+    ]
+  },
+  {
+    groupLabel: '游戏',
+    options: [
+      { label: '游戏（通用）', value: 'youxi' },
+      { label: '虚拟网游', value: 'youxi_xnwy' },
+      { label: '游戏异界', value: 'youxi_yxyj' },
+      { label: '电子竞技', value: 'youxi_dzjx' }
+    ]
+  },
+  {
+    groupLabel: '体育',
+    options: [
+      { label: '体育（通用）', value: 'tiyu' },
+      { label: '篮球', value: 'tiyu_lq' },
+      { label: '足球', value: 'tiyu_zq' },
+      { label: '棋牌竞技', value: 'tiyu_qpjj' },
+      { label: '体育赛事', value: 'tiyu_tyss' }
+    ]
+  },
+  {
+    groupLabel: '其他',
+    options: [
+      { label: '同人', value: 'tongren' },
+      { label: '二次元', value: 'erciyuan' },
+      { label: '轻小说', value: 'qingxiaoshuo' },
+      { label: '短篇', value: 'duanpian' },
+      { label: '青春', value: 'qingchun' },
+      { label: '职场', value: 'zhichang' },
+      { label: '校园', value: 'xiaoyuan' },
+      { label: '其他', value: 'other' }
+    ]
+  }
 ]
+
+// 书籍类型扁平列表（由分组推导，供按 value 查 label、校验等使用）
+const BOOK_TYPES = BOOK_TYPE_GROUPS.flatMap((g) => g.options)
 
 // 百家姓（单姓，部分示例，建议全量）
 const CHINESE_SURNAMES = [
@@ -1683,6 +1823,7 @@ const CORE_WORDS = [
 
 export {
   BOOK_TYPES,
+  BOOK_TYPE_GROUPS,
   CHINESE_SURNAMES,
   CHINESE_COMPOUND_SURNAMES,
   CHINESE_MALE_CHARS,
