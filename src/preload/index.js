@@ -233,7 +233,13 @@ if (process.contextIsolated) {
       // AI 随机起名
       generateNamesWithAI: (options) => ipcRenderer.invoke('deepseek:generate-names', options),
       // 验证 API Key
-      validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key')
+      validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
+
+      // --------- 通义万相 AI 封面 ---------
+      setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
+      getTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:get-api-key'),
+      validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
+      generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options)
     })
 
     // 监听更新事件

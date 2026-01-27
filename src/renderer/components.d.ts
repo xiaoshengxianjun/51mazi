@@ -8,13 +8,13 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AISettings: typeof import('./src/components/AISettings.vue')['default']
     BannedWordsDrawer: typeof import('./src/components/Editor/BannedWordsDrawer.vue')['default']
     Book: typeof import('./src/components/Book.vue')['default']
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
     BookshelfPasswordSettings: typeof import('./src/components/BookshelfPasswordSettings.vue')['default']
     ChapterEditorContent: typeof import('./src/components/Editor/ChapterEditorContent.vue')['default']
     ChapterSettingsDialog: typeof import('./src/components/Editor/ChapterSettingsDialog.vue')['default']
-    DeepSeekSettings: typeof import('./src/components/DeepSeekSettings.vue')['default']
     EditorMenubar: typeof import('./src/components/Editor/EditorMenubar.vue')['default']
     EditorPanel: typeof import('./src/components/Editor/EditorPanel.vue')['default']
     EditorProgress: typeof import('./src/components/Editor/EditorProgress.vue')['default']

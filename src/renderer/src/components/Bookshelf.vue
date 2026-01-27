@@ -324,6 +324,7 @@ const bookTypeCascaderOptions = BOOK_TYPE_GROUPS.map((g) => ({
   children: g.options.map((o) => ({ label: o.label, value: o.value }))
 }))
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
+import { generateAICover } from '@renderer/service/tongyiwanxiang'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
@@ -1067,55 +1068,50 @@ function handleOpenAICoverDialog() {
   aiCoverDialogVisible.value = true
 }
 
-// 生成AI封面（第一步只做UI，实际API调用后续实现）
+// 生成AI封面（接入通义万相：生成 → 下载落盘 → 回填封面预览）
 async function handleGenerateAICover() {
   try {
     await aiCoverFormRef.value.validate()
 
-    // 获取选中的尺寸配置
     const selectedSize = coverSizeOptions.find(
       (option) => option.value === aiCoverForm.value.coverSize
     )
-
     if (!selectedSize) {
       ElMessage.error('请选择有效的封面尺寸')
       return
     }
 
-    // 目标尺寸（最终保存的尺寸）
-    const targetWidth = selectedSize.targetWidth
-    const targetHeight = selectedSize.targetHeight
-
-    // API生成尺寸（符合通义万相API要求的尺寸）
     const apiWidth = selectedSize.apiWidth
     const apiHeight = selectedSize.apiHeight
+    const size = `${apiWidth}*${apiHeight}`
+    const bookName = form.value.name
+    if (!bookName || !bookName.trim()) {
+      ElMessage.error('请先填写书名')
+      return
+    }
 
-    console.log('生成封面配置:', {
-      目标尺寸: `${targetWidth}×${targetHeight}`,
-      API生成尺寸: `${apiWidth}×${apiHeight}`,
-      书籍类型: aiCoverForm.value.bookType,
-      笔名: aiCoverForm.value.penName,
-      提示词: aiCoverForm.value.prompt
+    aiCoverGenerating.value = true
+    const res = await generateAICover({
+      prompt: aiCoverForm.value.prompt.trim(),
+      size,
+      bookName: bookName.trim(),
+      negativePrompt: (aiCoverForm.value.negativePrompt || '').trim() || undefined
     })
 
-    // TODO: 后续接入通义万相API
-    // 这里先模拟生成过程
-    aiCoverGenerating.value = true
-
-    // 模拟API调用延迟
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    ElMessage.info('AI生成封面功能将在下一步接入通义万相API后实现')
-
-    // 关闭弹框
-    aiCoverDialogVisible.value = false
-    aiCoverGenerating.value = false
+    if (res?.success && res.localPath) {
+      form.value.coverImagePath = res.localPath
+      form.value.coverImagePreview = `file://${res.localPath}`
+      aiCoverDialogVisible.value = false
+      ElMessage.success('封面生成成功，可在上方预览；保存书籍后将写入书籍目录')
+    } else {
+      ElMessage.error(res?.message || '生成封面失败')
+    }
   } catch (error) {
     console.error('生成AI封面失败:', error)
     if (error !== false) {
-      // false表示验证失败，不需要显示错误
-      ElMessage.error('请检查表单输入')
+      ElMessage.error(error?.message || '请检查表单输入')
     }
+  } finally {
     aiCoverGenerating.value = false
   }
 }

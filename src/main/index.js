@@ -7,6 +7,7 @@ import Store from 'electron-store'
 import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
+import tongyiwanxiangService from './services/tongyiwanxiang.js'
 const { autoUpdater } = pkg
 
 // macOS 图标获取函数
@@ -2660,6 +2661,97 @@ ipcMain.handle('deepseek:validate-api-key', async () => {
       success: false,
       isValid: false,
       message: error.message || '验证过程中发生未知错误'
+    }
+  }
+})
+
+// --------- 通义万相 AI 封面 ---------
+
+tongyiwanxiangService.initApiKey((key) => store.get(key))
+
+ipcMain.handle('tongyiwanxiang:set-api-key', async (_, apiKey) => {
+  try {
+    tongyiwanxiangService.setApiKey(apiKey)
+    store.set('tongyiwanxiang.apiKey', apiKey)
+    return { success: true }
+  } catch (error) {
+    console.error('设置通义万相 API Key 失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('tongyiwanxiang:get-api-key', async () => {
+  try {
+    let apiKey = tongyiwanxiangService.getApiKey()
+    if (!apiKey) {
+      const stored = store.get('tongyiwanxiang.apiKey', null)
+      if (stored) {
+        tongyiwanxiangService.setApiKey(stored)
+        apiKey = stored
+      }
+    }
+    return { success: true, apiKey: apiKey || null }
+  } catch (error) {
+    console.error('获取通义万相 API Key 失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('tongyiwanxiang:validate-api-key', async () => {
+  try {
+    await tongyiwanxiangService.initApiKey((key) => store.get(key))
+    const result = await tongyiwanxiangService.validateApiKey()
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    console.error('验证通义万相 API Key 失败:', error)
+    return {
+      success: false,
+      isValid: false,
+      message: error.message || '验证过程中发生未知错误'
+    }
+  }
+})
+
+// 生成封面：调用通义万相 → 下载图片 → 保存到书籍目录
+ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
+  try {
+    await tongyiwanxiangService.initApiKey((key) => store.get(key))
+    const { prompt, size, bookName, negativePrompt = '' } = options || {}
+    if (!prompt || !size || !bookName) {
+      return {
+        success: false,
+        message: '缺少参数：prompt、size、bookName 为必填'
+      }
+    }
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) {
+      return { success: false, message: '未设置或无效的书籍目录' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    fs.mkdirSync(bookPath, { recursive: true })
+
+    const imageUrl = await tongyiwanxiangService.generateCover({
+      prompt,
+      size,
+      negativePrompt
+    })
+    const res = await fetch(imageUrl)
+    if (!res.ok) {
+      return {
+        success: false,
+        message: `下载生成图片失败: ${res.status} ${res.statusText}`
+      }
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    const coverPath = join(bookPath, 'cover.png')
+    fs.writeFileSync(coverPath, buf)
+    return { success: true, localPath: coverPath }
+  } catch (error) {
+    console.error('通义万相生成封面失败:', error)
+    return {
+      success: false,
+      message: error?.message || '生成封面失败'
     }
   }
 })

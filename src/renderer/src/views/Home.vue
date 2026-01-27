@@ -34,7 +34,7 @@
           <i class="el-icon-lock"></i>
           书架密码
         </div>
-        <div class="menu-item" @click="handleOpenDeepSeekSettings">
+        <div class="menu-item" @click="handleOpenAISettings">
           <i class="el-icon-setting"></i>
           AI 设置
         </div>
@@ -123,8 +123,8 @@
     <!-- 书架密码设置组件 -->
     <BookshelfPasswordSettings v-model="showPasswordDialog" />
 
-    <!-- DeepSeek AI 设置 -->
-    <DeepSeekSettings ref="deepSeekSettingsRef" />
+    <!-- AI 设置 -->
+    <AISettings ref="aiSettingsRef" />
 
     <!-- 更新提示弹框 -->
     <el-dialog
@@ -199,7 +199,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
-import DeepSeekSettings from '@renderer/components/DeepSeekSettings.vue'
+import AISettings from '@renderer/components/AISettings.vue'
 import { useThemeStore } from '@renderer/stores/theme'
 import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 
@@ -212,7 +212,7 @@ const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
-const deepSeekSettingsRef = ref(null)
+const aiSettingsRef = ref(null)
 const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
 const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
@@ -231,10 +231,10 @@ const updateDialogTitle = ref('检查更新')
 // 定时器 ID
 let sponsorDialogTimer = null
 
-// 打开 DeepSeek 设置
-function handleOpenDeepSeekSettings() {
-  if (deepSeekSettingsRef.value) {
-    deepSeekSettingsRef.value.open()
+// 打开 AI 设置
+function handleOpenAISettings() {
+  if (aiSettingsRef.value) {
+    aiSettingsRef.value.open()
   }
 }
 
