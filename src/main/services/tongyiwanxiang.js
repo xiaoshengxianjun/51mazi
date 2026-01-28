@@ -5,7 +5,8 @@
  */
 
 // 北京地域（默认），新加坡/弗吉尼亚需对应不同的 baseURL 与 API Key
-const DASHSCOPE_API_BASE = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+const DASHSCOPE_API_BASE =
+  'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
 const MODEL = 'wan2.6-t2i'
 
 class TongyiwanxiangService {
@@ -95,8 +96,7 @@ class TongyiwanxiangService {
     }
 
     if (!response.ok) {
-      const msg =
-        data.message || `请求失败: ${response.status} ${response.statusText}`
+      const msg = data.message || `请求失败: ${response.status} ${response.statusText}`
       throw new Error(msg)
     }
 
@@ -130,7 +130,7 @@ class TongyiwanxiangService {
       Throttling: '请求过于频繁，请稍后再试',
       QuotaExhausted: '账户额度不足，请充值或等待额度恢复'
     }
-    return defaults[code] || (trimmed || `请求失败: ${code}`)
+    return defaults[code] || trimmed || `请求失败: ${code}`
   }
 
   /**

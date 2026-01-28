@@ -40,3 +40,23 @@ export async function validateTongyiwanxiangApiKey() {
 export async function generateAICover(options) {
   return await window.electron.generateAICover(options)
 }
+
+/**
+ * 确认使用某张已生成的封面：复制为书籍 cover 并清理临时文件
+ * @param {Object} options
+ * @param {string} options.bookName - 书籍名称
+ * @param {string} options.chosenPath - 选中的本地图片路径
+ * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
+ */
+export async function confirmAICover(options) {
+  return await window.electron.confirmAICover(options)
+}
+
+/**
+ * 丢弃本会话生成的临时封面（关闭抽屉未确认时调用）
+ * @param {Object} options
+ * @param {string} options.bookName - 书籍名称
+ */
+export async function discardAICovers(options) {
+  return await window.electron.discardAICovers(options)
+}

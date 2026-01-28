@@ -8,9 +8,11 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AICoverDrawer: typeof import('./src/components/AICoverDrawer.vue')['default']
     AISettings: typeof import('./src/components/AISettings.vue')['default']
     BannedWordsDrawer: typeof import('./src/components/Editor/BannedWordsDrawer.vue')['default']
     Book: typeof import('./src/components/Book.vue')['default']
+    BookFormDrawer: typeof import('./src/components/BookFormDrawer.vue')['default']
     Bookshelf: typeof import('./src/components/Bookshelf.vue')['default']
     BookshelfPasswordSettings: typeof import('./src/components/BookshelfPasswordSettings.vue')['default']
     ChapterEditorContent: typeof import('./src/components/Editor/ChapterEditorContent.vue')['default']

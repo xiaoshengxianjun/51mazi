@@ -2744,7 +2744,16 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
       }
     }
     const buf = Buffer.from(await res.arrayBuffer())
-    const coverPath = join(bookPath, 'cover.png')
+    // 书籍根目录下按 ai_cover1.png、ai_cover2.png 递增命名
+    const existing = fs.readdirSync(bookPath).filter((f) => /^ai_cover\d+\.png$/i.test(f))
+    const nextNum =
+      existing.length === 0
+        ? 1
+        : Math.max(
+            ...existing.map((f) => parseInt(f.replace(/^ai_cover(\d+)\.png$/i, '$1'), 10) || 0)
+          ) + 1
+    const fileName = `ai_cover${nextNum}.png`
+    const coverPath = join(bookPath, fileName)
     fs.writeFileSync(coverPath, buf)
     return { success: true, localPath: coverPath }
   } catch (error) {
@@ -2754,4 +2763,31 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
       message: error?.message || '生成封面失败'
     }
   }
+})
+
+// 确认使用某张 AI 封面：复制为书籍根目录下的 cover.png
+ipcMain.handle('tongyiwanxiang:confirm-cover', async (_, options) => {
+  try {
+    const { bookName, chosenPath } = options || {}
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !chosenPath) {
+      return { success: false, message: '参数错误' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    if (!fs.existsSync(chosenPath) || !chosenPath.startsWith(bookPath)) {
+      return { success: false, message: '所选封面文件无效' }
+    }
+    const finalPath = join(bookPath, 'cover.png')
+    fs.copyFileSync(chosenPath, finalPath)
+    return { success: true, localPath: finalPath }
+  } catch (error) {
+    console.error('确认封面失败:', error)
+    return { success: false, message: error?.message || '确认失败' }
+  }
+})
+
+// 取消/关闭弹框：生成的 ai_cover*.png 已保存在书籍目录，不做删除
+ipcMain.handle('tongyiwanxiang:discard-ai-covers', async () => {
+  return { success: true }
 })

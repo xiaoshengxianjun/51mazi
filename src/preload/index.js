@@ -4,16 +4,11 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', {
-      ...electronAPI,
-      // --------- 书籍相关 ---------
-      // 选择书籍目录
-      selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
+// 自定义 Electron API（书籍、通义万相等），与 electronAPI 合并后供渲染进程使用；
+// contextIsolated 为 true 时通过 contextBridge 暴露，为 false 时直接挂到 window.electron
+const customElectronAPI = {
+  // --------- 书籍相关 ---------
+  selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
       // 选择图片文件
       selectImage: () => ipcRenderer.invoke('select-image'),
       // 显示保存文件对话框
@@ -239,8 +234,17 @@ if (process.contextIsolated) {
       setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
       getTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:get-api-key'),
       validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
-      generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options)
-    })
+  generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options),
+  confirmAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:confirm-cover', options),
+  discardAICovers: (options) => ipcRenderer.invoke('tongyiwanxiang:discard-ai-covers', options)
+}
+
+// Use `contextBridge` APIs to expose Electron APIs to
+// renderer only if context isolation is enabled, otherwise
+// just add to the DOM global.
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld('electron', { ...electronAPI, ...customElectronAPI })
 
     // 监听更新事件
     ipcRenderer.on('update-checking', () => {
@@ -277,7 +281,7 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  window.electron = electronAPI
+  window.electron = { ...electronAPI, ...customElectronAPI }
   window.api = api
   window.electronStore = {
     get: (key) => ipcRenderer.invoke('store:get', key),
