@@ -48,6 +48,9 @@
     <!-- 书架区 -->
     <Bookshelf />
 
+    <!-- 右上角鼓励提示（调度逻辑已封装到组件，避免首页逻辑混杂） -->
+    <EncourageToastScheduler />
+
     <!-- 选择书籍目录弹窗 -->
     <el-dialog
       v-model="showDirDialog"
@@ -200,6 +203,7 @@ import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
 import AISettings from '@renderer/components/AISettings.vue'
+import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
 import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 
