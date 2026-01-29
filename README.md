@@ -32,7 +32,7 @@
 
 #### 🤖 AI 生成封面
 
-![AI生成封面示例](static/ai_cover.png)
+![AI生成封面示例](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/ai_cover.png)
 
 在「新建/编辑书籍」中点击 **AI生成封面**，可按书名与笔名生成多张候选封面，选择一张后**确认使用**并保存书籍，即可在书架中显示该封面。
 
