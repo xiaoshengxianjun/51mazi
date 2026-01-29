@@ -30,6 +30,12 @@ The software uses a bookshelf-style management system, supporting the creation, 
 - **Cover Management**: Choose a local cover image or customize cover color
 - **AI Cover Generation**: Integrated Tongyi Wanxiang to generate novel covers from title/pen name/prompt, then apply in one click
 
+#### 🤖 AI Cover Generation Example
+
+In the **Create/Edit Book** drawer, click **AI Cover Generation** to generate multiple candidate covers based on the title and pen name. Pick one, click **Confirm Use**, then save the book — the cover will appear on the bookshelf.
+
+![AI cover example](static/ai_cover.png)
+
 ![Editor Interface](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/editor.png)
 
 *Professional Writing Editor Interface - Rich Text Editor Based on TipTap*
