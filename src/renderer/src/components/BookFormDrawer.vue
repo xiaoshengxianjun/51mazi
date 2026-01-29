@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { Plus, Delete, MagicStick } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -146,7 +146,8 @@ const emit = defineEmits([
 ])
 
 const formRef = ref(null)
-const localForm = ref({
+// 统一默认表单结构：避免“某次打开没传某字段导致沿用上次残留值”
+const DEFAULT_FORM = {
   name: '',
   type: '',
   targetCount: 100000,
@@ -157,13 +158,21 @@ const localForm = ref({
   coverColor: '#22345c',
   coverImagePath: '',
   coverImagePreview: ''
-})
+}
+const localForm = ref({ ...DEFAULT_FORM })
 
 watch(
   () => props.modelValue,
-  (visible) => {
+  async (visible) => {
     if (visible && props.form) {
-      localForm.value = { ...localForm.value, ...props.form }
+      // 打开抽屉时：先同步表单数据，再清理上次校验残留
+      localForm.value = { ...DEFAULT_FORM, ...props.form }
+      await nextTick()
+      formRef.value?.clearValidate?.()
+    } else if (!visible) {
+      // 关闭抽屉时：清理校验，避免下次打开仍显示红字
+      await nextTick()
+      formRef.value?.clearValidate?.()
     }
   }
 )
@@ -183,6 +192,7 @@ watch(
 )
 
 function handleConfirm() {
+  if (!formRef.value?.validate) return
   formRef.value.validate((valid) => {
     if (valid) emit('confirm')
   })

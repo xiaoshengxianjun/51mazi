@@ -43,6 +43,11 @@
           检查更新
         </div>
       </div>
+
+      <!-- 左下角：当前版本号 -->
+      <div class="sidebar-footer">
+        <span class="version-text">v{{ currentVersion || '-' }}</span>
+      </div>
     </div>
 
     <!-- 书架区 -->
@@ -616,7 +621,7 @@ function formatReleaseNotes(notes) {
 .sidebar {
   width: 200px;
   background-color: var(--bg-soft);
-  padding: 20px 0;
+  padding: 15px 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border-color);
@@ -637,6 +642,22 @@ function formatReleaseNotes(notes) {
 .menu {
   display: flex;
   flex-direction: column;
+  flex: 1;
+}
+
+.sidebar-footer {
+  padding: 0px 12px;
+  margin-top: auto;
+  height: fit-content;
+  line-height: normal;
+}
+
+.version-text {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-gray);
+  user-select: none;
 }
 
 .menu-item {
