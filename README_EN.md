@@ -23,10 +23,12 @@ The software uses a bookshelf-style management system, supporting the creation, 
 - **Bookshelf Password Protection**: Support for setting password protection for the entire bookshelf, requiring password verification on startup to ensure creative content security
   - Support for setting, modifying, and canceling bookshelf passwords
   - Password hint functionality to help remember passwords
-  - 8-16 digit alphanumeric combination, secure and reliable
-- **Book Password Protection**: Support for setting password protection for individual books, ensuring creative content security
+  - 8-16 character alphanumeric combination, secure and reliable
+- **Book Password Protection**: Support for setting password protection for individual books (optional, 4-8 character alphanumeric)
 - **Smart Naming**: Automatically creates default chapters, supports book name length restrictions
 - **Data Isolation**: Each book is stored independently without interference
+- **Cover Management**: Choose a local cover image or customize cover color
+- **AI Cover Generation**: Integrated Tongyi Wanxiang to generate novel covers from title/pen name/prompt, then apply in one click
 
 ![Editor Interface](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/editor.png)
 
@@ -203,12 +205,9 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 ### 4. Creative Assistance Tools
 - **Professional Map Design Tool**: Canvas drawing engine with support for brush, shapes, text, paint bucket, resource tools, and more. Built-in resource icon library, drag-and-drop to add buildings and landmarks, complete history and undo/redo functionality
 - **Intelligent Editor Features**: Character highlighting, forbidden word detection, paragraph dragging, text highlighting, and other practical features
-- **AI-Assisted Creation**: Integrated DeepSeek AI, providing intelligent naming functionality
-  - AI Random Naming: Supports multiple types (Chinese names, Japanese names, Western names, faction names, etc.)
-  - Intelligent Context Understanding: Generates names that meet requirements based on type, gender, surname, and other parameters
-  - Cultural Adaptation: Automatically converts Japanese and Western names to Chinese transliteration
-  - Batch Generation: Generates 24 names at once for quick screening
-  - Intelligent Fallback: Automatically falls back to local generation when AI fails
+- **AI-Assisted Creation**: Integrated DeepSeek + Tongyi Wanxiang
+  - **AI Random Naming (DeepSeek)**: Multiple name types and parameters, with automatic fallback to local generation when AI fails
+  - **AI Novel Cover (Tongyi Wanxiang)**: Generate multiple covers by title/pen name/size/prompt and set one as the book cover
 - Relationship graph management for complex character relationships with avatar and dynamic font support
 - Event sequence diagram management for event timelines and progress with visual progress tracking
 - Organization structure management to display organizational structure and hierarchy
@@ -222,6 +221,8 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 - Responsive layout adapting to different screens
 - Intuitive operation flow
 - Complete error handling mechanism
+- **Writing Encouragement Toasts**: Start after 2 days, then show randomly (once per day, auto-close in 5s or manual close)
+- **Version Display**: Shows current app version at the bottom of the left sidebar for easier issue reporting
 
 ## 📊 Feature Comparison
 
@@ -235,7 +236,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 | Event Sequence Management | ✅ Timeline Visualization, Progress Tracking | ❌ Lack of Time Management |
 | Organization Structure | ✅ Visual Organization Management | ❌ Lack of Organization Management |
 | Dictionary | ✅ Tree Structure, Drag-and-Drop Sorting | ❌ Lack of Vocabulary Management |
-| AI Assistance | ✅ DeepSeek AI Intelligent Naming | ❌ Lack of AI Features |
+| AI Assistance | ✅ DeepSeek AI Intelligent Naming + Tongyi Wanxiang AI Covers | ❌ Lack of AI Features |
 | Smart Operations | ✅ Intelligent Drag-and-Drop, Keyboard Shortcut Support | ❌ Cumbersome Operations |
 | Multiple Themes | ✅ Multiple Themes | ❌ Single Theme |
 | User Guide | ✅ Built-in Complete Guide | ❌ Requires External Documentation |
@@ -260,13 +261,15 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
    - Enable character highlighting to track character appearances
    - Set forbidden word list to avoid sensitive vocabulary
    - Use paragraph dragging to flexibly organize content
-6. Try the map design tool
+6. (Optional) Open **AI Settings** from the left menu, configure DeepSeek / Tongyi Wanxiang API keys, and click “Validate”
+7. (Optional) Use **AI Cover Generation** in the book create/edit drawer: fill in title & type, generate covers and confirm one
+8. Try the map design tool
    - Use brush tool to draw terrain outlines
    - Use paint bucket to fill area colors
    - Drag resource icons to add buildings and landmarks
-7. Build character relationship graph (can set avatars)
-8. Create dictionary to manage proper nouns in the story
-9. Experience AI random naming feature
+9. Build character relationship graph (can set avatars)
+10. Create dictionary to manage proper nouns in the story
+11. Experience AI random naming feature
    - Configure DeepSeek API Key in settings (optional)
    - Use AI intelligent naming to generate character names
    - Try different parameter settings to experience AI's intelligent understanding capabilities
@@ -360,8 +363,8 @@ If you're looking for a professional novel writing software, 51mazi is definitel
 
 ### 📚 Related Links
 - **Project Repository**: [GitHub - 51mazi](https://github.com/xiaoshengxianjun/51mazi)
-- **Technology Stack**: Electron + Vue 3 + TipTap + Element Plus + Pinia + DeepSeek AI
-- **Keywords**: Desktop Application, Rich Text Editing, Canvas Drawing, Relationship Graph, Novel Writing, Dictionary, Forbidden Word Detection, Character Highlighting, AI Assistance, AI Writing, Intelligent Naming
+- **Technology Stack**: Electron + Vue 3 + TipTap + Element Plus + Pinia + DeepSeek + Tongyi Wanxiang
+- **Keywords**: Desktop Application, Rich Text Editing, Canvas Drawing, Relationship Graph, Novel Writing, Dictionary, Forbidden Word Detection, Character Highlighting, AI Assistance, AI Covers, AI Writing, Intelligent Naming
 
 ## 📞 Contact & Support
 

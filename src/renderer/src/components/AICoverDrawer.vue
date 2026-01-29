@@ -45,7 +45,28 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item prop="prompt" label="封面要求">
+        <!-- 封面要求：拆分为三部分，让提示词更明确 -->
+        <el-form-item prop="titlePrompt" label="书名要求">
+          <el-input
+            v-model="form.titlePrompt"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入书名排版要求：例如“书名居中大字、金色描边、毛笔字、可读性强、不要变形”等（可选，最多300字）"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item prop="authorPrompt" label="笔名要求">
+          <el-input
+            v-model="form.authorPrompt"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入笔名排版要求：例如“笔名放底部小字、白色、简洁清晰”等（可选，最多300字）"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item prop="backgroundPrompt" label="背景要求">
           <div v-if="selectedPromptTags.length > 0" class="selected-tags">
             <el-tag
               v-for="(tag, index) in selectedPromptTags"
@@ -58,11 +79,11 @@
             </el-tag>
           </div>
           <el-input
-            v-model="form.prompt"
+            v-model="form.backgroundPrompt"
             type="textarea"
             :rows="4"
-            placeholder="请详细描述您想要的封面风格、元素、色彩、书名大字要求等，或点击下方标签快速选择（支持中英文，最多500个字符）"
-            maxlength="500"
+            placeholder="请输入封面背景/画面要求：风格、元素、色彩、构图、氛围等（支持中英文，最多300字）。也可点击下方标签快速选择。"
+            maxlength="300"
             show-word-limit
           />
           <div class="prompt-presets">
@@ -160,7 +181,10 @@ const form = ref({
   bookType: '',
   penName: '',
   coverSize: '600x800',
-  prompt: ''
+  backgroundPrompt: '',
+  titlePrompt: '',
+  authorPrompt: '',
+  negativePrompt: '' // 负向提示词（可选）。此前被引用但未定义，这里补齐避免潜在运行时问题
 })
 
 const rules = {
@@ -169,9 +193,9 @@ const rules = {
     { max: 10, message: '笔名不能超过10个字符', trigger: 'blur' }
   ],
   coverSize: [{ required: true, message: '请选择封面尺寸', trigger: 'change' }],
-  prompt: [
-    { required: true, message: '请输入封面要求', trigger: 'blur' },
-    { min: 10, message: '封面要求至少10个字符', trigger: 'blur' }
+  backgroundPrompt: [
+    { required: true, message: '请输入封面背景要求', trigger: 'blur' },
+    { min: 10, message: '封面背景要求至少10个字符', trigger: 'blur' }
   ]
 }
 
@@ -455,7 +479,10 @@ watch(
       form.value.bookType = props.bookType || ''
       form.value.penName = ''
       form.value.coverSize = '600x800'
-      form.value.prompt = ''
+      form.value.backgroundPrompt = ''
+      form.value.titlePrompt = ''
+      form.value.authorPrompt = ''
+      form.value.negativePrompt = ''
       selectedPromptTags.value = []
       generatedList.value = []
       selectedPath.value = ''
@@ -485,14 +512,14 @@ function removePromptTag(index) {
 }
 function updatePromptFromTags() {
   const tagsText = selectedPromptTags.value.join('，')
-  const manualText = form.value.prompt
-    ? form.value.prompt
+  const manualText = form.value.backgroundPrompt
+    ? form.value.backgroundPrompt
         .split('，')
         .filter((text) => !selectedPromptTags.value.includes(text.trim()))
         .join('，')
     : ''
   const parts = [tagsText, manualText].filter(Boolean)
-  form.value.prompt = parts.join('，')
+  form.value.backgroundPrompt = parts.join('，')
 }
 
 function getRecommendationsForBookType(bookType) {
@@ -531,13 +558,27 @@ async function handleGenerate() {
     }
     // 构建完整提示词：强制要求封面上显示书名和笔名，再拼接用户填写的风格/元素描述
     const penName = (form.value.penName || '').trim()
-    const userPrompt = form.value.prompt.trim()
-    const titlePart = `封面上必须清晰、醒目地显示书名《${bookName}》，书名需易于辨认。`
-    const authorPart = penName ? `封面上必须清晰显示作者笔名：${penName}。` : ''
-    const stylePart = userPrompt
-      ? `风格与画面要求：${userPrompt}`
-      : '封面风格为小说封面，美观大气。'
-    const fullPrompt = `${titlePart}${authorPart}${stylePart}`
+    const backgroundPrompt = (form.value.backgroundPrompt || '').trim()
+    const titlePrompt = (form.value.titlePrompt || '').trim()
+    const authorPrompt = (form.value.authorPrompt || '').trim()
+
+    const backgroundPart = backgroundPrompt
+      ? `封面背景/画面要求：${backgroundPrompt}`
+      : '封面背景/画面要求：小说封面风格，美观大气，主体明确，画面干净。'
+
+    // 书名/笔名要求拆分：更明确地指导模型排版与清晰度
+    const titlePartBase = `封面上必须清晰、醒目地显示书名《${bookName}》，书名字形端正、可读性强，不要错别字，不要变形，不要额外添加无关文字。`
+    const titlePart = titlePrompt ? `${titlePartBase} 书名排版要求：${titlePrompt}` : titlePartBase
+
+    const authorPartBase = penName
+      ? `封面上必须清晰显示作者笔名：${penName}，笔名字形端正、可读性强。`
+      : ''
+    const authorPart =
+      authorPartBase && authorPrompt
+        ? `${authorPartBase} 笔名排版要求：${authorPrompt}`
+        : authorPartBase
+
+    const fullPrompt = [backgroundPart, titlePart, authorPart].filter(Boolean).join('\n')
 
     generating.value = true
     ElMessage.info('正在努力生图中，不要关闭弹框')
@@ -601,10 +642,11 @@ async function handleConfirmUse() {
   padding: 0 20px;
 }
 .generated-section {
-  flex: 1;
-  min-height: 0;
+  // 定位：位于容器底部、footer 上方
+  flex: 0 0 auto;
   overflow-y: auto;
-  padding: 16px 20px;
+  max-height: 320px;
+  padding: 12px 20px;
   border-top: 1px solid #ebeef5;
   background: #fafafa;
 }
