@@ -201,7 +201,9 @@ function createWindow() {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // 建议与 electron-builder 的 appId 保持一致（影响任务栏归属/通知分组/安装识别等）
+  // 注意：该值对已发布的 Windows 应用尽量保持不变，否则可能影响旧版本升级链路
+  electronApp.setAppUserModelId('com.51mazi.desktop')
 
   // 在 macOS 上设置 Dock 图标（开发环境）
   // 注意：开发环境中系统不会自动应用 squircle，所以我们需要使用已经应用了 squircle 的图标

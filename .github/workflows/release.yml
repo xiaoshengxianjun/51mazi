@@ -154,6 +154,13 @@ jobs:
             dist/**/*.AppImage
             dist/**/*.deb
             dist/**/*.zip
+            # ---- auto update metadata (electron-updater) ----
+            # Windows: latest.yml + *.blockmap
+            # macOS: latest-mac.yml + *.blockmap
+            # Linux: latest-linux.yml + *.blockmap (AppImage/deb)
+            dist/**/*.yml
+            dist/**/*.yaml
+            dist/**/*.blockmap
           draft: false
           prerelease: false
         env:

@@ -1,4 +1,8 @@
-appId: com.electron.app
+#
+# 应用唯一标识（强烈建议发布后长期保持不变）
+# 使用反向域名形式：你的域名是 51mazi.com => com.51mazi.<app>
+#
+appId: com.51mazi.desktop
 productName: 51mazi
 directories:
   buildResources: build
