@@ -17,7 +17,6 @@
       </div>
       <div v-show="notesExpanded" class="section-content">
         <el-tree
-          ref="noteTreeRef"
           :data="notesTree"
           :props="defaultProps"
           empty-text="暂无笔记"
@@ -87,9 +86,8 @@
           node-key="path"
           highlight-current
           :current-node-key="currentChapterNodeKey"
-          :default-expand-all="true"
+          :default-expanded-keys="chapterDefaultExpandedKeys"
           :expand-on-click-node="false"
-          :check-strictly="true"
           @node-click="handleChapterClick"
           @node-expand="handleNodeExpand"
           @node-collapse="handleNodeCollapse"
@@ -192,7 +190,91 @@ const currentChapterNodeKey = ref(null)
 
 // 新增的 ref 和 keys
 const chapterTreeRef = ref(null)
-const noteTreeRef = ref(null)
+const chapterDefaultExpandedKeys = ref([])
+
+/**
+ * 章节树（卷）展开状态管理
+ *
+ * 需求：
+ * - 我在哪个卷创建章节，哪个卷必须展开
+ * - 其他卷（已展开/已折叠）的状态不要被改变
+ *
+ * 根因：
+ * - 之前使用 `default-expand-all="true"`，一旦 `chaptersTree` 重新赋值（loadChapters 刷新），
+ *   树会按“默认全部展开”重建，导致用户折叠状态丢失。
+ *
+ * 方案：
+ * - 移除 `default-expand-all`
+ * - 通过 `node-expand/node-collapse` + “刷新前快照”记录真实展开状态
+ * - 每次刷新树数据后，通过 `defaultExpandedKeys` 只做 expand（不做 collapse），避免误关其它卷
+ *   - Element Plus 2.11.8 的 Tree（非 tree-v2）没有对外暴露 `setExpandedKeys/getExpandedKeys`
+ *   - `defaultExpandedKeys` 内部实现是遍历 key -> `node.expand()`，只会展开，不会折叠
+ * - 创建章节时，仅把目标卷加入“需要展开的集合”（不会影响其他卷）
+ */
+const expandedVolumeIdSet = new Set()
+
+function getVolumeId(volumeNode) {
+  // 主进程 load-chapters 返回的卷 id 是卷目录名（volumeName）
+  return volumeNode?.id ?? volumeNode?.name
+}
+
+function getVolumeNodes(tree) {
+  if (!Array.isArray(tree)) return []
+  return tree.filter((n) => n && n.type === 'volume')
+}
+
+function normalizeAndCleanupExpandedSet(volumes) {
+  const validIds = new Set(volumes.map((v) => getVolumeId(v)).filter(Boolean))
+  for (const id of expandedVolumeIdSet) {
+    if (!validIds.has(id)) expandedVolumeIdSet.delete(id)
+  }
+}
+
+function syncExpandedVolumesFromTree() {
+  // Element Plus Tree（2.11.8）官方实现中没有暴露 `setExpandedKeys/getExpandedKeys`，
+  // 展开状态保存在 Node.expanded 上；因此这里从旧树的节点状态做“快照”，
+  // 用于刷新数据后精确恢复，避免误关/误开其它卷。
+  const tree = chapterTreeRef.value
+  const store = tree?.store?.value ?? tree?.store
+  const root = tree?.root?.value ?? tree?.root ?? store?.root
+  const nodes = root?.childNodes
+  if (!Array.isArray(nodes)) return
+
+  // 注意：如果这里取不到节点（比如树尚未渲染完成），不要清空旧状态。
+  // 否则后续恢复逻辑可能误判为“无展开状态”，进而触发默认全展开等错误行为。
+  const nextExpanded = new Set()
+  for (const node of nodes) {
+    if (node?.data?.type === 'volume' && node.expanded) {
+      const id = getVolumeId(node.data)
+      if (id) nextExpanded.add(id)
+    }
+  }
+
+  expandedVolumeIdSet.clear()
+  for (const id of nextExpanded) expandedVolumeIdSet.add(id)
+}
+
+function restoreExpandedVolumes({ forceExpandVolumeId } = {}) {
+  const volumes = getVolumeNodes(chaptersTree.value)
+  if (volumes.length === 0) return
+
+  // 仅强制展开“目标卷”（不会改变其他卷的状态）
+  if (forceExpandVolumeId) {
+    expandedVolumeIdSet.add(forceExpandVolumeId)
+  }
+
+  normalizeAndCleanupExpandedSet(volumes)
+
+  // el-tree 的 node-key 是 path；默认展开 keys 只“展开”，不会折叠其它卷（符合需求）
+  const expandedPaths = volumes
+    .filter((v) => expandedVolumeIdSet.has(getVolumeId(v)))
+    .map((v) => v.path)
+    .filter(Boolean)
+
+  // 触发 element-plus 内部 watch(defaultExpandedKeys) -> store.setDefaultExpandedKeys()，
+  // 注意该实现只 expand，不会 collapse，因此不会“自动关闭其他卷”
+  chapterDefaultExpandedKeys.value = Array.from(new Set(expandedPaths))
+}
 
 // 章节设置相关
 const chapterSettingsVisible = ref(false)
@@ -221,14 +303,33 @@ function toggleChapters() {
   chaptersExpanded.value = !chaptersExpanded.value
 }
 
-// 处理节点展开事件（章节树使用 default-expand-all="true" 自动展开）
-function handleNodeExpand() {
-  // 章节树自动展开，无需手动管理
+// 处理节点展开/折叠（仅记录卷）
+function handleNodeExpand(data) {
+  if (data?.type !== 'volume') return
+  const id = getVolumeId(data)
+  if (id) expandedVolumeIdSet.add(id)
 }
 
-// 处理节点折叠事件（章节树使用 default-expand-all="true" 自动展开）
-function handleNodeCollapse() {
-  // 章节树自动展开，无需手动管理
+function handleNodeCollapse(data) {
+  if (data?.type !== 'volume') return
+  const id = getVolumeId(data)
+  if (id) expandedVolumeIdSet.delete(id)
+
+  // 关键修复：
+  // el-tree 在数据刷新/重新渲染时，如果 `current-node-key` 仍指向某个“卷内章节”，
+  // 可能会为了保证当前节点可见而自动展开其祖先卷，从而出现：
+  // “我手动收起第三卷，在第二卷新建/删除章节后第三卷又被展开”的现象。
+  //
+  // 因此：当用户收起某个卷时，如果当前选中节点属于该卷，立即把树的选中节点
+  // 切换到卷本身（不会影响编辑器当前打开的章节内容，只是树选中态变化）。
+  const currentKey = currentChapterNodeKey.value
+  const volumePath = data.path
+  if (currentKey && volumePath && currentKey.startsWith(volumePath)) {
+    const nextChar = currentKey.charAt(volumePath.length)
+    if (!nextChar || nextChar === '/' || nextChar === '\\') {
+      currentChapterNodeKey.value = volumePath
+    }
+  }
 }
 
 // 处理笔记点击
@@ -303,6 +404,7 @@ async function handleChapterClick(data, node) {
 // 创建卷
 async function createVolume() {
   try {
+    const prevVolumeIds = new Set(getVolumeNodes(chaptersTree.value).map((v) => getVolumeId(v)))
     const result = await window.electron.createVolume(props.bookName)
     if (result.success) {
       ElMessage.success('创建卷成功')
@@ -311,9 +413,7 @@ async function createVolume() {
       await new Promise((resolve) => setTimeout(resolve, 100))
 
       // 重新加载章节数据
-      await loadChapters()
-
-      // 章节树会自动展开（使用 default-expand-all="true"）
+      await loadChapters({ detectNewVolumeFrom: prevVolumeIds })
     } else {
       ElMessage.error(result.message || '创建卷失败')
     }
@@ -332,10 +432,11 @@ async function createChapter(volumeId) {
       // 等待一小段时间确保文件系统同步
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // 重新加载章节数据并自动选中新创建的章节
-      await loadChapters(true)
-
-      // 章节树会自动展开（使用 default-expand-all="true"）
+      // 仅展开“创建所在卷”，其他卷状态保持不变；并选中新建章节（使用主进程返回的 filePath 精确定位）
+      await loadChapters({
+        forceExpandVolumeId: volumeId,
+        selectChapter: { volumeId, chapterPath: result.filePath }
+      })
     } else {
       ElMessage.error(result.message || '创建章节失败')
     }
@@ -345,8 +446,32 @@ async function createChapter(volumeId) {
 }
 
 // 加载章节数据
-async function loadChapters(autoSelectLatest = false) {
+async function loadChapters(arg = false) {
   try {
+    const options =
+      typeof arg === 'boolean'
+        ? { autoSelectLatest: arg }
+        : arg && typeof arg === 'object'
+          ? arg
+          : { autoSelectLatest: false }
+
+    const {
+      autoSelectLatest = false,
+      forceExpandVolumeId = null,
+      selectChapter = null,
+      // createVolume 时用：从旧的卷 id 集合推断新卷并展开它
+      detectNewVolumeFrom = null
+    } = options
+
+    // 刷新前先从现有树做“展开状态快照”（真实 UI 状态），用于刷新后恢复
+    syncExpandedVolumesFromTree()
+
+    // 如果本次刷新会“切换选中节点”（创建章节/自动定位最新章节），先清空旧选中 key，
+    // 避免旧的 current-node-key 触发树把其它卷自动展开。
+    if (selectChapter || autoSelectLatest) {
+      currentChapterNodeKey.value = null
+    }
+
     const chapters = await window.electron.loadChapters(props.bookName)
 
     if (sortOrder.value === 'desc') {
@@ -363,17 +488,55 @@ async function loadChapters(autoSelectLatest = false) {
 
     chaptersTree.value = chapters
 
-    // 使用 default-expand-all="true" 自动展开所有节点
+    // 计算本次刷新是否需要额外展开某个卷（只影响目标卷，不改变其他卷）
+    let finalForceExpandVolumeId = forceExpandVolumeId
+    const volumes = getVolumeNodes(chapters)
 
-    // 自动选中最新卷的最新章节
-    if (autoSelectLatest && chapters.length > 0) {
-      const latestVolume = chapters[chapters.length - 1]
+    // 1) 自动选中最新卷的最新章节时，确保“最新卷”展开（否则选中项不可见）
+    if (autoSelectLatest && volumes.length > 0) {
+      finalForceExpandVolumeId =
+        finalForceExpandVolumeId || getVolumeId(volumes[volumes.length - 1])
+    }
+
+    // 2) 创建卷时：推断新卷并默认展开它（其他卷状态不变）
+    if (
+      detectNewVolumeFrom &&
+      typeof detectNewVolumeFrom.has === 'function' &&
+      volumes.length > 0
+    ) {
+      const newVolume = volumes.find((v) => {
+        const id = getVolumeId(v)
+        return id && !detectNewVolumeFrom.has(id)
+      })
+      if (newVolume) {
+        finalForceExpandVolumeId = finalForceExpandVolumeId || getVolumeId(newVolume)
+      }
+    }
+
+    await nextTick()
+    restoreExpandedVolumes({ forceExpandVolumeId: finalForceExpandVolumeId })
+
+    // 优先：按指定卷/章节精确选中（创建章节场景）
+    if (selectChapter?.volumeId) {
+      const targetVolume = volumes.find((v) => getVolumeId(v) === selectChapter.volumeId)
+      const targetChapter =
+        targetVolume?.children?.find((c) => c.path === selectChapter.chapterPath) ||
+        targetVolume?.children?.find((c) => c.name === selectChapter.chapterName)
+
+      if (targetVolume && targetChapter) {
+        const fakeNode = { data: targetChapter, parent: { data: targetVolume } }
+        await handleChapterClick(targetChapter, fakeNode)
+        currentChapterNodeKey.value = targetChapter.path
+        return
+      }
+    }
+
+    // 兼容旧逻辑：自动选中最新卷的最新章节
+    if (autoSelectLatest && volumes.length > 0) {
+      const latestVolume = volumes[volumes.length - 1]
       if (latestVolume.children && latestVolume.children.length > 0) {
         const latestChapter = latestVolume.children[latestVolume.children.length - 1]
-        const fakeNode = {
-          data: latestChapter,
-          parent: { data: latestVolume }
-        }
+        const fakeNode = { data: latestChapter, parent: { data: latestVolume } }
         await handleChapterClick(latestChapter, fakeNode)
         currentChapterNodeKey.value = latestChapter.path
       }
@@ -428,6 +591,15 @@ async function confirmEdit(node) {
     const result = await window.electron.editNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('编辑成功')
+
+      // 如果编辑的是“卷名”，卷 id 会变化（load-chapters 的卷 id = 卷目录名）
+      // 为了保持“其他卷状态不变”，这里把旧 id 的展开状态迁移到新 id
+      if (editingNode.value.type === 'volume') {
+        const oldVolumeId = editingNode.value.name
+        const wasExpanded = expandedVolumeIdSet.has(oldVolumeId)
+        expandedVolumeIdSet.delete(oldVolumeId)
+        if (wasExpanded) expandedVolumeIdSet.add(newName)
+      }
 
       // 保存当前选中状态信息（使用更可靠的方式）
       const wasSelected = currentChapterNodeKey.value === editingNode.value.path
@@ -528,6 +700,11 @@ async function deleteNode(node) {
     const result = await window.electron.deleteNode(props.bookName, payload)
     if (result.success) {
       ElMessage.success('删除成功')
+      // 删除卷时同步清理展开集合（避免残留）
+      if (node.data.type === 'volume') {
+        const id = getVolumeId(node.data)
+        if (id) expandedVolumeIdSet.delete(id)
+      }
       // 保存当前选中状态
       const currentSelectedKey = currentChapterNodeKey.value
 
@@ -553,6 +730,9 @@ async function sortVolumes() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
   await window.electron.setSortOrder(props.bookName, sortOrder.value)
   chaptersTree.value = [...chaptersTree.value].reverse()
+  // 反转会触发树刷新，这里恢复展开集合，确保“其他卷状态不变”
+  await nextTick()
+  restoreExpandedVolumes()
 }
 
 // 创建笔记本
