@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage, screen } from 'electron'
 import { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -88,6 +88,100 @@ const bookEditorWindows = new Map()
 // 维护主窗口引用（用于发送更新消息）
 let mainWindow = null
 
+// -------------------- Window state persistence --------------------
+function getWindowStateKey(name) {
+  return `windowState:${name}`
+}
+
+function isFiniteNumber(n) {
+  return Number.isFinite(n)
+}
+
+function isValidBounds(bounds) {
+  return (
+    bounds &&
+    isFiniteNumber(bounds.width) &&
+    isFiniteNumber(bounds.height) &&
+    bounds.width >= 200 &&
+    bounds.height >= 200 &&
+    // x/y 允许为 undefined（让 Electron 自己居中）
+    (bounds.x === undefined || isFiniteNumber(bounds.x)) &&
+    (bounds.y === undefined || isFiniteNumber(bounds.y))
+  )
+}
+
+function isRectIntersect(a, b) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  )
+}
+
+function ensureVisibleOnSomeDisplay(bounds) {
+  try {
+    const displays = screen.getAllDisplays()
+    const target = {
+      x: bounds.x ?? 0,
+      y: bounds.y ?? 0,
+      width: bounds.width,
+      height: bounds.height
+    }
+
+    // 如果没有 x/y（让 Electron 自动定位），直接认为可用
+    if (bounds.x === undefined || bounds.y === undefined) return true
+
+    return displays.some((d) => isRectIntersect(target, d.workArea))
+  } catch {
+    return true
+  }
+}
+
+function loadWindowState(name, fallbackBounds) {
+  const raw = store.get(getWindowStateKey(name)) || {}
+  const bounds = isValidBounds(raw.bounds) ? raw.bounds : fallbackBounds
+
+  // 如果保存的窗口位置已经不在任何显示器可视区域（比如拔掉显示器），则回退到默认 bounds
+  const finalBounds = bounds && ensureVisibleOnSomeDisplay(bounds) ? bounds : fallbackBounds
+
+  return {
+    bounds: finalBounds,
+    isMaximized: Boolean(raw.isMaximized)
+  }
+}
+
+function saveWindowState(name, win) {
+  if (!win || win.isDestroyed()) return
+  // 最小化时不保存（避免保存成 0x0 或奇怪位置）
+  if (win.isMinimized()) return
+
+  const isMaximized = win.isMaximized()
+  const bounds =
+    isMaximized && typeof win.getNormalBounds === 'function'
+      ? win.getNormalBounds()
+      : win.getBounds()
+
+  if (!isValidBounds(bounds)) return
+
+  store.set(getWindowStateKey(name), { bounds, isMaximized })
+}
+
+function attachWindowStatePersistence(name, win) {
+  let timer = null
+  const scheduleSave = () => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => saveWindowState(name, win), 250)
+  }
+
+  win.on('move', scheduleSave)
+  win.on('resize', scheduleSave)
+  win.on('maximize', scheduleSave)
+  win.on('unmaximize', scheduleSave)
+  win.on('close', () => saveWindowState(name, win))
+}
+// -----------------------------------------------------------------
+
 // 配置自动更新
 autoUpdater.autoDownload = false // 不自动下载，等待用户确认
 autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装更新
@@ -159,10 +253,14 @@ function createWindow() {
   const macIcon = getMacIcon()
 
   // Create the browser window.
+  const mainWindowState = loadWindowState('main', {
+    width: 1100,
+    height: 800
+  })
+
   mainWindow = new BrowserWindow({
     title: '51码字',
-    width: 1100,
-    height: 800,
+    ...mainWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
     show: false,
@@ -178,7 +276,10 @@ function createWindow() {
     }
   })
 
+  attachWindowStatePersistence('main', mainWindow)
+
   mainWindow.on('ready-to-show', () => {
+    if (mainWindowState.isMaximized) mainWindow.maximize()
     mainWindow.show()
   })
 
@@ -571,11 +672,15 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   // 获取 macOS 图标
   const macIcon = getMacIcon()
 
+  const editorWindowState = loadWindowState('editor', {
+    width: 1100,
+    height: 800
+  })
+
   // 新建窗口
   const editorWindow = new BrowserWindow({
     title: `${name} - 51码字`,
-    width: 1100,
-    height: 800,
+    ...editorWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
     show: false,
@@ -592,7 +697,9 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
     }
   })
   bookEditorWindows.set(id, editorWindow)
+  attachWindowStatePersistence('editor', editorWindow)
   editorWindow.on('ready-to-show', () => {
+    if (editorWindowState.isMaximized) editorWindow.maximize()
     editorWindow.show()
   })
   editorWindow.on('closed', () => {
