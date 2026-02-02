@@ -615,6 +615,66 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   return true
 })
 
+function getVolumeOrderKey(bookName) {
+  return `volumeOrder:${bookName}`
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function getDirCreateTimeMs(dirPath) {
+  try {
+    const st = fs.statSync(dirPath)
+    // birthtimeMs 在大多数平台/文件系统上是创建时间；取不到时退回 ctime/mtime
+    if (Number.isFinite(st.birthtimeMs) && st.birthtimeMs > 0) return st.birthtimeMs
+    if (Number.isFinite(st.ctimeMs) && st.ctimeMs > 0) return st.ctimeMs
+    if (Number.isFinite(st.mtimeMs) && st.mtimeMs > 0) return st.mtimeMs
+    return 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * 确保卷的“创建顺序”元数据存在且与磁盘同步
+ *
+ * 约定：volumeOrder 保存为旧 -> 新（创建顺序）
+ * - 新创建的卷会 push 到末尾
+ * - 若用户在文件系统里手动新增卷目录：按目录创建时间补到末尾（旧->新）
+ */
+function ensureVolumeOrder(bookName, bookPath, volumeNames) {
+  const key = getVolumeOrderKey(bookName)
+  let order = asArray(store.get(key))
+
+  // 清理：移除已不存在的卷
+  order = order.filter((name) => volumeNames.includes(name))
+
+  // 补全：把磁盘上存在但 order 中没有的卷补进来（按创建时间排序后追加）
+  const missing = volumeNames.filter((name) => !order.includes(name))
+  if (missing.length > 0) {
+    const withTime = missing.map((name) => ({
+      name,
+      t: getDirCreateTimeMs(join(bookPath, '正文', name))
+    }))
+    withTime.sort((a, b) => a.t - b.t)
+    order.push(...withTime.map((x) => x.name))
+  }
+
+  // 初始化：如果没有任何历史记录，则从磁盘创建时间推导一次（旧 -> 新）
+  if (order.length === 0 && volumeNames.length > 0) {
+    const withTime = volumeNames.map((name) => ({
+      name,
+      t: getDirCreateTimeMs(join(bookPath, '正文', name))
+    }))
+    withTime.sort((a, b) => a.t - b.t)
+    order = withTime.map((x) => x.name)
+  }
+
+  store.set(key, order)
+  return order
+}
+
 // 创建卷
 ipcMain.handle('create-volume', async (event, bookName) => {
   const booksDir = store.get('booksDir')
@@ -630,7 +690,16 @@ ipcMain.handle('create-volume', async (event, bookName) => {
     index++
   }
   fs.mkdirSync(join(volumePath, volumeName))
-  return { success: true }
+
+  // 记录卷的创建顺序（旧 -> 新）
+  const key = getVolumeOrderKey(bookName)
+  const order = asArray(store.get(key))
+  if (!order.includes(volumeName)) {
+    order.push(volumeName)
+    store.set(key, order)
+  }
+
+  return { success: true, volumeName }
 })
 
 // 创建章节
@@ -704,13 +773,13 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
   }
 
   const volumes = fs.readdirSync(volumePath, { withFileTypes: true })
+  const volumeNames = volumes.filter((v) => v.isDirectory()).map((v) => v.name)
+  const volumeOrder = ensureVolumeOrder(bookName, bookPath, volumeNames)
 
   const chapters = []
-  for (const volume of volumes) {
-    if (volume.isDirectory()) {
-      const volumeName = volume.name
-      const currentVolumePath = join(bookPath, '正文', volumeName)
-
+  for (const volumeName of volumeOrder) {
+    const currentVolumePath = join(bookPath, '正文', volumeName)
+    if (fs.existsSync(currentVolumePath)) {
       const files = fs.readdirSync(currentVolumePath, { withFileTypes: true })
 
       const volumeChapters = files
@@ -863,6 +932,18 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
       try {
         // 尝试同步重命名
         fs.renameSync(volumePath, newVolumePath)
+
+        // 同步更新卷创建顺序元数据
+        const key = getVolumeOrderKey(bookName)
+        const order = asArray(store.get(key))
+        const idx = order.indexOf(volume)
+        if (idx !== -1) {
+          order[idx] = newName
+        } else if (!order.includes(newName)) {
+          order.push(newName)
+        }
+        store.set(key, order)
+
         return { success: true }
       } catch (renameError) {
         // 如果是 Windows 上的权限或锁定错误，提供更友好的错误信息
@@ -936,6 +1017,12 @@ ipcMain.handle('delete-node', async (event, { bookName, type, volume, chapter })
     // 删除整个卷文件夹
     if (!fs.existsSync(volumePath)) return { success: false, message: '卷不存在' }
     fs.rmSync(volumePath, { recursive: true, force: true })
+
+    // 同步更新卷创建顺序元数据
+    const key = getVolumeOrderKey(bookName)
+    const order = asArray(store.get(key)).filter((name) => name !== volume)
+    store.set(key, order)
+
     return { success: true }
   } else if (type === 'chapter') {
     const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
@@ -947,7 +1034,8 @@ ipcMain.handle('delete-node', async (event, { bookName, type, volume, chapter })
 })
 
 ipcMain.handle('get-sort-order', (event, bookName) => {
-  return store.get(`sortOrder:${bookName}`) || 'asc'
+  // 默认：新创建的卷在前（按创建顺序倒序展示）
+  return store.get(`sortOrder:${bookName}`) || 'desc'
 })
 
 // 获取章节设置

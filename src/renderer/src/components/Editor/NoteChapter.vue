@@ -177,8 +177,8 @@ const editingName = ref('')
 const editingNoteNode = ref(null)
 const editingNoteName = ref('')
 
-// 排序状态
-const sortOrder = ref('asc')
+// 排序状态（默认以创建顺序倒序展示：新卷在前）
+const sortOrder = ref('desc')
 
 const editorStore = useEditorStore()
 
@@ -472,17 +472,15 @@ async function loadChapters(arg = false) {
       currentChapterNodeKey.value = null
     }
 
-    const chapters = await window.electron.loadChapters(props.bookName)
-
-    if (sortOrder.value === 'desc') {
-      chapters.reverse()
-    }
+    const rawChapters = await window.electron.loadChapters(props.bookName)
+    const rawVolumes = getVolumeNodes(rawChapters)
+    const chapters = sortOrder.value === 'desc' ? [...rawChapters].reverse() : rawChapters
 
     // 验证数据结构
-    if (Array.isArray(chapters) && chapters.length > 0) {
-      if (chapters[0].children) {
+    if (Array.isArray(rawChapters) && rawChapters.length > 0) {
+      if (rawChapters[0].children) {
         // 检查章节编号连续性
-        await checkChapterNumberingAndWarn(chapters[0])
+        await checkChapterNumberingAndWarn(rawChapters[0])
       }
     }
 
@@ -493,18 +491,18 @@ async function loadChapters(arg = false) {
     const volumes = getVolumeNodes(chapters)
 
     // 1) 自动选中最新卷的最新章节时，确保“最新卷”展开（否则选中项不可见）
-    if (autoSelectLatest && volumes.length > 0) {
-      finalForceExpandVolumeId =
-        finalForceExpandVolumeId || getVolumeId(volumes[volumes.length - 1])
+    if (autoSelectLatest && rawVolumes.length > 0) {
+      const latestVolumeId = getVolumeId(rawVolumes[rawVolumes.length - 1])
+      finalForceExpandVolumeId = finalForceExpandVolumeId || latestVolumeId
     }
 
     // 2) 创建卷时：推断新卷并默认展开它（其他卷状态不变）
     if (
       detectNewVolumeFrom &&
       typeof detectNewVolumeFrom.has === 'function' &&
-      volumes.length > 0
+      rawVolumes.length > 0
     ) {
-      const newVolume = volumes.find((v) => {
+      const newVolume = rawVolumes.find((v) => {
         const id = getVolumeId(v)
         return id && !detectNewVolumeFrom.has(id)
       })
@@ -532,13 +530,18 @@ async function loadChapters(arg = false) {
     }
 
     // 兼容旧逻辑：自动选中最新卷的最新章节
-    if (autoSelectLatest && volumes.length > 0) {
-      const latestVolume = volumes[volumes.length - 1]
-      if (latestVolume.children && latestVolume.children.length > 0) {
-        const latestChapter = latestVolume.children[latestVolume.children.length - 1]
-        const fakeNode = { data: latestChapter, parent: { data: latestVolume } }
-        await handleChapterClick(latestChapter, fakeNode)
-        currentChapterNodeKey.value = latestChapter.path
+    if (autoSelectLatest && rawVolumes.length > 0) {
+      const rawLatestVolume = rawVolumes[rawVolumes.length - 1]
+      if (rawLatestVolume.children && rawLatestVolume.children.length > 0) {
+        const rawLatestChapter = rawLatestVolume.children[rawLatestVolume.children.length - 1]
+        const targetVolume = volumes.find((v) => getVolumeId(v) === getVolumeId(rawLatestVolume))
+        const targetChapter = targetVolume?.children?.find((c) => c.path === rawLatestChapter.path)
+
+        if (targetVolume && targetChapter) {
+          const fakeNode = { data: targetChapter, parent: { data: targetVolume } }
+          await handleChapterClick(targetChapter, fakeNode)
+          currentChapterNodeKey.value = targetChapter.path
+        }
       }
     }
   } catch {
@@ -729,10 +732,8 @@ async function deleteNode(node) {
 async function sortVolumes() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
   await window.electron.setSortOrder(props.bookName, sortOrder.value)
-  chaptersTree.value = [...chaptersTree.value].reverse()
-  // 反转会触发树刷新，这里恢复展开集合，确保“其他卷状态不变”
-  await nextTick()
-  restoreExpandedVolumes()
+  // 重新加载：按“创建顺序”执行正序/倒序展示
+  await loadChapters(false)
 }
 
 // 创建笔记本
