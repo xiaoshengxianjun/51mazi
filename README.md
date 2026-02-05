@@ -30,7 +30,7 @@
 - **封面管理**: 支持选择本地封面图片 / 自定义封面颜色
 - **AI 生成封面**: 集成通义万相，按书名/笔名/风格提示词一键生成小说封面，并可直接应用到书籍
 
-#### 🤖 AI 生成封面
+### 🤖 AI 生成封面
 
 ![AI生成封面示例](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/ai_cover.png)
 
@@ -378,16 +378,18 @@ npm run build:linux
 
 ### 帮助中心 / 商务合作
 
-![QQ 群二维码](static/51mazi_qq_qrcode.jpg)
+![QQ 群二维码](static/QQQRCode.png)
 
 - QQ 交流群：777690109
 - 问题反馈 / 商务合作邮箱：<fomazi@163.com>
 
 ### 赞助作者
 
-![赞助二维码](static/wx_reward_qrcode.png)
+感谢每一位支持本项目的朋友！可通过以下方式打赏支持：
 
-感谢每一位支持本项目的朋友！
+| WeChat Pay | Alipay |
+|------------|--------|
+| ![WeChat Pay QR Code](static/WeChatPayQRCode.png) | ![Alipay QR Code](static/AliPayQRCode.png) |
 
 ## 🏷️ 标签
 `#Electron` `#Vue3` `#桌面应用` `#富文本编辑` `#Canvas绘图` `#关系图谱` `#小说写作` `#前端开发` `#词条字典` `#禁词检测` `#人物高亮` `#AI辅助` `#AI写作` `#DeepSeek` `#智能起名`

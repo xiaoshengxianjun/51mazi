@@ -109,6 +109,7 @@
     <el-dialog v-model="showHelpDialog" title="帮助中心" width="420px" align-center>
       <div class="dialog-content">
         <img :src="qqGroupQrcode" alt="QQ 群二维码" class="dialog-image" />
+        <p class="dialog-text">QQ 交流群：777690109</p>
         <p class="dialog-text">
           问题反馈 / 商务合作邮箱：
           <a class="dialog-link" :href="`mailto:${contactEmail}`">{{ contactEmail }}</a>
@@ -117,10 +118,19 @@
     </el-dialog>
 
     <!-- 赞助作者弹框 -->
-    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="420px" align-center center>
+    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="520px" align-center center>
       <div class="dialog-content">
-        <img :src="rewardQrcode" alt="赞助二维码" class="dialog-image" />
-        <p class="dialog-text">各位大哥大姐，求个赏呗，感谢支持！</p>
+        <p class="dialog-text">感谢每一位支持本项目的朋友！可通过以下方式打赏支持：</p>
+        <div class="sponsor-qrcodes">
+          <div class="sponsor-qrcode-item">
+            <img :src="wechatPayQrcode" alt="微信收款码" class="dialog-image" />
+            <span class="sponsor-label">微信收款码</span>
+          </div>
+          <div class="sponsor-qrcode-item">
+            <img :src="alipayQrcode" alt="支付宝收款码" class="dialog-image" />
+            <span class="sponsor-label">支付宝收款码</span>
+          </div>
+        </div>
       </div>
       <template #footer>
         <el-button type="primary" @click="handleConsiderClick">考虑一下</el-button>
@@ -222,8 +232,9 @@ const showPasswordDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
 const aiSettingsRef = ref(null)
-const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
-const rewardQrcode = new URL('../../../../static/wx_reward_qrcode.png', import.meta.url).href
+const qqGroupQrcode = new URL('../../../../static/QQQRCode.png', import.meta.url).href
+const wechatPayQrcode = new URL('../../../../static/WeChatPayQRCode.png', import.meta.url).href
+const alipayQrcode = new URL('../../../../static/AliPayQRCode.png', import.meta.url).href
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
@@ -755,6 +766,30 @@ function formatReleaseNotes(notes) {
   max-width: 100%;
   border-radius: 12px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.sponsor-qrcodes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.sponsor-qrcode-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  .dialog-image {
+    width: 200px;
+  }
+}
+
+.sponsor-label {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .dialog-text {

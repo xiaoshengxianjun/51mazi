@@ -592,7 +592,7 @@ const goBack = () => {
 
 // 联系方式（与首页“帮助中心”保持一致）
 const contactEmail = 'fomazi@163.com'
-const qqGroupQrcode = new URL('../../../../static/51mazi_qq_qrcode.jpg', import.meta.url).href
+const qqGroupQrcode = new URL('../../../../static/QQQRCode.png', import.meta.url).href
 const officialWebsite = 'https://www.51mazi.com'
 
 // 页面目录（锚点导航）

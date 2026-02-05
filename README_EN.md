@@ -376,16 +376,18 @@ If you're looking for a professional novel writing software, 51mazi is definitel
 
 ### Help Center / Business Cooperation
 
-![QQ Group QR Code](static/51mazi_qq_qrcode.jpg)
+![QQ Group QR Code](static/QQQRCode.png)
 
 - QQ Group: 777690109
 - Issue Feedback / Business Cooperation Email: <fomazi@163.com>
 
 ### Sponsor the Author
 
-![Sponsor QR Code](static/wx_reward_qrcode.png)
+Thank you to everyone who supports this project! You can support via:
 
-Thank you to everyone who supports this project!
+| WeChat Pay | Alipay |
+|------------|--------|
+| ![WeChat Pay QR Code](static/WeChatPayQRCode.png) | ![Alipay QR Code](static/AliPayQRCode.png) |
 
 ## 🏷️ Tags
 `#Electron` `#Vue3` `#DesktopApplication` `#RichTextEditing` `#CanvasDrawing` `#RelationshipGraph` `#NovelWriting` `#FrontendDevelopment` `#Dictionary` `#ForbiddenWordDetection` `#CharacterHighlighting` `#AIAssistance` `#AIWriting` `#DeepSeek` `#IntelligentNaming`
