@@ -136,6 +136,14 @@ jobs:
         run: |
           find dist -type f -name 'builder-debug.yml' -delete 2>/dev/null || true
 
+      # 各平台都产出 app-update.yml，重名上传会 422，只保留一份
+      - name: Deduplicate app-update.yml
+        run: |
+          found=
+          while IFS= read -r -d '' f; do
+            if [ -z "$found" ]; then found=1; else rm -f "$f"; fi
+          done < <(find dist -type f -name 'app-update.yml' -print0 2>/dev/null)
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
