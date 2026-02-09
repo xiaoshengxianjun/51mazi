@@ -131,6 +131,11 @@ jobs:
           echo "=== Build Artifacts ==="
           find dist -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.zip" \) 2>/dev/null | head -20 || echo "No build artifacts found"
 
+      # 移除 electron-builder 的调试文件，避免上传到 Release 时触发 404
+      - name: Remove debug files
+        run: |
+          find dist -type f -name 'builder-debug.yml' -delete 2>/dev/null || true
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
