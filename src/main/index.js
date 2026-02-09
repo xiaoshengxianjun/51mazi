@@ -514,8 +514,8 @@ ipcMain.handle('read-books-dir', async () => {
       if (fs.existsSync(metaPath)) {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-          // 只返回必要的字段，确保name是文件夹名称而不是路径
-          books.push(meta)
+          // 返回 meta 并带上实际目录名 folderName，供前端构建封面等路径使用（创建时目录名可能被 safeName 替换）
+          books.push({ ...meta, folderName: file.name })
         } catch (e) {
           // ignore parse error
           console.error('read-books-dir', e)

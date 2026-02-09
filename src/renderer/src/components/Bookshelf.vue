@@ -93,6 +93,7 @@
         :cover-url="book.coverUrl"
         :cover-color="book.coverColor"
         :book-name="book.name"
+        :folder-name="book.folderName || book.name"
         @on-open="onOpen(book)"
         @on-edit="onEdit(book)"
         @on-delete="onDelete(book)"
@@ -223,18 +224,15 @@ function onOpen(book) {
   }
 }
 
-// 执行打开书籍操作
+// 执行打开书籍操作（使用实际目录名 folderName 定位书籍文件夹）
 function executeOpenBook(book) {
-  // 通过 Electron API 请求主进程打开新窗口
+  const folderName = book.folderName || book.name
   if (window.electron && window.electron.openBookEditorWindow) {
-    window.electron.openBookEditorWindow(book.id, book.name)
+    window.electron.openBookEditorWindow(book.id, folderName)
   } else {
-    // 兼容老逻辑
     router.push({
       path: '/editor',
-      query: {
-        name: book.name
-      }
+      query: { name: folderName }
     })
   }
 }
@@ -268,14 +266,14 @@ function executeEditBook(book) {
   // 编辑模式下，coverImagePath 应该为空（除非用户选择新图片）
   // coverImagePreview 用于显示原有封面
   form.value.coverImagePath = ''
-  // 如果有封面图片，需要加载预览
+  // 如果有封面图片，需要加载预览（使用实际目录名定位文件）
   if (book.coverUrl) {
-    loadCoverImagePreview(book.name, book.coverUrl)
+    loadCoverImagePreview(book.folderName || book.name, book.coverUrl)
   } else {
     form.value.coverImagePreview = ''
   }
-  // 保存原始书名，用于定位文件夹
-  form.value.originalName = book.name
+  // 保存实际目录名，用于定位文件夹（编辑、保存时）
+  form.value.originalName = book.folderName || book.name
 }
 
 async function onDelete(book) {
@@ -301,7 +299,7 @@ async function executeDeleteBook(book) {
       type: 'warning'
     })
     console.log('调用删除函数，书名:', book.name)
-    const result = await deleteBook(book.name)
+    const result = await deleteBook(book.folderName || book.name)
     console.log('删除结果:', result)
     if (result) {
       ElMessage.success('删除成功')

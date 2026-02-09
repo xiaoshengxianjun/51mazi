@@ -75,7 +75,8 @@ const props = defineProps({
     type: String,
     default: '#22345c'
   },
-  bookName: String // 用于构建封面图片路径
+  bookName: String, // 展示用书名
+  folderName: String // 实际目录名，用于构建封面路径（与 bookName 可能不同，如书名含非法字符时）
 })
 
 const menuVisible = ref(false)
@@ -101,30 +102,35 @@ const coverBgStyle = computed(() => {
   return {}
 })
 
-// 加载封面图片
+// 加载封面图片：使用 folderName（实际目录名）构建路径，仅在图片真正加载成功时设为有封面，失败则回退显示书名
 async function loadCoverImage() {
-  if (!props.coverUrl || !props.bookName) {
+  const pathName = props.folderName || props.bookName
+  if (!props.coverUrl || !pathName) {
     coverImageUrl.value = ''
     return
   }
   try {
     const booksDir = await window.electronStore.get('booksDir')
-    const coverPath = `${booksDir}/${props.bookName}/${props.coverUrl}`
-    // 添加时间戳参数避免浏览器缓存
-    // 使用 updatedAt 的时间戳，确保书籍更新时图片也会刷新
-    // 如果 updatedAt 不可用，使用当前时间戳
+    const coverPath = `${booksDir}/${pathName}/${props.coverUrl}`
     let timestamp = Date.now()
     if (props.updatedAt && props.updatedAt !== '暂无更新') {
       try {
         const date = new Date(props.updatedAt)
-        if (!isNaN(date.getTime())) {
-          timestamp = date.getTime()
-        }
+        if (!isNaN(date.getTime())) timestamp = date.getTime()
       } catch (e) {
-        // 如果解析失败，使用当前时间戳
+        // 解析失败则用当前时间戳
       }
     }
-    coverImageUrl.value = `file://${coverPath}?t=${timestamp}`
+    const url = `file://${coverPath}?t=${timestamp}`
+    // 先通过 Image 探测是否可加载，避免路径错误时仍显示“有封面”导致只看到蓝底且书名被隐藏
+    const img = new Image()
+    img.onload = () => {
+      coverImageUrl.value = url
+    }
+    img.onerror = () => {
+      coverImageUrl.value = ''
+    }
+    img.src = url
   } catch (error) {
     console.error('加载封面图片失败:', error)
     coverImageUrl.value = ''
@@ -135,10 +141,9 @@ onMounted(() => {
   loadCoverImage()
 })
 
-// 监听封面URL、书名和更新时间变化
-// 当 updatedAt 变化时也会重新加载图片，确保封面图片更新后能正确显示
+// 监听封面URL、实际目录名和更新时间变化
 watch(
-  () => [props.coverUrl, props.bookName, props.updatedAt],
+  () => [props.coverUrl, props.folderName, props.bookName, props.updatedAt],
   () => {
     loadCoverImage()
   },
