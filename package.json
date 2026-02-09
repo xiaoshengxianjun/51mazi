@@ -1,6 +1,6 @@
 {
   "name": "51mazi",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A desktop writing software for novel writers",
   "main": "./out/main/index.js",
   "author": "51mazi",
