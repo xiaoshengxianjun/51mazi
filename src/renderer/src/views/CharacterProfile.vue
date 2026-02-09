@@ -330,13 +330,30 @@ import Sortable from 'sortablejs'
 const route = useRoute()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const viewMode = ref('card') // 视图模式：card 或 table
+const bookName = route.query.name || ''
+
+// 人物谱视图模式：按书籍记忆，默认表格模式
+const VIEW_MODE_STORAGE_KEY_PREFIX = 'characterProfileViewMode_'
+function getViewModeStorageKey() {
+  return VIEW_MODE_STORAGE_KEY_PREFIX + (bookName || '_default')
+}
+const viewMode = ref(
+  (typeof localStorage !== 'undefined' && localStorage.getItem(getViewModeStorageKey())) || 'table'
+)
 const characters = ref([])
 const dictionary = ref([]) // 字典数据
-const bookName = route.query.name || ''
 const formRef = ref(null)
 const tableRef = ref(null)
 let sortableInstance = null // 存储 SortableJS 实例
+
+// 切换视图模式时按当前书籍持久化，下次打开该书籍时恢复
+watch(viewMode, (val) => {
+  if (typeof localStorage === 'undefined') return
+  const key = getViewModeStorageKey()
+  if (val === 'card' || val === 'table') {
+    localStorage.setItem(key, val)
+  }
+})
 
 const presetMarkerColors = [
   '',

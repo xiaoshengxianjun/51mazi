@@ -9,231 +9,226 @@ const api = {}
 const customElectronAPI = {
   // --------- 书籍相关 ---------
   selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
-      // 选择图片文件
-      selectImage: () => ipcRenderer.invoke('select-image'),
-      // 显示保存文件对话框
-      showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
-      // 写入导出文件
-      writeExportFile: (data) => ipcRenderer.invoke('write-export-file', data),
-      // 创建书籍
-      createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
-      // 读取书籍目录
-      readBooksDir: () => ipcRenderer.invoke('read-books-dir'),
-      // 删除书籍
-      deleteBook: (name) => ipcRenderer.invoke('delete-book', { name }),
-      // 编辑书籍
-      editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo),
-      // 编辑器新窗口打开
-      openBookEditorWindow: (id, name) =>
-        ipcRenderer.invoke('open-book-editor-window', { id, name }),
-      // 创建卷
-      createVolume: (bookName) => ipcRenderer.invoke('create-volume', bookName),
-      // 创建章节
-      createChapter: (bookName, volumeId) =>
-        ipcRenderer.invoke('create-chapter', { bookName, volumeId }),
-      // 加载章节数据
-      loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
+  // 选择图片文件
+  selectImage: () => ipcRenderer.invoke('select-image'),
+  // 显示保存文件对话框
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  // 写入导出文件
+  writeExportFile: (data) => ipcRenderer.invoke('write-export-file', data),
+  // 创建书籍
+  createBook: (bookInfo) => ipcRenderer.invoke('create-book', bookInfo),
+  // 读取书籍目录
+  readBooksDir: () => ipcRenderer.invoke('read-books-dir'),
+  // 删除书籍
+  deleteBook: (name) => ipcRenderer.invoke('delete-book', { name }),
+  // 编辑书籍
+  editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo),
+  // 编辑器新窗口打开
+  openBookEditorWindow: (id, name) => ipcRenderer.invoke('open-book-editor-window', { id, name }),
+  // 创建卷
+  createVolume: (bookName) => ipcRenderer.invoke('create-volume', bookName),
+  // 创建章节
+  createChapter: (bookName, volumeId) =>
+    ipcRenderer.invoke('create-chapter', { bookName, volumeId }),
+  // 加载章节数据
+  loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
 
-      // --------- 节点相关 ---------
-      // 编辑节点
-      editNode: (bookName, payload) => ipcRenderer.invoke('edit-node', { bookName, ...payload }),
-      // 删除节点
-      deleteNode: (bookName, payload) =>
-        ipcRenderer.invoke('delete-node', { bookName, ...payload }),
-      // 获取书籍排序
-      getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
-      // 设置书籍排序
-      setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
+  // --------- 节点相关 ---------
+  // 编辑节点
+  editNode: (bookName, payload) => ipcRenderer.invoke('edit-node', { bookName, ...payload }),
+  // 删除节点
+  deleteNode: (bookName, payload) => ipcRenderer.invoke('delete-node', { bookName, ...payload }),
+  // 获取书籍排序
+  getSortOrder: (bookName) => ipcRenderer.invoke('get-sort-order', bookName),
+  // 设置书籍排序
+  setSortOrder: (bookName, order) => ipcRenderer.invoke('set-sort-order', { bookName, order }),
 
-      // 获取章节设置
-      getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
-      setChapterTargetWords: (bookName, targetWords) =>
-        ipcRenderer.invoke('set-chapter-target-words', { bookName, targetWords }),
+  // 获取章节设置
+  getChapterSettings: (bookName) => ipcRenderer.invoke('get-chapter-settings', bookName),
+  setChapterTargetWords: (bookName, targetWords) =>
+    ipcRenderer.invoke('set-chapter-target-words', { bookName, targetWords }),
 
-      // 更新章节格式
-      updateChapterFormat: (bookName, settings) =>
-        ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
+  // 更新章节格式
+  updateChapterFormat: (bookName, settings) =>
+    ipcRenderer.invoke('update-chapter-format', { bookName, settings }),
 
-      // 重新格式化章节编号
-      reformatChapterNumbers: (bookName, volumeName, settings) =>
-        ipcRenderer.invoke('reformat-chapter-numbers', { bookName, volumeName, settings }),
+  // 重新格式化章节编号
+  reformatChapterNumbers: (bookName, volumeName, settings) =>
+    ipcRenderer.invoke('reformat-chapter-numbers', { bookName, volumeName, settings }),
 
-      // --------- 笔记本相关 ---------
-      // 笔记本和笔记的增删改查
-      createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
-      // 删除笔记本
-      deleteNotebook: (bookName, notebookName) =>
-        ipcRenderer.invoke('delete-notebook', { bookName, notebookName }),
-      // 重命名笔记本
-      renameNotebook: (bookName, oldName, newName) =>
-        ipcRenderer.invoke('rename-notebook', { bookName, oldName, newName }),
+  // --------- 笔记本相关 ---------
+  // 笔记本和笔记的增删改查
+  createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
+  // 删除笔记本
+  deleteNotebook: (bookName, notebookName) =>
+    ipcRenderer.invoke('delete-notebook', { bookName, notebookName }),
+  // 重命名笔记本
+  renameNotebook: (bookName, oldName, newName) =>
+    ipcRenderer.invoke('rename-notebook', { bookName, oldName, newName }),
 
-      // --------- 笔记相关 ---------
-      // 加载笔记数据
-      loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
-      // 创建笔记
-      createNote: (bookName, notebookName, noteName) =>
-        ipcRenderer.invoke('create-note', { bookName, notebookName, noteName }),
-      // 删除笔记
-      deleteNote: (bookName, notebookName, noteName) =>
-        ipcRenderer.invoke('delete-note', { bookName, notebookName, noteName }),
-      // 重命名笔记
-      renameNote: (bookName, notebookName, oldName, newName) =>
-        ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),
-      // 读取笔记内容
-      readNote: (bookName, notebookName, noteName) =>
-        ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
-      // 编辑笔记内容
-      editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+  // --------- 笔记相关 ---------
+  // 加载笔记数据
+  loadNotes: (bookName) => ipcRenderer.invoke('load-notes', bookName),
+  // 创建笔记
+  createNote: (bookName, notebookName, noteName) =>
+    ipcRenderer.invoke('create-note', { bookName, notebookName, noteName }),
+  // 删除笔记
+  deleteNote: (bookName, notebookName, noteName) =>
+    ipcRenderer.invoke('delete-note', { bookName, notebookName, noteName }),
+  // 重命名笔记
+  renameNote: (bookName, notebookName, oldName, newName) =>
+    ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),
+  // 读取笔记内容
+  readNote: (bookName, notebookName, noteName) =>
+    ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
+  // 编辑笔记内容
+  editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
 
-      // --------- 章节相关 ---------
-      // 读取章节内容
-      readChapter: (bookName, volumeName, chapterName) =>
-        ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
-      // 保存章节内容
-      saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
+  // --------- 章节相关 ---------
+  // 读取章节内容
+  readChapter: (bookName, volumeName, chapterName) =>
+    ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
+  // 保存章节内容
+  saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
 
-      // --------- 统计相关 ---------
-      // 获取书籍字数统计
-      getBookWordCount: (bookName) => ipcRenderer.invoke('get-book-word-count', bookName),
-      // 获取每日码字统计
-      getDailyWordCount: () => ipcRenderer.invoke('get-daily-word-count'),
-      // 获取章节统计信息
-      getChapterStats: (bookName, volumeName, chapterName) =>
-        ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName }),
-      // 新增：获取书籍每日净增字数统计
-      getBookDailyStats: (bookName) => ipcRenderer.invoke('get-book-daily-stats', bookName),
-      // 新增：获取所有书籍的每日净增字数统计
-      getAllBooksDailyStats: () => ipcRenderer.invoke('get-all-books-daily-stats'),
+  // --------- 统计相关 ---------
+  // 获取书籍字数统计
+  getBookWordCount: (bookName) => ipcRenderer.invoke('get-book-word-count', bookName),
+  // 获取每日码字统计
+  getDailyWordCount: () => ipcRenderer.invoke('get-daily-word-count'),
+  // 获取章节统计信息
+  getChapterStats: (bookName, volumeName, chapterName) =>
+    ipcRenderer.invoke('get-chapter-stats', { bookName, volumeName, chapterName }),
+  // 新增：获取书籍每日净增字数统计
+  getBookDailyStats: (bookName) => ipcRenderer.invoke('get-book-daily-stats', bookName),
+  // 新增：获取所有书籍的每日净增字数统计
+  getAllBooksDailyStats: () => ipcRenderer.invoke('get-all-books-daily-stats'),
 
-      // --------- 时间线相关 ---------
-      // 读取时间线数据
-      readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', { bookName }),
-      // 保存时间线数据
-      writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data }),
+  // --------- 时间线相关 ---------
+  // 读取时间线数据
+  readTimeline: (bookName) => ipcRenderer.invoke('read-timeline', { bookName }),
+  // 保存时间线数据
+  writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data }),
 
-      // --------- 地图相关 ---------
-      // 读取地图列表
-      readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
-      // 保存地图
-      createMap: (data) => ipcRenderer.invoke('create-map', data),
-      // 更新地图
-      updateMap: (data) => ipcRenderer.invoke('update-map', data),
-      // 读取地图图片为base64
-      readMapImage: ({ bookName, mapName }) =>
-        ipcRenderer.invoke('read-map-image', { bookName, mapName }),
-      // 删除地图
-      deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
-      // 保存地图数据（画板内容）
-      saveMapData: (data) => ipcRenderer.invoke('save-map-data', data),
-      // 加载地图数据（画板内容）
-      loadMapData: ({ bookName, mapName }) =>
-        ipcRenderer.invoke('load-map-data', { bookName, mapName }),
+  // --------- 地图相关 ---------
+  // 读取地图列表
+  readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
+  // 保存地图
+  createMap: (data) => ipcRenderer.invoke('create-map', data),
+  // 更新地图
+  updateMap: (data) => ipcRenderer.invoke('update-map', data),
+  // 读取地图图片为base64
+  readMapImage: ({ bookName, mapName }) =>
+    ipcRenderer.invoke('read-map-image', { bookName, mapName }),
+  // 删除地图
+  deleteMap: ({ bookName, mapName }) => ipcRenderer.invoke('delete-map', { bookName, mapName }),
+  // 保存地图数据（画板内容）
+  saveMapData: (data) => ipcRenderer.invoke('save-map-data', data),
+  // 加载地图数据（画板内容）
+  loadMapData: ({ bookName, mapName }) =>
+    ipcRenderer.invoke('load-map-data', { bookName, mapName }),
 
-      // --------- 人物谱相关 ---------
-      // 读取人物谱数据
-      readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
-      // 保存人物谱数据
-      writeCharacters: (bookName, data) =>
-        ipcRenderer.invoke('write-characters', { bookName, data }),
+  // --------- 人物谱相关 ---------
+  // 读取人物谱数据
+  readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
+  // 保存人物谱数据
+  writeCharacters: (bookName, data) => ipcRenderer.invoke('write-characters', { bookName, data }),
 
-      // --------- 词条字典相关 ---------
-      // 读取词条字典数据
-      readDictionary: (bookName) => ipcRenderer.invoke('read-dictionary', { bookName }),
-      // 保存词条字典数据
-      writeDictionary: (bookName, data) =>
-        ipcRenderer.invoke('write-dictionary', { bookName, data }),
+  // --------- 词条字典相关 ---------
+  // 读取词条字典数据
+  readDictionary: (bookName) => ipcRenderer.invoke('read-dictionary', { bookName }),
+  // 保存词条字典数据
+  writeDictionary: (bookName, data) => ipcRenderer.invoke('write-dictionary', { bookName, data }),
 
-      // --------- 事序图相关 ---------
-      // 读取事序图数据
-      readSequenceCharts: (bookName) => ipcRenderer.invoke('read-sequence-charts', { bookName }),
-      // 保存事序图数据
-      writeSequenceCharts: (bookName, data) =>
-        ipcRenderer.invoke('write-sequence-charts', { bookName, data }),
+  // --------- 事序图相关 ---------
+  // 读取事序图数据
+  readSequenceCharts: (bookName) => ipcRenderer.invoke('read-sequence-charts', { bookName }),
+  // 保存事序图数据
+  writeSequenceCharts: (bookName, data) =>
+    ipcRenderer.invoke('write-sequence-charts', { bookName, data }),
 
-      // --------- 关系图相关 ---------
-      // 读取关系图列表
-      readRelationships: (bookName) => ipcRenderer.invoke('read-relationships', bookName),
-      // 读取关系图数据
-      readRelationshipData: (bookName, relationshipName) =>
-        ipcRenderer.invoke('read-relationship-data', { bookName, relationshipName }),
-      // 创建关系图
-      createRelationship: (data) => ipcRenderer.invoke('create-relationship', data),
-      // 保存关系图数据
-      saveRelationshipData: (bookName, relationshipName, relationshipData) =>
-        ipcRenderer.invoke('save-relationship-data', {
-          bookName,
-          relationshipName,
-          relationshipData
-        }),
-      // 更新关系图缩略图
-      updateRelationshipThumbnail: (data) =>
-        ipcRenderer.invoke('update-relationship-thumbnail', data),
-      // 删除关系图
-      deleteRelationship: ({ bookName, relationshipName }) =>
-        ipcRenderer.invoke('delete-relationship', { bookName, relationshipName }),
-      // 读取关系图图片
-      readRelationshipImage: ({ bookName, imageName }) =>
-        ipcRenderer.invoke('read-relationship-image', { bookName, imageName }),
+  // --------- 关系图相关 ---------
+  // 读取关系图列表
+  readRelationships: (bookName) => ipcRenderer.invoke('read-relationships', bookName),
+  // 读取关系图数据
+  readRelationshipData: (bookName, relationshipName) =>
+    ipcRenderer.invoke('read-relationship-data', { bookName, relationshipName }),
+  // 创建关系图
+  createRelationship: (data) => ipcRenderer.invoke('create-relationship', data),
+  // 保存关系图数据
+  saveRelationshipData: (bookName, relationshipName, relationshipData) =>
+    ipcRenderer.invoke('save-relationship-data', {
+      bookName,
+      relationshipName,
+      relationshipData
+    }),
+  // 更新关系图缩略图
+  updateRelationshipThumbnail: (data) => ipcRenderer.invoke('update-relationship-thumbnail', data),
+  // 删除关系图
+  deleteRelationship: ({ bookName, relationshipName }) =>
+    ipcRenderer.invoke('delete-relationship', { bookName, relationshipName }),
+  // 读取关系图图片
+  readRelationshipImage: ({ bookName, imageName }) =>
+    ipcRenderer.invoke('read-relationship-image', { bookName, imageName }),
 
-      // --------- 组织架构相关 ---------
-      // 读取组织架构列表
-      readOrganizations: (bookName) => ipcRenderer.invoke('read-organizations', { bookName }),
-      // 读取组织架构数据
-      readOrganization: (bookName, organizationName) =>
-        ipcRenderer.invoke('read-organization', { bookName, organizationName }),
-      // 创建组织架构
-      createOrganization: (data) => ipcRenderer.invoke('create-organization', data),
-      // 保存组织架构数据
-      writeOrganization: (bookName, organizationName, organizationData) =>
-        ipcRenderer.invoke('write-organization', {
-          bookName,
-          organizationName,
-          organizationData
-        }),
-      // 更新组织架构缩略图
-      updateOrganizationThumbnail: (data) =>
-        ipcRenderer.invoke('update-organization-thumbnail', data),
-      // 读取组织架构图片
-      readOrganizationImage: ({ bookName, imageName }) =>
-        ipcRenderer.invoke('read-organization-image', { bookName, imageName }),
-      // 删除组织架构
-      deleteOrganization: ({ bookName, organizationName }) =>
-        ipcRenderer.invoke('delete-organization', { bookName, organizationName }),
+  // --------- 组织架构相关 ---------
+  // 读取组织架构列表
+  readOrganizations: (bookName) => ipcRenderer.invoke('read-organizations', { bookName }),
+  // 读取组织架构数据
+  readOrganization: (bookName, organizationName) =>
+    ipcRenderer.invoke('read-organization', { bookName, organizationName }),
+  // 创建组织架构
+  createOrganization: (data) => ipcRenderer.invoke('create-organization', data),
+  // 保存组织架构数据
+  writeOrganization: (bookName, organizationName, organizationData) =>
+    ipcRenderer.invoke('write-organization', {
+      bookName,
+      organizationName,
+      organizationData
+    }),
+  // 更新组织架构缩略图
+  updateOrganizationThumbnail: (data) => ipcRenderer.invoke('update-organization-thumbnail', data),
+  // 读取组织架构图片
+  readOrganizationImage: ({ bookName, imageName }) =>
+    ipcRenderer.invoke('read-organization-image', { bookName, imageName }),
+  // 删除组织架构
+  deleteOrganization: ({ bookName, organizationName }) =>
+    ipcRenderer.invoke('delete-organization', { bookName, organizationName }),
 
-      // --------- 禁词管理相关 ---------
-      // 获取禁词列表
-      getBannedWords: (bookName) => ipcRenderer.invoke('get-banned-words', bookName),
-      // 添加禁词
-      addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
-      // 删除禁词
-      removeBannedWord: (bookName, word) =>
-        ipcRenderer.invoke('remove-banned-word', bookName, word),
+  // --------- 禁词管理相关 ---------
+  // 获取禁词列表
+  getBannedWords: (bookName) => ipcRenderer.invoke('get-banned-words', bookName),
+  // 添加禁词
+  addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
+  // 删除禁词
+  removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word),
 
-      // --------- 自动更新相关 ---------
-      // 手动检查更新
-      checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
-      // 下载更新
-      downloadUpdate: () => ipcRenderer.invoke('download-update'),
-      // 安装更新并重启
-      quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
-      // 获取当前版本
-      getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  // --------- 自动更新相关 ---------
+  // 手动检查更新
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  // 下载更新
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  // 安装更新并重启
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  // 获取当前版本
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  // 设置更新方式：'auto' 自动更新 | 'manual' 手动更新
+  setUpdateMode: (mode) => ipcRenderer.invoke('set-update-mode', mode),
 
-      // --------- DeepSeek AI 相关 ---------
-      // 设置 API Key
-      setDeepSeekApiKey: (apiKey) => ipcRenderer.invoke('deepseek:set-api-key', apiKey),
-      // 获取 API Key
-      getDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:get-api-key'),
-      // AI 随机起名
-      generateNamesWithAI: (options) => ipcRenderer.invoke('deepseek:generate-names', options),
-      // 验证 API Key
-      validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
+  // --------- DeepSeek AI 相关 ---------
+  // 设置 API Key
+  setDeepSeekApiKey: (apiKey) => ipcRenderer.invoke('deepseek:set-api-key', apiKey),
+  // 获取 API Key
+  getDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:get-api-key'),
+  // AI 随机起名
+  generateNamesWithAI: (options) => ipcRenderer.invoke('deepseek:generate-names', options),
+  // 验证 API Key
+  validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
 
-      // --------- 通义万相 AI 封面 ---------
-      setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
-      getTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:get-api-key'),
-      validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
+  // --------- 通义万相 AI 封面 ---------
+  setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
+  getTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:get-api-key'),
+  validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
   generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options),
   confirmAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:confirm-cover', options),
   discardAICovers: (options) => ipcRenderer.invoke('tongyiwanxiang:discard-ai-covers', options)

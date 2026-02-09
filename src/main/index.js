@@ -186,6 +186,42 @@ function attachWindowStatePersistence(name, win) {
 autoUpdater.autoDownload = false // 不自动下载，等待用户确认
 autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装更新
 
+// 自动更新定时器 ID，用于在用户切换为「手动更新」时清除
+let autoUpdateCheckTimeoutId = null
+let autoUpdateCheckIntervalId = null
+
+/**
+ * 根据「更新方式」设置调度或暂停自动检查更新：仅当为「自动更新」时启动 5 秒后首次检查及每 4 小时定时检查
+ */
+function scheduleAutoUpdateCheck() {
+  if (autoUpdateCheckTimeoutId != null) {
+    clearTimeout(autoUpdateCheckTimeoutId)
+    autoUpdateCheckTimeoutId = null
+  }
+  if (autoUpdateCheckIntervalId != null) {
+    clearInterval(autoUpdateCheckIntervalId)
+    autoUpdateCheckIntervalId = null
+  }
+  if (is.dev) return
+  const updateMode = store.get('app.updateMode') || 'auto'
+  if (updateMode === 'manual') {
+    return
+  }
+  autoUpdateCheckTimeoutId = setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((error) => {
+      console.error('自动检查更新失败:', error)
+    })
+  }, 5000)
+  autoUpdateCheckIntervalId = setInterval(
+    () => {
+      autoUpdater.checkForUpdates().catch((error) => {
+        console.error('定时检查更新失败:', error)
+      })
+    },
+    4 * 60 * 60 * 1000
+  )
+}
+
 // 设置更新事件处理器
 function setupUpdaterEvents() {
   // 开发环境不检查更新
@@ -333,25 +369,8 @@ app.whenReady().then(() => {
   // 在窗口创建后设置更新事件监听器
   setupUpdaterEvents()
 
-  // 应用启动后延迟检查更新（仅生产环境）
-  if (!is.dev) {
-    // 延迟5秒后检查更新，避免影响应用启动速度
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch((error) => {
-        console.error('自动检查更新失败:', error)
-      })
-    }, 5000)
-
-    // 设置定时检查更新（每4小时检查一次）
-    setInterval(
-      () => {
-        autoUpdater.checkForUpdates().catch((error) => {
-          console.error('定时检查更新失败:', error)
-        })
-      },
-      4 * 60 * 60 * 1000
-    )
-  }
+  // 根据「更新方式」设置决定是否启用自动检查更新（仅生产环境）
+  scheduleAutoUpdateCheck()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -2747,6 +2766,14 @@ ipcMain.handle('remove-banned-word', async (event, bookName, word) => {
 })
 
 // --------- 自动更新相关 ---------
+
+// 设置更新方式：'auto' 自动更新 | 'manual' 手动更新；会立即生效（暂停或恢复自动检查）
+ipcMain.handle('set-update-mode', async (_, mode) => {
+  if (mode !== 'auto' && mode !== 'manual') return false
+  store.set('app.updateMode', mode)
+  scheduleAutoUpdateCheck()
+  return true
+})
 
 // 手动检查更新
 ipcMain.handle('check-for-update', async () => {

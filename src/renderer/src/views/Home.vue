@@ -56,16 +56,17 @@
     <!-- 右上角鼓励提示（调度逻辑已封装到组件，避免首页逻辑混杂） -->
     <EncourageToastScheduler />
 
-    <!-- 选择书籍目录弹窗 -->
+    <!-- 系统设置弹窗 -->
     <el-dialog
       v-model="showDirDialog"
-      title="请选择书籍主目录"
-      width="600px"
+      title="系统设置"
+      width="700px"
       :close-on-click-modal="false"
       :show-close="false"
       align-center
+      @opened="onSystemSettingsOpened"
     >
-      <el-form label-width="80px">
+      <el-form label-width="100px">
         <el-form-item label="书籍目录">
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="18">
@@ -77,6 +78,19 @@
               </el-button>
             </el-col>
           </el-row>
+        </el-form-item>
+        <el-form-item label="更新方式">
+          <el-radio-group
+            v-model="updateMode"
+            class="update-mode-radios"
+            @change="handleUpdateModeChange"
+          >
+            <el-radio value="auto">自动更新</el-radio>
+            <el-radio value="manual">手动更新</el-radio>
+          </el-radio-group>
+          <div class="setting-desc">
+            选择「手动更新」后，将不再自动检查更新，可随时通过左侧菜单「检查更新」手动检查。
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -225,6 +239,8 @@ import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 const router = useRouter()
 const showDirDialog = ref(false)
 const bookDir = ref('')
+/** 更新方式：auto 自动更新（默认） | manual 手动更新 */
+const updateMode = ref('auto')
 const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
@@ -265,6 +281,11 @@ onMounted(async () => {
     showDirDialog.value = true
   } else {
     bookDir.value = dir
+  }
+  // 初始化更新方式（用于弹框打开时展示）
+  const savedUpdateMode = await window.electronStore?.get('app.updateMode')
+  if (savedUpdateMode === 'auto' || savedUpdateMode === 'manual') {
+    updateMode.value = savedUpdateMode
   }
   // 初始化主题
   await themeStore.initTheme()
@@ -450,6 +471,23 @@ async function handleChooseDir() {
 async function handleConfirmDir() {
   await window.electronStore.set('booksDir', bookDir.value)
   showDirDialog.value = false
+}
+
+// 系统设置弹框打开时，同步一次更新方式（从 store 读取，保证与主进程一致）
+async function onSystemSettingsOpened() {
+  const saved = await window.electronStore?.get('app.updateMode')
+  if (saved === 'auto' || saved === 'manual') {
+    updateMode.value = saved
+  }
+}
+
+// 用户切换更新方式时，通知主进程并持久化，自动更新逻辑会立即暂停或恢复
+async function handleUpdateModeChange(mode) {
+  try {
+    await window.electron?.setUpdateMode?.(mode)
+  } catch (e) {
+    console.error('设置更新方式失败:', e)
+  }
 }
 
 // 获取可用主题列表
@@ -796,6 +834,18 @@ function formatReleaseNotes(notes) {
   margin: 0;
   font-size: 14px;
   color: var(--text-secondary);
+}
+
+/* 更新方式两个单选项之间的间距 */
+.update-mode-radios :deep(.el-radio) {
+  margin-right: 24px;
+}
+
+.setting-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .dialog-link {
