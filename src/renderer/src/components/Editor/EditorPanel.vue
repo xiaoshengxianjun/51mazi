@@ -165,6 +165,26 @@ const characters = ref([]) // 人物数据列表
 let characterHighlightTimer = null // 人物高亮定时器
 const defaultHighlightColor = '#ffeb3b' // 默认高亮颜色（黄色）
 
+/**
+ * 将人物高亮颜色变淡，避免过于刺眼
+ * @param {string} hex - 如 #ffeb3b
+ * @returns {string} 混合白色后的浅色 hex
+ */
+function lightenHighlightColor(hex) {
+  if (!hex || typeof hex !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return hex || defaultHighlightColor
+  }
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  const mix = 0.58 // 约 58% 向白色混合，使高亮更淡
+  const r2 = Math.round(r + (255 - r) * mix)
+  const g2 = Math.round(g + (255 - g) * mix)
+  const b2 = Math.round(b + (255 - b) * mix)
+  return '#' + [r2, g2, b2].map((x) => x.toString(16).padStart(2, '0')).join('')
+}
+
 // 禁词提示相关状态
 const bannedWordsHintEnabled = ref(false) // 禁词提示开关状态，默认关闭
 const bannedWords = ref([]) // 禁词数据列表
@@ -853,7 +873,7 @@ function applyCharacterHighlights() {
             from: pos + match.index,
             to: pos + match.index + match[0].length,
             text: match[0],
-            color: character.markerColor || defaultHighlightColor
+            color: lightenHighlightColor(character.markerColor || defaultHighlightColor)
           })
         }
       }

@@ -384,14 +384,10 @@ const formRules = {
   age: [{ required: true, message: '请输入年龄(岁)', trigger: 'blur' }],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   height: [{ required: true, message: '请输入身高(cm)', trigger: 'blur' }],
-  biography: [
-    { required: true, message: '请输入生平介绍', trigger: 'blur' },
-    { min: 1, max: 1000, message: '生平介绍长度在 1 到 1000 个字符', trigger: 'blur' }
-  ],
-  appearance: [
-    { required: true, message: '请输入形象介绍', trigger: 'blur' },
-    { min: 1, max: 500, message: '形象介绍长度在 1 到 500 个字符', trigger: 'blur' }
-  ]
+  // 生平介绍：非必填，有内容时最多 1000 字
+  biography: [{ max: 1000, message: '生平介绍最多 1000 个字符', trigger: 'blur' }],
+  // 形象介绍：非必填，有内容时最多 500 字
+  appearance: [{ max: 500, message: '形象介绍最多 500 个字符', trigger: 'blur' }]
 }
 
 // 计算标签选项（从字典词条中获取，保持树形结构）
