@@ -5,7 +5,7 @@
         v-model="fontFamily"
         class="toolbar-item"
         size="small"
-        style="width: 85px"
+        style="width: 82px"
         title="字体"
       >
         <el-option label="宋体" value="SimSun" />
@@ -35,7 +35,7 @@
         v-model="fontSize"
         class="toolbar-item"
         size="small"
-        style="width: 65px"
+        style="width: 62px"
         title="字号"
       >
         <el-option label="12px" value="12px" />
@@ -61,6 +61,20 @@
         <el-option label="2" value="2" />
         <el-option label="2.2" value="2.2" />
         <el-option label="2.4" value="2.4" />
+      </el-select>
+      <el-select
+        v-model="paragraphSpacing"
+        class="toolbar-item"
+        size="small"
+        style="width: 60px"
+        title="段落间距"
+      >
+        <el-option label="无" value="0" />
+        <el-option label="0.25" value="0.25em" />
+        <el-option label="0.5" value="0.5em" />
+        <el-option label="0.75" value="0.75em" />
+        <el-option label="1" value="1em" />
+        <el-option label="1.5" value="1.5em" />
       </el-select>
       <el-button
         class="toolbar-item"
@@ -204,6 +218,7 @@ const props = defineProps({
       fontFamily: 'SimHei',
       fontSize: '16px',
       lineHeight: '1.6',
+      paragraphSpacing: '0.5em',
       isBold: false,
       isItalic: false
     })
@@ -250,6 +265,14 @@ const lineHeight = computed({
   get: () => props.modelValue.lineHeight,
   set: (val) => {
     emit('update:modelValue', { ...props.modelValue, lineHeight: val })
+    emit('update-style')
+  }
+})
+
+const paragraphSpacing = computed({
+  get: () => props.modelValue.paragraphSpacing ?? '0.5em',
+  set: (val) => {
+    emit('update:modelValue', { ...props.modelValue, paragraphSpacing: val })
     emit('update-style')
   }
 })
@@ -746,7 +769,7 @@ defineExpose({
   .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
   }
   .el-button--small {
     padding: 5px 8px;

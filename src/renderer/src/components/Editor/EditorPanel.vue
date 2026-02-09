@@ -143,6 +143,7 @@ const menubarState = ref({
   fontFamily: 'SimHei',
   fontSize: '16px',
   lineHeight: '1.6',
+  paragraphSpacing: '0.5em', // 段落之间间距
   isBold: false,
   isItalic: false
 })
@@ -231,6 +232,11 @@ function updateEditorStyle() {
     editorElement.style.setProperty('font-family', fullFontFamily, 'important')
     editorElement.style.setProperty('font-size', menubarState.value.fontSize, 'important')
     editorElement.style.setProperty('line-height', menubarState.value.lineHeight, 'important')
+    editorElement.style.setProperty(
+      '--paragraph-spacing',
+      menubarState.value.paragraphSpacing ?? '0',
+      'important'
+    )
     // 根据文件类型设置首行缩进（章节：2em；笔记：0）
     const isChapter = editorStore.file?.type === 'chapter'
     editorElement.style.setProperty('text-indent', isChapter ? '2em' : '0', 'important')
@@ -247,6 +253,7 @@ function handleStyleUpdate() {
       fontFamily: menubarState.value.fontFamily,
       fontSize: menubarState.value.fontSize,
       lineHeight: menubarState.value.lineHeight,
+      paragraphSpacing: menubarState.value.paragraphSpacing,
       globalBoldMode: menubarState.value.isBold,
       globalItalicMode: menubarState.value.isItalic
     })
@@ -433,6 +440,7 @@ function handleWindowClose() {
       fontFamily: menubarState.value.fontFamily,
       fontSize: menubarState.value.fontSize,
       lineHeight: menubarState.value.lineHeight,
+      paragraphSpacing: menubarState.value.paragraphSpacing,
       globalBoldMode: menubarState.value.isBold,
       globalItalicMode: menubarState.value.isItalic
     })
@@ -472,6 +480,10 @@ async function initEditor() {
         settings.lineHeight !== undefined && settings.lineHeight !== null
           ? settings.lineHeight
           : '1.6',
+      paragraphSpacing:
+        settings.paragraphSpacing !== undefined && settings.paragraphSpacing !== null
+          ? settings.paragraphSpacing
+          : '0.5em',
       isBold: settings.globalBoldMode !== undefined ? settings.globalBoldMode : false,
       isItalic: settings.globalItalicMode !== undefined ? settings.globalItalicMode : false
     }
@@ -657,6 +669,7 @@ onBeforeUnmount(async () => {
     fontFamily: menubarState.value.fontFamily,
     fontSize: menubarState.value.fontSize,
     lineHeight: menubarState.value.lineHeight,
+    paragraphSpacing: menubarState.value.paragraphSpacing,
     globalBoldMode: menubarState.value.isBold,
     globalItalicMode: menubarState.value.isItalic
   })
@@ -1293,10 +1306,15 @@ watch(
   height: max-content;
   min-height: 100%;
   white-space: pre-wrap; // 保证Tab缩进和换行显示
-  // 字体、字号、行高通过动态样式设置，不在这里固定设置
+  // 字体、字号、行高、段落间距通过 updateEditorStyle 设置到根元素（--paragraph-spacing）
 
   &:focus {
     outline: none;
+  }
+
+  // 段落之间间距：由菜单栏「段落间距」控制，通过 CSS 变量 --paragraph-spacing 应用
+  p {
+    margin-bottom: var(--paragraph-spacing, 0);
   }
 
   // 加粗样式 - 确保在所有情况下都生效
@@ -1371,10 +1389,11 @@ watch(
   //   // 颜色由 TipTap 扩展通过 style 属性设置
   // }
 
-  // 笔记大纲样式
+  // 笔记大纲样式（段落间距与正文一致，使用 --paragraph-spacing）
   p[data-note-outline] {
     position: relative;
-    margin: 6px 0;
+    margin-top: 6px;
+    margin-bottom: var(--paragraph-spacing, 6px);
     // 缩进通过 renderHTML 中的 style 属性控制（padding-left: level * 24px）
     // 但需要为控制按钮留出空间
     min-height: 24px;

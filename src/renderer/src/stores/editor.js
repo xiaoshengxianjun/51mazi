@@ -144,6 +144,7 @@ export const useEditorStore = defineStore('editor', () => {
     fontFamily: 'SimHei',
     fontSize: '16px',
     lineHeight: '1.6',
+    paragraphSpacing: '0.5em', // 段落之间间距（如 0、0.5em、1em）
     globalBoldMode: false,
     globalItalicMode: false
   })
@@ -169,6 +170,7 @@ export const useEditorStore = defineStore('editor', () => {
         fontFamily: editorSettings.value.fontFamily,
         fontSize: editorSettings.value.fontSize,
         lineHeight: editorSettings.value.lineHeight,
+        paragraphSpacing: editorSettings.value.paragraphSpacing,
         globalBoldMode: editorSettings.value.globalBoldMode,
         globalItalicMode: editorSettings.value.globalItalicMode
       }
