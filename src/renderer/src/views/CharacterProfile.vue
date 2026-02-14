@@ -72,6 +72,21 @@
               <div class="section-title">生平介绍</div>
               <p class="character-intro biography-intro">{{ character.biography }}</p>
             </div>
+            <!-- 人物图列表：卡片下方一行多张 -->
+            <div class="character-portrait-row">
+              <div class="portrait-label">人物图</div>
+              <div v-if="getCharacterImages(character).length" class="character-portrait-list">
+                <div
+                  v-for="(img, idx) in getCharacterImages(character)"
+                  :key="idx"
+                  class="character-portrait-thumb"
+                  @click.stop="previewCharacterImages(character, idx)"
+                >
+                  <el-image :src="getAvatarSrc(img)" alt="人物图" fit="cover" />
+                </div>
+              </div>
+              <div v-else class="character-portrait-placeholder">暂无人物图</div>
+            </div>
           </div>
           <div class="character-actions">
             <el-icon @click.stop="handleDeleteCharacter(character)"><Delete /></el-icon>
@@ -103,6 +118,27 @@
                   {{ row.name.charAt(0) }}
                 </div>
               </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="人物图" width="120" align="center">
+            <template #default="{ row }">
+              <div
+                v-if="getCharacterImages(row).length"
+                class="table-portrait-list"
+                @click.stop="previewCharacterImages(row, 0)"
+              >
+                <div
+                  v-for="(img, idx) in getCharacterImages(row).slice(0, 3)"
+                  :key="idx"
+                  class="table-portrait table-portrait-vertical"
+                >
+                  <el-image :src="getAvatarSrc(img)" alt="人物图" fit="cover" />
+                </div>
+                <span v-if="getCharacterImages(row).length > 3" class="table-portrait-more">
+                  +{{ getCharacterImages(row).length - 3 }}
+                </span>
+              </div>
+              <span v-else class="no-portrait">无</span>
             </template>
           </el-table-column>
           <el-table-column prop="name" label="姓名" width="140" align="center">
@@ -168,16 +204,17 @@
     </template>
   </LayoutTool>
 
-  <!-- 创建/编辑人物弹框 -->
-  <el-dialog
-    v-model="dialogVisible"
+  <!-- 创建/编辑人物抽屉 -->
+  <el-drawer
+    v-model="drawerVisible"
     :title="isEdit ? '编辑人物' : '创建人物'"
-    width="700px"
-    align-center
+    size="700px"
+    direction="rtl"
+    class="character-form-drawer"
     @close="resetForm"
   >
     <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="80px">
-      <!-- 头像操作区域 -->
+      <!-- 头像：用于列表/卡片小图 -->
       <el-form-item label="头像" class="avatar-form-item">
         <div class="avatar-form-section">
           <div class="avatar-preview" @click="previewFormAvatar">
@@ -200,6 +237,47 @@
                 clearable
               />
               <el-button @click="selectLocalImage">选择本地图片</el-button>
+            </div>
+          </div>
+        </div>
+      </el-form-item>
+      <!-- 人物图列表：多张竖版全身，可 AI 生成或本地添加 -->
+      <el-form-item label="人物图" class="character-image-form-item">
+        <div class="character-image-form-section">
+          <div
+            v-if="characterForm.characterImages.length"
+            class="character-image-list"
+          >
+            <div
+              v-for="(img, idx) in characterForm.characterImages"
+              :key="idx"
+              class="character-image-preview-wrap"
+            >
+              <div
+                class="character-image-preview"
+                @click="previewFormCharacterImages(idx)"
+              >
+                <el-image :src="getAvatarSrc(img)" alt="人物图" fit="cover" />
+              </div>
+              <el-button
+                type="danger"
+                size="small"
+                circle
+                class="character-image-remove"
+                @click="removeCharacterImage(idx)"
+              >
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <div v-else class="character-image-placeholder">暂无人物图，可添加多张（竖版全身）</div>
+          <div class="character-image-input-section">
+            <div class="input-row">
+              <el-button @click="selectLocalImageForCharacterImage">选择本地图片</el-button>
+              <el-button type="success" @click="openAICharacterDrawer">
+                <el-icon><MagicStick /></el-icon>
+                AI 生成人物图
+              </el-button>
             </div>
           </div>
         </div>
@@ -304,10 +382,19 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
+      <el-button @click="drawerVisible = false">取消</el-button>
       <el-button type="primary" @click="confirmSave">确认</el-button>
     </template>
-  </el-dialog>
+  </el-drawer>
+
+  <!-- AI 生成人物图抽屉 -->
+  <AICharacterDrawer
+    v-model="aiCharacterDrawerVisible"
+    :book-name="bookName"
+    :character-name="characterForm.name"
+    :appearance="characterForm.appearance"
+    @character-image-generated="onAICharacterImageGenerated"
+  />
 
   <!-- 图片预览器 -->
   <el-image-viewer
@@ -323,12 +410,14 @@ import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
+import { Plus, Delete, Grid, List, Edit, MagicStick } from '@element-plus/icons-vue'
+import AICharacterDrawer from '@renderer/components/AICharacterDrawer.vue'
 import { genId } from '@renderer/utils/utils'
 import Sortable from 'sortablejs'
 
 const route = useRoute()
-const dialogVisible = ref(false)
+const drawerVisible = ref(false)
+const aiCharacterDrawerVisible = ref(false)
 const isEdit = ref(false)
 const bookName = route.query.name || ''
 
@@ -385,11 +474,12 @@ const characterForm = reactive({
   age: 18,
   gender: '男',
   height: 170,
-  tags: [], // 新增标签字段
-  biography: '', // 生平介绍
-  appearance: '', // 形象介绍
-  avatar: '', // 头像路径或链接
-  markerColor: '' // 标记色
+  tags: [],
+  biography: '',
+  appearance: '',
+  avatar: '', // 头像（小图，用于列表/卡片）
+  characterImages: [], // 人物图列表（竖版全身，可多张）
+  markerColor: ''
 })
 
 // 表单验证规则
@@ -434,21 +524,23 @@ async function loadCharacters() {
     // 数据兼容：将旧的 introduction 字段迁移到 biography 字段
     loadedData = loadedData.map((character) => {
       // 如果存在旧的 introduction 字段且没有 biography 字段，则迁移
+      const images = normalizeCharacterImages(character)
       if (character.introduction && !character.biography) {
         return {
           ...character,
           biography: character.introduction,
           appearance: character.appearance || '',
           avatar: character.avatar || '',
-          introduction: undefined // 移除旧字段
+          characterImages: images,
+          introduction: undefined
         }
       }
-      // 确保新字段存在
       return {
         ...character,
         biography: character.biography || '',
         appearance: character.appearance || '',
         avatar: character.avatar || '',
+        characterImages: images,
         markerColor: character.markerColor || ''
       }
     })
@@ -495,14 +587,15 @@ async function saveCharacters() {
 function handleCreateCharacter() {
   isEdit.value = false
   resetForm()
-  dialogVisible.value = true
+  drawerVisible.value = true
 }
 
 // 编辑人物
 function handleEditCharacter(character) {
   isEdit.value = true
   Object.assign(characterForm, character)
-  dialogVisible.value = true
+  characterForm.characterImages = getCharacterImages(character)
+  drawerVisible.value = true
 }
 
 // 删除人物
@@ -549,7 +642,7 @@ async function confirmSave() {
       })
     }
 
-    dialogVisible.value = false
+    drawerVisible.value = false
     ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
   } catch (error) {
     console.error('表单验证失败:', error)
@@ -567,10 +660,11 @@ function resetForm() {
     age: 18,
     gender: '男',
     height: 170,
-    tags: [], // 重置标签
-    biography: '', // 生平介绍
-    appearance: '', // 形象介绍
-    avatar: '', // 头像
+    tags: [],
+    biography: '',
+    appearance: '',
+    avatar: '',
+    characterImages: [],
     markerColor: ''
   })
 }
@@ -668,6 +762,75 @@ function previewCharacterAvatar(character) {
     imageViewerVisible.value = true
   } else {
     ElMessage.warning(`${character.name} 暂无头像可预览`)
+  }
+}
+
+// 打开 AI 生成人物图抽屉（生成竖版全身人物图）
+function openAICharacterDrawer() {
+  aiCharacterDrawerVisible.value = true
+}
+
+// 兼容：人物图可能是旧字段 characterImage 或新字段 characterImages
+function normalizeCharacterImages(character) {
+  if (Array.isArray(character.characterImages) && character.characterImages.length) {
+    return character.characterImages
+  }
+  if (character.characterImage) {
+    return [character.characterImage]
+  }
+  return []
+}
+
+function getCharacterImages(character) {
+  return normalizeCharacterImages(character)
+}
+
+// AI 生成人物图确认使用后，追加到人物图列表
+function onAICharacterImageGenerated({ localPath }) {
+  const path = localPath.startsWith('file://') ? localPath : `file://${localPath}`
+  characterForm.characterImages.push(path)
+}
+
+// 预览表单人物图列表（从某张开始）
+function previewFormCharacterImages(initialIndex = 0) {
+  const list = characterForm.characterImages.map((img) => getAvatarSrc(img))
+  if (!list.length) {
+    ElMessage.warning('暂无人物图可预览')
+    return
+  }
+  imageViewerSrcList.value = list
+  imageViewerInitialIndex.value = Math.min(initialIndex, list.length - 1)
+  imageViewerVisible.value = true
+}
+
+// 预览人物图列表（从某张开始）
+function previewCharacterImages(character, initialIndex = 0) {
+  const list = getCharacterImages(character).map((img) => getAvatarSrc(img))
+  if (!list.length) {
+    ElMessage.warning(`${character.name} 暂无人物图可预览`)
+    return
+  }
+  imageViewerSrcList.value = list
+  imageViewerInitialIndex.value = Math.min(initialIndex, list.length - 1)
+  imageViewerVisible.value = true
+}
+
+// 从表单人物图列表中移除一张
+function removeCharacterImage(index) {
+  characterForm.characterImages.splice(index, 1)
+}
+
+// 人物图：选择本地图片并追加到列表
+async function selectLocalImageForCharacterImage() {
+  try {
+    const result = await window.electron.selectImage()
+    if (result && result.filePath) {
+      characterForm.characterImages.push(`file://${result.filePath}`)
+      ElMessage.success('已添加到人物图列表')
+    }
+  } catch (error) {
+    console.error('选择图片失败:', error)
+    ElMessage.error('选择图片失败')
   }
 }
 
@@ -792,6 +955,42 @@ onBeforeUnmount(() => {
     color: var(--text-gray-light);
     font-size: 12px;
     text-align: center;
+  }
+
+  .table-portrait-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    min-height: 48px;
+  }
+  .table-portrait {
+    width: 36px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border-color-soft);
+    .el-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  }
+  .table-portrait-vertical {
+    aspect-ratio: 9 / 16;
+  }
+  .table-portrait-more {
+    font-size: 11px;
+    color: var(--text-gray-light);
+    margin-left: 2px;
+  }
+
+  .no-portrait {
+    color: var(--text-gray-light);
+    font-size: 12px;
   }
 
   .table-name-cell {
@@ -1107,6 +1306,42 @@ onBeforeUnmount(() => {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  // 人物图列表：卡片下方一行多张
+  .character-portrait-row {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color-soft);
+    .portrait-label {
+      font-size: 12px;
+      color: var(--text-gray-light);
+      margin-bottom: 6px;
+    }
+    .character-portrait-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .character-portrait-thumb {
+      width: 48px;
+      flex-shrink: 0;
+      aspect-ratio: 9 / 16;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1px solid var(--border-color-soft);
+      .el-image {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    }
+    .character-portrait-placeholder {
+      font-size: 12px;
+      color: var(--text-gray-light);
+      padding: 8px 0;
+    }
+  }
 }
 
 .character-actions {
@@ -1159,6 +1394,64 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     min-height: 100px;
+  }
+}
+
+.character-image-form-item {
+  ::v-deep(.el-form-item__content) {
+    display: flex;
+    align-items: flex-start;
+    min-height: 80px;
+  }
+}
+
+.character-image-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+
+  .character-image-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .character-image-preview-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .character-image-preview {
+    width: 72px;
+    aspect-ratio: 9 / 16;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    .el-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  }
+  .character-image-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    min-width: 22px;
+  }
+  .character-image-placeholder {
+    font-size: 12px;
+    color: var(--text-gray-light);
+    padding: 8px 0;
+  }
+  .character-image-input-section .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 }
 
@@ -1219,6 +1512,20 @@ onBeforeUnmount(() => {
         flex-shrink: 0;
       }
     }
+  }
+}
+
+// 人物表单抽屉内容区
+.character-form-drawer {
+  :deep(.el-drawer__body) {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    padding-bottom: 80px;
+  }
+  :deep(.el-drawer__footer) {
+    padding: 12px 20px;
+    border-top: 1px solid var(--el-border-color-lighter);
   }
 }
 

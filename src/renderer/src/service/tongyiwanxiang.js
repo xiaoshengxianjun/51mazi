@@ -60,3 +60,38 @@ export async function confirmAICover(options) {
 export async function discardAICovers(options) {
   return await window.electron.discardAICovers(options)
 }
+
+// --------- 通义万相 AI 人物图 ---------
+
+/**
+ * 调用通义万相生成人物图，并在主进程中下载保存到书籍目录临时文件夹
+ * @param {Object} options
+ * @param {string} options.prompt - 人物图提示词（正向）
+ * @param {string} options.size - API 尺寸，如 "1024*1024"
+ * @param {string} options.bookName - 书籍名称
+ * @param {string} [options.negativePrompt] - 反向提示词，可选
+ * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
+ */
+export async function generateAICharacterImage(options) {
+  return await window.electron.generateAICharacterImage(options)
+}
+
+/**
+ * 确认使用某张已生成的人物图：复制到书籍 avatars 目录并返回本地路径
+ * @param {Object} options
+ * @param {string} options.bookName - 书籍名称
+ * @param {string} options.chosenPath - 选中的本地图片路径
+ * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
+ */
+export async function confirmAICharacterImage(options) {
+  return await window.electron.confirmAICharacterImage(options)
+}
+
+/**
+ * 丢弃本会话生成的临时人物图（关闭抽屉未确认时调用）
+ * @param {Object} options
+ * @param {string} options.bookName - 书籍名称
+ */
+export async function discardAICharacterImages(options) {
+  return await window.electron.discardAICharacterImages(options)
+}

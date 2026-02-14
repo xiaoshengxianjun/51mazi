@@ -3015,3 +3015,110 @@ ipcMain.handle('tongyiwanxiang:confirm-cover', async (_, options) => {
 ipcMain.handle('tongyiwanxiang:discard-ai-covers', async () => {
   return { success: true }
 })
+
+// --------- 通义万相 AI 人物图 ---------
+// 生成人物图：调用通义万相 → 下载图片 → 保存到书籍目录下的 ai_character_temp
+const AI_CHARACTER_TEMP_DIR = 'ai_character_temp'
+/** 人物图列表存储目录（多张人物图） */
+const CHARACTER_IMAGES_DIR = 'character_images'
+
+ipcMain.handle('tongyiwanxiang:generate-character-image', async (_, options) => {
+  try {
+    await tongyiwanxiangService.initApiKey((key) => store.get(key))
+    const { prompt, size, bookName, negativePrompt = '' } = options || {}
+    if (!prompt || !size || !bookName) {
+      return {
+        success: false,
+        message: '缺少参数：prompt、size、bookName 为必填'
+      }
+    }
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) {
+      return { success: false, message: '未设置或无效的书籍目录' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    const tempDir = join(bookPath, AI_CHARACTER_TEMP_DIR)
+    fs.mkdirSync(tempDir, { recursive: true })
+
+    const imageUrl = await tongyiwanxiangService.generateCover({
+      prompt,
+      size,
+      negativePrompt
+    })
+    const res = await fetch(imageUrl)
+    if (!res.ok) {
+      return {
+        success: false,
+        message: `下载生成图片失败: ${res.status} ${res.statusText}`
+      }
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    const existing = fs.readdirSync(tempDir).filter((f) => /^ai_char\d+\.png$/i.test(f))
+    const nextNum =
+      existing.length === 0
+        ? 1
+        : Math.max(
+            ...existing.map((f) => parseInt(f.replace(/^ai_char(\d+)\.png$/i, '$1'), 10) || 0)
+          ) + 1
+    const fileName = `ai_char${nextNum}.png`
+    const imagePath = join(tempDir, fileName)
+    fs.writeFileSync(imagePath, buf)
+    return { success: true, localPath: imagePath }
+  } catch (error) {
+    console.error('通义万相生成人物图失败:', error)
+    return {
+      success: false,
+      message: error?.message || '生成人物图失败'
+    }
+  }
+})
+
+// 确认使用某张人物图：复制到书籍 character_images 目录并返回路径（追加到人物图列表）
+ipcMain.handle('tongyiwanxiang:confirm-character-image', async (_, options) => {
+  try {
+    const { bookName, chosenPath } = options || {}
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !chosenPath) {
+      return { success: false, message: '参数错误' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    const tempDir = join(bookPath, AI_CHARACTER_TEMP_DIR)
+    if (!fs.existsSync(chosenPath) || !chosenPath.startsWith(tempDir)) {
+      return { success: false, message: '所选人物图文件无效' }
+    }
+    const imagesDir = join(bookPath, CHARACTER_IMAGES_DIR)
+    fs.mkdirSync(imagesDir, { recursive: true })
+    const fileName = `img_${Date.now()}.png`
+    const finalPath = join(imagesDir, fileName)
+    fs.copyFileSync(chosenPath, finalPath)
+    return { success: true, localPath: finalPath }
+  } catch (error) {
+    console.error('确认人物图失败:', error)
+    return { success: false, message: error?.message || '确认失败' }
+  }
+})
+
+// 关闭人物图抽屉未确认时：删除本次会话生成的临时人物图
+ipcMain.handle('tongyiwanxiang:discard-ai-character-images', async (_, options) => {
+  try {
+    const { bookName } = options || {}
+    if (!bookName) return { success: true }
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) return { success: true }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const tempDir = join(booksDir, safeName, AI_CHARACTER_TEMP_DIR)
+    if (fs.existsSync(tempDir)) {
+      const files = fs.readdirSync(tempDir)
+      for (const f of files) {
+        fs.unlinkSync(join(tempDir, f))
+      }
+      fs.rmdirSync(tempDir)
+    }
+    return { success: true }
+  } catch (error) {
+    console.error('丢弃人物图临时文件失败:', error)
+    return { success: true }
+  }
+})

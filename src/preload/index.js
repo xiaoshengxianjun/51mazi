@@ -231,7 +231,14 @@ const customElectronAPI = {
   validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
   generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options),
   confirmAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:confirm-cover', options),
-  discardAICovers: (options) => ipcRenderer.invoke('tongyiwanxiang:discard-ai-covers', options)
+  discardAICovers: (options) => ipcRenderer.invoke('tongyiwanxiang:discard-ai-covers', options),
+  // 通义万相 AI 人物图
+  generateAICharacterImage: (options) =>
+    ipcRenderer.invoke('tongyiwanxiang:generate-character-image', options),
+  confirmAICharacterImage: (options) =>
+    ipcRenderer.invoke('tongyiwanxiang:confirm-character-image', options),
+  discardAICharacterImages: (options) =>
+    ipcRenderer.invoke('tongyiwanxiang:discard-ai-character-images', options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
