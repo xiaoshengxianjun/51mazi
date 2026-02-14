@@ -522,16 +522,10 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
 }
-:deep {
-  .el-drawer__header {
-    margin-bottom: 16px;
-  }
-  .el-drawer__body {
-    // display: flex;
-    // flex-direction: column;
-    // height: 100%;
-    // overflow: hidden;
-    padding: 0;
-  }
+:deep(.el-drawer__header) {
+  margin-bottom: 16px;
+}
+:deep(.el-drawer__body) {
+  padding: 0;
 }
 </style>
