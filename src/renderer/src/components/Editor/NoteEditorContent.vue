@@ -75,7 +75,7 @@ function getNoteExtensions() {
       hardBreak: true,
       dropcursor: true,
       gapcursor: true,
-      history: true,
+      undoRedo: { newGroupDelay: 1500 }, // 与章节编辑器一致，中文 IME 一次撤销一个“字/词”
       bulletList: false, // 禁用 bulletList（listItem 依赖 paragraph）
       orderedList: false, // 禁用 orderedList（listItem 依赖 paragraph）
       listItem: false, // 禁用 listItem（content 是 'paragraph block*'）

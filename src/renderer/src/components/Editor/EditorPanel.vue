@@ -823,6 +823,7 @@ function clearCharacterHighlights() {
   if (tr.steps.length > 0) {
     const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
     tr.setSelection(newSelection)
+    tr.setMeta('addToHistory', false) // 装饰性更新不入撤销栈，避免清空 redo 导致回退按钮闪一下又变灰
     view.dispatch(tr)
   }
 }
@@ -906,8 +907,9 @@ function applyCharacterHighlights() {
   const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
   tr.setSelection(newSelection)
 
-  // 应用事务，但不改变焦点
+  // 应用事务，但不改变焦点；装饰性更新不入撤销栈，避免清空 redo 导致回退按钮闪一下又变灰
   if (tr.steps.length > 0) {
+    tr.setMeta('addToHistory', false)
     view.dispatch(tr)
   }
 }
@@ -1058,6 +1060,7 @@ function clearBannedWordsStrikes() {
   if (tr.steps.length > 0) {
     const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
     tr.setSelection(newSelection)
+    tr.setMeta('addToHistory', false) // 装饰性更新不入撤销栈，避免清空 redo
     view.dispatch(tr)
   }
 }
@@ -1139,8 +1142,9 @@ function applyBannedWordsStrikes() {
   const newSelection = TextSelection.create(tr.doc, selectionFrom, selectionTo)
   tr.setSelection(newSelection)
 
-  // 应用事务，但不改变焦点
+  // 应用事务，但不改变焦点；装饰性更新不入撤销栈，避免清空 redo
   if (tr.steps.length > 0) {
+    tr.setMeta('addToHistory', false)
     view.dispatch(tr)
   }
 }

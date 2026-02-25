@@ -4,7 +4,7 @@ import { Editor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
-import { Extension } from '@tiptap/core'
+import { createDocument, Extension } from '@tiptap/core'
 import { Collapsible } from '@renderer/extensions/Collapsible'
 
 const props = defineProps({
@@ -69,7 +69,11 @@ function plainTextToHtml(text) {
 // 获取章节编辑器的扩展配置
 function getChapterExtensions() {
   return [
-    StarterKit,
+    // 中文等 IME 输入时，首键可能早于 compositionstart，导致无 composition meta、被拆成多步撤销；
+    // 适当增大 newGroupDelay，使短时间内的相邻变更合并为一次撤销，一次撤销即可回退一个“字/词”。
+    StarterKit.configure({
+      undoRedo: { newGroupDelay: 1500 }
+    }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     Highlight.configure({
       multicolor: true,
@@ -123,12 +127,21 @@ function createEditor() {
   return editor
 }
 
-// 设置章节编辑器内容
+/**
+ * 设置章节编辑器内容。
+ * 使用 addToHistory: false 的 transaction，避免「换章」被记入撤销栈，
+ * 否则 Ctrl+Z 可能撤销到上一章内容，造成误以为复制了上一章的问题。
+ */
 function setChapterContent(editor, content) {
-  if (!editor) return
-  // 即使内容为空，也要清空编辑器，确保显示空内容而不是保留之前的内容
+  if (!editor || !editor.view) return
   const htmlContent = content ? plainTextToHtml(content) : ''
-  editor.commands.setContent(htmlContent)
+  const state = editor.state
+  const schema = state.schema
+  const document = createDocument(htmlContent, schema, {}, { errorOnInvalidContent: false })
+  const tr = state.tr
+    .replaceWith(0, state.doc.content.size, document.content)
+    .setMeta('addToHistory', false)
+  editor.view.dispatch(tr)
 }
 
 // 获取章节编辑器保存内容

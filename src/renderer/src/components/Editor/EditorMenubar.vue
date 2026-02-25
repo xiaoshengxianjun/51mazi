@@ -195,7 +195,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { DocumentCopy, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Redo, Undo } from 'lucide-vue-next'
@@ -232,15 +232,49 @@ const editorStore = useEditorStore()
 // 判断是否为笔记编辑器
 const isNoteEditor = computed(() => editorStore.file?.type === 'note')
 
-// 检查是否可以撤销
+/**
+ * 撤销/回退按钮依赖编辑器内部 history 状态，而 TipTap editor 的 state 不是 Vue 响应式数据，
+ * 仅用 computed(() => editor.can().undo()) 不会在输入、撤销、换章等 transaction 后重新求值，导致按钮状态滞后或一直不变。
+ * 通过监听 editor 的 transaction 事件，驱动一次“刻度”更新，让下面两个 computed 在每次事务后重新计算。
+ */
+const historyStateTick = ref(0)
+let currentEditor = null
+let transactionHandler = null
+watch(
+  () => props.editor,
+  (ed) => {
+    if (currentEditor && transactionHandler && typeof currentEditor.off === 'function') {
+      currentEditor.off('transaction', transactionHandler)
+      currentEditor = null
+      transactionHandler = null
+    }
+    if (ed && typeof ed.on === 'function') {
+      currentEditor = ed
+      transactionHandler = () => {
+        historyStateTick.value += 1
+      }
+      ed.on('transaction', transactionHandler)
+    }
+  },
+  { immediate: true }
+)
+onBeforeUnmount(() => {
+  if (currentEditor && transactionHandler && typeof currentEditor.off === 'function') {
+    currentEditor.off('transaction', transactionHandler)
+  }
+})
+
+// 检查是否可以撤销（依赖 historyStateTick 以便在每次 transaction 后更新）
 const canUndo = computed(() => {
   if (!props.editor) return false
+  historyStateTick.value // 依赖刻度，使输入/撤销/换章等后重新求值
   return props.editor.can().undo()
 })
 
-// 检查是否可以回退
+// 检查是否可以回退（同上）
 const canRedo = computed(() => {
   if (!props.editor) return false
+  historyStateTick.value
   return props.editor.can().redo()
 })
 
