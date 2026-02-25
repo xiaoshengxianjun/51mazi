@@ -395,10 +395,23 @@ async function handleChapterClick(data, node) {
       editorStore.setContent(content, { isInitialLoad: true })
       editorStore.setChapterTitle(data.name) // 章节名作为标题
       currentChapterNodeKey.value = data.path // 保持选中态
+      // 持久化当前章节为「上次查看章节」，下次打开编辑框时优先恢复
+      saveLastViewedChapter(node.parent.data, data)
     } else {
       ElMessage.error(res.message || '读取章节失败')
     }
   }
+}
+
+/** 持久化当前查看的章节，用于下次打开编辑框时恢复定位 */
+function saveLastViewedChapter(volumeNode, chapterNode) {
+  if (!props.bookName || !volumeNode || !chapterNode) return
+  // 使用 electronStore 按书籍存储，避免路径因 booksDir 变化而失效
+  const payload = {
+    volumeId: getVolumeId(volumeNode),
+    chapterName: chapterNode.name
+  }
+  window.electronStore?.set(`lastChapter:${props.bookName}`, payload).catch(() => {})
 }
 
 // 创建卷
@@ -459,6 +472,8 @@ async function loadChapters(arg = false) {
       autoSelectLatest = false,
       forceExpandVolumeId = null,
       selectChapter = null,
+      // 打开编辑框时优先恢复上次查看/编辑的章节
+      restoreLastChapter = false,
       // createVolume 时用：从旧的卷 id 集合推断新卷并展开它
       detectNewVolumeFrom = null
     } = options
@@ -466,9 +481,9 @@ async function loadChapters(arg = false) {
     // 刷新前先从现有树做“展开状态快照”（真实 UI 状态），用于刷新后恢复
     syncExpandedVolumesFromTree()
 
-    // 如果本次刷新会“切换选中节点”（创建章节/自动定位最新章节），先清空旧选中 key，
+    // 如果本次刷新会“切换选中节点”（创建章节/恢复上次章节/自动定位最新章节），先清空旧选中 key，
     // 避免旧的 current-node-key 触发树把其它卷自动展开。
-    if (selectChapter || autoSelectLatest) {
+    if (selectChapter || autoSelectLatest || restoreLastChapter) {
       currentChapterNodeKey.value = null
     }
 
@@ -490,13 +505,24 @@ async function loadChapters(arg = false) {
     let finalForceExpandVolumeId = forceExpandVolumeId
     const volumes = getVolumeNodes(chapters)
 
-    // 1) 自动选中最新卷的最新章节时，确保“最新卷”展开（否则选中项不可见）
+    // 1) 恢复上次章节时，确保该卷展开
+    if (restoreLastChapter && rawVolumes.length > 0) {
+      try {
+        const last = await window.electronStore?.get(`lastChapter:${props.bookName}`)
+        if (last?.volumeId) {
+          finalForceExpandVolumeId = finalForceExpandVolumeId || last.volumeId
+        }
+      } catch {
+        // 忽略读取失败
+      }
+    }
+    // 2) 自动选中最新卷的最新章节时，确保“最新卷”展开（否则选中项不可见）
     if (autoSelectLatest && rawVolumes.length > 0) {
       const latestVolumeId = getVolumeId(rawVolumes[rawVolumes.length - 1])
       finalForceExpandVolumeId = finalForceExpandVolumeId || latestVolumeId
     }
 
-    // 2) 创建卷时：推断新卷并默认展开它（其他卷状态不变）
+    // 3) 创建卷时：推断新卷并默认展开它（其他卷状态不变）
     if (
       detectNewVolumeFrom &&
       typeof detectNewVolumeFrom.has === 'function' &&
@@ -529,7 +555,26 @@ async function loadChapters(arg = false) {
       }
     }
 
-    // 兼容旧逻辑：自动选中最新卷的最新章节
+    // 其次：恢复上次关闭时正在查看/编辑的章节（打开编辑框时优先定位到此）
+    if (restoreLastChapter && volumes.length > 0) {
+      try {
+        const last = await window.electronStore?.get(`lastChapter:${props.bookName}`)
+        if (last?.volumeId && last?.chapterName) {
+          const targetVolume = volumes.find((v) => getVolumeId(v) === last.volumeId)
+          const targetChapter = targetVolume?.children?.find((c) => c.name === last.chapterName)
+          if (targetVolume && targetChapter) {
+            const fakeNode = { data: targetChapter, parent: { data: targetVolume } }
+            await handleChapterClick(targetChapter, fakeNode)
+            currentChapterNodeKey.value = targetChapter.path
+            return
+          }
+        }
+      } catch {
+        // 忽略读取失败，继续走 autoSelectLatest
+      }
+    }
+
+    // 兼容旧逻辑：自动选中最新卷的最新章节（无上次记录或恢复失败时）
     if (autoSelectLatest && rawVolumes.length > 0) {
       const rawLatestVolume = rawVolumes[rawVolumes.length - 1]
       if (rawLatestVolume.children && rawLatestVolume.children.length > 0) {
@@ -855,7 +900,8 @@ async function deleteNoteNode(node) {
 onMounted(async () => {
   try {
     sortOrder.value = await window.electron.getSortOrder(props.bookName)
-    await loadChapters(true) // 首次加载时自动选中最新章节
+    // 优先恢复上次关闭时正在查看/编辑的章节，若无记录再选中最新章节
+    await loadChapters({ restoreLastChapter: true, autoSelectLatest: true })
     notesTree.value = await window.electron.loadNotes(props.bookName)
     await loadChapterSettings()
   } catch {
