@@ -42,8 +42,47 @@
         @change="handleBannedWordsHintChange"
       />
     </div>
-    <!-- 正文内容编辑区 -->
-    <EditorContent class="editor-content" :editor="editor" />
+    <!-- 正文内容编辑区（含右上角 AI 润色按钮） -->
+    <div class="editor-content-wrap">
+      <EditorContent class="editor-content" :editor="editor" />
+      <!-- 仅章节模式显示：固定于编辑区右上角的 AI 润色按钮 -->
+      <el-button
+        v-if="editorStore.file?.type === 'chapter'"
+        type="primary"
+        size="small"
+        class="ai-polish-btn"
+        :loading="polishLoading"
+        @click="handleAiPolishClick"
+      >
+        AI 润色
+      </el-button>
+    </div>
+    <!-- AI 润色结果确认弹框（整章） -->
+    <el-dialog
+      v-model="polishDialogVisible"
+      title="AI 润色结果（整章）"
+      width="900px"
+      class="polish-dialog"
+      destroy-on-close
+      @close="polishDialogVisible = false"
+    >
+      <div class="polish-dialog-body">
+        <div class="polish-block">
+          <div class="polish-label">原文</div>
+          <div class="polish-content original">{{ polishOriginalText }}</div>
+        </div>
+        <div class="polish-block">
+          <div class="polish-label">润色后</div>
+          <div class="polish-content polished">{{ polishResultText }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="polishDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmPolishReplace">确认替换整章</el-button>
+        </span>
+      </template>
+    </el-dialog>
     <!-- 编辑器内容配置组件（隐藏，仅提供逻辑） -->
     <ChapterEditorContent
       ref="chapterEditorContentRef"
@@ -205,6 +244,12 @@ async function handleTitleBlur() {
 
 // 搜索面板状态
 const searchPanelVisible = ref(false)
+
+// AI 润色整章：加载中、弹框可见、原文/润色结果
+const polishLoading = ref(false)
+const polishDialogVisible = ref(false)
+const polishOriginalText = ref('')
+const polishResultText = ref('')
 
 // 获取当前编辑器内容组件
 function getEditorContentComponent() {
@@ -774,6 +819,71 @@ function closeSearchPanel() {
   searchPanelVisible.value = false
 }
 
+/**
+ * 将润色后的纯文本转为编辑器 HTML（按双换行分段为 <p>，段内 \n 转 <br>）
+ * @param {string} text - 纯文本
+ * @returns {string} HTML
+ */
+function plainTextToEditorHtml(text) {
+  if (!text || !text.trim()) return '<p></p>'
+  const escape = (s) =>
+    String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  const paragraphs = text.trim().split(/\n\n+/)
+  return (
+    paragraphs.map((p) => '<p>' + escape(p.trim()).replace(/\n/g, '<br>') + '</p>').join('') ||
+    '<p></p>'
+  )
+}
+
+/** 点击 AI 润色：取当前整章正文 → 调 DeepSeek → 弹框展示结果 */
+async function handleAiPolishClick() {
+  const ed = editor.value
+  if (!ed) {
+    ElMessage.warning('编辑器未就绪')
+    return
+  }
+  const fullText = ed.getText()
+  if (!fullText || !fullText.trim()) {
+    ElMessage.warning('当前章节内容为空，无法润色')
+    return
+  }
+  if (!window.electron?.polishTextWithAI) {
+    ElMessage.error('当前环境不支持 AI 润色')
+    return
+  }
+  polishLoading.value = true
+  try {
+    const res = await window.electron.polishTextWithAI(fullText)
+    if (!res.success) {
+      ElMessage.error(res.message || '润色失败')
+      return
+    }
+    polishOriginalText.value = fullText
+    polishResultText.value = res.content || ''
+    polishDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error(e?.message || '润色请求异常')
+  } finally {
+    polishLoading.value = false
+  }
+}
+
+/** 确认用润色结果替换整章内容 */
+function confirmPolishReplace() {
+  const ed = editor.value
+  if (!ed || !polishResultText.value) return
+  const html = plainTextToEditorHtml(polishResultText.value)
+  ed.chain().focus().setContent(html).run()
+  polishDialogVisible.value = false
+  polishOriginalText.value = ''
+  polishResultText.value = ''
+  ElMessage.success('已用润色结果替换整章内容')
+}
+
 // 自动保存内容
 async function autoSaveContent() {
   await saveFile(false)
@@ -1296,6 +1406,16 @@ watch(
 .banned-words-hint-switch {
   flex-shrink: 0;
 }
+
+/* 编辑区包裹层：用于固定右上角 AI 润色按钮 */
+.editor-content-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor-content {
   flex: 1;
   min-height: 0;
@@ -1304,6 +1424,53 @@ watch(
   background: var(--bg-primary);
   white-space: pre-wrap; // 保证Tab缩进和换行显示
   font-family: inherit, monospace;
+}
+
+/* 编辑器区域右上角固定的 AI 润色按钮 */
+.ai-polish-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+}
+
+/* AI 润色结果弹框：左右布局 */
+.polish-dialog-body {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  min-height: 320px;
+}
+.polish-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.polish-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+.polish-content {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  &.original {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-regular);
+  }
+  &.polished {
+    background: var(--el-color-primary-light-9);
+    color: var(--el-text-color-primary);
+  }
 }
 
 ::v-deep(.tiptap) {

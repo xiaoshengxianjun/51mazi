@@ -2889,6 +2889,18 @@ ipcMain.handle('deepseek:validate-api-key', async () => {
   }
 })
 
+// AI 润色整章（用于编辑器）
+ipcMain.handle('deepseek:polish-text', async (_, { text }) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const content = await deepseekService.polishChapter(text)
+    return { success: true, content }
+  } catch (error) {
+    console.error('AI 润色失败:', error)
+    return { success: false, message: error.message, content: '' }
+  }
+})
+
 // --------- 通义万相 AI 封面 ---------
 
 tongyiwanxiangService.initApiKey((key) => store.get(key))

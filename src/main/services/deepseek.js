@@ -350,6 +350,43 @@ class DeepSeekService {
   }
 
   /**
+   * 章节润色：对整章正文进行 AI 润色，返回更优质的版本（仅正文，无解释）
+   * @param {string} text - 待润色的章节正文（整章纯文本）
+   * @returns {Promise<string>} 润色后的章节正文
+   */
+  async polishChapter(text) {
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      throw new Error('待润色内容不能为空')
+    }
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          '你是一名专业的中文写作编辑，擅长润色网文、小说。请对用户提供的整章正文进行润色：优化表达、修正语病、增强可读性，保持原意与风格，段落结构保持合理。只输出润色后的整章正文内容，不要添加任何解释、标题或前后缀。'
+      },
+      {
+        role: 'user',
+        content: text.trim()
+      }
+    ]
+
+    const requestId = `polishChapter_${Date.now()}`
+    const result = await this.chat({
+      messages,
+      temperature: 0.5,
+      max_tokens: 8000, // 整章可能较长，提高上限
+      requestId
+    })
+
+    const content = (result.content || '').trim()
+    if (!content) {
+      throw new Error('润色结果为空，请重试')
+    }
+    return content
+  }
+
+  /**
    * 检查 API Key 是否有效
    * @returns {Promise<{isValid: boolean, message?: string}>}
    */
