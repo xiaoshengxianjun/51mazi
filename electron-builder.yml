@@ -20,6 +20,10 @@ win:
   icon: build/icon.ico
   executableName: 51mazi
 nsis:
+  # 关闭一键安装，使用向导式安装，以便用户可自定义安装路径
+  oneClick: false
+  # 允许用户在安装向导中选择/修改安装目录
+  allowToChangeInstallationDirectory: true
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
