@@ -1310,6 +1310,8 @@ watch(
   height: max-content;
   min-height: 100%;
   white-space: pre-wrap; // 保证Tab缩进和换行显示
+  // 底部留出约一屏可滚动空间，使写作时最后一行可滚动到视口上部，焦点保持在编辑区上方
+  padding-bottom: 70vh;
   // 字体、字号、行高、段落间距通过 updateEditorStyle 设置到根元素（--paragraph-spacing）
 
   &:focus {
