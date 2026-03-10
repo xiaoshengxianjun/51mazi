@@ -45,22 +45,26 @@
     <!-- 正文内容编辑区（含右上角 AI 润色按钮） -->
     <div class="editor-content-wrap">
       <EditorContent class="editor-content" :editor="editor" />
-      <!-- 仅章节模式显示：固定于编辑区右上角的 AI 润色按钮 -->
-      <el-button
-        v-if="editorStore.file?.type === 'chapter'"
-        type="primary"
-        size="small"
-        class="ai-polish-btn"
-        :loading="polishLoading"
-        @click="handleAiPolishClick"
-      >
-        AI 润色
-      </el-button>
+      <!-- 仅章节模式显示：固定于编辑区右上角的 AI 润色下拉（段落/整章） -->
+      <div v-if="editorStore.file?.type === 'chapter'" class="ai-polish-wrap">
+        <el-dropdown trigger="click" @command="handlePolishCommand">
+          <el-button type="primary" size="small" class="ai-polish-btn" :loading="polishLoading">
+            AI 润色
+            <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="selection">润色选中文本</el-dropdown-item>
+              <el-dropdown-item command="chapter">润色整章</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </div>
-    <!-- AI 润色结果确认弹框（整章） -->
+    <!-- AI 润色结果确认弹框（段落 / 整章共用） -->
     <el-dialog
       v-model="polishDialogVisible"
-      title="AI 润色结果（整章）"
+      :title="polishMode === 'chapter' ? 'AI 润色结果（整章）' : 'AI 润色结果（选中文本）'"
       width="900px"
       class="polish-dialog"
       destroy-on-close
@@ -79,7 +83,10 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="polishDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="confirmPolishReplace">确认替换整章</el-button>
+          <el-button @click="copyPolishedText">一键复制</el-button>
+          <el-button type="primary" @click="confirmPolishReplace">
+            {{ polishMode === 'chapter' ? '确认替换整章' : '确认替换' }}
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -124,6 +131,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 import { EditorContent } from '@tiptap/vue-3'
 import { TextSelection } from 'prosemirror-state'
 import { useEditorStore } from '@renderer/stores/editor'
@@ -245,11 +253,14 @@ async function handleTitleBlur() {
 // 搜索面板状态
 const searchPanelVisible = ref(false)
 
-// AI 润色整章：加载中、弹框可见、原文/润色结果
+// AI 润色：加载中、弹框可见、原文/润色结果；mode 为 selection | chapter，选中时记录替换范围
 const polishLoading = ref(false)
 const polishDialogVisible = ref(false)
+const polishMode = ref('chapter') // 'selection' | 'chapter'
 const polishOriginalText = ref('')
 const polishResultText = ref('')
+const polishReplaceFrom = ref(0)
+const polishReplaceTo = ref(0)
 
 // 获取当前编辑器内容组件
 function getEditorContentComponent() {
@@ -839,8 +850,59 @@ function plainTextToEditorHtml(text) {
   )
 }
 
-/** 点击 AI 润色：取当前整章正文 → 调 DeepSeek → 弹框展示结果 */
-async function handleAiPolishClick() {
+/** 下拉选择：润色选中文本 / 润色整章 */
+function handlePolishCommand(command) {
+  if (command === 'selection') {
+    handlePolishSelection()
+  } else if (command === 'chapter') {
+    handlePolishChapter()
+  }
+}
+
+/** 润色选中文本：根据当前选区获取范围与文本 */
+async function handlePolishSelection() {
+  const ed = editor.value
+  if (!ed) {
+    ElMessage.warning('编辑器未就绪')
+    return
+  }
+  const { state } = ed
+  const { from, to } = state.selection
+  if (from === to) {
+    ElMessage.warning('请先选中要润色的文本')
+    return
+  }
+  const text = state.doc.textBetween(from, to, '\n')
+  if (!text.trim()) {
+    ElMessage.warning('选中内容为空，无法润色')
+    return
+  }
+  if (!window.electron?.polishTextWithAI) {
+    ElMessage.error('当前环境不支持 AI 润色')
+    return
+  }
+  polishLoading.value = true
+  try {
+    const res = await window.electron.polishTextWithAI(text)
+    if (!res.success) {
+      ElMessage.error(res.message || '润色失败')
+      return
+    }
+    polishMode.value = 'selection'
+    polishOriginalText.value = text
+    polishResultText.value = res.content || ''
+    polishReplaceFrom.value = from
+    polishReplaceTo.value = to
+    polishDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error(e?.message || '润色请求异常')
+  } finally {
+    polishLoading.value = false
+  }
+}
+
+/** 润色整章 */
+async function handlePolishChapter() {
   const ed = editor.value
   if (!ed) {
     ElMessage.warning('编辑器未就绪')
@@ -862,6 +924,7 @@ async function handleAiPolishClick() {
       ElMessage.error(res.message || '润色失败')
       return
     }
+    polishMode.value = 'chapter'
     polishOriginalText.value = fullText
     polishResultText.value = res.content || ''
     polishDialogVisible.value = true
@@ -872,16 +935,38 @@ async function handleAiPolishClick() {
   }
 }
 
-/** 确认用润色结果替换整章内容 */
+/** 一键复制：将润色后的文本复制到剪贴板 */
+async function copyPolishedText() {
+  if (!polishResultText.value) return
+  try {
+    await navigator.clipboard.writeText(polishResultText.value)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
+/** 确认替换：根据 polishMode 替换选中文本或整章 */
 function confirmPolishReplace() {
   const ed = editor.value
   if (!ed || !polishResultText.value) return
-  const html = plainTextToEditorHtml(polishResultText.value)
-  ed.chain().focus().setContent(html).run()
+  if (polishMode.value === 'selection') {
+    ed.chain()
+      .focus()
+      .insertContentAt(
+        { from: polishReplaceFrom.value, to: polishReplaceTo.value },
+        polishResultText.value
+      )
+      .run()
+    ElMessage.success('已替换为润色内容')
+  } else {
+    const html = plainTextToEditorHtml(polishResultText.value)
+    ed.chain().focus().setContent(html).run()
+    ElMessage.success('已用润色结果替换整章内容')
+  }
   polishDialogVisible.value = false
   polishOriginalText.value = ''
   polishResultText.value = ''
-  ElMessage.success('已用润色结果替换整章内容')
 }
 
 // 自动保存内容
@@ -1426,12 +1511,21 @@ watch(
   font-family: inherit, monospace;
 }
 
-/* 编辑器区域右上角固定的 AI 润色按钮 */
-.ai-polish-btn {
+/* 编辑区右上角固定容器，保证按钮始终在编辑区右上角 */
+.ai-polish-wrap {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 10;
+}
+
+/* AI 润色按钮：默认半透明，悬停不透明 */
+.ai-polish-btn {
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 1;
+  }
 }
 
 /* AI 润色结果弹框：左右布局 */
