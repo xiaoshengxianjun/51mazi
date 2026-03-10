@@ -65,7 +65,7 @@
     <el-dialog
       v-model="polishDialogVisible"
       :title="polishMode === 'chapter' ? 'AI 润色结果（整章）' : 'AI 润色结果（选中文本）'"
-      width="900px"
+      width="80%"
       class="polish-dialog"
       destroy-on-close
       @close="polishDialogVisible = false"
