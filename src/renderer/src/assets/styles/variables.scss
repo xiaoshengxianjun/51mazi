@@ -1,0 +1,45 @@
+// 颜色变量
+$primary-color: #6366f1;
+$bg-color: #f5f7fa;
+$sidebar-bg: #f0f0ff;
+$text-primary: #333;
+$text-secondary: #666;
+$text-light: #999;
+
+// 布局变量
+$sidebar-width: 200px;
+$content-padding: 20px;
+$card-gap: 20px;
+
+// 动画变量
+$transition-time: 0.3s;
+
+// 边框和阴影
+$border-radius: 8px;
+$shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 响应式断点
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+
+// 混入
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin hover-effect {
+  transition: all $transition-time;
+  &:hover {
+    transform: translateY(-5px);
+  }
+}

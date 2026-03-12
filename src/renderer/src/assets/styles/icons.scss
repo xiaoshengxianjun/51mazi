@@ -1,0 +1,133 @@
+// iconfont 图标样式管理
+// 提供统一的图标样式和变体
+
+// 图标基础样式
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+// SVG 图标基础样式
+.svg-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  vertical-align: -0.1em;
+  font-size: 16px;
+}
+
+// 图标大小变体
+.icon-xs { font-size: 12px; }
+.icon-sm { font-size: 14px; }
+.icon-md { font-size: 16px; }
+.icon-lg { font-size: 20px; }
+.icon-xl { font-size: 24px; }
+.icon-2xl { font-size: 32px; }
+
+// SVG 图标大小变体
+.svg-xs { font-size: 12px; }
+.svg-sm { font-size: 14px; }
+.svg-md { font-size: 16px; }
+.svg-lg { font-size: 20px; }
+.svg-xl { font-size: 24px; }
+.svg-2xl { font-size: 32px; }
+
+// 图标颜色变体
+.icon-primary { color: #409eff; }
+.icon-success { color: #67c23a; }
+.icon-warning { color: #e6a23c; }
+.icon-danger { color: #f56c6c; }
+.icon-info { color: #909399; }
+.icon-white { color: #ffffff; }
+.icon-black { color: #000000; }
+
+// SVG 图标颜色变体
+.svg-primary { color: #409eff; }
+.svg-success { color: #67c23a; }
+.svg-warning { color: #e6a23c; }
+.svg-danger { color: #f56c6c; }
+.svg-info { color: #909399; }
+.svg-white { color: #ffffff; }
+.svg-black { color: #000000; }
+
+// 图标动画效果
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 图标悬停效果
+.icon-hover {
+  transition: all 0.3s ease;
+  cursor: pointer;
+  
+  &:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+// 图标按钮样式
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+  
+  &.primary {
+    background-color: #409eff;
+    color: #ffffff;
+    
+    &:hover {
+      background-color: #337ecc;
+    }
+  }
+  
+  &.success {
+    background-color: #67c23a;
+    color: #ffffff;
+    
+    &:hover {
+      background-color: #529b2e;
+    }
+  }
+  
+  &.warning {
+    background-color: #e6a23c;
+    color: #ffffff;
+    
+    &:hover {
+      background-color: #b88230;
+    }
+  }
+  
+  &.danger {
+    background-color: #f56c6c;
+    color: #ffffff;
+    
+    &:hover {
+      background-color: #c45656;
+    }
+  }
+}

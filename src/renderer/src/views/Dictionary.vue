@@ -1,0 +1,805 @@
+<template>
+  <LayoutTool title="词条字典">
+    <template #headrAction>
+      <el-button type="primary" @click="handleCreateEntry">
+        <el-icon><Plus /></el-icon>
+        <span>创建词条</span>
+      </el-button>
+    </template>
+    <template #default>
+      <el-table
+        ref="tableRef"
+        :key="tableKey"
+        :data="tableData"
+        row-key="id"
+        border
+        default-expand-all
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        style="width: 100%"
+        empty-text="暂无词条"
+      >
+        <el-table-column prop="name" label="名称" min-width="100">
+          <template #default="{ row }">
+            <span class="entry-name">{{ row.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="introduction" label="介绍" min-width="250">
+          <template #default="{ row }">
+            <div class="entry-intro">{{ row.introduction }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" @click="handleEditEntry(row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteEntry(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </template>
+  </LayoutTool>
+
+  <!-- 创建/编辑词条弹框 -->
+  <el-dialog
+    v-model="dialogVisible"
+    :title="isEdit ? '编辑词条' : '创建词条'"
+    width="600px"
+    @close="resetForm"
+  >
+    <el-form ref="formRef" :model="entryForm" :rules="formRules" label-width="80px">
+      <el-form-item label="名称" prop="name">
+        <el-input v-model="entryForm.name" placeholder="请输入词条名称" clearable />
+      </el-form-item>
+      <el-form-item label="父级" prop="parentId">
+        <el-tree-select
+          v-model="entryForm.parentId"
+          :data="treeSelectData"
+          placeholder="请选择父级词条"
+          clearable
+          style="width: 100%"
+          :props="{
+            children: 'children',
+            label: 'name',
+            value: 'id'
+          }"
+          node-key="id"
+          check-strictly
+          :render-after-expand="false"
+        />
+      </el-form-item>
+      <el-form-item label="介绍" prop="introduction">
+        <el-input
+          v-model="entryForm.introduction"
+          placeholder="请输入词条介绍"
+          type="textarea"
+          :rows="6"
+          clearable
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="dialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="confirmSave">确认</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import { genId } from '@renderer/utils/utils'
+import Sortable from 'sortablejs'
+
+const route = useRoute()
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const dictionary = ref([])
+const bookName = route.query.name || ''
+const formRef = ref(null)
+const tableRef = ref(null)
+const sortableInstances = ref([]) // 存储 SortableJS 实例
+const isDragging = ref(false) // 标记是否正在拖拽，用于防止 watch 重复保存
+const tableKey = ref(0) // 用于强制表格重新渲染
+
+// 表单数据
+const entryForm = reactive({
+  id: '',
+  name: '',
+  parentId: 0,
+  introduction: ''
+})
+
+// 表单验证规则
+const formRules = {
+  name: [
+    { required: true, message: '请输入词条名称', trigger: 'blur' },
+    { min: 1, max: 50, message: '名称长度在 1 到 50 个字符', trigger: 'blur' }
+  ],
+  introduction: [
+    { required: true, message: '请输入词条介绍', trigger: 'blur' },
+    { min: 1, max: 1000, message: '介绍长度在 1 到 1000 个字符', trigger: 'blur' }
+  ]
+}
+
+// 加载词条数据
+async function loadDictionary() {
+  try {
+    const data = await window.electron.readDictionary(bookName)
+    let loadedData = Array.isArray(data) ? data : []
+
+    // 递归处理树形数据（确保 children 数组存在）
+    function processTreeData(nodes) {
+      if (!Array.isArray(nodes)) return []
+
+      return nodes.map((node) => {
+        // 递归处理子节点
+        if (node.children && node.children.length > 0) {
+          node.children = processTreeData(node.children)
+        }
+
+        return node
+      })
+    }
+
+    // 直接使用数组顺序，不需要 sort 字段
+    dictionary.value = processTreeData(loadedData)
+  } catch (error) {
+    console.error('加载词条数据失败:', error)
+    dictionary.value = []
+  }
+}
+
+// 保存词条数据
+async function saveDictionary() {
+  try {
+    const rawDictionary = JSON.parse(JSON.stringify(toRaw(dictionary.value)))
+    const result = await window.electron.writeDictionary(bookName, rawDictionary)
+    if (!result.success) {
+      throw new Error(result.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存词条数据失败:', error)
+    ElMessage.error('保存词条数据失败')
+  }
+}
+
+// 将树结构转换为扁平数组（用于查找和操作）
+function treeToArray(treeData) {
+  const result = []
+
+  function traverse(nodes, parentId = 0) {
+    if (!Array.isArray(nodes)) return
+    nodes.forEach((node) => {
+      if (!node) return // 跳过 undefined 或 null 节点
+      const { children, ...item } = node
+      result.push({ ...item, parentId })
+      if (children && Array.isArray(children) && children.length > 0) {
+        traverse(children, item.id)
+      }
+    })
+  }
+
+  traverse(treeData)
+  return result
+}
+
+// 计算表格数据（直接使用树结构）
+const tableData = computed(() => {
+  return dictionary.value.map((item) => ({
+    ...item,
+    parentName: getParentName(item.id)
+  }))
+})
+
+// 获取父级名称
+function getParentName(itemId) {
+  const flatData = treeToArray(dictionary.value)
+  const item = flatData.find((item) => item.id === itemId)
+  if (!item || item.parentId === 0) return ''
+
+  const parent = flatData.find((parent) => parent.id === item.parentId)
+  return parent ? parent.name : ''
+}
+
+// 父级选项（排除当前编辑的项及其子项）
+const treeSelectData = computed(() => {
+  if (isEdit.value) {
+    // 编辑模式：排除当前项及其所有子项
+    const excludeIds = getDescendantIds(entryForm.id)
+    const flatData = treeToArray(dictionary.value)
+    const filteredData = flatData.filter((item) => !excludeIds.includes(item.id))
+    return buildTreeSelectData(filteredData)
+  }
+  return buildTreeSelectData(treeToArray(dictionary.value))
+})
+
+// 构建树形选择数据
+function buildTreeSelectData(data) {
+  const map = {}
+  const result = []
+
+  // 创建映射
+  data.forEach((item) => {
+    map[item.id] = { ...item, children: [] }
+  })
+
+  // 构建树形结构
+  data.forEach((item) => {
+    const node = map[item.id]
+    if (item.parentId === 0) {
+      result.push(node)
+    } else {
+      const parent = map[item.parentId]
+      if (parent) {
+        parent.children.push(node)
+      }
+    }
+  })
+
+  // 添加"无父级"选项
+  return [
+    {
+      id: 0,
+      name: '无父级',
+      parentId: 0,
+      introduction: '',
+      children: []
+    },
+    ...result
+  ]
+}
+
+// 获取所有后代ID
+function getDescendantIds(id) {
+  const descendants = [id]
+  const flatData = treeToArray(dictionary.value)
+  const children = flatData.filter((item) => item.parentId === id)
+
+  children.forEach((child) => {
+    descendants.push(...getDescendantIds(child.id))
+  })
+
+  return descendants
+}
+
+// 在树结构中查找并删除指定ID的节点
+function removeNodeFromTree(treeData, targetId) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      treeData.splice(i, 1)
+      return true
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      if (removeNodeFromTree(treeData[i].children, targetId)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// 在树结构中查找并更新指定ID的节点
+function updateNodeInTree(treeData, targetId, newData) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      treeData[i] = { ...treeData[i], ...newData }
+      return true
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      if (updateNodeInTree(treeData[i].children, targetId, newData)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// 在树结构中查找节点
+function findNodeById(nodes, targetId) {
+  for (const node of nodes) {
+    if (String(node.id) === String(targetId)) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findNodeById(node.children, targetId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// 在树结构中添加新节点
+function addNodeToTree(treeData, newNode) {
+  if (newNode.parentId === 0 || !newNode.parentId) {
+    // 顶层节点：直接添加到数组末尾
+    treeData.push(newNode)
+  } else {
+    // 找到父节点并添加到其children中
+    function addToParent(nodes, parentId) {
+      for (let node of nodes) {
+        if (String(node.id) === String(parentId)) {
+          if (!node.children) node.children = []
+          // 子节点：直接添加到数组末尾
+          node.children.push(newNode)
+          return true
+        }
+        if (node.children && node.children.length > 0) {
+          if (addToParent(node.children, parentId)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+    addToParent(treeData, newNode.parentId)
+  }
+}
+
+// 创建词条
+function handleCreateEntry() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
+}
+
+// 编辑词条
+function handleEditEntry(entry) {
+  isEdit.value = true
+  Object.assign(entryForm, entry)
+  dialogVisible.value = true
+}
+
+// 删除词条
+async function handleDeleteEntry(entry) {
+  try {
+    await ElMessageBox.confirm(`确定要删除词条"${entry.name}"吗？此操作不可恢复！`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    removeNodeFromTree(dictionary.value, entry.id)
+    ElMessage.success('删除成功')
+  } catch {
+    // 用户取消，无需处理
+  }
+}
+
+// 确认保存
+async function confirmSave() {
+  if (!formRef.value) return
+
+  try {
+    await formRef.value.validate()
+
+    if (isEdit.value) {
+      // 编辑模式：更新现有关键词
+      const oldParentId = getCurrentParentId(entryForm.id)
+      const newParentId = entryForm.parentId
+
+      // 如果父级发生了变化，需要重新组织树结构
+      if (oldParentId !== newParentId) {
+        // 先删除原节点（保留子节点）
+        const nodeToMove = removeNodeFromTreeKeepChildren(dictionary.value, entryForm.id)
+        if (nodeToMove) {
+          // 更新节点信息
+          nodeToMove.name = entryForm.name
+          nodeToMove.introduction = entryForm.introduction
+          nodeToMove.parentId = newParentId
+
+          // 添加到新位置
+          addNodeToTree(dictionary.value, nodeToMove)
+        }
+      } else {
+        // 父级没有变化，只更新属性
+        updateNodeInTree(dictionary.value, entryForm.id, {
+          name: entryForm.name,
+          introduction: entryForm.introduction
+        })
+      }
+    } else {
+      // 创建模式：添加新词条（直接添加到对应层级的数组末尾）
+      const newNode = {
+        id: genId(),
+        name: entryForm.name,
+        introduction: entryForm.introduction,
+        parentId: entryForm.parentId,
+        children: []
+      }
+      addNodeToTree(dictionary.value, newNode)
+    }
+
+    dialogVisible.value = false
+    ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  }
+}
+
+// 获取当前节点的父级ID
+function getCurrentParentId(nodeId) {
+  const flatData = treeToArray(dictionary.value)
+  const item = flatData.find((item) => item.id === nodeId)
+  return item ? item.parentId : 0
+}
+
+// 从树结构中删除节点但保留其子节点
+function removeNodeFromTreeKeepChildren(treeData, targetId) {
+  for (let i = 0; i < treeData.length; i++) {
+    if (treeData[i].id === targetId) {
+      const nodeToRemove = treeData[i]
+      const children = nodeToRemove.children || []
+
+      // 将子节点提升到当前层级
+      treeData.splice(i, 1, ...children)
+      return nodeToRemove
+    }
+    if (treeData[i].children && treeData[i].children.length > 0) {
+      const result = removeNodeFromTreeKeepChildren(treeData[i].children, targetId)
+      if (result) return result
+    }
+  }
+  return null
+}
+
+// 重置表单
+function resetForm() {
+  if (formRef.value) {
+    formRef.value.resetFields()
+  }
+  Object.assign(entryForm, {
+    id: '',
+    name: '',
+    parentId: 0,
+    introduction: ''
+  })
+}
+
+// 初始化表格拖拽排序
+function initTableDragSort() {
+  // 清理之前的实例
+  sortableInstances.value.forEach((instance) => {
+    try {
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy()
+      }
+    } catch (error) {
+      console.error('清理 SortableJS 实例失败:', error)
+    }
+  })
+  sortableInstances.value = []
+
+  nextTick(() => {
+    if (!tableRef.value) return
+
+    const tableEl = tableRef.value.$el
+    if (!tableEl) return
+
+    // Element Plus 树形表格只有一个 tbody，所有行都在这个 tbody 中
+    const tbody = tableEl.querySelector('tbody')
+    if (!tbody) return
+
+    const sortableInstance = Sortable.create(tbody, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      filter: '.el-table__expand-icon, .el-button, .el-button__text',
+      draggable: '> tr', // 只允许直接子元素 tr 拖拽
+      onEnd: async (evt) => {
+        const { oldIndex, newIndex, item } = evt
+        if (oldIndex === newIndex || oldIndex === null || newIndex === null) return
+
+        await handleDragEnd(oldIndex, newIndex, item, tbody)
+      }
+    })
+
+    sortableInstances.value.push(sortableInstance)
+  })
+}
+
+// 处理拖拽结束事件
+async function handleDragEnd(oldIndex, newIndex, draggedRow, tbody) {
+  // 设置拖拽标志，防止 watch 触发保存
+  isDragging.value = true
+
+  try {
+    // 重新计算扁平数组（确保数据是最新的）
+    const flatData = treeToArray(dictionary.value)
+
+    // 获取被拖拽行的数据
+    let draggedItem = null
+    let draggedItemId = null
+
+    // 方法1: 通过表格实例的 store 获取
+    if (tableRef.value && tableRef.value.store && tableRef.value.store.state) {
+      try {
+        const allTableData = tableRef.value.store.state.data || []
+        if (allTableData[oldIndex]) {
+          draggedItem = allTableData[oldIndex]
+          draggedItemId = draggedItem.id
+        }
+      } catch {
+        // 通过 store 获取数据失败，将使用备用方法
+      }
+    }
+
+    // 方法2: 通过行的名称匹配
+    if (!draggedItem) {
+      const nameCell = draggedRow.querySelector('.entry-name')
+      if (nameCell) {
+        const rowName = nameCell.textContent.trim()
+        draggedItem = flatData.find((item) => item.name === rowName)
+        if (draggedItem) {
+          draggedItemId = draggedItem.id
+        }
+      }
+    }
+
+    if (!draggedItem || !draggedItemId) {
+      return
+    }
+
+    // 从扁平数组中获取完整的 parentId 信息
+    const flatItem = flatData.find((item) => String(item.id) === String(draggedItemId))
+    if (flatItem) {
+      draggedItem = { ...draggedItem, parentId: flatItem.parentId }
+    }
+
+    const draggedParentId = draggedItem.parentId || 0
+
+    // 获取所有行
+    const allRows = Array.from(tbody.children).filter((el) => el.tagName === 'TR')
+
+    // 获取新位置行的数据
+    let newPositionItem = null
+    if (tableRef.value && tableRef.value.store && tableRef.value.store.state) {
+      try {
+        const allTableData = tableRef.value.store.state.data || []
+        if (allTableData[newIndex]) {
+          newPositionItem = allTableData[newIndex]
+        }
+      } catch {
+        // 通过 store 获取新位置数据失败，将使用备用方法
+      }
+    }
+
+    if (!newPositionItem) {
+      const newPositionRow = allRows[newIndex]
+      if (newPositionRow) {
+        const nameCell = newPositionRow.querySelector('.entry-name')
+        if (nameCell) {
+          const rowName = nameCell.textContent.trim()
+          newPositionItem = flatData.find((item) => item.name === rowName)
+        }
+      }
+    }
+
+    if (!newPositionItem) {
+      return
+    }
+
+    // 从扁平数组中获取新位置行的 parentId
+    const newPositionFlatItem = flatData.find(
+      (item) => String(item.id) === String(newPositionItem.id)
+    )
+    const newPositionParentId = newPositionFlatItem ? newPositionFlatItem.parentId || 0 : 0
+
+    // 检查是否在同一层级
+    if (draggedParentId !== newPositionParentId) {
+      return
+    }
+
+    // 检查是否试图将父节点移动到其子节点内部
+    if (draggedItem.children && draggedItem.children.length > 0) {
+      const descendantIds = getDescendantIds(draggedItemId)
+      if (descendantIds.includes(newPositionItem.id)) {
+        return
+      }
+    }
+
+    // 确定目标列表
+    let targetList = null
+    if (draggedParentId === 0) {
+      targetList = dictionary.value
+    } else {
+      const parentNode = findNodeById(dictionary.value, draggedParentId)
+      if (!parentNode) {
+        return
+      }
+      if (!parentNode.children) {
+        parentNode.children = []
+      }
+      targetList = parentNode.children
+    }
+
+    if (!targetList || targetList.length === 0) {
+      return
+    }
+
+    // 从 DOM 中获取所有同级行的 key（按 DOM 顺序）
+    const sameLevelRowKeys = []
+    for (let i = 0; i < allRows.length; i++) {
+      const row = allRows[i]
+      const nameCell = row.querySelector('.entry-name')
+      if (nameCell) {
+        const rowName = nameCell.textContent.trim()
+        const checkItem = flatData.find((item) => item.name === rowName)
+        if (checkItem) {
+          const checkParentId = checkItem.parentId || 0
+          if (checkParentId === draggedParentId) {
+            sameLevelRowKeys.push(checkItem.id)
+          }
+        }
+      }
+    }
+
+    // 找到被拖拽行在 DOM 同级行中的新位置索引
+    const newIndexInSameLevel = sameLevelRowKeys.findIndex(
+      (key) => String(key) === String(draggedItemId)
+    )
+    if (newIndexInSameLevel === -1) {
+      return
+    }
+
+    // 找到被拖拽行在目标列表中的旧索引
+    const oldIndexInTargetList = targetList.findIndex(
+      (item) => String(item.id) === String(draggedItemId)
+    )
+    if (oldIndexInTargetList === -1) {
+      return
+    }
+
+    // 新位置在目标列表中的索引
+    const newIndexInTargetList = newIndexInSameLevel
+
+    // 边界检查
+    if (
+      oldIndexInTargetList < 0 ||
+      oldIndexInTargetList >= targetList.length ||
+      newIndexInTargetList < 0 ||
+      newIndexInTargetList >= targetList.length
+    ) {
+      return
+    }
+
+    // 移动数组元素
+    const movedItem = targetList[oldIndexInTargetList]
+    if (!movedItem) {
+      return
+    }
+
+    targetList.splice(oldIndexInTargetList, 1)
+    targetList.splice(newIndexInTargetList, 0, movedItem)
+
+    tableKey.value++
+
+    // 保存数据
+    await saveDictionary()
+  } finally {
+    // 重置拖拽标志
+    isDragging.value = false
+  }
+}
+
+// 监听数据变化，自动保存（用于创建/编辑/删除操作）
+// 拖拽操作会手动调用 saveDictionary，但 watch 仍然需要用于其他操作
+watch(
+  dictionary,
+  () => {
+    // 如果正在拖拽，不触发自动保存（拖拽操作会手动调用 saveDictionary）
+    if (!isDragging.value) {
+      saveDictionary()
+    }
+  },
+  { deep: true }
+)
+
+// 监听表格数据变化，重新初始化拖拽
+watch(
+  tableData,
+  () => {
+    nextTick(() => {
+      initTableDragSort()
+    })
+  },
+  { deep: true }
+)
+
+// 组件挂载时加载数据并初始化拖拽
+onMounted(() => {
+  loadDictionary().then(() => {
+    nextTick(() => {
+      initTableDragSort()
+    })
+  })
+})
+
+// 组件卸载时清理 SortableJS 实例
+onBeforeUnmount(() => {
+  sortableInstances.value.forEach((instance) => {
+    try {
+      if (instance && typeof instance.destroy === 'function') {
+        instance.destroy()
+      }
+    } catch (error) {
+      console.error('清理 SortableJS 实例失败:', error)
+    }
+  })
+  sortableInstances.value = []
+})
+</script>
+
+<style lang="scss" scoped>
+.entry-name {
+  font-weight: 600;
+  color: var(--text-base);
+}
+
+.parent-name {
+  font-size: 14px;
+}
+
+.no-parent {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+.entry-intro {
+  color: var(--text-base);
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+// 表格样式优化
+:deep(.el-table) {
+  background-color: var(--bg-primary);
+
+  .el-table__header {
+    background-color: var(--bg-mute);
+  }
+
+  .el-table__row {
+    &:hover {
+      background-color: var(--bg-soft);
+    }
+  }
+}
+
+// 拖拽排序样式
+:deep(.sortable-ghost) {
+  opacity: 0.4;
+  background-color: var(--bg-soft);
+}
+
+:deep(.sortable-chosen) {
+  background-color: var(--bg-soft);
+}
+
+:deep(.sortable-drag) {
+  opacity: 0.8;
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .dictionary-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+
+    .back-btn {
+      align-self: flex-start;
+    }
+  }
+
+  .dictionary-main {
+    .el-table {
+      font-size: 12px;
+    }
+  }
+}
+</style>

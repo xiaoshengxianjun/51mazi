@@ -1,0 +1,75 @@
+#
+# 应用唯一标识（强烈建议发布后长期保持不变）
+# 使用反向域名形式：你的域名是 51mazi.com => com.51mazi.<app>
+#
+appId: com.51mazi.desktop
+productName: 51mazi
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!**/.venv/**'
+  - '!**/venv/**'
+asarUnpack:
+  - resources/**
+win:
+  icon: build/icon.ico
+  executableName: 51mazi
+nsis:
+  # 关闭一键安装，使用向导式安装，以便用户可自定义安装路径
+  oneClick: false
+  # 允许用户在安装向导中选择/修改安装目录
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  icon: build/icon.icns
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize: false
+  # 明确指定只生成 DMG 格式，这样才会有拖拽安装界面
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+dmg:
+  artifactName: ${name}-${version}.${ext}
+  # DMG 窗口配置，提供更好的用户体验
+  window:
+    width: 540
+    height: 380
+  # 在 DMG 中显示应用程序和应用程序文件夹的快捷方式
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+linux:
+  icon: build/icon.png
+  target:
+    - AppImage
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: xiaoshengxianjun
+  repo: 51mazi
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

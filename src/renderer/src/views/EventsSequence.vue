@@ -1,0 +1,1257 @@
+<template>
+  <LayoutTool :title="`事序图 - ${bookName}`">
+    <template #headrAction>
+      <el-button type="primary" @click="showCreateDialog = true">
+        <el-icon><Plus /></el-icon>
+        <span>创建事序图</span>
+      </el-button>
+    </template>
+    <template #default>
+      <div class="events-sequence-content">
+        <!-- 事序图列表 -->
+        <div v-if="sequenceCharts.length > 0" class="sequence-charts">
+          <div v-for="chart in sequenceCharts" :key="chart.id" class="sequence-chart">
+            <!-- 甘特图表格 -->
+            <div class="gantt-table">
+              <!-- 表格头部 -->
+              <div class="table-header">
+                <div class="header-left">
+                  <h3 class="chart-title">{{ chart.title }}</h3>
+                </div>
+                <div class="header-right">
+                  <el-button type="primary" size="small" @click="addEvent(chart.id)">
+                    添加事件
+                  </el-button>
+                  <el-button type="warning" size="small" @click="openExpandDialog(chart.id)">
+                    扩展单元格
+                  </el-button>
+                  <el-button type="success" size="small" @click="saveSequenceChart(chart.id)">
+                    保存事序图
+                  </el-button>
+                  <el-button type="danger" size="small" @click="deleteSequenceChart(chart.id)">
+                    删除事序图
+                  </el-button>
+                </div>
+              </div>
+
+              <!-- 表格主体 -->
+              <div class="table-body">
+                <div class="table-left" :class="{ collapsed: isChartCollapsed(chart.id) }">
+                  <div class="left-header">
+                    <div class="col-index">序号</div>
+                    <div class="col-intro">简介</div>
+                    <div class="col-progress">进度</div>
+                  </div>
+                  <div class="left-content">
+                    <div v-for="event in chart.events" :key="event.id" class="event-row">
+                      <div class="col-index">{{ event.index }}</div>
+                      <div class="col-intro" :title="event.introduction">
+                        <el-tooltip :content="event.introduction" placement="top" :show-after="500">
+                          <span class="intro-text">{{ event.introduction }}</span>
+                        </el-tooltip>
+                      </div>
+                      <div class="col-progress">{{ (event.progress ?? 0) + '%' }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 切换按钮 -->
+                <div class="toggle-button" @click="toggleLeftPanel(chart.id)">
+                  <el-icon>
+                    <DArrowLeft v-if="!isChartCollapsed(chart.id)" />
+                    <DArrowRight v-else />
+                  </el-icon>
+                </div>
+
+                <div class="table-right">
+                  <div class="right-header">
+                    <div v-for="i in chart.cellCount || 100" :key="i" class="time-cell">
+                      {{ i }}
+                    </div>
+                  </div>
+                  <div class="right-content">
+                    <!-- 背景单元格网格 -->
+                    <div class="grid-background">
+                      <div
+                        v-for="rowIndex in chart.events.length"
+                        :key="`row-${rowIndex}`"
+                        class="grid-row"
+                      >
+                        <div
+                          v-for="colIndex in chart.cellCount || 100"
+                          :key="`cell-${rowIndex}-${colIndex}`"
+                          class="grid-cell"
+                        ></div>
+                      </div>
+                    </div>
+
+                    <!-- 事件条层 -->
+                    <div class="events-layer">
+                      <div
+                        v-for="event in chart.events"
+                        :key="event.id"
+                        class="event-bar-container"
+                      >
+                        <!-- 事件条 - 作为完整的横向组件 -->
+                        <el-popover
+                          v-if="event.startTime && event.endTime"
+                          :content="`${event.detail || event.introduction || ''}`"
+                          placement="top"
+                          trigger="hover"
+                          width="400"
+                          :show-after="300"
+                        >
+                          <template #reference>
+                            <div
+                              class="event-bar"
+                              :style="getEventBarStyle(event)"
+                              :class="{ dragging: draggingEvent?.id === event.id }"
+                              @mousedown="startDrag($event, event)"
+                              @click.stop="onEventBarMouseUp(chart.id, event)"
+                            >
+                              <div
+                                class="event-progress"
+                                :style="{ width: getEventProgressWidth(event) }"
+                              ></div>
+                              <div class="event-label start-label">
+                                {{ event.detail || event.introduction }}
+                              </div>
+                            </div>
+                          </template>
+                        </el-popover>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="content-placeholder">
+          <el-empty :image-size="200" description="暂无事序图" class="empty-state">
+            <template #description>
+              <p>点击"创建事序图"开始创建您的事件时间轴</p>
+            </template>
+          </el-empty>
+        </div>
+      </div>
+    </template>
+  </LayoutTool>
+
+  <!-- 创建事序图弹框 -->
+  <el-dialog v-model="showCreateDialog" title="创建事序图" width="500px" @close="resetForm">
+    <el-form ref="chartFormRef" :model="chartForm" :rules="chartRules" label-width="100px">
+      <el-form-item label="主题名称" prop="title">
+        <el-input
+          v-model="chartForm.title"
+          placeholder="请输入事序图的主题名称"
+          maxlength="20"
+          show-word-limit
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button type="primary" @click="createSequenceChart">确认</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 扩展单元格弹框 -->
+  <el-dialog
+    v-model="showExpandDialog"
+    title="扩展单元格数量"
+    width="500px"
+    @close="resetExpandForm"
+  >
+    <el-form ref="expandFormRef" :model="expandForm" :rules="expandRules" label-width="120px">
+      <el-form-item label="扩展数量" prop="cellCount">
+        <el-input-number
+          v-model="expandForm.cellCount"
+          :min="100"
+          :max="1000"
+          :step="10"
+          placeholder="请输入扩展数量"
+        />
+        <div class="form-tip">
+          当前单元格数量：{{ getCurrentCellCount() }}，扩展后将达到：{{
+            getCurrentCellCount() + expandForm.cellCount
+          }}
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showExpandDialog = false">取消</el-button>
+        <el-button type="primary" @click="expandCells">确认</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 添加/编辑事件弹框 -->
+  <el-dialog
+    v-model="showEventDialog"
+    :title="eventDialogMode === 'create' ? '添加事件' : '编辑事件'"
+    width="560px"
+    @close="resetEventForm"
+  >
+    <el-form ref="eventFormRef" :model="eventForm" :rules="eventRules" label-width="100px">
+      <el-form-item label="简介" prop="introduction">
+        <el-input
+          v-model="eventForm.introduction"
+          maxlength="30"
+          show-word-limit
+          placeholder="请输入事件简介（不超过30字）"
+        />
+      </el-form-item>
+      <el-form-item label="详情" prop="detail">
+        <el-input
+          v-model="eventForm.detail"
+          type="textarea"
+          :rows="4"
+          maxlength="200"
+          show-word-limit
+          placeholder="请输入事件详情（不超过200字）"
+        />
+      </el-form-item>
+      <el-form-item label="进度" prop="progress">
+        <el-slider v-model="eventForm.progress" :min="0" :max="100" :step="1" />
+      </el-form-item>
+      <el-form-item label="起始点" prop="startTime">
+        <el-input-number v-model="eventForm.startTime" :min="1" :max="eventCellMax" :step="1" />
+        <span class="form-tip"> 范围 1 - {{ eventCellMax }} </span>
+      </el-form-item>
+      <el-form-item label="结束点" prop="endTime">
+        <el-input-number v-model="eventForm.endTime" :min="1" :max="eventCellMax" :step="1" />
+        <span class="form-tip"> 需 ≥ 起始点，且 ≤ {{ eventCellMax }} </span>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showEventDialog = false">取消</el-button>
+        <el-button v-if="eventDialogMode === 'edit'" type="danger" @click="confirmDeleteEvent">
+          删除
+        </el-button>
+        <el-button type="primary" @click="submitEventForm">
+          {{ eventDialogMode === 'create' ? '添加' : '保存' }}
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup>
+import { ref, onMounted, watch, toRaw } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
+import LayoutTool from '@renderer/components/LayoutTool.vue'
+
+const route = useRoute()
+
+// 获取书籍名称
+const bookName = ref(route.query.name || '未命名书籍')
+
+// 响应式数据
+const showCreateDialog = ref(false)
+const showExpandDialog = ref(false)
+const currentChartId = ref('')
+const sequenceCharts = ref([])
+const chartForm = ref({
+  title: ''
+})
+const expandForm = ref({
+  cellCount: 100 // 扩展数量，不是总数量
+})
+
+// 左侧区域收缩状态 - 每个事序图独立控制
+const collapsedCharts = ref(new Set())
+
+// 拖拽相关数据
+const draggingEvent = ref(null)
+const dragStartX = ref(0)
+const dragStartLeft = ref(0)
+const isDragging = ref(false)
+const hasMovedWhileMouseDown = ref(false)
+const isPointerDown = ref(false)
+let clickSuppressTimer = null
+
+// 表单验证规则
+const chartRules = {
+  title: [
+    { required: true, message: '请输入事序图主题名称', trigger: 'blur' },
+    { min: 1, max: 20, message: '主题名称长度在 1 到 20 个字符', trigger: 'blur' }
+  ]
+}
+
+const expandRules = {
+  cellCount: [
+    { required: true, message: '请输入扩展数量', trigger: 'blur' },
+    {
+      type: 'number',
+      min: 100,
+      max: 1000,
+      message: '扩展数量必须在 100 到 1000 之间',
+      trigger: 'blur'
+    }
+  ]
+}
+
+const chartFormRef = ref(null)
+const expandFormRef = ref(null)
+
+// 创建事序图
+const createSequenceChart = async () => {
+  try {
+    await chartFormRef.value.validate()
+
+    const newChart = {
+      id: Date.now().toString(),
+      title: chartForm.value.title,
+      cellCount: 100, // 默认100个单元格
+      events: [],
+      createdAt: new Date().toISOString()
+    }
+
+    sequenceCharts.value.push(newChart)
+    await saveSequenceCharts()
+    showCreateDialog.value = false
+    resetForm()
+
+    ElMessage.success('事序图创建成功')
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  }
+}
+
+// 重置表单
+const resetForm = () => {
+  chartForm.value.title = ''
+  chartFormRef.value?.clearValidate()
+}
+
+// 重置扩展表单
+const resetExpandForm = () => {
+  expandForm.value.cellCount = 100 // 重置为默认扩展数量
+  expandFormRef.value?.clearValidate()
+  currentChartId.value = ''
+}
+
+// 获取当前单元格数量
+const getCurrentCellCount = () => {
+  if (!currentChartId.value) return 50
+  const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+  return chart ? chart.cellCount || 50 : 50
+}
+
+// 打开扩展单元格弹框
+const openExpandDialog = (chartId) => {
+  currentChartId.value = chartId
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (chart) {
+    // 设置扩展数量为100（默认扩展量）
+    expandForm.value.cellCount = 100
+  }
+  showExpandDialog.value = true
+}
+
+// 扩展单元格
+const expandCells = async () => {
+  try {
+    await expandFormRef.value.validate()
+
+    const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+    if (!chart) {
+      ElMessage.error('未找到对应的事序图')
+      return
+    }
+
+    // 计算新的总数量（当前数量 + 扩展数量）
+    const newTotal = (chart.cellCount || 100) + expandForm.value.cellCount
+
+    // 检查是否超过最大限制
+    if (newTotal > 1000) {
+      ElMessage.error(`扩展后总数量 ${newTotal} 超过最大限制 1000，请减少扩展数量`)
+      return
+    }
+
+    // 更新单元格数量（累加）
+    chart.cellCount = newTotal
+    await saveSequenceCharts()
+    showExpandDialog.value = false
+    resetExpandForm()
+
+    ElMessage.success(
+      `单元格数量已从 ${chart.cellCount - expandForm.value.cellCount} 扩展到 ${chart.cellCount}`
+    )
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  }
+}
+
+// 开始拖拽
+const startDrag = (event, eventData) => {
+  event.preventDefault()
+
+  draggingEvent.value = eventData
+  dragStartX.value = event.clientX
+  dragStartLeft.value = (eventData.startTime - 1) * 40 // 当前事件条的起始位置
+  hasMovedWhileMouseDown.value = false
+  isPointerDown.value = true
+
+  // 添加全局鼠标事件监听
+  document.addEventListener('mousemove', handleDrag)
+  document.addEventListener('mouseup', stopDrag)
+
+  // 设置拖拽状态
+  isDragging.value = true
+
+  // 添加拖拽样式
+  document.body.style.cursor = 'grabbing'
+  document.body.style.userSelect = 'none'
+  document.body.classList.add('dragging')
+}
+
+// 处理拖拽移动
+const handleDrag = (event) => {
+  if (!isDragging.value || !draggingEvent.value) return
+
+  const deltaX = event.clientX - dragStartX.value
+  if (Math.abs(deltaX) > 3) {
+    hasMovedWhileMouseDown.value = true
+  }
+  const newLeft = dragStartLeft.value + deltaX
+
+  // 计算新的时间位置（基于40px单元格宽度，对齐到最近的单元格）
+  const newStartTime = Math.round(newLeft / 40) + 1
+
+  // 边界检查
+  const chart = sequenceCharts.value.find((c) => c.events.includes(draggingEvent.value))
+  if (chart) {
+    const eventDuration = draggingEvent.value.endTime - draggingEvent.value.startTime + 1
+    const maxStartTime = chart.cellCount - eventDuration + 1
+
+    // 限制在有效范围内
+    const clampedStartTime = Math.max(1, Math.min(newStartTime, maxStartTime))
+    const clampedEndTime = clampedStartTime + eventDuration - 1
+
+    // 更新事件时间
+    draggingEvent.value.startTime = clampedStartTime
+    draggingEvent.value.endTime = clampedEndTime
+  }
+}
+
+// 停止拖拽
+const stopDrag = async () => {
+  if (!isDragging.value || !draggingEvent.value) return
+
+  // 显示拖拽结果
+  const chart = sequenceCharts.value.find((c) => c.events.includes(draggingEvent.value))
+  if (chart) {
+    if (hasMovedWhileMouseDown.value) {
+      ElMessage.success(
+        `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
+      )
+      await saveSequenceCharts()
+      // 拖动结束后，短暂抑制 mouseup 触发编辑
+      if (clickSuppressTimer) clearTimeout(clickSuppressTimer)
+      clickSuppressTimer = setTimeout(() => {
+        hasMovedWhileMouseDown.value = false
+        clickSuppressTimer = null
+      }, 120)
+    }
+  }
+
+  // 清理拖拽状态
+  isDragging.value = false
+  draggingEvent.value = null
+
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+
+  // 恢复样式
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  document.body.classList.remove('dragging')
+  // 重置 pointerDown 状态
+  isPointerDown.value = false
+}
+
+// mouseup 时决定是否打开弹框（仅未发生拖动）
+const onEventBarMouseUp = (chartId, event) => {
+  if (hasMovedWhileMouseDown.value) {
+    // 刚刚发生过拖动，不打开
+    return
+  }
+  openEventEditor(chartId, event)
+}
+// 事件条进度宽度
+const getEventProgressWidth = (event) => {
+  const p = typeof event.progress === 'number' ? event.progress : Number(event.progress) || 0
+  const clamped = Math.max(0, Math.min(100, p))
+  return `${clamped}%`
+}
+
+// 添加事件
+const addEvent = (chartId) => {
+  currentChartId.value = chartId
+  openEventEditor(chartId)
+}
+
+// 保存事序图
+const saveSequenceChart = (chartId) => {
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) {
+    ElMessage.error('未找到对应的事序图')
+    return
+  }
+  try {
+    const storageKey = `events-sequence-chart-${chartId}`
+    const dataToSave = JSON.stringify(chart)
+    localStorage.setItem(storageKey, dataToSave)
+    ElMessage.success('事序图已保存')
+  } catch {
+    ElMessage.error('保存失败，请稍后重试')
+  }
+}
+
+// 删除事序图
+const deleteSequenceChart = (chartId) => {
+  // 找到对应的图表
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) {
+    ElMessage.error('未找到对应的事序图')
+    return
+  }
+
+  // 二次确认
+  ElMessageBox.confirm(`确定要删除事序图"${chart.title}"吗？此操作不可恢复。`, '删除确认', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+    confirmButtonClass: 'el-button--danger'
+  })
+    .then(() => {
+      // 执行删除操作
+      const index = sequenceCharts.value.findIndex((c) => c.id === chartId)
+      if (index > -1) {
+        sequenceCharts.value.splice(index, 1)
+        ElMessage.success('事序图删除成功')
+      }
+    })
+    .catch(() => {
+      // 用户取消删除
+      ElMessage.info('已取消删除操作')
+    })
+}
+// 事件弹框相关
+const showEventDialog = ref(false)
+const eventDialogMode = ref('create') // 'create' | 'edit'
+const eventCellMax = ref(100)
+const editingEventId = ref('')
+const eventFormRef = ref(null)
+const eventForm = ref({
+  introduction: '',
+  detail: '',
+  progress: 0,
+  startTime: 1,
+  endTime: 1
+})
+
+const eventRules = {
+  introduction: [
+    { required: true, message: '请输入简介', trigger: 'blur' },
+    { min: 1, max: 30, message: '简介长度 1-30 字符', trigger: 'blur' }
+  ],
+  detail: [{ min: 0, max: 200, message: '详情不超过 200 字符', trigger: 'blur' }],
+  progress: [
+    {
+      validator: (_, val, cb) => {
+        if (val < 0 || val > 100) return cb(new Error('进度需在 0-100 之间'))
+        cb()
+      },
+      trigger: 'change'
+    }
+  ],
+  startTime: [
+    {
+      validator: (_rule, value, callback) => {
+        if (value < 1) return callback(new Error('起始点不能小于 1'))
+        if (value > eventCellMax.value)
+          return callback(new Error(`起始点不能大于 ${eventCellMax.value}`))
+        if (eventForm.value.endTime && value > eventForm.value.endTime)
+          return callback(new Error('起始点不能大于结束点'))
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
+  endTime: [
+    {
+      validator: (_rule, value, callback) => {
+        if (value < 1) return callback(new Error('结束点不能小于 1'))
+        if (value > eventCellMax.value)
+          return callback(new Error(`结束点不能大于 ${eventCellMax.value}`))
+        if (eventForm.value.startTime && value < eventForm.value.startTime)
+          return callback(new Error('结束点不能小于起始点'))
+        callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ]
+}
+
+const resetEventForm = () => {
+  eventForm.value = {
+    introduction: '',
+    detail: '',
+    progress: 0,
+    startTime: 1,
+    endTime: 1
+  }
+  editingEventId.value = ''
+  eventFormRef.value?.clearValidate()
+}
+
+const openEventEditor = (chartId, event = null) => {
+  const chart = sequenceCharts.value.find((c) => c.id === chartId)
+  if (!chart) return
+  currentChartId.value = chartId
+  eventCellMax.value = chart.cellCount || 100
+
+  if (event) {
+    // 编辑模式
+    eventDialogMode.value = 'edit'
+    editingEventId.value = event.id
+    eventForm.value = {
+      introduction: event.introduction || '',
+      detail: event.detail || '',
+      progress: typeof event.progress === 'number' ? event.progress : 0,
+      startTime: event.startTime || 1,
+      endTime: event.endTime || 1
+    }
+  } else {
+    // 新建模式
+    eventDialogMode.value = 'create'
+    editingEventId.value = ''
+    // 预设一个合理区间
+    eventForm.value.startTime = 1
+    eventForm.value.endTime = Math.min(3, eventCellMax.value)
+  }
+
+  showEventDialog.value = true
+}
+
+const submitEventForm = async () => {
+  try {
+    await eventFormRef.value.validate()
+    const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+    if (!chart) return
+
+    if (eventDialogMode.value === 'create') {
+      const newEvent = {
+        id: Date.now().toString(),
+        index: (chart.events?.length || 0) + 1,
+        introduction: eventForm.value.introduction,
+        detail: eventForm.value.detail,
+        progress: eventForm.value.progress,
+        startTime: eventForm.value.startTime,
+        endTime: eventForm.value.endTime,
+        color: generateEventColor(chart.events?.length || 0)
+      }
+      chart.events.push(newEvent)
+      ElMessage.success('添加事件成功')
+    } else if (eventDialogMode.value === 'edit') {
+      const targetIndex = chart.events.findIndex((e) => e.id === editingEventId.value)
+      if (targetIndex !== -1) {
+        const target = chart.events[targetIndex]
+        chart.events[targetIndex] = {
+          ...target,
+          introduction: eventForm.value.introduction,
+          detail: eventForm.value.detail,
+          progress: eventForm.value.progress,
+          startTime: eventForm.value.startTime,
+          endTime: eventForm.value.endTime
+        }
+        ElMessage.success('保存成功')
+      }
+    }
+
+    await saveSequenceCharts()
+    showEventDialog.value = false
+    resetEventForm()
+  } catch {
+    // 验证失败
+  }
+}
+
+const confirmDeleteEvent = () => {
+  const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
+  if (!chart) return
+  ElMessageBox.confirm('确定删除该事件吗？此操作不可恢复。', '删除确认', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+    confirmButtonClass: 'el-button--danger'
+  })
+    .then(async () => {
+      const idx = chart.events.findIndex((e) => e.id === editingEventId.value)
+      if (idx > -1) {
+        chart.events.splice(idx, 1)
+        // 重新编号 index
+        chart.events.forEach((e, i) => (e.index = i + 1))
+        ElMessage.success('删除成功')
+      }
+      await saveSequenceCharts()
+      showEventDialog.value = false
+      resetEventForm()
+    })
+    .catch(() => {})
+}
+
+// 生成事件颜色
+const generateEventColor = (index) => {
+  const colors = [
+    '#ff6b6b',
+    '#ff8e72',
+    '#ffa94d',
+    '#ffd93d',
+    '#6bcb77',
+    '#38a3a5',
+    '#00c2a8',
+    '#2d9cdb',
+    '#4d96ff',
+    '#6c5ce7',
+    '#845ec2',
+    '#b39cd0',
+    '#e056fd',
+    '#f368e0'
+  ]
+  return colors[index % colors.length]
+}
+
+// 获取事件条的样式（定位和尺寸）
+const getEventBarStyle = (event) => {
+  if (!event.startTime || !event.endTime) return {}
+
+  const startPosition = (event.startTime - 1) * 40 // 40px是每个时间单元格的宽度
+  const width = (event.endTime - event.startTime + 1) * 40
+
+  // console.log(
+  //   `事件 ${event.index}: start=${event.startTime}, end=${event.endTime}, left=${startPosition}px, width=${width}px`
+  // )
+
+  return {
+    position: 'absolute',
+    left: `${startPosition}px`,
+    top: '2px', // 留出2px的顶部边距
+    width: `${width}px`,
+    height: '36px', // 减少高度，留出上下边距，在40px单元格内居中
+    zIndex: 10,
+    background: `linear-gradient(135deg, ${event.color || '#409EFF'} 0%, ${adjustBrightness(event.color || '#409EFF', -20)} 100%)`,
+    opacity: 0.85, // 提高不透明度，在暗色模式下更清晰
+    borderRadius: '8px',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)', // 增强阴影，在暗色模式下更明显
+    border: '1px solid rgba(255, 255, 255, 0.3)', // 增强边框，提高可见性
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: '0 8px',
+    boxSizing: 'border-box',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease'
+  }
+}
+
+// 此函数已合并到上面的getEventBarStyle中
+
+// 调整颜色亮度的辅助函数
+const adjustBrightness = (hex, percent) => {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const amt = Math.round(2.55 * percent)
+  const R = (num >> 16) + amt
+  const G = ((num >> 8) & 0x00ff) + amt
+  const B = (num & 0x0000ff) + amt
+  return (
+    '#' +
+    (
+      0x1000000 +
+      (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+      (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+      (B < 255 ? (B < 1 ? 0 : B) : 255)
+    )
+      .toString(16)
+      .slice(1)
+  )
+}
+
+// 切换指定事序图的左侧面板收缩状态
+const toggleLeftPanel = (chartId) => {
+  if (collapsedCharts.value.has(chartId)) {
+    collapsedCharts.value.delete(chartId)
+  } else {
+    collapsedCharts.value.add(chartId)
+  }
+}
+
+// 检查指定事序图是否处于收缩状态
+const isChartCollapsed = (chartId) => {
+  return collapsedCharts.value.has(chartId)
+}
+
+// 已移除示例数据功能
+
+// —— 本地化存储：读/写 ——
+async function loadSequenceCharts() {
+  try {
+    const data = await window.electron.readSequenceCharts(bookName.value)
+    if (Array.isArray(data) && data.length > 0) {
+      sequenceCharts.value = data
+    } else {
+      sequenceCharts.value = []
+    }
+  } catch (error) {
+    console.error('加载事序图数据失败:', error)
+    sequenceCharts.value = []
+  }
+}
+
+async function saveSequenceCharts() {
+  try {
+    const payload = JSON.parse(JSON.stringify(toRaw(sequenceCharts.value)))
+    const result = await window.electron.writeSequenceCharts(bookName.value, payload)
+    if (result && result.success === false) {
+      throw new Error(result.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存事序图数据失败:', error)
+    ElMessage.error('保存事序图数据失败')
+  }
+}
+
+// 自动保存
+watch(sequenceCharts, saveSequenceCharts, { deep: true })
+
+// 挂载时加载
+onMounted(() => {
+  loadSequenceCharts()
+})
+
+// // 调试：输出事件数据
+// console.log('事序图数据:', sequenceCharts.value)
+// sequenceCharts.value.forEach((chart) => {
+//   console.log(`图表 "${chart.title}" 的事件:`, chart.events)
+
+//   // 输出每个事件的样式信息
+//   chart.events.forEach((event) => {
+//     const style = getEventBarStyle(event)
+//     console.log(`事件 ${event.index} 样式:`, style)
+//   })
+// })
+</script>
+
+<style lang="scss" scoped>
+.events-sequence-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state {
+  text-align: center;
+
+  :deep(.el-empty__description) {
+    p {
+      margin: 8px 0;
+      font-size: 14px;
+    }
+  }
+}
+
+.form-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+// 拖拽时的全局样式
+:global(body.dragging) {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.sequence-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sequence-chart {
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  // box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.gantt-table {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  // box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 0; /* 允许表格收缩 */
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--bg-soft);
+  border-bottom: 1px solid var(--border-color);
+
+  .chart-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-base);
+  }
+
+  .header-right {
+    display: flex;
+  }
+}
+
+.table-body {
+  display: flex;
+  // min-height: 200px;
+  background-color: var(--bg-primary);
+  overflow: hidden; /* 防止整体出现滚动条 */
+  position: relative; /* 为切换按钮提供定位上下文 */
+}
+
+.table-left {
+  flex: 0 0 380px;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  font-size: 15px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  &.collapsed {
+    flex: 0 0 0;
+    width: 0;
+    border-right: none;
+  }
+
+  .left-header {
+    display: flex;
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-base);
+    height: 40px;
+    position: sticky;
+    top: 0;
+    z-index: 20; /* 确保头部在最上层 */
+
+    .col-index {
+      flex: 0 0 60px;
+      padding: 8px;
+      text-align: center;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg-primary);
+    }
+
+    .col-progress {
+      flex: 0 0 80px;
+      padding: 8px;
+      text-align: center;
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--bg-primary);
+    }
+
+    .col-intro {
+      flex: 1;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      background-color: var(--bg-primary);
+    }
+  }
+
+  .left-content {
+    font-size: 14px;
+    .event-row {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      height: 40px;
+      background-color: var(--bg-primary);
+      position: relative;
+      z-index: 5; /* 确保内容行在表格线之上 */
+
+      &:hover {
+        background-color: var(--bg-soft);
+      }
+
+      .col-index {
+        flex: 0 0 60px;
+        padding: 8px;
+        text-align: center;
+        border-right: 1px solid var(--border-color);
+        background-color: transparent;
+        color: var(--text-base);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+      }
+
+      .col-progress {
+        flex: 0 0 80px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-left: 1px solid var(--border-color);
+        background-color: transparent;
+        // 使用主题基础文本颜色，在浅色和暗色模式下都有足够的对比度
+        // 浅色模式: #121212 (深色) 在浅色背景上对比度高
+        // 暗色模式: #E5E5E5 (浅色) 在暗色背景上对比度高
+        color: var(--text-base);
+        font-weight: 600; // 增加字重，提升可读性
+      }
+
+      .col-intro {
+        flex: 1;
+        padding: 8px;
+        background-color: transparent;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        // 使用主题基础文本颜色，在浅色和暗色模式下都有足够的对比度
+        color: var(--text-base);
+
+        .intro-text {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          // 使用主题基础文本颜色，确保在所有主题下都有足够的对比度
+          color: var(--text-base);
+          font-weight: 500; // 增加字重，提升可读性
+        }
+      }
+    }
+  }
+}
+
+.toggle-button {
+  position: absolute;
+  left: 380px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 40px;
+  background-color: var(--bg-primary-a5);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: var(--bg-soft);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .el-icon {
+    font-size: 14px;
+    color: var(--text-base);
+  }
+}
+
+.table-left.collapsed + .toggle-button {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+  border-left: 1px solid var(--border-color);
+}
+
+.table-right {
+  flex: 1;
+  overflow-x: auto;
+  position: relative;
+  background-color: var(--bg-primary);
+  overflow-y: hidden; /* 防止垂直滚动条 */
+
+  .right-header {
+    display: flex;
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    height: 40px;
+    position: sticky;
+    top: 0;
+    z-index: 20; /* 确保头部在最上层 */
+    min-width: max-content; /* 确保头部不会被压缩 */
+
+    .time-cell {
+      flex: 0 0 40px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--border-color-soft);
+      border-bottom: 1px solid var(--border-color-soft);
+      font-size: 12px;
+      background-color: var(--bg-soft);
+      color: var(--text-base);
+      box-sizing: border-box;
+      position: relative;
+      min-width: 40px;
+      flex-shrink: 0; // 防止单元格被压缩
+      font-weight: 500;
+      &:last-child {
+        border-right: none;
+      }
+    }
+  }
+
+  .right-content {
+    position: relative;
+    min-width: max-content; /* 确保内容不会被压缩 */
+    overflow: visible; /* 确保事件条容器不被裁剪 */
+    width: max-content; /* 确保内容区域不会被压缩 */
+
+    // 背景网格样式
+    .grid-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: max-content; // 使用max-content确保网格不会被压缩
+      height: 100%;
+      z-index: 1;
+      pointer-events: none; // 防止网格干扰事件条交互
+
+      .grid-row {
+        display: flex;
+        height: 40px; // 与事件行高度保持一致
+        border-bottom: 1px solid var(--border-color-soft);
+        min-width: max-content; // 确保行不会被压缩
+
+        .grid-cell {
+          flex: 0 0 40px;
+          width: 40px;
+          height: 40px;
+          border-right: 1px solid var(--border-color-soft);
+          background-color: transparent;
+          box-sizing: border-box;
+          flex-shrink: 0; // 防止单元格被压缩
+          position: relative; // 确保边框正确定位
+          &:last-child {
+            border-right: none;
+          }
+        }
+      }
+    }
+
+    // 事件条层样式
+    .events-layer {
+      position: relative;
+      z-index: 10;
+      height: 100%;
+
+      .event-bar-container {
+        position: relative;
+        height: 40px; // 保持容器高度与单元格一致
+
+        .event-bar {
+          cursor: grab; // 显示拖拽光标
+          user-select: none; // 防止文本选择
+          transition: all 0.2s ease; // 平滑过渡效果
+          position: relative;
+          overflow: hidden;
+
+          &:hover {
+            opacity: 1 !important;
+            transform: scale(1.02);
+            // 使用更明显的阴影，在暗色模式下也能清晰看到
+            box-shadow:
+              0 4px 12px rgba(0, 0, 0, 0.4),
+              0 0 8px rgba(0, 0, 0, 0.2);
+            z-index: 15;
+            // 悬停时保持在同一位置，不超出单元格边界
+          }
+
+          &.dragging {
+            cursor: grabbing !important;
+            opacity: 0.9;
+            transform: scale(1.05);
+            z-index: 20;
+            // 拖拽时使用更强的阴影效果
+            box-shadow:
+              0 8px 24px rgba(0, 0, 0, 0.5),
+              0 0 16px rgba(0, 0, 0, 0.3);
+            transition: none; // 拖拽时禁用过渡效果，确保响应性
+          }
+
+          .event-label {
+            // 使用主题文字颜色，确保在暗色模式下可见
+            color: var(--text-gray-lightest);
+            font-size: 10px;
+            font-weight: 600;
+            // 根据主题调整文字阴影，增强可读性
+            text-shadow:
+              0 1px 2px rgba(0, 0, 0, 0.3),
+              0 0 4px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            user-select: none;
+            pointer-events: none;
+            line-height: 1.2;
+
+            &.start-label {
+              max-width: 100%;
+            }
+          }
+
+          .event-progress {
+            position: absolute;
+            inset: 0;
+            // 使用半透明背景，根据主题自动适配
+            background: rgba(255, 255, 255, 0.3);
+            width: 0%;
+            transition: width 0.3s ease;
+            pointer-events: none;
+            // 在暗色模式下使用更明显的进度指示
+            border-radius: 8px;
+          }
+        }
+      }
+    }
+  }
+}
+</style>
