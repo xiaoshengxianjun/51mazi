@@ -70,6 +70,11 @@ const routes = [
     path: '/organization-design',
     name: 'OrganizationDesign',
     component: () => import('@renderer/views/OrganizationDesign.vue')
+  },
+  {
+    path: '/novel-download',
+    name: 'NovelDownload',
+    component: () => import('@renderer/views/NovelDownload.vue')
   }
   // 在这里添加更多路由配置
 ]

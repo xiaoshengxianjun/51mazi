@@ -33,6 +33,12 @@ const customElectronAPI = {
   // 加载章节数据
   loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
 
+  // --------- 小说下载相关 ---------
+  novelGetSources: () => ipcRenderer.invoke('novel:get-sources'),
+  novelSearch: (payload) => ipcRenderer.invoke('novel:search', payload),
+  novelGetChapterList: (payload) => ipcRenderer.invoke('novel:get-chapter-list', payload),
+  novelDownloadChapters: (payload) => ipcRenderer.invoke('novel:download-chapters', payload),
+
   // --------- 节点相关 ---------
   // 编辑节点
   editNode: (bookName, payload) => ipcRenderer.invoke('edit-node', { bookName, ...payload }),
@@ -274,6 +280,12 @@ if (process.contextIsolated) {
     ipcRenderer.on('update-downloaded', (_, info) => {
       window.dispatchEvent(new CustomEvent('update-downloaded', { detail: info }))
     })
+
+    // 小说下载进度（主进程 novel:download-chapters 时发送）
+    ipcRenderer.on('novel-download-progress', (_, progress) => {
+      window.dispatchEvent(new CustomEvent('novel-download-progress', { detail: progress }))
+    })
+
     contextBridge.exposeInMainWorld('api', api)
     // 存储
     contextBridge.exposeInMainWorld('electronStore', {

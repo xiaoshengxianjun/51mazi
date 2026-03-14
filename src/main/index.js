@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
+import novelDownloader from './services/novelDownloader.js'
 const { autoUpdater } = pkg
 
 // macOS 图标获取函数
@@ -441,6 +442,48 @@ ipcMain.handle('write-export-file', async (event, { filePath, content }) => {
     console.error('写入导出文件失败:', error)
     return { success: false, message: error.message || '写入文件失败' }
   }
+})
+
+// --------- 小说下载（参考 so-novel，书源搜索 + 章节抓取） ---------
+ipcMain.handle('novel:get-sources', async () => {
+  return novelDownloader.getBookSources()
+})
+
+ipcMain.handle('novel:search', async (event, { keyword, sourceId }) => {
+  try {
+    return { success: true, list: await novelDownloader.search(keyword, sourceId) }
+  } catch (err) {
+    console.error('novel:search', err)
+    return { success: false, message: err.message || '搜索失败' }
+  }
+})
+
+ipcMain.handle('novel:get-chapter-list', async (event, { bookUrl, sourceId }) => {
+  try {
+    const chapters = await novelDownloader.getChapterList(bookUrl, sourceId)
+    return { success: true, chapters }
+  } catch (err) {
+    console.error('novel:get-chapter-list', err)
+    return { success: false, message: err.message || '获取目录失败' }
+  }
+})
+
+/** 批量抓取章节正文，并通过 event.sender 发送 novel-download-progress 进度 */
+ipcMain.handle('novel:download-chapters', async (event, { chapterList, sourceId }) => {
+  const results = []
+  const total = chapterList.length
+  for (let i = 0; i < chapterList.length; i++) {
+    const ch = chapterList[i]
+    try {
+      const content = await novelDownloader.getChapterContent(ch.url, sourceId)
+      results.push({ title: ch.title, content })
+    } catch (err) {
+      console.error(`章节抓取失败: ${ch.title}`, err)
+      results.push({ title: ch.title, content: `[本章抓取失败: ${err.message}]` })
+    }
+    event.sender.send('novel-download-progress', { current: i + 1, total })
+  }
+  return { success: true, chapters: results }
 })
 
 // 创建书籍

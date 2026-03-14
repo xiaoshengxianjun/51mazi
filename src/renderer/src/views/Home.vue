@@ -18,6 +18,10 @@
           <i class="el-icon-setting"></i>
           系统设置
         </div>
+        <div class="menu-item" @click="goToNovelDownload">
+          <i class="el-icon-download"></i>
+          下载小说
+        </div>
         <div class="menu-item" @click="goToUserGuide">
           <i class="el-icon-reading"></i>
           写作指南
@@ -514,6 +518,10 @@ const handleThemeChange = (theme) => {
 // 跳转到写作指南
 const goToUserGuide = () => {
   router.push('/user-guide')
+}
+
+const goToNovelDownload = () => {
+  router.push('/novel-download')
 }
 
 // 获取当前版本
