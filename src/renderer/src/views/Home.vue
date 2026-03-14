@@ -5,10 +5,19 @@
       <div class="logo">
         <img src="/src/assets/images/logo_big.png" alt="logo" class="logo-img" />
       </div>
+      <!-- 菜单顺序：主流程 → 设置 → 帮助与维护 → 赞助 -->
       <div class="menu">
         <div class="menu-item active">
           <i class="el-icon-document"></i>
           我的书架
+        </div>
+        <div class="menu-item" @click="goToNovelDownload">
+          <i class="el-icon-download"></i>
+          下载小说
+        </div>
+        <div class="menu-item" @click="showPasswordDialog = true">
+          <i class="el-icon-lock"></i>
+          书架密码
         </div>
         <div class="menu-item" @click="showThemeDialog = true">
           <i class="el-icon-setting"></i>
@@ -18,9 +27,9 @@
           <i class="el-icon-setting"></i>
           系统设置
         </div>
-        <div class="menu-item" @click="goToNovelDownload">
-          <i class="el-icon-download"></i>
-          下载小说
+        <div class="menu-item" @click="handleOpenAISettings">
+          <i class="el-icon-setting"></i>
+          AI 设置
         </div>
         <div class="menu-item" @click="goToUserGuide">
           <i class="el-icon-reading"></i>
@@ -30,21 +39,13 @@
           <i class="el-icon-question"></i>
           帮助中心
         </div>
-        <div class="menu-item" @click="showSponsorDialog = true">
-          <i class="el-icon-money"></i>
-          赞助作者
-        </div>
-        <div class="menu-item" @click="showPasswordDialog = true">
-          <i class="el-icon-lock"></i>
-          书架密码
-        </div>
-        <div class="menu-item" @click="handleOpenAISettings">
-          <i class="el-icon-setting"></i>
-          AI 设置
-        </div>
         <div class="menu-item" @click="handleCheckUpdate">
           <i class="el-icon-refresh"></i>
           检查更新
+        </div>
+        <div class="menu-item" @click="showSponsorDialog = true">
+          <i class="el-icon-money"></i>
+          赞助作者
         </div>
       </div>
 

@@ -1,23 +1,35 @@
 <template>
   <div class="novel-download-page">
-    <!-- 顶部：返回 + 标题区合并为一块 -->
+    <!-- 顶部：悬浮栏，返回 + 标题 -->
     <header class="page-header">
       <el-button class="back-button" type="primary" @click="goBack">
         <el-icon><ArrowLeft /></el-icon>
         返回首页
       </el-button>
       <div class="header-content">
-        <div class="header-icon-wrap">
-          <el-icon class="header-icon"><Download /></el-icon>
-        </div>
         <div class="header-text">
           <h1 class="page-title">下载小说</h1>
-          <p class="subtitle">
-            搜索书名或作者，选择书源后下载到本地并加入书架。仅供个人学习与备份，请遵守版权与网站规则。
-          </p>
+          <p class="subtitle">搜索书名或作者，选择书源后下载到本地并加入书架。</p>
         </div>
       </div>
     </header>
+
+    <!-- 免责声明 -->
+    <section class="disclaimer-card">
+      <div class="disclaimer-title">免责声明</div>
+      <ul class="disclaimer-list">
+        <li>
+          本功能仅供<strong>个人、非商业性</strong>的学习、研究与备份使用，请严格遵守所在地区著作权及相关法律法规。
+        </li>
+        <li>
+          用户应对通过本功能所获取、存储、使用或传播的<strong>全部内容自行承担法律责任</strong>；本软件及开发者不对内容来源的合法性、准确性负责，也不对因使用或无法使用本功能而产生的任何损失承担责任。
+        </li>
+        <li>
+          <strong>禁止</strong>
+          将本功能用于下载、传播未经授权的受版权保护作品或任何违法、违规内容。使用即表示您已阅读并同意以上条款。
+        </li>
+      </ul>
+    </section>
 
     <!-- 搜索卡片 -->
     <section class="search-card">
@@ -139,14 +151,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  ArrowLeft,
-  Download,
-  Search,
-  FolderOpened,
-  Document,
-  Reading
-} from '@element-plus/icons-vue'
+import { ArrowLeft, Search, FolderOpened, Document, Reading } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getNovelSources,
@@ -409,22 +414,24 @@ $radius-card: 12px;
 
 .novel-download-page {
   min-height: 100vh;
-  padding: 20px;
+  padding: 0 20px 20px 20px;
   box-sizing: border-box;
   background: var(--bg-primary);
 }
 
-/* 顶部：返回按钮 + 标题区合并，紧凑布局 */
+/* 顶部：悬浮在页面顶部，返回 + 标题 */
 .page-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-bottom: 20px;
-  padding: 14px 20px;
-  background: linear-gradient(145deg, var(--bg-soft) 0%, var(--bg-mute) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: $radius-card;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  margin: 0 -20px 20px -20px;
+  padding: 10px 20px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .page-header .back-button {
@@ -443,26 +450,8 @@ $radius-card: 12px;
 .header-content {
   display: flex;
   align-items: center;
-  gap: 14px;
   flex: 1;
   min-width: 0;
-}
-
-.header-icon-wrap {
-  width: 42px;
-  height: 42px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary-color);
-  color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px var(--primary-color);
-}
-
-.header-icon {
-  font-size: 22px;
 }
 
 .header-text {
@@ -482,6 +471,38 @@ $radius-card: 12px;
   color: var(--text-gray);
   margin: 0;
   line-height: 1.45;
+}
+
+/* 免责声明 */
+.disclaimer-card {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: var(--bg-mute);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-card;
+}
+
+.disclaimer-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-base);
+  margin: 0 0 8px 0;
+}
+
+.disclaimer-list {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 0.8rem;
+  color: var(--text-gray);
+  line-height: 1.6;
+}
+
+.disclaimer-list li {
+  margin-bottom: 4px;
+}
+
+.disclaimer-list li:last-child {
+  margin-bottom: 0;
 }
 
 /* 搜索卡片 */
