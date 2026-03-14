@@ -4,11 +4,11 @@
 
 > 💡 As a novel creator, have you ever been frustrated by the lack of suitable writing tools? Today, I'd like to introduce **51mazi**, a powerful and beautifully designed desktop novel writing software. Built with modern technology, this software provides comprehensive support for novel creators, from outline planning to content creation.
 >
-> 💡 **If this project helps you, please give it a Star! Please give it a Star! Please give it a Star!**
+> 💡 **If this project helps you, please give it a Star!**
 
 ## 🎯 Software Overview
 
-**51mazi** is a desktop novel writing software developed with Electron + Vue 3 technology stack, specifically designed for novel creators. It not only provides a professional writing environment but also integrates creative assistance tools such as map design, relationship graphs, character profiles, and AI-assisted creation, making novel writing more efficient and enjoyable.
+**51mazi** is a desktop novel writing software developed with Electron + Vue 3 technology stack, specifically designed for novel creators. It not only provides a professional writing environment but also integrates creative assistance tools such as map design, relationship graphs, character profiles, AI-assisted creation, and novel download, making novel writing more efficient and enjoyable.
 
 ![Software Homepage](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/home.png)
 
@@ -193,6 +193,22 @@ The organization structure feature provides powerful organizational management c
 - **Multiple Organization Management**: Supports creating multiple independent organizational structures to meet different story needs
 - **Data Persistence**: Local file storage ensures data security
 
+### 📥 Download Novels
+
+![Download Novels](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/novelDownload.png)
+
+*Download Novels page - Multi-source search; after selecting a book, the floating bottom action area supports adding to bookshelf or exporting as TXT*
+
+The novel download feature lets you search by title or author, choose a source, and download novels from the web to local storage—either adding them to the bookshelf or exporting as TXT (for personal study and research only; please comply with local laws and regulations).
+
+- **Multi-source Support**: Multiple built-in sources; switch sources to search
+- **Search & Select**: Enter title or author keyword, view search results, click "Download" to fetch the chapter list
+- **Download and Add to Bookshelf**: One-click download of all chapters to the local book directory and add to the current bookshelf
+- **Export as TXT**: Export the full book as a single TXT file to a folder of your choice
+- **Floating Bottom Action Bar**: After selecting a book, the action area stays fixed at the bottom of the page so you can see progress while scrolling the list
+- **Ad Removal in Content**: Automatically filters common in-page promotions and ad copy for cleaner export
+- **Disclaimer**: A clear disclaimer on the page reminds users to use the feature in compliance with applicable laws
+
 ### 📘 User Guide
 
 Built-in complete user guide functionality to help users get started quickly:
@@ -238,6 +254,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
   - **AI Random Naming (DeepSeek)**: Multiple name types and parameters, with automatic fallback to local generation when AI fails
   - **AI Novel Cover (Tongyi Wanxiang)**: Generate multiple covers by title/pen name/size/prompt and set one as the book cover
   - **AI Character Image (Tongyi Wanxiang)**: In Character Profile, generate vertical full-body character images by style and appearance description; support multiple images per character for different styles/poses
+- **Download novels**: Multi-source search, add to bookshelf or export as TXT, with floating bottom action bar and progress display
 - Relationship graph management for complex character relationships with avatar and dynamic font support
 - Event sequence diagram management for event timelines and progress with visual progress tracking
 - Organization structure management to display organizational structure and hierarchy
@@ -271,6 +288,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 | Smart Operations | ✅ Intelligent Drag-and-Drop, Keyboard Shortcut Support | ❌ Cumbersome Operations |
 | Multiple Themes | ✅ Multiple Themes | ❌ Single Theme |
 | User Guide | ✅ Built-in Complete Guide | ❌ Requires External Documentation |
+| Download Novels | ✅ Multi-source search, add to bookshelf / export TXT | ❌ Manual copy or external tools |
 | Cross-Platform | ✅ Full Platform Support | ❌ Platform Limitations |
 | Free to Use | ✅ Completely Free | ❌ Paid Subscription |
 
@@ -306,29 +324,31 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
    - Use AI intelligent naming to generate character names
    - Try different parameter settings to experience AI's intelligent understanding capabilities
 13. In Character Profile, complete characters: fill in appearance and biography, and add multiple character images (different styles or poses) for the same character
+14. (Optional) Use Download Novels: from the left menu open "Download Novels", choose a source, enter title or author to search, then "Download and Add to Bookshelf" or "Export as TXT"; the action bar floats at the bottom so you can see progress while scrolling
 
 ### Advanced Usage
 1. Use timeline to manage story development
 2. Use event sequence diagram to plan event timeline and progress (supports drag-and-drop adjustment)
 3. Use organization structure management to display organizational structure and hierarchy
 4. Use character profiles to record detailed information, associating tags from the dictionary; add multiple character images (local or AI-generated) per character, using style and composition options for different full-body portraits
-5. Combine map design to build worldviews
+5. Use the novel download feature: multi-source search, then download to local or export as TXT for reference and personal backup (please comply with copyright and local regulations)
+6. Combine map design to build worldviews
    - Use shape tool to draw precise terrain boundaries
    - Use text tool to add place name annotations
    - Utilize resource icons to quickly build map elements
    - Use selection tool to adjust element positions and sizes
    - Utilize undo/redo functionality to optimize map details
-6. Use random name generator to enrich characters
+7. Use random name generator to enrich characters
    - Configure DeepSeek API Key to enable AI intelligent naming
    - Use AI to generate names that match cultural backgrounds
    - Try generating different types and styles of names (ancient style, Japanese style, Western style, etc.)
    - Utilize batch generation feature to quickly screen suitable names
-7. Set bookshelf password protection to ensure all data security
-8. Use relationship graph avatar feature to enhance visual effects
-9. Build a complete dictionary system, categorizing and managing proper nouns, place names, organizations, etc. in the story
-10. Enable forbidden word detection in the editor to detect and mark sensitive vocabulary in real-time
-11. Use character highlighting feature to quickly locate character appearances in text
-12. View built-in user guide to learn more advanced features and tips
+8. Set bookshelf password protection to ensure all data security
+9. Use relationship graph avatar feature to enhance visual effects
+10. Build a complete dictionary system, categorizing and managing proper nouns, place names, organizations, etc. in the story
+11. Enable forbidden word detection in the editor to detect and mark sensitive vocabulary in real-time
+12. Use character highlighting feature to quickly locate character appearances in text
+13. View built-in user guide to learn more advanced features and tips
 
 ## 🔮 Future Outlook
 
@@ -388,6 +408,7 @@ npm run build:linux
 - ✅ Professional map design tool with built-in resource library
 - ✅ Dictionary management with flexible tree structure organization
 - ✅ Smart operation experience, improving creative efficiency
+- ✅ Download novels: multi-source search, add to bookshelf or export as TXT for reading and backup
 - ✅ Beautiful interface with excellent user experience
 - ✅ Built-in user guide for quick start
 - ✅ Open source and free, continuously updated
@@ -399,7 +420,7 @@ If you're looking for a professional novel writing software, 51mazi is definitel
 ### 📚 Related Links
 - **Project Repository**: [GitHub - 51mazi](https://github.com/xiaoshengxianjun/51mazi)
 - **Technology Stack**: Electron + Vue 3 + TipTap + Element Plus + Pinia + DeepSeek + Tongyi Wanxiang
-- **Keywords**: Desktop Application, Rich Text Editing, Canvas Drawing, Relationship Graph, Novel Writing, Dictionary, Forbidden Word Detection, Character Highlighting, AI Assistance, AI Cover, AI Character Image, AI Writing, Intelligent Naming, Character Roster
+- **Keywords**: Desktop Application, Rich Text Editing, Canvas Drawing, Relationship Graph, Novel Writing, Dictionary, Forbidden Word Detection, Character Highlighting, AI Assistance, AI Cover, AI Character Image, AI Writing, Intelligent Naming, Character Roster, Novel Download, Multi-source
 
 ## 📞 Contact & Support
 
@@ -419,7 +440,7 @@ Thank you to everyone who supports this project! You can support via:
 | ![WeChat Pay QR Code](static/WeChatPayQRCode.png) | ![Alipay QR Code](static/AliPayQRCode.png) |
 
 ## 🏷️ Tags
-`#Electron` `#Vue3` `#DesktopApplication` `#RichTextEditing` `#CanvasDrawing` `#RelationshipGraph` `#NovelWriting` `#CharacterRoster` `#FrontendDevelopment` `#Dictionary` `#ForbiddenWordDetection` `#CharacterHighlighting` `#AIAssistance` `#AICovers` `#AICharacterImage` `#AIWriting` `#TongyiWanxiang` `#DeepSeek` `#IntelligentNaming`
+`#Electron` `#Vue3` `#DesktopApplication` `#RichTextEditing` `#CanvasDrawing` `#RelationshipGraph` `#NovelWriting` `#CharacterRoster` `#FrontendDevelopment` `#Dictionary` `#ForbiddenWordDetection` `#CharacterHighlighting` `#AIAssistance` `#AICovers` `#AICharacterImage` `#AIWriting` `#TongyiWanxiang` `#DeepSeek` `#IntelligentNaming` `#NovelDownload`
 
 ---
 
