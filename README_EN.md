@@ -6,6 +6,37 @@
 >
 > 💡 **If this project helps you, please give it a Star!**
 
+## 📋 Table of Contents
+
+- [Software Overview](#-software-overview)
+- [Core Features](#-core-features)
+  - [Multi-Book Management System](#-multi-book-management-system)
+  - [AI Cover Generation](#-ai-cover-generation)
+  - [AI Character Image Generation](#-ai-character-image-generation)
+  - [Professional Writing Experience](#-professional-writing-experience)
+  - [Map Design Tool](#-map-design-tool)
+  - [Relationship Graph Management](#-relationship-graph-management)
+  - [Dictionary Management](#-dictionary-management)
+  - [Random Name Generator](#-random-name-generator)
+  - [Character Profile Management](#-character-profile-management)
+  - [Timeline Management](#-timeline-management)
+  - [Event Sequence Diagram Management](#-event-sequence-diagram-management)
+  - [Organization Structure Management](#-organization-structure-management)
+  - [Download Novels](#-download-novels)
+  - [User Guide](#-user-guide)
+- [Technical Architecture Highlights](#-technical-architecture-highlights)
+- [Software Advantages](#-software-advantages)
+- [Feature Comparison](#-feature-comparison)
+- [Target Audience](#-target-audience)
+- [Usage Recommendations](#-usage-recommendations)
+- [Future Outlook](#-future-outlook)
+- [Development Environment Setup](#-development-environment-setup)
+- [Summary](#-summary)
+- [Contact & Support](#-contact--support)
+- [Tags](#-tags)
+
+---
+
 ## 🎯 Software Overview
 
 **51mazi** is a desktop novel writing software developed with Electron + Vue 3 technology stack, specifically designed for novel creators. It not only provides a professional writing environment but also integrates creative assistance tools such as map design, relationship graphs, character profiles, AI-assisted creation, and novel download, making novel writing more efficient and enjoyable.
