@@ -8,35 +8,36 @@
 
 ## 📋 Table of Contents
 
-- [Software Overview](#-software-overview)
-- [Core Features](#-core-features)
-  - [Multi-Book Management System](#-multi-book-management-system)
-  - [AI Cover Generation](#-ai-cover-generation)
-  - [AI Character Image Generation](#-ai-character-image-generation)
-  - [Professional Writing Experience](#-professional-writing-experience)
-  - [Map Design Tool](#-map-design-tool)
-  - [Relationship Graph Management](#-relationship-graph-management)
-  - [Dictionary Management](#-dictionary-management)
-  - [Random Name Generator](#-random-name-generator)
-  - [Character Profile Management](#-character-profile-management)
-  - [Timeline Management](#-timeline-management)
-  - [Event Sequence Diagram Management](#-event-sequence-diagram-management)
-  - [Organization Structure Management](#-organization-structure-management)
-  - [Download Novels](#-download-novels)
-  - [User Guide](#-user-guide)
-- [Technical Architecture Highlights](#-technical-architecture-highlights)
-- [Software Advantages](#-software-advantages)
-- [Feature Comparison](#-feature-comparison)
-- [Target Audience](#-target-audience)
-- [Usage Recommendations](#-usage-recommendations)
-- [Future Outlook](#-future-outlook)
-- [Development Environment Setup](#-development-environment-setup)
-- [Summary](#-summary)
-- [Contact & Support](#-contact--support)
-- [Tags](#-tags)
+- [Software Overview](#software-overview)
+- [Core Features](#core-features)
+  - [Multi-Book Management System](#multi-book-management-system)
+  - [AI Cover Generation](#ai-cover-generation)
+  - [AI Character Image Generation](#ai-character-image-generation)
+  - [Professional Writing Experience](#professional-writing-experience)
+  - [Map Design Tool](#map-design-tool)
+  - [Relationship Graph Management](#relationship-graph-management)
+  - [Dictionary Management](#dictionary-management)
+  - [Random Name Generator](#random-name-generator)
+  - [Character Profile Management](#character-profile-management)
+  - [Timeline Management](#timeline-management)
+  - [Event Sequence Diagram Management](#event-sequence-diagram-management)
+  - [Organization Structure Management](#organization-structure-management)
+  - [Download Novels](#download-novels)
+  - [User Guide](#user-guide)
+- [Technical Architecture Highlights](#technical-architecture-highlights)
+- [Software Advantages](#software-advantages)
+- [Feature Comparison](#feature-comparison)
+- [Target Audience](#target-audience)
+- [Usage Recommendations](#usage-recommendations)
+- [Future Outlook](#future-outlook)
+- [Development Environment Setup](#development-environment-setup)
+- [Summary](#summary)
+- [Contact & Support](#contact--support)
+- [Tags](#tags)
 
 ---
 
+<span id="software-overview"></span>
 ## 🎯 Software Overview
 
 **51mazi** is a desktop novel writing software developed with Electron + Vue 3 technology stack, specifically designed for novel creators. It not only provides a professional writing environment but also integrates creative assistance tools such as map design, relationship graphs, character profiles, AI-assisted creation, and novel download, making novel writing more efficient and enjoyable.
@@ -45,8 +46,10 @@
 
 *Software Homepage Interface - Clean and Beautiful Bookshelf Management Interface*
 
+<span id="core-features"></span>
 ## ✨ Core Features
 
+<span id="multi-book-management-system"></span>
 ### 📚 Multi-Book Management System
 
 The software uses a bookshelf-style management system, supporting the creation, editing, and deletion of multiple books. Each book has an independent data directory structure, ensuring data security and independence.
@@ -61,18 +64,21 @@ The software uses a bookshelf-style management system, supporting the creation, 
 - **Cover Management**: Choose a local cover image or customize cover color
 - **AI Cover Generation**: Integrated Tongyi Wanxiang to generate novel covers from title/pen name/prompt, then apply in one click
 
+<span id="ai-cover-generation"></span>
 #### 🤖 AI Cover Generation
 
 ![AI cover example](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/ai_cover.png)
 
 In the **Create/Edit Book** drawer, click **AI Cover Generation** to generate multiple candidate covers based on the title and pen name. Pick one, click **Confirm Use**, then save the book — the cover will appear on the bookshelf.
 
+<span id="ai-character-image-generation"></span>
 ### 🎨 AI Character Image Generation
 
 ![AI character image example](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/ai_character.png)
 
 In the **Character Profile** edit drawer, click **AI Generate Character Image** to choose an art style (e.g. anime, Ghibli-style, photorealistic), fill in appearance description and pose. The app generates multiple vertical full-body character images; pick one and click **Confirm Use** to add it to that character’s image list. You can save multiple images per character in different styles or poses.
 
+<span id="professional-writing-experience"></span>
 ### ✍️ Professional Writing Experience
 
 ![Editor Interface](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/editor.png)
@@ -90,6 +96,7 @@ In the **Character Profile** edit drawer, click **AI Generate Character Image** 
 - **Paragraph Dragging**: Support for dragging to adjust paragraph order, flexibly organizing content structure
 - **Text Highlighting**: Support for text highlighting to mark important content
 
+<span id="map-design-tool"></span>
 ### 🗺️ Map Design Tool
 
 ![Map Design](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/maps.png)
@@ -117,6 +124,7 @@ The map design tool is a major highlight of this software, providing professiona
 - **Color Selection**: Rich color presets with support for custom colors
 - **Save & Export**: Automatically generates map preview images, supports saving as PNG format
 
+<span id="relationship-graph-management"></span>
 ### 👥 Relationship Graph Management
 
 ![Relationship Graph](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/relation.png)
@@ -132,6 +140,7 @@ The relationship graph feature helps authors better manage complex character rel
 - **Thumbnail Generation**: Automatically generates relationship graph previews
 - **Data Persistence**: Local file storage ensures data security
 
+<span id="dictionary-management"></span>
 ### 📖 Dictionary Management
 
 The dictionary feature provides powerful vocabulary management capabilities for novel creation:
@@ -142,6 +151,7 @@ The dictionary feature provides powerful vocabulary management capabilities for 
 - **Data Persistence**: Local file storage ensures data security
 - **Character Profile Integration**: Entries can serve as character tags, achieving vocabulary and character association
 
+<span id="random-name-generator"></span>
 ### 🎲 Random Name Generator
 
 ![Random Names](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/random-name.png)
@@ -163,6 +173,7 @@ The random name generator provides powerful naming assistance for novel creation
 - **Seamless Switching**: Free switching between AI generation and local generation
 - **Rate Limiting**: Intelligently controls API call frequency to avoid excessive use
 
+<span id="character-profile-management"></span>
 ### 👤 Character Profile Management
 
 ![Character Profile](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/character-profile.png)
@@ -186,12 +197,14 @@ Character profiles (character roster) help authors manage role information in a 
 - **Drag to Sort**: In table mode, drag rows to reorder characters; order is saved automatically
 - **Data Persistence**: Character data and image paths stored locally and linked with dictionary tags
 
+<span id="timeline-management"></span>
 ### 📅 Timeline Management
 
 ![Timeline](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/timeline.png)
 
 *Timeline Management Tool - Organizing Story Development Threads*
 
+<span id="event-sequence-diagram-management"></span>
 ### 📊 Event Sequence Diagram Management
 
 ![Event Sequence](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/events-sequence.png)
@@ -209,6 +222,7 @@ The event sequence diagram feature provides powerful timeline management capabil
 - **Hover Tooltips**: Mouse hover displays complete event details
 - **Data Persistence**: Local file storage ensures data security
 
+<span id="organization-structure-management"></span>
 ### 🏢 Organization Structure Management
 
 ![Organization Structure](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/organization.png)
@@ -224,6 +238,7 @@ The organization structure feature provides powerful organizational management c
 - **Multiple Organization Management**: Supports creating multiple independent organizational structures to meet different story needs
 - **Data Persistence**: Local file storage ensures data security
 
+<span id="download-novels"></span>
 ### 📥 Download Novels
 
 ![Download Novels](https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/novelDownload.png)
@@ -240,6 +255,7 @@ The novel download feature lets you search by title or author, choose a source, 
 - **Ad Removal in Content**: Automatically filters common in-page promotions and ad copy for cleaner export
 - **Disclaimer**: A clear disclaimer on the page reminds users to use the feature in compliance with applicable laws
 
+<span id="user-guide"></span>
 ### 📘 User Guide
 
 Built-in complete user guide functionality to help users get started quickly:
@@ -248,6 +264,7 @@ Built-in complete user guide functionality to help users get started quickly:
 - **FAQ**: Answers to common user questions
 - **Quick Start**: Beginner-friendly tutorial
 
+<span id="technical-architecture-highlights"></span>
 ## 🛠️ Technical Architecture Highlights
 
 ### Modern Technology Stack
@@ -264,6 +281,7 @@ Built-in complete user guide functionality to help users get started quickly:
 - **relation-graph-vue3 2.2.11**: Relationship graph visualization component
 - **Pinia 3.0.3**: Official state management library recommended for Vue 3
 
+<span id="software-advantages"></span>
 ## 🚀 Software Advantages
 
 ### 1. Complete Local Storage
@@ -302,6 +320,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 - **Writing Encouragement Toasts**: Start after 2 days, then show randomly (once per day, auto-close in 5s or manual close)
 - **Version Display**: Shows current app version at the bottom of the left sidebar for easier issue reporting
 
+<span id="feature-comparison"></span>
 ## 📊 Feature Comparison
 
 | Feature | 51mazi | Other Writing Software |
@@ -323,6 +342,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 | Cross-Platform | ✅ Full Platform Support | ❌ Platform Limitations |
 | Free to Use | ✅ Completely Free | ❌ Paid Subscription |
 
+<span id="target-audience"></span>
 ## 🎯 Target Audience
 
 - **Web Novel Authors**: Need to manage complex plots and character relationships
@@ -330,6 +350,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 - **Script Writers**: Need timeline and character management
 - **Game Story Planners**: Need map design and world-building
 
+<span id="usage-recommendations"></span>
 ## 💡 Usage Recommendations
 
 ### Getting Started
@@ -381,6 +402,7 @@ Based on the Electron framework, supports Windows, macOS, Linux, and other platf
 12. Use character highlighting feature to quickly locate character appearances in text
 13. View built-in user guide to learn more advanced features and tips
 
+<span id="future-outlook"></span>
 ## 🔮 Future Outlook
 
 As an open-source novel writing software, 51mazi has great development potential:
@@ -401,6 +423,7 @@ As an open-source novel writing software, 51mazi has great development potential
 - **Collaboration Features**: Multi-user collaborative creation
 - **Community Features**: Author communication platform
 
+<span id="development-environment-setup"></span>
 ## 🚀 Development Environment Setup
 
 ### Install Dependencies
@@ -425,6 +448,7 @@ npm run build:mac
 npm run build:linux
 ```
 
+<span id="summary"></span>
 ## 📝 Summary
 
 51mazi is a comprehensive and beautifully designed novel writing software that not only provides a professional writing environment but also integrates various creative assistance tools. Whether you're a novice author or an experienced creator, you can find a writing style that suits you in this software.
@@ -453,6 +477,7 @@ If you're looking for a professional novel writing software, 51mazi is definitel
 - **Technology Stack**: Electron + Vue 3 + TipTap + Element Plus + Pinia + DeepSeek + Tongyi Wanxiang
 - **Keywords**: Desktop Application, Rich Text Editing, Canvas Drawing, Relationship Graph, Novel Writing, Dictionary, Forbidden Word Detection, Character Highlighting, AI Assistance, AI Cover, AI Character Image, AI Writing, Intelligent Naming, Character Roster, Novel Download, Multi-source
 
+<span id="contact--support"></span>
 ## 📞 Contact & Support
 
 ### Help Center / Business Cooperation
@@ -470,6 +495,7 @@ Thank you to everyone who supports this project! You can support via:
 |------------|--------|
 | ![WeChat Pay QR Code](static/WeChatPayQRCode.png) | ![Alipay QR Code](static/AliPayQRCode.png) |
 
+<span id="tags"></span>
 ## 🏷️ Tags
 `#Electron` `#Vue3` `#DesktopApplication` `#RichTextEditing` `#CanvasDrawing` `#RelationshipGraph` `#NovelWriting` `#CharacterRoster` `#FrontendDevelopment` `#Dictionary` `#ForbiddenWordDetection` `#CharacterHighlighting` `#AIAssistance` `#AICovers` `#AICharacterImage` `#AIWriting` `#TongyiWanxiang` `#DeepSeek` `#IntelligentNaming` `#NovelDownload`
 
