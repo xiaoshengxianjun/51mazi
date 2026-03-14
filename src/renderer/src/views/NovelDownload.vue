@@ -1,5 +1,5 @@
 <template>
-  <div class="novel-download-page">
+  <div class="novel-download-page" :class="{ 'has-download-card': selectedBook }">
     <!-- 顶部：悬浮栏，返回 + 标题 -->
     <header class="page-header">
       <el-button class="back-button" type="primary" @click="goBack">
@@ -88,44 +88,46 @@
       </div>
     </section>
 
-    <!-- 选中书籍后的目录与下载 -->
-    <section v-if="selectedBook" ref="downloadCardRef" class="download-card">
-      <div class="download-header">
-        <h3 class="download-title">《{{ selectedBook.title }}》</h3>
-        <p class="download-meta">{{ selectedBook.author }} · 共 {{ chapterList.length }} 章</p>
-      </div>
-      <div class="download-actions">
-        <el-button
-          type="primary"
-          size="large"
-          :loading="downloading"
-          :disabled="chapterList.length === 0"
-          @click="handleDownloadToBookshelf"
-        >
-          <el-icon v-if="!downloading"><FolderOpened /></el-icon>
-          <span>{{
-            downloading
-              ? `下载中 ${downloadProgress.current}/${downloadProgress.total}`
-              : '下载并加入书架'
-          }}</span>
-        </el-button>
-        <el-button
-          size="large"
-          :loading="downloading"
-          :disabled="chapterList.length === 0"
-          @click="handleExportTxt"
-        >
-          <el-icon v-if="!downloading"><Document /></el-icon>
-          <span>导出为 TXT</span>
-        </el-button>
-        <el-button size="large" @click="clearSelection">取消</el-button>
-      </div>
-      <div v-if="downloading" class="progress-wrap">
-        <el-progress
-          :percentage="progressPercent"
-          :stroke-width="8"
-          :status="progressPercent === 100 ? 'success' : undefined"
-        />
+    <!-- 选中书籍后的下载操作区：悬浮在页面底部，滚动时列表不被遮挡 -->
+    <section v-if="selectedBook" class="download-card download-card--fixed">
+      <div class="download-card-inner">
+        <div class="download-header">
+          <h3 class="download-title">《{{ selectedBook.title }}》</h3>
+          <p class="download-meta">{{ selectedBook.author }} · 共 {{ chapterList.length }} 章</p>
+        </div>
+        <div class="download-actions">
+          <el-button
+            type="primary"
+            size="large"
+            :loading="downloading"
+            :disabled="chapterList.length === 0"
+            @click="handleDownloadToBookshelf"
+          >
+            <el-icon v-if="!downloading"><FolderOpened /></el-icon>
+            <span>{{
+              downloading
+                ? `下载中 ${downloadProgress.current}/${downloadProgress.total}`
+                : '下载并加入书架'
+            }}</span>
+          </el-button>
+          <el-button
+            size="large"
+            :loading="downloading"
+            :disabled="chapterList.length === 0"
+            @click="handleExportTxt"
+          >
+            <el-icon v-if="!downloading"><Document /></el-icon>
+            <span>导出为 TXT</span>
+          </el-button>
+          <el-button size="large" @click="clearSelection">取消</el-button>
+        </div>
+        <div v-if="downloading" class="progress-wrap">
+          <el-progress
+            :percentage="progressPercent"
+            :stroke-width="8"
+            :status="progressPercent === 100 ? 'success' : undefined"
+          />
+        </div>
       </div>
     </section>
 
@@ -149,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Search, FolderOpened, Document, Reading } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -225,8 +227,6 @@ async function handleSearch() {
   }
 }
 
-const downloadCardRef = ref(null)
-
 async function handleSelectBook(book) {
   selectedBook.value = book
   chapterList.value = []
@@ -237,8 +237,6 @@ async function handleSelectBook(book) {
     const res = await getNovelChapterList(book.url, book.sourceId)
     if (res.success && res.chapters?.length) {
       chapterList.value = res.chapters
-      await nextTick()
-      downloadCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } else {
       ElMessage.warning(res.message || '获取目录失败')
     }
@@ -417,6 +415,11 @@ $radius-card: 12px;
   padding: 0 20px 20px 20px;
   box-sizing: border-box;
   background: var(--bg-primary);
+
+  /* 当底部悬浮下载卡出现时，为列表预留空间，避免最后几行被遮挡 */
+  &.has-download-card {
+    padding-bottom: 220px;
+  }
 }
 
 /* 顶部：悬浮在页面顶部，返回 + 标题 */
@@ -575,14 +578,34 @@ $radius-card: 12px;
   --el-table-header-bg-color: var(--bg-mute);
 }
 
-/* 下载操作卡片 */
+/* 下载操作卡片：默认样式 + 悬浮在页面底部时的样式 */
 .download-card {
-  margin-bottom: 20px;
   padding: 20px;
   background: linear-gradient(145deg, var(--bg-soft) 0%, var(--bg-mute) 100%);
   border: 1px solid var(--border-color);
   border-radius: $radius-card;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+
+  /* 悬浮在页面底部，滚动时始终可见，方便查看下载进度 */
+  &--fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.download-card-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .download-header {
