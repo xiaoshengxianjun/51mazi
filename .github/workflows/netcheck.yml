@@ -1,0 +1,54 @@
+# 从 GitHub Actions Runner 检测能否访问自建 API（阿里云等）
+# 使用方式：GitHub 仓库 → Actions → 「Network check to api.51mazi.com」→ Run workflow
+name: Network check to api.51mazi.com
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: '要检测的域名（默认 api.51mazi.com）'
+        required: false
+        default: 'api.51mazi.com'
+      path:
+        description: 'HTTPS 探测路径（默认 /api/health）'
+        required: false
+        default: '/api/health'
+
+jobs:
+  netcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dnsutils (dig)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils
+
+      - name: DNS + TCP 443 + HTTPS from GitHub runner
+        env:
+          HOST: ${{ inputs.host }}
+          HEALTH_PATH: ${{ inputs.path }}
+        run: |
+          set -x
+          echo "=== 1) DNS A 记录 ==="
+          dig +short "$HOST" A || true
+
+          IP="$(dig +short "$HOST" A | head -n1 | tr -d '\r')"
+          if [ -z "$IP" ]; then
+            echo "ERROR: 无法解析 $HOST 的 A 记录"
+            exit 1
+          fi
+          echo "使用 IP: $IP"
+
+          echo "=== 2) TCP 443 是否可达（bash /dev/tcp，约 5 秒超时）==="
+          if timeout 5 bash -c "cat < /dev/null > /dev/tcp/${IP}/443" 2>/dev/null; then
+            echo "TCP 443 -> $IP : OK"
+          else
+            echo "TCP 443 -> $IP : FAIL（安全组/防火墙/未监听 443/网络阻断）"
+            exit 1
+          fi
+
+          echo "=== 3) HTTPS 请求（含握手与 HTTP 状态）==="
+          curl -vI --connect-timeout 15 --max-time 30 "https://${HOST}${HEALTH_PATH}" || {
+            echo "HTTPS 请求失败（TLS/证书/Nginx/应用未响应等，见上方 -v 输出）"
+            exit 1
+          }
+
+          echo "=== 完成：从 GitHub Runner 到 $HOST 探测通过 ==="
