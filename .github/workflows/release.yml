@@ -179,3 +179,74 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # -------------------- Sync to self-hosted updater (51mazi-api) --------------------
+      # 将三平台构建产物汇总为一个 zip（根目录平铺），上传到 51mazi-api，并发布到 stable。
+      # 需要在 GitHub Actions Secrets 配置：
+      # - MAZI_API_BASE: https://api.51mazi.com
+      # - MAZI_API_ADMIN_TOKEN: 你的 51mazi-api ADMIN_TOKEN
+      - name: Bundle updater zip
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf bundle release.zip || true
+          mkdir -p bundle
+
+          echo "Collecting updater metadata..."
+          find dist -type f \( -name "latest.yml" -o -name "latest-mac.yml" -o -name "latest-linux.yml" \) -print -exec cp -f {} bundle/ \;
+
+          echo "Collecting installers / packages / blockmaps..."
+          find dist -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.zip" -o -name "*.blockmap" \) \
+            -print -exec cp -f {} bundle/ \;
+
+          echo "Bundle directory:"
+          ls -la bundle
+
+          # 必须至少包含一个 latest*.yml，否则 51mazi-api 会拒绝上传
+          if ! ls bundle/latest*.yml >/dev/null 2>&1; then
+            echo "ERROR: No latest*.yml found in bundle/. electron-builder did not generate updater metadata."
+            exit 1
+          fi
+
+          echo "Creating release.zip..."
+          (cd bundle && zip -r ../release.zip .)
+          ls -la release.zip
+
+      - name: Upload to 51mazi-api and publish stable
+        shell: bash
+        env:
+          MAZI_API_BASE: ${{ secrets.MAZI_API_BASE }}
+          MAZI_API_ADMIN_TOKEN: ${{ secrets.MAZI_API_ADMIN_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${MAZI_API_BASE:-}" ] || [ -z "${MAZI_API_ADMIN_TOKEN:-}" ]; then
+            echo "ERROR: Missing secrets. Please set MAZI_API_BASE and MAZI_API_ADMIN_TOKEN in GitHub Actions Secrets."
+            exit 1
+          fi
+
+          echo "Uploading release.zip to ${MAZI_API_BASE}/api/releases/upload ..."
+          curl -fS -X POST "${MAZI_API_BASE%/}/api/releases/upload" \
+            -H "x-admin-token: ${MAZI_API_ADMIN_TOKEN}" \
+            -F "archive=@release.zip" \
+            -F "releaseNotes=Release ${RELEASE_TAG}"
+
+          # 从 latest*.yml 中解析版本号（优先 latest.yml，其次 latest-mac.yml / latest-linux.yml）
+          node -e "const fs=require('fs'); const path=require('path');\
+            const candidates=['latest.yml','latest-mac.yml','latest-linux.yml'].map(f=>path.join('bundle',f));\
+            const existing=candidates.find(p=>fs.existsSync(p));\
+            if(!existing){console.error('No latest*.yml found');process.exit(1);}\
+            const content=fs.readFileSync(existing,'utf8');\
+            const m=content.match(/^version:\\s*([0-9]+\\.[0-9]+\\.[0-9]+)\\s*$/m);\
+            if(!m){console.error('Failed to parse version from '+existing);process.exit(1);}\
+            console.log(m[1]);" > .release_version
+
+          VERSION="$(cat .release_version)"
+          echo "Parsed version: ${VERSION}"
+
+          echo "Publishing ${VERSION} to stable..."
+          curl -fS -X POST "${MAZI_API_BASE%/}/api/releases/${VERSION}/publish" \
+            -H "x-admin-token: ${MAZI_API_ADMIN_TOKEN}"
+      # ------------------------------------------------------------------------------
+

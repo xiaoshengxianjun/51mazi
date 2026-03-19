@@ -1,3 +1,5 @@
+# electron-updater 使用 generic provider，从下方 url 拉取 latest*.yml 与安装包
+# 部署自建 51mazi-api 时，将 url 改为你的 API 稳定版下载目录（如 https://api.51mazi.com/api/download/stable）
 provider: generic
-url: https://example.com/auto-updates
+url: https://api.51mazi.com/api/download/stable
 updaterCacheDirName: 51mazi-updater

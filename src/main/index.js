@@ -11,6 +11,27 @@ import tongyiwanxiangService from './services/tongyiwanxiang.js'
 import novelDownloader from './services/novelDownloader.js'
 const { autoUpdater } = pkg
 
+// -------------------- Auto Update Feed URL (production) --------------------
+// 说明：
+// - 我们仍然发布 GitHub Release（用于公开下载/备份）
+// - 但客户端的自动更新源改为自建 51mazi-api（国内下载更稳定）
+// - electron-updater 会从该目录读取 latest*.yml 并下载其中引用的安装包文件
+const MAZI_UPDATE_URL = process.env.MAZI_UPDATE_URL || 'https://api.51mazi.com/api/download/stable'
+
+function setupUpdaterFeedUrl() {
+  if (is.dev) return
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: MAZI_UPDATE_URL
+    })
+    console.log('已设置自动更新源:', MAZI_UPDATE_URL)
+  } catch (error) {
+    console.error('设置自动更新源失败:', error)
+  }
+}
+// --------------------------------------------------------------------------
+
 // macOS 图标获取函数
 // 注意：nativeImage 只支持 PNG 和 JPEG 格式，不支持 .icns
 // .icns 文件仅用于打包后的应用图标，由 electron-builder 自动处理
@@ -366,6 +387,9 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+
+  // 在生产环境优先使用自建更新源（不影响同时发布 GitHub Release）
+  setupUpdaterFeedUrl()
 
   // 在窗口创建后设置更新事件监听器
   setupUpdaterEvents()
