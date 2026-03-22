@@ -139,6 +139,11 @@ const customElectronAPI = {
   readCharacters: (bookName) => ipcRenderer.invoke('read-characters', { bookName }),
   // 保存人物谱数据
   writeCharacters: (bookName, data) => ipcRenderer.invoke('write-characters', { bookName, data }),
+  // 读取扩展档案（坐骑、怪兽、妖兽、宝器）
+  readEntityProfiles: (bookName) => ipcRenderer.invoke('read-entity-profiles', { bookName }),
+  // 按类别写入扩展档案（会合并写入 entity_profiles.json）
+  writeEntityProfileCategory: (bookName, category, data) =>
+    ipcRenderer.invoke('write-entity-profile-category', { bookName, category, data }),
 
   // --------- 词条字典相关 ---------
   // 读取词条字典数据

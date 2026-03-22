@@ -127,6 +127,76 @@ const hexToRgba = (hex, alpha = 1) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+const hexLuminance = (hex) => {
+  if (!hex || typeof hex !== 'string' || hex.length < 7) return 1
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+const clampByte = (n) => Math.min(255, Math.max(0, Math.round(n)))
+
+const blendHex = (hex, toHex, t) => {
+  const r1 = parseInt(hex.slice(1, 3), 16)
+  const g1 = parseInt(hex.slice(3, 5), 16)
+  const b1 = parseInt(hex.slice(5, 7), 16)
+  const r2 = parseInt(toHex.slice(1, 3), 16)
+  const g2 = parseInt(toHex.slice(3, 5), 16)
+  const b2 = parseInt(toHex.slice(5, 7), 16)
+  return `#${clampByte(r1 + (r2 - r1) * t)
+    .toString(16)
+    .padStart(2, '0')}${clampByte(g1 + (g2 - g1) * t)
+    .toString(16)
+    .padStart(2, '0')}${clampByte(b1 + (b2 - b1) * t)
+    .toString(16)
+    .padStart(2, '0')}`
+}
+
+/** 纯白侧栏：与 neumorphism.io 白底预设一致 */
+const isNearWhiteSurface = (hex) => {
+  if (!hex || typeof hex !== 'string' || hex.length < 7) return false
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return r >= 252 && g >= 252 && b >= 252
+}
+
+/** 侧栏菜单新拟态阴影：随 bgSoft 变化，供 Home 等使用 */
+const applyNeumorphicVars = (root, bgSoftHex) => {
+  const d = 20
+  const blur = 60
+  const dh = 22
+  const bh = 66
+
+  let softGray
+  let brightHighlight
+  if (isNearWhiteSurface(bgSoftHex)) {
+    softGray = '#d9d9d9'
+    brightHighlight = '#ffffff'
+  } else {
+    const lum = hexLuminance(bgSoftHex)
+    const darkSurface = lum < 0.45
+    const towardBlack = darkSurface ? 0.42 : 0.14
+    const towardWhite = darkSurface ? 0.14 : 0.28
+    softGray = blendHex(bgSoftHex, '#000000', towardBlack)
+    brightHighlight = blendHex(bgSoftHex, '#FFFFFF', towardWhite)
+  }
+
+  root.style.setProperty(
+    '--neu-shadow-raised',
+    `${d}px ${d}px ${blur}px ${softGray}, -${d}px -${d}px ${blur}px ${brightHighlight}`
+  )
+  root.style.setProperty(
+    '--neu-shadow-raised-hover',
+    `${dh}px ${dh}px ${bh}px ${softGray}, -${dh}px -${dh}px ${bh}px ${brightHighlight}`
+  )
+  root.style.setProperty(
+    '--neu-shadow-pressed',
+    `inset ${d}px ${d}px ${blur}px ${softGray}, inset -${d}px -${d}px ${blur}px ${brightHighlight}`
+  )
+}
+
 // 应用主题到DOM
 const applyTheme = (theme) => {
   const root = document.documentElement
@@ -159,6 +229,8 @@ const applyTheme = (theme) => {
   root.style.setProperty('--warning-color', config.warningColor)
   root.style.setProperty('--danger-color', config.dangerColor)
   root.style.setProperty('--info-color', config.infoColor)
+
+  applyNeumorphicVars(root, config.bgSoft)
 }
 
 export const useThemeStore = defineStore('theme', () => {

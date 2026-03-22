@@ -8,43 +8,63 @@
       <!-- 菜单顺序：主流程 → 设置 → 帮助与维护 → 赞助 -->
       <div class="menu">
         <div class="menu-item active">
-          <i class="el-icon-document"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Library v-bind="menuIconProps" />
+          </span>
           我的书架
         </div>
         <div class="menu-item" @click="goToNovelDownload">
-          <i class="el-icon-download"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Download v-bind="menuIconProps" />
+          </span>
           下载小说
         </div>
         <div class="menu-item" @click="showPasswordDialog = true">
-          <i class="el-icon-lock"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Lock v-bind="menuIconProps" />
+          </span>
           书架密码
         </div>
         <div class="menu-item" @click="showThemeDialog = true">
-          <i class="el-icon-setting"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Palette v-bind="menuIconProps" />
+          </span>
           主题设置
         </div>
         <div class="menu-item" @click="showDirDialog = true">
-          <i class="el-icon-setting"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Settings v-bind="menuIconProps" />
+          </span>
           系统设置
         </div>
         <div class="menu-item" @click="handleOpenAISettings">
-          <i class="el-icon-setting"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Sparkles v-bind="menuIconProps" />
+          </span>
           AI 设置
         </div>
         <div class="menu-item" @click="goToUserGuide">
-          <i class="el-icon-reading"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <BookOpenText v-bind="menuIconProps" />
+          </span>
           写作指南
         </div>
         <div class="menu-item" @click="showHelpDialog = true">
-          <i class="el-icon-question"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <CircleQuestionMark v-bind="menuIconProps" />
+          </span>
           帮助中心
         </div>
         <div class="menu-item" @click="handleCheckUpdate">
-          <i class="el-icon-refresh"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <RefreshCw v-bind="menuIconProps" />
+          </span>
           检查更新
         </div>
         <div class="menu-item" @click="showSponsorDialog = true">
-          <i class="el-icon-money"></i>
+          <span class="menu-item-icon" aria-hidden="true">
+            <Gift v-bind="menuIconProps" />
+          </span>
           赞助作者
         </div>
       </div>
@@ -240,6 +260,21 @@ import AISettings from '@renderer/components/AISettings.vue'
 import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
 import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
+import {
+  BookOpenText,
+  CircleQuestionMark,
+  Download,
+  Gift,
+  Library,
+  Lock,
+  Palette,
+  RefreshCw,
+  Settings,
+  Sparkles
+} from 'lucide-vue-next'
+
+/** 侧栏菜单：统一 Lucide 描边与尺寸，保证风格一致 */
+const menuIconProps = { size: 20, strokeWidth: 2 }
 
 const router = useRouter()
 const showDirDialog = ref(false)
@@ -724,14 +759,41 @@ function formatReleaseNotes(notes) {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  /* 未选中：文案与图标同色，避免 text-base 与 icon 的 text-gray 分裂（最后一项复杂图标会显得更黑） */
   color: var(--text-base);
-  transition: all 0.3s;
+  transition:
+    color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+  background: var(--bg-soft);
+  box-shadow: var(--neu-shadow-raised, 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff);
+  border-radius: 10px;
+  margin: 0px 10px 10px;
 }
 
-.menu-item:hover,
-.menu-item.active {
-  background-color: var(--bg-mute);
-  // color: #6366f1;
+.menu-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.menu-item-icon :deep(svg) {
+  display: block;
+  stroke: currentColor;
+}
+
+/* 当前页：凹陷阴影 + 主色（图文一致） */
+.menu-item.active,
+.menu-item:hover {
+  color: var(--primary-color);
+  background: var(--bg-soft);
+  box-shadow: var(
+    --neu-shadow-pressed,
+    inset 20px 20px 60px #d9d9d9,
+    inset -20px -20px 60px #ffffff
+  );
 }
 
 .theme-option {

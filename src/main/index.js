@@ -1993,6 +1993,65 @@ ipcMain.handle('write-characters', async (event, { bookName, data }) => {
   }
 })
 
+// 扩展档案（坐骑 / 怪兽 / 妖兽 / 宝器），与人物谱分文件存储，避免影响编辑器人物高亮等逻辑
+const ENTITY_PROFILES_FILE = 'entity_profiles.json'
+const ENTITY_PROFILE_KEYS = ['mount', 'monster', 'spirit_beast', 'artifact']
+
+function defaultEntityProfilesPayload() {
+  return {
+    mount: [],
+    monster: [],
+    spirit_beast: [],
+    artifact: []
+  }
+}
+
+function readEntityProfilesFromDisk(bookPath) {
+  const profilesPath = join(bookPath, ENTITY_PROFILES_FILE)
+  if (!fs.existsSync(profilesPath)) return defaultEntityProfilesPayload()
+  try {
+    const raw = JSON.parse(fs.readFileSync(profilesPath, 'utf-8'))
+    const out = defaultEntityProfilesPayload()
+    for (const key of ENTITY_PROFILE_KEYS) {
+      out[key] = Array.isArray(raw[key]) ? raw[key] : []
+    }
+    return out
+  } catch {
+    return defaultEntityProfilesPayload()
+  }
+}
+
+ipcMain.handle('read-entity-profiles', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  if (!bookName) return defaultEntityProfilesPayload()
+  const bookPath = join(booksDir, bookName)
+  return readEntityProfilesFromDisk(bookPath)
+})
+
+ipcMain.handle('write-entity-profile-category', async (event, { bookName, category, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const profilesPath = join(bookPath, ENTITY_PROFILES_FILE)
+  if (!bookName || !ENTITY_PROFILE_KEYS.includes(category)) {
+    return { success: false, message: '参数无效' }
+  }
+  if (!Array.isArray(data)) {
+    return { success: false, message: '数据须为数组' }
+  }
+  try {
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+    const all = readEntityProfilesFromDisk(bookPath)
+    all[category] = data
+    fs.writeFileSync(profilesPath, JSON.stringify(all, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存扩展档案失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 词条字典数据读写
 ipcMain.handle('read-dictionary', async (event, { bookName }) => {
   const booksDir = store.get('booksDir')

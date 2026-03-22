@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    title="AI 生成人物图"
+    :title="drawerTitle"
     size="700px"
     direction="rtl"
     class="ai-character-drawer"
@@ -12,11 +12,11 @@
       <el-form
         ref="formRef"
         :model="form"
-        :rules="rules"
+        :rules="formRules"
         label-width="100px"
         class="ai-character-drawer-form"
       >
-        <el-form-item v-if="characterName" label="当前人物">
+        <el-form-item v-if="characterName" :label="subjectLabel">
           <span class="character-name-tip">{{ characterName }}</span>
         </el-form-item>
 
@@ -41,7 +41,7 @@
             v-model="form.prompt"
             type="textarea"
             :rows="4"
-            placeholder="描述人物外貌、气质、穿着、表情等，用于生成竖版全身人物图。可结合「形象介绍」填写，支持中英文，最多 500 字。"
+            :placeholder="promptPlaceholder"
             maxlength="500"
             show-word-limit
           />
@@ -50,7 +50,7 @@
         <el-form-item label="构图与姿态">
           <el-select
             v-model="form.pose"
-            placeholder="可选：人物姿态/构图"
+            :placeholder="posePlaceholder"
             style="width: 100%"
             clearable
           >
@@ -74,13 +74,14 @@
           />
         </el-form-item>
 
-        <div class="form-tip">输出尺寸：720×1280 竖版全身人物图</div>
+        <div class="form-tip">{{ outputTip }}</div>
       </el-form>
 
-      <!-- 已生成的人物图列表 -->
+      <!-- 已生成的图片列表 -->
       <div v-if="generatedList.length > 0" class="generated-section">
         <div class="section-title">
-          已生成的人物图（共 {{ generatedList.length }} 张，点击选择一张后确认使用）
+          已生成的{{ generatedImageTypeName }}（共
+          {{ generatedList.length }} 张，点击选择一张后确认使用）
         </div>
         <div class="generated-grid">
           <div
@@ -90,18 +91,18 @@
             :class="{ selected: selectedPath === item.localPath }"
             @click="selectedPath = item.localPath"
           >
-            <img :src="item.previewUrl" :alt="`人物图 ${index + 1}`" />
+            <img :src="item.previewUrl" :alt="`${generatedImageTypeName} ${index + 1}`" />
           </div>
         </div>
       </div>
 
       <el-alert v-if="generating" type="info" :closable="false" show-icon class="generating-hint">
-        正在生成人物图中，请勿关闭
+        {{ generatingHint }}
       </el-alert>
       <div class="ai-character-drawer-footer">
         <el-button @click="handleCancel">取消</el-button>
         <el-button type="primary" :loading="generating" @click="handleGenerate">
-          {{ generatedList.length > 0 ? '再生成一张' : '生成人物图' }}
+          {{ generatedList.length > 0 ? regenerateButtonText : generateButtonText }}
         </el-button>
         <el-button
           v-if="generatedList.length > 0"
@@ -117,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   generateAICharacterImage,
@@ -129,10 +130,39 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   /** 书籍名称，用于保存路径 */
   bookName: { type: String, default: '' },
-  /** 当前编辑的人物姓名，仅用于展示 */
+  /** 当前档案名称（人物/坐骑等），仅用于展示 */
   characterName: { type: String, default: '' },
-  /** 人物形象介绍，打开抽屉时预填到提示词 */
-  appearance: { type: String, default: '' }
+  /** 形象介绍，打开抽屉时预填到提示词 */
+  appearance: { type: String, default: '' },
+  /** 抽屉标题 */
+  drawerTitle: { type: String, default: 'AI 生成人物图' },
+  /** 「当前xxx」表单项标签 */
+  subjectLabel: { type: String, default: '当前人物' },
+  /** 拼入模型提示词的开头主体描述（区分人物/坐骑/宝器等） */
+  promptIntro: {
+    type: String,
+    default: '竖版全身人物立绘，清晰完整的人物'
+  },
+  /** 接在画风后的细节引导语，如「人物形象：」「外形与细节：」 */
+  promptDetailPrefix: { type: String, default: '人物形象：' },
+  promptPlaceholder: {
+    type: String,
+    default:
+      '描述人物外貌、气质、穿着、表情等，用于生成竖版全身参考图。可结合「形象介绍」填写，支持中英文，最多 500 字。'
+  },
+  posePlaceholder: { type: String, default: '可选：人物姿态/构图' },
+  outputTip: { type: String, default: '输出尺寸：720×1280 竖版全身参考图' },
+  /** 用于列表标题、按钮、alt，如「人物图」「形象图」 */
+  generatedImageTypeName: { type: String, default: '人物图' },
+  generateButtonText: { type: String, default: '生成人物图' },
+  regenerateButtonText: { type: String, default: '再生成一张' },
+  generatingHint: { type: String, default: '正在生成图片中，请勿关闭' },
+  /** 点击生成时的全局提示 */
+  infoGeneratingMessage: { type: String, default: '正在生成图片，请勿关闭' },
+  validatePromptMessage: { type: String, default: '请输入形象描述' },
+  confirmSuccessMessage: { type: String, default: '已加入列表，保存档案后生效' },
+  /** 生成失败等场景下的简短类型名，用于错误提示 */
+  generateFailTypeName: { type: String, default: '图片' }
 })
 const emit = defineEmits(['update:modelValue', 'character-image-generated'])
 
@@ -241,12 +271,12 @@ const poseOptions = [
   { value: 'side', label: '侧面/侧身' }
 ]
 
-const rules = {
+const formRules = computed(() => ({
   prompt: [
-    { required: true, message: '请输入人物形象描述', trigger: 'blur' },
+    { required: true, message: props.validatePromptMessage, trigger: 'blur' },
     { min: 5, message: '描述至少 5 个字符，便于生成更准确', trigger: 'blur' }
   ]
-}
+}))
 
 // 打开抽屉时预填
 watch(
@@ -267,15 +297,15 @@ watch(
   }
 )
 
-/** 根据表单拼接完整提示词：竖版全身 + 风格 + 形象描述 + 姿态 */
+/** 根据表单拼接完整提示词：主体类型 + 风格 + 形象描述 + 姿态 */
 function buildFullPrompt() {
-  const parts = ['竖版全身人物立绘，清晰完整的人物']
+  const parts = [props.promptIntro]
   const styleKey = form.value.style
   if (styleKey) {
     const styleOpt = styleOptions.find((o) => o.value === styleKey)
     if (styleOpt?.prompt) parts.push(styleOpt.prompt)
   }
-  parts.push('。人物形象：')
+  parts.push('。' + props.promptDetailPrefix)
   parts.push(form.value.prompt.trim())
   const poseKey = form.value.pose
   if (poseKey) {
@@ -294,7 +324,7 @@ async function handleGenerate() {
       return
     }
     generating.value = true
-    ElMessage.info('正在生成人物图，请勿关闭')
+    ElMessage.info(props.infoGeneratingMessage)
     const fullPrompt = buildFullPrompt()
     const res = await generateAICharacterImage({
       prompt: fullPrompt,
@@ -308,7 +338,7 @@ async function handleGenerate() {
       selectedPath.value = res.localPath
       ElMessage.success('已生成，请选择一张确认使用或继续生成')
     } else {
-      ElMessage.error(res?.message || '生成人物图失败')
+      ElMessage.error(res?.message || `生成${props.generateFailTypeName}失败`)
     }
   } catch (error) {
     if (error !== false) ElMessage.error(error?.message || '请检查表单输入')
@@ -336,7 +366,7 @@ async function handleConfirmUse() {
     if (res?.success && res.localPath) {
       emit('character-image-generated', { localPath: res.localPath })
       emit('update:modelValue', false)
-      ElMessage.success('已设为人物图，保存人物后生效')
+      ElMessage.success(props.confirmSuccessMessage)
     } else {
       ElMessage.error(res?.message || '确认失败')
     }

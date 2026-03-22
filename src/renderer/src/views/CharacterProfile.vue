@@ -1,14 +1,21 @@
 <template>
-  <LayoutTool title="人物谱管理">
+  <LayoutTool :title="kindUi.layoutTitle">
     <template #headrAction>
-      <el-button type="primary" @click="handleCreateCharacter">
+      <el-button type="primary" @click="handleCreateEntity">
         <el-icon><Plus /></el-icon>
-        <span>创建人物</span>
+        <span>{{ kindUi.createBtn }}</span>
       </el-button>
     </template>
     <template #default>
-      <div class="view-toggle">
-        <el-radio-group v-model="viewMode" size="small">
+      <div class="profile-toolbar">
+        <el-radio-group v-model="profileKind" size="small" class="profile-kind-tabs">
+          <el-radio-button value="character">人物</el-radio-button>
+          <el-radio-button value="mount">坐骑</el-radio-button>
+          <el-radio-button value="monster">怪兽</el-radio-button>
+          <el-radio-button value="spirit_beast">妖兽</el-radio-button>
+          <el-radio-button value="artifact">宝器</el-radio-button>
+        </el-radio-group>
+        <el-radio-group v-model="viewMode" size="small" class="view-toggle-inner">
           <el-radio-button value="card">
             <el-icon><Grid /></el-icon>
             卡片模式
@@ -22,11 +29,11 @@
       <!-- 卡片模式 -->
       <div v-if="viewMode === 'card'" class="character-grid">
         <div
-          v-for="character in characters"
+          v-for="character in displayEntities"
           :key="character.id"
           class="character-card"
-          :class="{ male: character.gender === '男', female: character.gender === '女' }"
-          @click="handleEditCharacter(character)"
+          :class="cardGenderClass(character)"
+          @click="handleEditEntity(character)"
         >
           <div class="character-info">
             <div class="character-header">
@@ -74,7 +81,7 @@
             </div>
             <!-- 人物图列表：卡片下方一行多张 -->
             <div class="character-portrait-row">
-              <div class="portrait-label">人物图</div>
+              <div class="portrait-label">{{ kindUi.galleryLabel }}</div>
               <div v-if="getCharacterImages(character).length" class="character-portrait-list">
                 <div
                   v-for="(img, idx) in getCharacterImages(character)"
@@ -85,11 +92,13 @@
                   <el-image :src="getAvatarSrc(img)" alt="人物图" fit="cover" />
                 </div>
               </div>
-              <div v-else class="character-portrait-placeholder">暂无人物图</div>
+              <div v-else class="character-portrait-placeholder">
+                {{ kindUi.galleryEmptyShort }}
+              </div>
             </div>
           </div>
           <div class="character-actions">
-            <el-icon @click.stop="handleDeleteCharacter(character)"><Delete /></el-icon>
+            <el-icon @click.stop="handleDeleteEntity(character)"><Delete /></el-icon>
           </div>
         </div>
       </div>
@@ -98,11 +107,11 @@
       <div v-else-if="viewMode === 'table'" class="character-table">
         <el-table
           ref="tableRef"
-          :data="characters"
+          :data="displayEntities"
           row-key="id"
           border
           style="width: 100%"
-          @row-click="handleEditCharacter"
+          @row-click="handleEditEntity"
         >
           <el-table-column label="头像" width="80" align="center">
             <template #default="{ row }">
@@ -120,7 +129,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="人物图" width="120" align="center">
+          <el-table-column :label="kindUi.galleryLabel" width="120" align="center">
             <template #default="{ row }">
               <div
                 v-if="getCharacterImages(row).length"
@@ -141,7 +150,7 @@
               <span v-else class="no-portrait">无</span>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="姓名" width="140" align="center">
+          <el-table-column prop="name" :label="kindUi.nameColumnLabel" width="140" align="center">
             <template #default="{ row }">
               <div class="table-name-cell">
                 <span
@@ -153,17 +162,35 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="age" label="年龄" width="80" align="center">
+          <el-table-column
+            v-if="kindUi.showHumanFields"
+            prop="age"
+            label="年龄"
+            width="80"
+            align="center"
+          >
             <template #default="{ row }"> {{ row.age }}岁 </template>
           </el-table-column>
-          <el-table-column prop="gender" label="性别" width="80" align="center">
+          <el-table-column
+            v-if="kindUi.showHumanFields"
+            prop="gender"
+            label="性别"
+            width="80"
+            align="center"
+          >
             <template #default="{ row }">
               <el-tag :type="row.gender === '男' ? 'primary' : 'danger'" size="small">
                 {{ row.gender }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="height" label="身高" width="100" align="center">
+          <el-table-column
+            v-if="kindUi.showHumanFields"
+            prop="height"
+            label="身高"
+            width="100"
+            align="center"
+          >
             <template #default="{ row }"> {{ row.height }}cm </template>
           </el-table-column>
           <el-table-column prop="tags" label="标签" width="140" align="center">
@@ -176,16 +203,26 @@
               <span v-else class="no-tags">无标签</span>
             </template>
           </el-table-column>
-          <el-table-column prop="appearance" label="形象介绍" min-width="200" align="center" />
-          <el-table-column prop="biography" label="生平介绍" min-width="300" align="center" />
+          <el-table-column
+            prop="appearance"
+            :label="kindUi.appearanceColumnLabel"
+            min-width="200"
+            align="center"
+          />
+          <el-table-column
+            prop="biography"
+            :label="kindUi.biographyColumnLabel"
+            min-width="300"
+            align="center"
+          />
           <el-table-column label="操作" width="120" fixed="right" align="center">
             <template #default="{ row }">
               <div class="action-buttons">
-                <el-button type="primary" size="small" @click.stop="handleEditCharacter(row)">
+                <el-button type="primary" size="small" @click.stop="handleEditEntity(row)">
                   <el-icon><Edit /></el-icon>
                   编辑
                 </el-button>
-                <el-button type="danger" size="small" @click.stop="handleDeleteCharacter(row)">
+                <el-button type="danger" size="small" @click.stop="handleDeleteEntity(row)">
                   <el-icon><Delete /></el-icon>
                   删除
                 </el-button>
@@ -196,9 +233,9 @@
       </div>
 
       <el-empty
-        v-if="characters.length === 0"
+        v-if="displayEntities.length === 0"
         :image-size="200"
-        description="暂无人物"
+        :description="kindUi.emptyDesc"
         class="empty-state"
       />
     </template>
@@ -207,13 +244,13 @@
   <!-- 创建/编辑人物抽屉 -->
   <el-drawer
     v-model="drawerVisible"
-    :title="isEdit ? '编辑人物' : '创建人物'"
+    :title="isEdit ? kindUi.drawerEdit : kindUi.drawerCreate"
     size="700px"
     direction="rtl"
     class="character-form-drawer"
     @close="resetForm"
   >
-    <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="80px">
+    <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="100px">
       <!-- 头像：用于列表/卡片小图 -->
       <el-form-item label="头像" class="avatar-form-item">
         <div class="avatar-form-section">
@@ -242,21 +279,15 @@
         </div>
       </el-form-item>
       <!-- 人物图列表：多张竖版全身，可 AI 生成或本地添加 -->
-      <el-form-item label="人物图" class="character-image-form-item">
+      <el-form-item :label="kindUi.galleryLabel" class="character-image-form-item">
         <div class="character-image-form-section">
-          <div
-            v-if="characterForm.characterImages.length"
-            class="character-image-list"
-          >
+          <div v-if="characterForm.characterImages.length" class="character-image-list">
             <div
               v-for="(img, idx) in characterForm.characterImages"
               :key="idx"
               class="character-image-preview-wrap"
             >
-              <div
-                class="character-image-preview"
-                @click="previewFormCharacterImages(idx)"
-              >
+              <div class="character-image-preview" @click="previewFormCharacterImages(idx)">
                 <el-image :src="getAvatarSrc(img)" alt="人物图" fit="cover" />
               </div>
               <el-button
@@ -270,25 +301,29 @@
               </el-button>
             </div>
           </div>
-          <div v-else class="character-image-placeholder">暂无人物图，可添加多张（竖版全身）</div>
+          <div v-else class="character-image-placeholder">{{ kindUi.galleryEmpty }}</div>
           <div class="character-image-input-section">
             <div class="input-row">
               <el-button @click="selectLocalImageForCharacterImage">选择本地图片</el-button>
               <el-button type="success" @click="openAICharacterDrawer">
                 <el-icon><MagicStick /></el-icon>
-                AI 生成人物图
+                {{ kindUi.aiGenLabel }}
               </el-button>
             </div>
           </div>
         </div>
       </el-form-item>
       <el-row :gutter="10">
-        <el-col :span="12">
-          <el-form-item label="姓名" prop="name">
-            <el-input v-model="characterForm.name" placeholder="请输入人物姓名" clearable />
+        <el-col :span="kindUi.showHumanFields ? 12 : 24">
+          <el-form-item :label="kindUi.nameLabel" prop="name">
+            <el-input
+              v-model="characterForm.name"
+              :placeholder="kindUi.namePlaceholder"
+              clearable
+            />
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col v-if="kindUi.showHumanFields" :span="12">
           <el-form-item label="性别" prop="gender">
             <el-radio-group v-model="characterForm.gender">
               <el-radio value="男">男</el-radio>
@@ -297,7 +332,7 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-row :gutter="10">
+      <el-row v-if="kindUi.showHumanFields" :gutter="10">
         <el-col :span="12">
           <el-form-item label="年龄" prop="age">
             <el-input-number
@@ -321,19 +356,19 @@
           </el-form-item>
         </el-col>
       </el-row>
-      <el-form-item label="形象介绍" prop="appearance">
+      <el-form-item :label="kindUi.appearanceLabel" prop="appearance">
         <el-input
           v-model="characterForm.appearance"
-          placeholder="请输入人物形象介绍（外貌、气质、穿着等）"
+          :placeholder="kindUi.appearancePlaceholder"
           type="textarea"
           :rows="4"
           clearable
         />
       </el-form-item>
-      <el-form-item label="生平介绍" prop="biography">
+      <el-form-item :label="kindUi.biographyLabel" prop="biography">
         <el-input
           v-model="characterForm.biography"
-          placeholder="请输入人物生平介绍（经历、性格、背景故事等）"
+          :placeholder="kindUi.biographyPlaceholder"
           type="textarea"
           :rows="6"
           clearable
@@ -387,12 +422,26 @@
     </template>
   </el-drawer>
 
-  <!-- AI 生成人物图抽屉 -->
+  <!-- AI 生图：人物/坐骑等均走同一抽屉，文案与 prompt 前缀随档案类型变化 -->
   <AICharacterDrawer
     v-model="aiCharacterDrawerVisible"
     :book-name="bookName"
     :character-name="characterForm.name"
     :appearance="characterForm.appearance"
+    :drawer-title="kindUi.aiDrawerTitle"
+    :subject-label="kindUi.aiSubjectLabel"
+    :prompt-intro="kindUi.aiPromptIntro"
+    :prompt-detail-prefix="kindUi.aiPromptDetailPrefix"
+    :prompt-placeholder="kindUi.aiPromptPlaceholder"
+    :pose-placeholder="kindUi.aiPosePlaceholder"
+    :output-tip="kindUi.aiOutputTip"
+    :generated-image-type-name="kindUi.aiGeneratedTypeName"
+    :generate-button-text="kindUi.aiGenerateBtn"
+    :generating-hint="kindUi.aiGeneratingHint"
+    :info-generating-message="kindUi.aiInfoToast"
+    :validate-prompt-message="kindUi.aiValidatePrompt"
+    :confirm-success-message="kindUi.aiConfirmSuccess"
+    :generate-fail-type-name="kindUi.aiFailTypeName"
     @character-image-generated="onAICharacterImageGenerated"
   />
 
@@ -421,6 +470,19 @@ const aiCharacterDrawerVisible = ref(false)
 const isEdit = ref(false)
 const bookName = route.query.name || ''
 
+/** 档案大类：人物走 characters.json，其余走 entity_profiles.json */
+const PROFILE_KIND_STORAGE_PREFIX = 'characterProfileKind_'
+function getProfileKindStorageKey() {
+  return PROFILE_KIND_STORAGE_PREFIX + (bookName || '_default')
+}
+function loadStoredProfileKind() {
+  if (typeof localStorage === 'undefined') return 'character'
+  const v = localStorage.getItem(getProfileKindStorageKey())
+  if (['character', 'mount', 'monster', 'spirit_beast', 'artifact'].includes(v)) return v
+  return 'character'
+}
+const profileKind = ref(loadStoredProfileKind())
+
 // 人物谱视图模式：按书籍记忆，默认表格模式
 const VIEW_MODE_STORAGE_KEY_PREFIX = 'characterProfileViewMode_'
 function getViewModeStorageKey() {
@@ -430,6 +492,284 @@ const viewMode = ref(
   (typeof localStorage !== 'undefined' && localStorage.getItem(getViewModeStorageKey())) || 'table'
 )
 const characters = ref([])
+const mounts = ref([])
+const monsters = ref([])
+const spiritBeasts = ref([])
+const artifacts = ref([])
+
+const KIND_UI = {
+  character: {
+    layoutTitle: '人物谱管理',
+    createBtn: '创建人物',
+    drawerEdit: '编辑人物',
+    drawerCreate: '创建人物',
+    deleteType: '人物',
+    emptyDesc: '暂无人物',
+    nameLabel: '姓名',
+    nameColumnLabel: '姓名',
+    namePlaceholder: '请输入人物姓名',
+    galleryLabel: '人物图',
+    galleryEmpty: '暂无人物图，可添加多张（竖版全身）',
+    galleryEmptyShort: '暂无人物图',
+    aiGenLabel: 'AI 生成人物图',
+    appearanceLabel: '形象介绍',
+    appearanceColumnLabel: '形象介绍',
+    appearancePlaceholder: '请输入人物形象介绍（外貌、气质、穿着等）',
+    biographyLabel: '生平介绍',
+    biographyColumnLabel: '生平介绍',
+    biographyPlaceholder: '请输入人物生平介绍（经历、性格、背景故事等）',
+    aiDrawerTitle: 'AI 生成人物图',
+    aiSubjectLabel: '当前人物',
+    aiPromptIntro: '竖版全身人物立绘，清晰完整的人物',
+    aiPromptDetailPrefix: '人物形象：',
+    aiPromptPlaceholder:
+      '描述人物外貌、气质、穿着、表情等，用于生成竖版全身参考图。可结合「形象介绍」填写，支持中英文，最多 500 字。',
+    aiPosePlaceholder: '可选：人物姿态/构图',
+    aiOutputTip: '输出尺寸：720×1280 竖版全身参考图',
+    aiGeneratedTypeName: '人物图',
+    aiGenerateBtn: '生成人物图',
+    aiGeneratingHint: '正在生成图片中，请勿关闭',
+    aiInfoToast: '正在生成图片，请勿关闭',
+    aiValidatePrompt: '请输入形象描述',
+    aiConfirmSuccess: '已加入列表，保存人物后生效',
+    aiFailTypeName: '人物图',
+    showHumanFields: true
+  },
+  mount: {
+    layoutTitle: '坐骑档案',
+    createBtn: '创建坐骑',
+    drawerEdit: '编辑坐骑',
+    drawerCreate: '创建坐骑',
+    deleteType: '坐骑',
+    emptyDesc: '暂无坐骑档案',
+    nameLabel: '名称',
+    nameColumnLabel: '名称',
+    namePlaceholder: '请输入坐骑名称',
+    galleryLabel: '形象图',
+    galleryEmpty: '暂无形象图，可添加多张参考图',
+    galleryEmptyShort: '暂无形象图',
+    aiGenLabel: 'AI 生成形象图',
+    appearanceLabel: '外形特征',
+    appearanceColumnLabel: '外形特征',
+    appearancePlaceholder: '请输入外形、毛色、体态等描述',
+    biographyLabel: '来历与设定',
+    biographyColumnLabel: '来历与设定',
+    biographyPlaceholder: '请输入来历、习性、与主角关系等',
+    aiDrawerTitle: 'AI 生成坐骑形象图',
+    aiSubjectLabel: '当前坐骑',
+    aiPromptIntro: '竖版全身坐骑立绘，清晰的坐骑形体与比例，适合作为形象设定参考',
+    aiPromptDetailPrefix: '外形与毛色体态：',
+    aiPromptPlaceholder:
+      '描述坐骑品种、毛色、体态、鞍具等，可结合「外形特征」，用于生成竖版全身参考图，最多 500 字。',
+    aiPosePlaceholder: '可选：站立、奔驰、侧视等构图',
+    aiOutputTip: '输出尺寸：720×1280 竖版全身参考图',
+    aiGeneratedTypeName: '形象图',
+    aiGenerateBtn: '生成形象图',
+    aiGeneratingHint: '正在生成图片中，请勿关闭',
+    aiInfoToast: '正在生成图片，请勿关闭',
+    aiValidatePrompt: '请输入形象描述',
+    aiConfirmSuccess: '已加入形象图列表，保存档案后生效',
+    aiFailTypeName: '形象图',
+    showHumanFields: false
+  },
+  monster: {
+    layoutTitle: '怪兽档案',
+    createBtn: '创建怪兽',
+    drawerEdit: '编辑怪兽',
+    drawerCreate: '创建怪兽',
+    deleteType: '怪兽',
+    emptyDesc: '暂无怪兽档案',
+    nameLabel: '名称',
+    nameColumnLabel: '名称',
+    namePlaceholder: '请输入怪兽名称',
+    galleryLabel: '形象图',
+    galleryEmpty: '暂无形象图，可添加多张参考图',
+    galleryEmptyShort: '暂无形象图',
+    aiGenLabel: 'AI 生成形象图',
+    appearanceLabel: '外形特征',
+    appearanceColumnLabel: '外形特征',
+    appearancePlaceholder: '请输入外形、体型、特征部位等描述',
+    biographyLabel: '设定与故事',
+    biographyColumnLabel: '设定与故事',
+    biographyPlaceholder: '请输入能力、栖息地、剧情作用等',
+    aiDrawerTitle: 'AI 生成怪兽形象图',
+    aiSubjectLabel: '当前怪兽',
+    aiPromptIntro: '竖版全身怪兽立绘，突出生物特征与体型，适合作为怪兽设定参考',
+    aiPromptDetailPrefix: '外形与特征：',
+    aiPromptPlaceholder:
+      '描述体型、皮肤、爪牙、特殊器官等，可结合「外形特征」，用于生成竖版全身参考图，最多 500 字。',
+    aiPosePlaceholder: '可选：威吓、匍匐、飞行姿态等构图',
+    aiOutputTip: '输出尺寸：720×1280 竖版全身参考图',
+    aiGeneratedTypeName: '形象图',
+    aiGenerateBtn: '生成形象图',
+    aiGeneratingHint: '正在生成图片中，请勿关闭',
+    aiInfoToast: '正在生成图片，请勿关闭',
+    aiValidatePrompt: '请输入形象描述',
+    aiConfirmSuccess: '已加入形象图列表，保存档案后生效',
+    aiFailTypeName: '形象图',
+    showHumanFields: false
+  },
+  spirit_beast: {
+    layoutTitle: '妖兽档案',
+    createBtn: '创建妖兽',
+    drawerEdit: '编辑妖兽',
+    drawerCreate: '创建妖兽',
+    deleteType: '妖兽',
+    emptyDesc: '暂无妖兽档案',
+    nameLabel: '名称',
+    nameColumnLabel: '名称',
+    namePlaceholder: '请输入妖兽名称',
+    galleryLabel: '形象图',
+    galleryEmpty: '暂无形象图，可添加多张参考图',
+    galleryEmptyShort: '暂无形象图',
+    aiGenLabel: 'AI 生成形象图',
+    appearanceLabel: '外形特征',
+    appearanceColumnLabel: '外形特征',
+    appearancePlaceholder: '请输入妖形、妖气、化形等描述',
+    biographyLabel: '来历与术法',
+    biographyColumnLabel: '来历与术法',
+    biographyPlaceholder: '请输入修为、血脉、与剧情相关设定等',
+    aiDrawerTitle: 'AI 生成妖兽形象图',
+    aiSubjectLabel: '当前妖兽',
+    aiPromptIntro: '竖版全身妖兽立绘，突出妖异气质与形体特征，适合作为妖兽设定参考',
+    aiPromptDetailPrefix: '妖形与特征：',
+    aiPromptPlaceholder:
+      '描述妖形、妖气、化形、异相等，可结合「外形特征」，用于生成竖版全身参考图，最多 500 字。',
+    aiPosePlaceholder: '可选：人形/兽形、施法姿态等构图',
+    aiOutputTip: '输出尺寸：720×1280 竖版全身参考图',
+    aiGeneratedTypeName: '形象图',
+    aiGenerateBtn: '生成形象图',
+    aiGeneratingHint: '正在生成图片中，请勿关闭',
+    aiInfoToast: '正在生成图片，请勿关闭',
+    aiValidatePrompt: '请输入形象描述',
+    aiConfirmSuccess: '已加入形象图列表，保存档案后生效',
+    aiFailTypeName: '形象图',
+    showHumanFields: false
+  },
+  artifact: {
+    layoutTitle: '宝器档案',
+    createBtn: '创建宝器',
+    drawerEdit: '编辑宝器',
+    drawerCreate: '创建宝器',
+    deleteType: '宝器',
+    emptyDesc: '暂无宝器档案',
+    nameLabel: '名称',
+    nameColumnLabel: '名称',
+    namePlaceholder: '请输入宝器名称',
+    galleryLabel: '图示',
+    galleryEmpty: '暂无图示，可添加多张造型参考',
+    galleryEmptyShort: '暂无图示',
+    aiGenLabel: 'AI 生成图示',
+    appearanceLabel: '外观形态',
+    appearanceColumnLabel: '外观形态',
+    appearancePlaceholder: '请输入外观、材质、光效等描述',
+    biographyLabel: '背景与能力',
+    biographyColumnLabel: '背景与能力',
+    biographyPlaceholder: '请输入来历、功效、持有者相关设定等',
+    aiDrawerTitle: 'AI 生成宝器图示',
+    aiSubjectLabel: '当前宝器',
+    aiPromptIntro: '竖版宝器陈列立绘，器物完整、细节清晰，适合作为宝器设定参考',
+    aiPromptDetailPrefix: '外观材质与光效：',
+    aiPromptPlaceholder:
+      '描述造型、材质、纹饰、灵光等，可结合「外观形态」，用于生成竖版器物参考图，最多 500 字。',
+    aiPosePlaceholder: '可选：悬浮、持握、陈列角度等构图',
+    aiOutputTip: '输出尺寸：720×1280 竖版器物参考图',
+    aiGeneratedTypeName: '图示',
+    aiGenerateBtn: '生成图示',
+    aiGeneratingHint: '正在生成图片中，请勿关闭',
+    aiInfoToast: '正在生成图片，请勿关闭',
+    aiValidatePrompt: '请输入外观描述',
+    aiConfirmSuccess: '已加入图示列表，保存档案后生效',
+    aiFailTypeName: '图示',
+    showHumanFields: false
+  }
+}
+
+const kindUi = computed(() => KIND_UI[profileKind.value] || KIND_UI.character)
+
+const displayEntities = computed(() => {
+  switch (profileKind.value) {
+    case 'mount':
+      return mounts.value
+    case 'monster':
+      return monsters.value
+    case 'spirit_beast':
+      return spiritBeasts.value
+    case 'artifact':
+      return artifacts.value
+    case 'character':
+    default:
+      return characters.value
+  }
+})
+
+function getCurrentListRef() {
+  switch (profileKind.value) {
+    case 'mount':
+      return mounts
+    case 'monster':
+      return monsters
+    case 'spirit_beast':
+      return spiritBeasts
+    case 'artifact':
+      return artifacts
+    case 'character':
+    default:
+      return characters
+  }
+}
+
+function cardGenderClass(character) {
+  if (profileKind.value !== 'character') return {}
+  return { male: character.gender === '男', female: character.gender === '女' }
+}
+
+function entityCategoryFromProfileKind(kind) {
+  if (kind === 'character') return null
+  return kind
+}
+
+async function saveEntityCategory(category) {
+  try {
+    let payload
+    switch (category) {
+      case 'mount':
+        payload = mounts.value
+        break
+      case 'monster':
+        payload = monsters.value
+        break
+      case 'spirit_beast':
+        payload = spiritBeasts.value
+        break
+      case 'artifact':
+        payload = artifacts.value
+        break
+      default:
+        return
+    }
+    const raw = JSON.parse(JSON.stringify(toRaw(payload))).map((item) => {
+      // eslint-disable-next-line no-unused-vars
+      const { sort, ...rest } = item
+      return rest
+    })
+    const result = await window.electron.writeEntityProfileCategory(bookName, category, raw)
+    if (!result?.success) {
+      throw new Error(result?.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存扩展档案失败:', error)
+    ElMessage.error('保存扩展档案失败')
+  }
+}
+
+async function saveCurrentKindList() {
+  if (profileKind.value === 'character') await saveCharacters()
+  else {
+    const cat = entityCategoryFromProfileKind(profileKind.value)
+    if (cat) await saveEntityCategory(cat)
+  }
+}
 const dictionary = ref([]) // 字典数据
 const formRef = ref(null)
 const tableRef = ref(null)
@@ -442,6 +782,14 @@ watch(viewMode, (val) => {
   if (val === 'card' || val === 'table') {
     localStorage.setItem(key, val)
   }
+})
+
+watch(profileKind, (val) => {
+  if (typeof localStorage === 'undefined') return
+  if (['character', 'mount', 'monster', 'spirit_beast', 'artifact'].includes(val)) {
+    localStorage.setItem(getProfileKindStorageKey(), val)
+  }
+  nextTick(() => initTableDragSort())
 })
 
 const presetMarkerColors = [
@@ -482,20 +830,27 @@ const characterForm = reactive({
   markerColor: ''
 })
 
-// 表单验证规则
-const formRules = {
-  name: [
-    { required: true, message: '请输入人物姓名', trigger: 'blur' },
-    { min: 1, max: 20, message: '姓名长度在 1 到 20 个字符', trigger: 'blur' }
-  ],
-  age: [{ required: true, message: '请输入年龄(岁)', trigger: 'blur' }],
-  gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
-  height: [{ required: true, message: '请输入身高(cm)', trigger: 'blur' }],
-  // 生平介绍：非必填，有内容时最多 1000 字
-  biography: [{ max: 1000, message: '生平介绍最多 1000 个字符', trigger: 'blur' }],
-  // 形象介绍：非必填，有内容时最多 500 字
-  appearance: [{ max: 500, message: '形象介绍最多 500 个字符', trigger: 'blur' }]
-}
+// 表单验证规则（人物需年龄/性别/身高，其余类型仅校验名称与字数）
+const formRules = computed(() => {
+  const nameLabel = kindUi.value.nameLabel
+  const base = {
+    name: [
+      { required: true, message: `请输入${nameLabel}`, trigger: 'blur' },
+      { min: 1, max: 20, message: '名称长度在 1 到 20 个字符', trigger: 'blur' }
+    ],
+    biography: [{ max: 1000, message: '内容最多 1000 个字符', trigger: 'blur' }],
+    appearance: [{ max: 500, message: '内容最多 500 个字符', trigger: 'blur' }]
+  }
+  if (profileKind.value === 'character') {
+    return {
+      ...base,
+      age: [{ required: true, message: '请输入年龄(岁)', trigger: 'blur' }],
+      gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
+      height: [{ required: true, message: '请输入身高(cm)', trigger: 'blur' }]
+    }
+  }
+  return base
+})
 
 // 计算标签选项（从字典词条中获取，保持树形结构）
 const tagOptions = computed(() => {
@@ -564,6 +919,43 @@ async function loadDictionary() {
   }
 }
 
+/** 扩展档案实体字段与人物谱对齐，便于共用表单与列表 */
+function normalizeProfileEntity(entity) {
+  const images = normalizeCharacterImages(entity)
+  return {
+    ...entity,
+    biography: entity.biography || entity.introduction || '',
+    appearance: entity.appearance || '',
+    avatar: entity.avatar || '',
+    characterImages: images,
+    markerColor: entity.markerColor || '',
+    tags: Array.isArray(entity.tags) ? entity.tags : [],
+    gender: entity.gender || '男',
+    age: entity.age ?? 18,
+    height: entity.height ?? 170
+  }
+}
+
+async function loadEntityProfiles() {
+  try {
+    const data = await window.electron.readEntityProfiles(bookName)
+    mounts.value = (Array.isArray(data?.mount) ? data.mount : []).map(normalizeProfileEntity)
+    monsters.value = (Array.isArray(data?.monster) ? data.monster : []).map(normalizeProfileEntity)
+    spiritBeasts.value = (Array.isArray(data?.spirit_beast) ? data.spirit_beast : []).map(
+      normalizeProfileEntity
+    )
+    artifacts.value = (Array.isArray(data?.artifact) ? data.artifact : []).map(
+      normalizeProfileEntity
+    )
+  } catch (error) {
+    console.error('加载扩展档案失败:', error)
+    mounts.value = []
+    monsters.value = []
+    spiritBeasts.value = []
+    artifacts.value = []
+  }
+}
+
 // 保存人物数据
 async function saveCharacters() {
   try {
@@ -583,26 +975,27 @@ async function saveCharacters() {
   }
 }
 
-// 创建人物
-function handleCreateCharacter() {
+// 创建当前分类档案
+function handleCreateEntity() {
   isEdit.value = false
   resetForm()
   drawerVisible.value = true
 }
 
-// 编辑人物
-function handleEditCharacter(character) {
+// 编辑
+function handleEditEntity(entity) {
   isEdit.value = true
-  Object.assign(characterForm, character)
-  characterForm.characterImages = getCharacterImages(character)
+  Object.assign(characterForm, entity)
+  characterForm.characterImages = getCharacterImages(entity)
   drawerVisible.value = true
 }
 
-// 删除人物
-async function handleDeleteCharacter(character) {
+// 删除
+async function handleDeleteEntity(entity) {
+  const typeName = kindUi.value.deleteType
   try {
     await ElMessageBox.confirm(
-      `确定要删除人物"${character.name}"吗？此操作不可恢复！`,
+      `确定要删除${typeName}"${entity.name}"吗？此操作不可恢复！`,
       '删除确认',
       {
         confirmButtonText: '删除',
@@ -611,9 +1004,11 @@ async function handleDeleteCharacter(character) {
       }
     )
 
-    const index = characters.value.findIndex((c) => c.id === character.id)
+    const listRef = getCurrentListRef()
+    const list = listRef.value
+    const index = list.findIndex((c) => c.id === entity.id)
     if (index > -1) {
-      characters.value.splice(index, 1)
+      list.splice(index, 1)
       ElMessage.success('删除成功')
     }
   } catch {
@@ -628,15 +1023,15 @@ async function confirmSave() {
   try {
     await formRef.value.validate()
 
+    const listRef = getCurrentListRef()
+    const list = listRef.value
     if (isEdit.value) {
-      // 编辑模式：更新现有人物
-      const index = characters.value.findIndex((c) => c.id === characterForm.id)
+      const index = list.findIndex((c) => c.id === characterForm.id)
       if (index > -1) {
-        characters.value[index] = { ...characterForm }
+        list[index] = { ...characterForm }
       }
     } else {
-      // 创建模式：添加新人物（直接添加到数组末尾）
-      characters.value.push({
+      list.push({
         ...characterForm,
         id: genId()
       })
@@ -707,32 +1102,43 @@ function initTableDragSort() {
       onEnd: (evt) => {
         const { oldIndex, newIndex } = evt
         if (oldIndex === newIndex) return
-        reorderCharacters(oldIndex, newIndex)
+        reorderCurrentList(oldIndex, newIndex)
       }
     })
   })
 }
 
-// 重新排序人物数组（根据拖拽后的顺序）
-async function reorderCharacters(oldIndex, newIndex) {
-  const list = characters.value
+// 重新排序当前列表（根据拖拽后的顺序）
+async function reorderCurrentList(oldIndex, newIndex) {
+  const listRef = getCurrentListRef()
+  const list = listRef.value
   if (!list || list.length === 0) return
 
-  // 移动数组元素（数组顺序就是最终顺序）
   const movedItem = list[oldIndex]
   list.splice(oldIndex, 1)
   list.splice(newIndex, 0, movedItem)
 
-  // 手动触发保存
-  await saveCharacters()
+  await saveCurrentKindList()
 }
 
-// 监听数据变化，自动保存
-watch(characters, saveCharacters, { deep: true })
+// 各列表变更时写入对应存储（人物 characters.json，其余 entity_profiles.json）
+watch(characters, () => saveCharacters(), { deep: true })
+watch(mounts, () => saveEntityCategory('mount'), { deep: true })
+watch(monsters, () => saveEntityCategory('monster'), { deep: true })
+watch(spiritBeasts, () => saveEntityCategory('spirit_beast'), { deep: true })
+watch(artifacts, () => saveEntityCategory('artifact'), { deep: true })
 
 // 监听表格数据变化，重新初始化拖拽（仅在表格模式下）
 watch(
-  () => [characters.value, viewMode.value],
+  () => [
+    characters.value,
+    mounts.value,
+    monsters.value,
+    spiritBeasts.value,
+    artifacts.value,
+    viewMode.value,
+    profileKind.value
+  ],
   () => {
     if (viewMode.value === 'table') {
       nextTick(() => {
@@ -870,6 +1276,7 @@ function getAvatarSrc(avatarPath) {
 // 组件挂载时加载数据并初始化拖拽
 onMounted(async () => {
   await loadCharacters()
+  await loadEntityProfiles()
   await loadDictionary() // 加载字典数据
   // 等待数据加载完成和 DOM 更新后再初始化拖拽
   await nextTick()
@@ -890,10 +1297,22 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-.view-toggle {
+.profile-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.profile-kind-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.view-toggle-inner {
+  flex-shrink: 0;
 }
 .character-table {
   // 拖拽排序样式
