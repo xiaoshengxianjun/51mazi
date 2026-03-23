@@ -72,6 +72,7 @@ declare module 'vue' {
     MapZoomControls: typeof import('./src/components/Map/MapZoomControls.vue')['default']
     NoteChapter: typeof import('./src/components/Editor/NoteChapter.vue')['default']
     NoteEditorContent: typeof import('./src/components/Editor/NoteEditorContent.vue')['default']
+    OutlineManagerDrawer: typeof import('./src/components/Editor/OutlineManagerDrawer.vue')['default']
     RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     ResourceToolPanel: typeof import('./src/components/Map/ResourceToolPanel.vue')['default']

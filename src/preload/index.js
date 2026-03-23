@@ -116,6 +116,12 @@ const customElectronAPI = {
   // 保存时间线数据
   writeTimeline: (bookName, data) => ipcRenderer.invoke('write-timeline', { bookName, data }),
 
+  // --------- 大纲管理相关 ---------
+  // 读取大纲数据
+  readOutlines: (bookName) => ipcRenderer.invoke('read-outlines', { bookName }),
+  // 保存大纲数据
+  writeOutlines: (bookName, data) => ipcRenderer.invoke('write-outlines', { bookName, data }),
+
   // --------- 地图相关 ---------
   // 读取地图列表
   readMaps: (bookName) => ipcRenderer.invoke('read-maps', bookName),
