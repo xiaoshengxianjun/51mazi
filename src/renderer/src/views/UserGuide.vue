@@ -16,7 +16,7 @@
     <div class="guide-content">
       <!-- 快速开始 -->
       <section class="guide-section">
-        <h2>🚀 快速开始</h2>
+        <h2>快速开始</h2>
         <div class="guide-card">
           <h3>1. 创建新书</h3>
           <p>在首页点击"新建书籍"按钮，输入书名即可开始创作之旅。</p>
@@ -42,7 +42,7 @@
 
       <!-- 核心功能 -->
       <section class="guide-section">
-        <h2>✨ 核心功能</h2>
+        <h2>核心功能</h2>
 
         <div class="guide-card">
           <h3>📝 智能编辑器</h3>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>🔍 搜索与替换</h3>
+          <h3>搜索与替换</h3>
           <p>强大的搜索功能：</p>
           <ul>
             <li>快捷键：<code>Ctrl+F</code>（Windows）或 <code>Cmd+F</code>（Mac）</li>
@@ -67,7 +67,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>📚 章节管理</h3>
+          <h3>章节管理</h3>
           <p>灵活的章节管理：</p>
           <ul>
             <li>自动章节编号（第1章、第2章...）</li>
@@ -80,10 +80,10 @@
 
       <!-- 高级功能 -->
       <section class="guide-section">
-        <h2>🎯 高级功能</h2>
+        <h2>高级功能</h2>
 
         <div class="guide-card">
-          <h3>👥 角色管理</h3>
+          <h3>角色管理</h3>
           <p>创建和管理你的角色：</p>
           <ul>
             <li>角色基本信息（姓名、年龄、性格等）</li>
@@ -93,7 +93,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>🗺️ 地图设计</h3>
+          <h3>地图设计</h3>
           <p>设计你的故事世界：</p>
           <ul>
             <li>创建世界地图和区域地图</li>
@@ -103,7 +103,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>📅 时间线管理</h3>
+          <h3>时间线管理</h3>
           <p>管理故事时间线：</p>
           <ul>
             <li>记录重要事件和时间节点</li>
@@ -113,7 +113,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>📖 词典功能</h3>
+          <h3>词典功能</h3>
           <p>管理专有名词和术语：</p>
           <ul>
             <li>记录自定义词汇和概念</li>
@@ -125,10 +125,10 @@
 
       <!-- 使用技巧 -->
       <section class="guide-section">
-        <h2>💡 使用技巧</h2>
+        <h2>使用技巧</h2>
 
         <div class="guide-card">
-          <h3>📊 数据统计</h3>
+          <h3>数据统计</h3>
           <p>利用统计功能提升创作效率：</p>
           <ul>
             <li>关注净增字数，了解实际创作进度</li>
@@ -138,7 +138,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>🔄 工作流程</h3>
+          <h3>工作流程</h3>
           <p>推荐的创作流程：</p>
           <ol>
             <li>先规划大纲和章节结构</li>
@@ -150,7 +150,7 @@
         </div>
 
         <div class="guide-card">
-          <h3>💾 数据备份</h3>
+          <h3>数据备份</h3>
           <p>保护你的创作成果：</p>
           <ul>
             <li>软件会自动保存你的内容</li>
@@ -162,7 +162,7 @@
 
       <!-- 快捷键 -->
       <section class="guide-section">
-        <h2>⌨️ 快捷键</h2>
+        <h2>快捷键</h2>
 
         <div class="guide-card">
           <h3>编辑器快捷键</h3>
@@ -197,7 +197,7 @@
 
       <!-- 常见问题 -->
       <section class="guide-section">
-        <h2>❓ 常见问题</h2>
+        <h2>常见问题</h2>
 
         <div class="guide-card">
           <h3>Q: 如何修改章节名称格式？</h3>
@@ -222,7 +222,7 @@
 
       <!-- 联系支持 -->
       <section class="guide-section">
-        <h2>📞 联系支持</h2>
+        <h2>联系支持</h2>
 
         <div class="guide-card">
           <p>如果你在使用过程中遇到问题，或有功能建议，欢迎反馈。</p>
@@ -250,10 +250,10 @@ const goBack = () => {
 
 <style lang="scss" scoped>
 .user-guide {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 20px;
-  background: #ffffff;
+  padding: 24px;
+  background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
   min-height: 100vh;
 }
 
@@ -261,45 +261,57 @@ const goBack = () => {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  padding: 0px 0 16px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 12px 0;
+  margin: -24px -24px 24px -24px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
 
-  .back-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-    }
+  :deep(.back-button) {
+    margin-left: 24px;
   }
 }
 
 .guide-header {
   text-align: center;
-  margin-bottom: 40px;
-  padding: 40px 0;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  border-radius: 16px;
+  margin-bottom: 48px;
+  padding: 56px 40px;
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+  border-radius: 24px;
   color: white;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
 
   h1 {
-    font-size: 2.5rem;
+    font-size: 2.8rem;
     margin: 0 0 16px 0;
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    position: relative;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
   }
 
   .subtitle {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     margin: 0;
     opacity: 0.9;
+    font-weight: 400;
+    position: relative;
+    color: #c7d2fe;
   }
 }
 
@@ -308,60 +320,86 @@ const goBack = () => {
 }
 
 .guide-section {
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 
   h2 {
-    font-size: 1.8rem;
-    color: #2c3e50;
+    font-size: 1.75rem;
+    color: #1e293b;
     margin-bottom: 24px;
-    padding-bottom: 12px;
-    border-bottom: 3px solid #6366f1;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #e2e8f0;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+    font-weight: 700;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 80px;
+      height: 2px;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      border-radius: 2px;
+    }
   }
 }
 
 .guide-card {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.2);
+  }
 
   h3 {
-    font-size: 1.3rem;
-    color: #2c3e50;
-    margin: 0 0 16px 0;
+    font-size: 1.2rem;
+    color: #1e293b;
+    margin: 0 0 14px 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    font-weight: 600;
   }
 
-  p {
-    color: #34495e;
-    line-height: 1.6;
-    margin: 0 0 16px 0;
+  > p {
+    color: #475569;
+    line-height: 1.7;
+    margin: 0 0 14px 0;
   }
 
-  ul,
-  ol {
-    color: #34495e;
-    line-height: 1.6;
-    margin: 0 0 16px 0;
-    padding-left: 20px;
+  > ul,
+  > ol {
+    color: #475569;
+    line-height: 1.8;
+    margin: 0 0 14px 0;
+    padding-left: 24px;
 
     li {
       margin-bottom: 8px;
+      position: relative;
+
+      &::marker {
+        color: #6366f1;
+      }
     }
   }
 
   .tip {
-    background: #e0e7ff;
-    border: 1px solid #6366f1;
-    border-radius: 8px;
-    padding: 16px;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
     margin-top: 16px;
 
     strong {
@@ -370,73 +408,100 @@ const goBack = () => {
   }
 
   code {
-    background: #f8f9fa;
-    padding: 4px 8px;
-    border-radius: 4px;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    padding: 3px 8px;
+    border-radius: 6px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    color: #2c3e50;
+    font-size: 0.875em;
+    color: #6366f1;
+    border: 1px solid #e2e8f0;
   }
 }
 
 .shortcut-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
   margin-top: 16px;
 }
 
 .shortcut-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 12px;
-  background: #e9ecef;
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: scale(1.02);
+  }
 
   kbd {
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    padding: 4px 8px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.9rem;
-    color: #2c3e50;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 0.8rem;
+    color: #334155;
+    box-shadow: 0 2px 0 #cbd5e1, 0 3px 6px rgba(0, 0, 0, 0.05);
+    font-weight: 600;
   }
 
   span {
-    color: #34495e;
+    color: #475569;
     font-weight: 500;
+    font-size: 0.9rem;
   }
 }
 
 .guide-footer {
   text-align: center;
-  padding: 40px 0;
-  border-top: 1px solid #e9ecef;
+  padding: 32px 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 24px;
+
+  :deep(.el-button--primary) {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: none;
+    padding: 12px 32px;
+    font-weight: 600;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    }
+  }
 }
 
-// 响应式设计
 @media (max-width: 768px) {
   .user-guide {
     padding: 16px;
+    margin: -16px;
+    border-radius: 0;
   }
 
   .top-navigation {
-    padding: 12px 0;
-    margin-bottom: 16px;
-
-    .back-button {
-      font-size: 14px;
-      padding: 8px 16px;
-    }
+    margin: -16px -16px 16px -16px;
+    padding: 10px 16px;
   }
 
   .guide-header {
-    padding: 24px 0;
+    padding: 36px 24px;
+    margin-bottom: 32px;
+    border-radius: 16px;
 
     h1 {
-      font-size: 2rem;
+      font-size: 1.8rem;
     }
 
     .subtitle {
@@ -444,12 +509,21 @@ const goBack = () => {
     }
   }
 
-  .guide-section h2 {
-    font-size: 1.5rem;
+  .guide-section {
+    margin-bottom: 32px;
+
+    h2 {
+      font-size: 1.4rem;
+    }
   }
 
   .guide-card {
-    padding: 16px;
+    padding: 18px;
+    border-radius: 12px;
+
+    h3 {
+      font-size: 1.1rem;
+    }
   }
 
   .shortcut-grid {

@@ -26,7 +26,7 @@
           <i class="el-icon-question"></i>
           帮助中心
         </div>
-        <div class="menu-item">
+        <div class="menu-item" @click="showDonateDialog = true">
           <i class="el-icon-money"></i>
           打赏作者
         </div>
@@ -35,6 +35,29 @@
 
     <!-- 书架区 -->
     <Bookshelf />
+
+    <!-- 打赏作者弹窗 -->
+    <el-dialog v-model="showDonateDialog" title="感谢您的支持" width="500px" align-center>
+      <div class="donate-content">
+        <p class="donate-title">如果这个项目对您有帮助，可以请作者喝杯咖啡 ☕</p>
+        <div class="donate-qrcodes">
+          <div class="qrcode-item">
+            <img
+              src="https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/WeChatPayQRCode.png"
+              alt="微信支付"
+            />
+            <span>微信支付</span>
+          </div>
+          <div class="qrcode-item">
+            <img
+              src="https://raw.githubusercontent.com/xiaoshengxianjun/51mazi/main/static/AliPayQRCode.png"
+              alt="支付宝"
+            />
+            <span>支付宝</span>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- 选择书籍目录弹窗 -->
     <el-dialog
@@ -107,6 +130,7 @@ const router = useRouter()
 const showDirDialog = ref(false)
 const bookDir = ref('')
 const showThemeDialog = ref(false)
+const showDonateDialog = ref(false)
 const themeStore = useThemeStore()
 
 // 检查本地存储是否有bookDir
@@ -263,5 +287,48 @@ const goToUserGuide = () => {
   align-items: center;
   margin-right: 0;
   height: 32px;
+}
+
+.donate-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.donate-title {
+  font-size: 16px;
+  color: var(--text-base);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.donate-qrcodes {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+.qrcode-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  img {
+    width: 180px;
+    height: 180px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  span {
+    font-size: 14px;
+    color: var(--text-base);
+    font-weight: 500;
+  }
+}
+
+.donate-tip {
+  font-size: 14px;
+  color: var(--text-light);
 }
 </style>
