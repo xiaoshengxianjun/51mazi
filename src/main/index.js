@@ -1960,6 +1960,40 @@ ipcMain.handle('write-timeline', async (event, { bookName, data }) => {
   }
 })
 
+// 大纲数据读写
+ipcMain.handle('read-outlines', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const outlinePath = join(bookPath, 'outlines.json')
+  if (!fs.existsSync(outlinePath)) {
+    return null
+  }
+  try {
+    return JSON.parse(fs.readFileSync(outlinePath, 'utf-8'))
+  } catch {
+    return null
+  }
+})
+
+// 保存大纲数据
+ipcMain.handle('write-outlines', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const outlinePath = join(bookPath, 'outlines.json')
+
+  try {
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
+    fs.writeFileSync(outlinePath, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存大纲失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 人物谱数据读写
 ipcMain.handle('read-characters', async (event, { bookName }) => {
   const booksDir = store.get('booksDir')

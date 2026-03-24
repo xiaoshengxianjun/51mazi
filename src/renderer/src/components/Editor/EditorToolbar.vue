@@ -2,11 +2,14 @@
   <div class="editor-toolbar">
     <div class="toolbar-title">写作助手</div>
     <div class="toolbar-buttons">
+      <el-button class="tool-btn" @click="handleOutlineManager">
+        <SvgIcon name="resource" :size="14" />
+        <span>大纲管理</span>
+      </el-button>
       <el-button class="tool-btn" @click="handleRandomName">
         <SvgIcon name="naming" :size="14" />
         <span>随机起名</span>
       </el-button>
-      <RandomName ref="randomNameRef" />
       <el-button class="tool-btn" @click="handleWorldMap">
         <SvgIcon name="map" :size="14" />
         <span>设计地图</span>
@@ -39,8 +42,10 @@
         <SvgIcon name="gantt" :size="14" />
         <span>事序图</span>
       </el-button>
-      <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
     </div>
+    <RandomName ref="randomNameRef" />
+    <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
+    <OutlineManagerDrawer ref="outlineManagerRef" :book-name="route.query.name" />
   </div>
 </template>
 
@@ -48,11 +53,13 @@
 import { ref } from 'vue'
 import RandomName from '@renderer/components/RandomName.vue'
 import BannedWordsDrawer from './BannedWordsDrawer.vue'
+import OutlineManagerDrawer from './OutlineManagerDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
 
 const randomNameRef = ref(null)
 const bannedWordsRef = ref(null)
+const outlineManagerRef = ref(null)
 const router = useRouter()
 const route = useRoute()
 
@@ -103,6 +110,10 @@ const handleOrganization = () => {
   router.push({ path: '/organization-list', query: { name: bookName } })
 }
 
+const handleOutlineManager = () => {
+  outlineManagerRef.value.open()
+}
+
 const handleBannedWords = () => {
   bannedWordsRef.value.open()
 }
@@ -147,5 +158,12 @@ const handleBannedWords = () => {
       }
     }
   }
+}
+:deep(.el-drawer__header) {
+  margin-bottom: 0px;
+  padding-bottom: 20px;
+}
+:deep(.el-drawer__body) {
+  padding: 0 20px;
 }
 </style>
