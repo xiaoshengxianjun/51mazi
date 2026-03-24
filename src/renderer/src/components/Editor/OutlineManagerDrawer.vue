@@ -71,6 +71,15 @@
           </el-button>
         </div>
         <div class="footer-right-actions">
+          <el-button
+            v-if="canDeleteSelectedOutline"
+            type="danger"
+            plain
+            :disabled="aiBusy"
+            @click="handleDeleteSelectedOutline"
+          >
+            删除
+          </el-button>
           <el-button :disabled="aiBusy" @click="visible = false">取消</el-button>
           <el-button
             type="primary"
@@ -270,7 +279,7 @@
 
 <script setup>
 import { computed, nextTick, ref, toRaw, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
 
 const props = defineProps({
@@ -325,6 +334,11 @@ const selectedNode = computed(() => {
 })
 
 const isRootSelected = computed(() => selectedNodeId.value === ROOT_ID)
+const canDeleteSelectedOutline = computed(
+  () =>
+    selectedNodeId.value !== ROOT_ID &&
+    Boolean(findNodeById(outlineTree.value, selectedNodeId.value))
+)
 
 const aiRefineSuggestedRequirement = computed(() => {
   const baseContent = String(selectedNode.value?.content || '').trim()
@@ -436,7 +450,8 @@ function scheduleSave() {
   }, 250)
 }
 
-async function handleConfirmSave() {
+async function handleConfirmSave(options = {}) {
+  const { silentSuccess = false } = options
   if (aiBusy.value) return false
   if (!props.bookName) return
   // 用户显式点击“确定”时，取消防抖并立即落盘
@@ -447,7 +462,9 @@ async function handleConfirmSave() {
   isSaving.value = true
   try {
     await saveOutlineData()
-    ElMessage.success('大纲已保存')
+    if (!silentSuccess) {
+      ElMessage.success('大纲已保存')
+    }
     return true
   } catch {
     ElMessage.error('保存失败')
@@ -676,6 +693,71 @@ async function confirmAiSplitResult() {
   const saved = await handleConfirmSave()
   if (saved) {
     aiSplitResultDialogVisible.value = false
+  }
+}
+
+function removeNodeById(nodes, targetId) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]
+    if (node.id === targetId) {
+      nodes.splice(i, 1)
+      return true
+    }
+    if (node.children?.length && removeNodeById(node.children, targetId)) {
+      return true
+    }
+  }
+  return false
+}
+
+function findParentNodeById(nodes, targetId, parent = null) {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return parent
+    }
+    if (node.children?.length) {
+      const found = findParentNodeById(node.children, targetId, node)
+      if (found !== undefined) {
+        return found
+      }
+    }
+  }
+  return undefined
+}
+
+async function handleDeleteSelectedOutline() {
+  if (aiBusy.value || !canDeleteSelectedOutline.value) return
+
+  const current = selectedNode.value
+  const currentId = selectedNodeId.value
+  const parentNode = findParentNodeById(outlineTree.value, currentId)
+  const nextSelectedId = parentNode?.id || ROOT_ID
+
+  try {
+    await ElMessageBox.confirm(
+      `确定删除大纲“${current.title || '未命名大纲'}”吗？删除后不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+  } catch {
+    return
+  }
+
+  const removed = removeNodeById(outlineTree.value, currentId)
+  if (!removed) {
+    ElMessage.error('删除失败：未找到对应大纲')
+    return
+  }
+
+  await setCurrentNode(nextSelectedId)
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (saved) {
+    ElMessage.success('删除成功')
   }
 }
 
