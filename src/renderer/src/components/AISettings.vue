@@ -4,7 +4,6 @@
     title="AI 设置"
     width="600px"
     align-center
-    :close-on-click-modal="false"
     @close="handleClose"
   >
     <el-form label-width="120px">

@@ -86,8 +86,6 @@
       v-model="showDirDialog"
       title="系统设置"
       width="700px"
-      :close-on-click-modal="false"
-      :show-close="false"
       align-center
       @opened="onSystemSettingsOpened"
     >
@@ -124,7 +122,7 @@
     </el-dialog>
 
     <!-- 主题设置弹框 -->
-    <el-dialog v-model="showThemeDialog" title="主题设置" width="600" :close-on-click-modal="false">
+    <el-dialog v-model="showThemeDialog" title="主题设置" width="600">
       <div class="theme-selector">
         <div
           v-for="theme in availableThemes"
@@ -184,13 +182,7 @@
     <AISettings ref="aiSettingsRef" />
 
     <!-- 更新提示弹框 -->
-    <el-dialog
-      v-model="showUpdateDialog"
-      :title="updateDialogTitle"
-      width="500px"
-      :close-on-click-modal="false"
-      align-center
-    >
+    <el-dialog v-model="showUpdateDialog" :title="updateDialogTitle" width="500px" align-center>
       <div class="update-dialog-content">
         <div v-if="updateInfo">
           <p class="update-text">
