@@ -87,6 +87,8 @@
       title="系统设置"
       width="700px"
       align-center
+      :close-on-click-modal="false"
+      :show-close="false"
       @opened="onSystemSettingsOpened"
     >
       <el-form label-width="100px">
