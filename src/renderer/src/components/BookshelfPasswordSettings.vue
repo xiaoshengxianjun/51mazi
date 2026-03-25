@@ -4,7 +4,6 @@
     title="书架密码设置"
     width="500px"
     align-center
-    :close-on-click-modal="false"
     @close="handleClose"
   >
     <div v-if="!hasPassword">
