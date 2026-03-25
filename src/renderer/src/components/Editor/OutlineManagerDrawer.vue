@@ -248,6 +248,14 @@
     :show-close="!aiBusy"
     @close="resetAiSplitResultDialog"
   >
+    <el-alert
+      v-if="aiSplitQualityError"
+      type="warning"
+      :closable="false"
+      show-icon
+      :title="aiSplitQualityError"
+      class="split-quality-alert"
+    />
     <div v-if="aiSplitItems.length" class="split-result-list">
       <div v-for="(item, index) in aiSplitItems" :key="`split-${index}`" class="split-result-item">
         <div class="split-result-title">{{ item.title }}</div>
@@ -268,7 +276,7 @@
       <el-button :disabled="aiBusy" @click="aiSplitResultDialogVisible = false">取消</el-button>
       <el-button
         type="primary"
-        :disabled="aiBusy || !aiSplitItems.length"
+        :disabled="aiBusy || !aiSplitItems.length || Boolean(aiSplitQualityError)"
         @click="confirmAiSplitResult"
       >
         确认创建
@@ -311,6 +319,7 @@ const aiSplitMode = ref('plot')
 const aiSplitResultDialogVisible = ref(false)
 const aiSplitItems = ref([])
 const aiSplitRawResult = ref('')
+const aiSplitQualityError = ref('')
 
 const treeRef = ref(null)
 
@@ -520,6 +529,7 @@ function resetAiSplitDialog() {
 function resetAiSplitResultDialog() {
   aiSplitItems.value = []
   aiSplitRawResult.value = ''
+  aiSplitQualityError.value = ''
 }
 
 async function setCurrentNode(nodeId) {
@@ -614,6 +624,26 @@ function parseAiSplitOutput(text) {
   return parsed
 }
 
+function validateAiSplitItems(items, expectedCount) {
+  if (!Array.isArray(items) || !items.length) {
+    return 'AI 返回内容为空或无法解析，请调整要求后重试。'
+  }
+  if (items.length !== expectedCount) {
+    return `AI 返回 ${items.length} 段，未达到指定的 ${expectedCount} 段，请重试。`
+  }
+
+  // 每段需具备“可独立写作”的最小信息量，避免只拆分不扩写
+  const MIN_SEGMENT_LENGTH = 120
+  const tooShortIndex = items.findIndex(
+    (item) => String(item.content || '').trim().length < MIN_SEGMENT_LENGTH
+  )
+  if (tooShortIndex !== -1) {
+    return `第 ${tooShortIndex + 1} 段内容过短（少于 ${MIN_SEGMENT_LENGTH} 字），请重试以获得完整大纲段落。`
+  }
+
+  return ''
+}
+
 async function handleAiSplitSubmit() {
   const current = selectedNode.value
   const originalContent = String(current?.content || '').trim()
@@ -627,7 +657,11 @@ async function handleAiSplitSubmit() {
       aiSplitRequirement.value.trim() || aiSplitSuggestedRequirement.value
     const count = Number(aiSplitCount.value) || 3
     const prompt = [
-      '你是一名中文小说策划编辑，请将用户提供的大纲内容拆分为多个子大纲。',
+      '你是一名中文小说策划编辑，请将用户提供的大纲内容拆分并扩写为多个“可独立写作”的子大纲。',
+      '核心要求：',
+      `1) 严格输出 ${count} 段，不能多也不能少。`,
+      '2) 每段都必须是完整大纲单元，至少包含：该段目标、关键冲突、推进过程、阶段结果/悬念。',
+      '3) 不是简单切分原文，要在原意上进行扩写补充，让每段都可直接用于章节策划。',
       '输出格式必须严格遵守：',
       '【段1：标题】',
       '内容',
@@ -649,8 +683,9 @@ async function handleAiSplitSubmit() {
     }
     aiSplitRawResult.value = content
     aiSplitItems.value = parseAiSplitOutput(content)
-    if (!aiSplitItems.value.length) {
-      ElMessage.warning('AI 返回格式无法解析，请调整要求后重试')
+    aiSplitQualityError.value = validateAiSplitItems(aiSplitItems.value, count)
+    if (aiSplitQualityError.value) {
+      ElMessage.warning(aiSplitQualityError.value)
     }
     aiSplitDialogVisible.value = false
     aiSplitResultDialogVisible.value = true
@@ -913,6 +948,10 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.split-quality-alert {
+  margin-bottom: 10px;
 }
 
 .ai-current-outline {
