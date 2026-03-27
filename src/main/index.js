@@ -3061,6 +3061,21 @@ ipcMain.handle('deepseek:polish-text', async (_, { text }) => {
   }
 })
 
+// AI 续写（用于编辑器）
+ipcMain.handle('deepseek:continue-write', async (_, payload) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const { text = '', prompt = '', maxAddWords = 0 } = payload || {}
+    const numericMax = Number(maxAddWords)
+    const safeMaxAddWords = Number.isFinite(numericMax) ? Math.max(0, Math.floor(numericMax)) : 0
+    const content = await deepseekService.continueChapter(String(text), String(prompt || ''), safeMaxAddWords)
+    return { success: true, content }
+  } catch (error) {
+    console.error('AI 续写失败:', error)
+    return { success: false, message: error.message, content: '' }
+  }
+})
+
 // --------- 通义万相 AI 封面 ---------
 
 tongyiwanxiangService.initApiKey((key) => store.get(key))

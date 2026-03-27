@@ -243,6 +243,8 @@ const customElectronAPI = {
   validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
   // AI 润色段落（编辑器内使用）
   polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
+  // AI 续写（编辑器内使用）
+  continueWriteWithAI: (options) => ipcRenderer.invoke('deepseek:continue-write', options),
 
   // --------- 通义万相 AI 封面 ---------
   setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),

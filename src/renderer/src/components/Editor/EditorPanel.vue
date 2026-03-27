@@ -59,6 +59,15 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <el-button
+          type="success"
+          size="small"
+          class="ai-continue-btn"
+          :loading="continueLoading"
+          @click="handleContinueClick"
+        >
+          AI 续写
+        </el-button>
       </div>
     </div>
     <!-- AI 润色结果确认弹框（段落 / 整章共用） -->
@@ -87,6 +96,69 @@
           <el-button type="primary" @click="confirmPolishReplace">
             {{ polishMode === 'chapter' ? '确认替换整章' : '确认替换' }}
           </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- AI 续写：续写要求输入弹框 -->
+    <el-dialog
+      v-model="continuePromptDialogVisible"
+      title="AI 续写"
+      width="520px"
+      class="continue-prompt-dialog"
+      destroy-on-close
+      :close-on-click-modal="false"
+      @close="continuePromptDialogVisible = false"
+    >
+      <el-form label-width="80px">
+        <el-form-item label="续写要求">
+          <el-input
+            v-model="continuePromptText"
+            type="textarea"
+            :rows="4"
+            placeholder="可选：例如“加强冲突”“增加环境描写”“加快节奏”“用第一人称”等"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="可续写">
+          <span class="continue-words-tip">
+            {{ continueAllowWords }} 字（按目标字数的 120% 上限计算）
+          </span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button :disabled="continueLoading" @click="continuePromptDialogVisible = false">
+            取消
+          </el-button>
+          <el-button type="primary" :loading="continueLoading" @click="confirmContinuePrompt">
+            确认
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- AI 续写：结果展示弹框 -->
+    <el-dialog
+      v-model="continueResultDialogVisible"
+      title="AI 续写结果"
+      width="80%"
+      class="continue-result-dialog"
+      destroy-on-close
+      @close="continueResultDialogVisible = false"
+    >
+      <div class="continue-result-body">
+        <div class="continue-block">
+          <div class="continue-label">续写内容</div>
+          <div class="continue-content">{{ continueResultText }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="continueResultDialogVisible = false">取消</el-button>
+          <el-button @click="copyContinueText">复制</el-button>
+          <el-button type="primary" @click="confirmContinueInsert">确认插入到章节末尾</el-button>
         </span>
       </template>
     </el-dialog>
@@ -164,6 +236,21 @@ watch(
 
 // 计算属性
 const contentWordCount = computed(() => editorStore.contentWordCount)
+const MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS = 200
+const PREVIOUS_CHAPTER_CONTEXT_LENGTH = 1200
+
+function getPlainTextWordCount(text) {
+  if (!text) return 0
+  return String(text).replace(/[\s\n\r\t]/g, '').length
+}
+
+const continueAllowWords = computed(() => {
+  const targetWords = Number(editorStore.chapterTargetWords) || 0
+  const currentWords = Number(contentWordCount.value) || 0
+  const maxTotal = Math.floor(targetWords * 1.2)
+  const allow = maxTotal - currentWords
+  return allow > 0 ? allow : 0
+})
 
 // EditorStats 组件引用
 const editorStatsRef = ref(null)
@@ -259,6 +346,13 @@ const polishDialogVisible = ref(false)
 const polishMode = ref('chapter') // 'selection' | 'chapter'
 const polishOriginalText = ref('')
 const polishResultText = ref('')
+
+// AI 续写相关状态
+const continueLoading = ref(false)
+const continuePromptDialogVisible = ref(false)
+const continuePromptText = ref('')
+const continueResultDialogVisible = ref(false)
+const continueResultText = ref('')
 const polishReplaceFrom = ref(0)
 const polishReplaceTo = ref(0)
 
@@ -850,6 +944,77 @@ function plainTextToEditorHtml(text) {
   )
 }
 
+function normalizeAppendText(appendText) {
+  const cleaned = String(appendText || '').trim()
+  if (!cleaned) return ''
+  // 插入到章节末尾时，尽量从新段落开始
+  return `\n\n${cleaned}`
+}
+
+async function getPreviousChapterContextInfo() {
+  const currentFile = editorStore.file
+  if (!props.bookName || !currentFile || currentFile.type !== 'chapter') {
+    return { hasPrevious: false, contextText: '' }
+  }
+  if (!window.electron?.loadChapters || !window.electron?.readChapter) {
+    return { hasPrevious: false, contextText: '' }
+  }
+
+  try {
+    const chaptersTree = await window.electron.loadChapters(props.bookName)
+    if (!Array.isArray(chaptersTree) || chaptersTree.length === 0) {
+      return { hasPrevious: false, contextText: '' }
+    }
+
+    const flatChapters = []
+    chaptersTree.forEach((volume) => {
+      if (!volume || volume.type !== 'volume' || !Array.isArray(volume.children)) return
+      volume.children.forEach((chapter) => {
+        if (!chapter || chapter.type !== 'chapter') return
+        flatChapters.push({
+          name: chapter.name,
+          path: chapter.path,
+          volumeName: volume.name
+        })
+      })
+    })
+
+    if (flatChapters.length === 0) {
+      return { hasPrevious: false, contextText: '' }
+    }
+
+    const currentIndex = flatChapters.findIndex(
+      (chapter) =>
+        chapter.path === currentFile.path ||
+        (chapter.name === currentFile.name && chapter.volumeName === currentFile.volume)
+    )
+    if (currentIndex <= 0) {
+      return { hasPrevious: false, contextText: '' }
+    }
+
+    const previousChapter = flatChapters[currentIndex - 1]
+    const readRes = await window.electron.readChapter(
+      props.bookName,
+      previousChapter.volumeName,
+      previousChapter.name
+    )
+    if (!readRes?.success || !readRes.content) {
+      return { hasPrevious: true, contextText: '' }
+    }
+
+    const previousText = String(readRes.content).trim()
+    if (!previousText) {
+      return { hasPrevious: true, contextText: '' }
+    }
+
+    const tailContext = previousText.slice(-PREVIOUS_CHAPTER_CONTEXT_LENGTH)
+    return { hasPrevious: true, contextText: tailContext }
+  } catch (error) {
+    console.error('获取上一章上下文失败:', error)
+    return { hasPrevious: false, contextText: '' }
+  }
+}
+
 /** 下拉选择：润色选中文本 / 润色整章 */
 function handlePolishCommand(command) {
   if (command === 'selection') {
@@ -857,6 +1022,123 @@ function handlePolishCommand(command) {
   } else if (command === 'chapter') {
     handlePolishChapter()
   }
+}
+
+function handleContinueClick() {
+  const targetWords = Number(editorStore.chapterTargetWords) || 0
+  const currentWords = Number(contentWordCount.value) || 0
+  if (targetWords > 0 && currentWords >= targetWords) {
+    ElMessage.warning('当前章节字数已经达到目标字数，请新建章节。')
+    return
+  }
+  if (continueAllowWords.value <= 0) {
+    ElMessage.warning('可续写字数不足，请新建章节。')
+    return
+  }
+  continuePromptText.value = ''
+  continuePromptDialogVisible.value = true
+}
+
+async function confirmContinuePrompt() {
+  const ed = editor.value
+  if (!ed) {
+    ElMessage.warning('编辑器未就绪')
+    return
+  }
+  const fullText = ed.getText() || ''
+  const currentWords = getPlainTextWordCount(fullText)
+  if (!window.electron?.continueWriteWithAI) {
+    ElMessage.error('当前环境不支持 AI 续写')
+    return
+  }
+
+  const previousInfo = await getPreviousChapterContextInfo()
+  if (!previousInfo.hasPrevious && currentWords < MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS) {
+    ElMessage.warning(
+      `当前章节暂无可承接内容，请先写至少${MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS}字后再续写。`
+    )
+    return
+  }
+
+  let sourceText = fullText.trim()
+  if (!sourceText) {
+    if (previousInfo.contextText) {
+      sourceText = previousInfo.contextText
+      ElMessage.info('当前章节为空，已自动参考上一章末尾进行续写。')
+    } else {
+      ElMessage.warning(
+        `当前章节暂无可承接内容，请先写至少${MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS}字后再续写。`
+      )
+      return
+    }
+  }
+
+  const maxAddWords = continueAllowWords.value
+  if (!maxAddWords || maxAddWords <= 0) {
+    ElMessage.warning('可续写字数不足，请新建章节。')
+    return
+  }
+  continueLoading.value = true
+  try {
+    const res = await window.electron.continueWriteWithAI({
+      text: sourceText,
+      prompt: continuePromptText.value,
+      maxAddWords
+    })
+    if (!res?.success) {
+      ElMessage.error(res?.message || '续写失败')
+      return
+    }
+    const content = (res.content || '').trim()
+    if (!content) {
+      ElMessage.error('续写结果为空，请重试')
+      return
+    }
+    // 兜底：若 AI 返回过长，仍展示结果；后续插入时会导致超限，但主约束已通过 maxAddWords 尽量控制
+    continueResultText.value = content
+    continuePromptDialogVisible.value = false
+    continueResultDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error(e?.message || '续写请求异常')
+  } finally {
+    continueLoading.value = false
+  }
+}
+
+async function copyContinueText() {
+  if (!continueResultText.value) return
+  try {
+    await navigator.clipboard.writeText(continueResultText.value)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
+function confirmContinueInsert() {
+  const ed = editor.value
+  const text = continueResultText.value
+  if (!ed || !text) return
+
+  const appendText = normalizeAppendText(text)
+  if (!appendText) return
+
+  // 追加到章节末尾：先聚焦到末尾，再插入纯文本（TipTap 会按换行分段）
+  ed.chain().focus('end').insertContent(appendText).run()
+
+  // 额外安全：若插入后已超过 120% 上限，这里不拦截（按需求“前置控制字数”）
+  const targetWords = Number(editorStore.chapterTargetWords) || 0
+  const maxTotal = Math.floor(targetWords * 1.2)
+  const afterText = ed.getText()
+  const afterWords = getPlainTextWordCount(afterText)
+  if (maxTotal > 0 && afterWords > maxTotal) {
+    ElMessage.warning(`已插入续写内容，但当前章节字数已超过目标字数 120% 上限（${maxTotal}字）`)
+  } else {
+    ElMessage.success('已插入续写内容')
+  }
+
+  continueResultDialogVisible.value = false
+  continueResultText.value = ''
 }
 
 /** 润色选中文本：根据当前选区获取范围与文本 */
@@ -1517,15 +1799,61 @@ watch(
   top: 12px;
   right: 12px;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 /* AI 润色按钮：默认半透明，悬停不透明 */
 .ai-polish-btn {
+  width: 92px;
+  justify-content: center;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
     opacity: 1;
   }
+}
+
+.ai-continue-btn {
+  width: 92px;
+  justify-content: center;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.continue-words-tip {
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+}
+
+.continue-result-body {
+  min-height: 320px;
+}
+.continue-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.continue-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.continue-content {
+  min-height: 320px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  background: var(--el-color-success-light-9);
+  color: var(--el-text-color-primary);
 }
 
 /* AI 润色结果弹框：左右布局 */

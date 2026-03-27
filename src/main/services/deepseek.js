@@ -387,6 +387,60 @@ class DeepSeekService {
   }
 
   /**
+   * 章节续写：在不改变原文的前提下承接上文继续写作，仅输出续写内容（不重复上文、不加解释）。
+   * @param {string} text - 当前章节正文（纯文本）
+   * @param {string} prompt - 用户续写要求（可选）
+   * @param {number} maxAddWords - 允许续写的最大字数（按“字数统计规则”近似为字符数）
+   * @returns {Promise<string>} 续写内容（仅新增段落）
+   */
+  async continueChapter(text, prompt = '', maxAddWords = 0) {
+    const baseText = typeof text === 'string' ? text.trim() : ''
+    if (!baseText) {
+      throw new Error('当前章节内容为空，无法续写')
+    }
+
+    const maxWords = Number.isFinite(Number(maxAddWords)) ? Math.max(0, Math.floor(maxAddWords)) : 0
+    if (maxWords <= 0) {
+      throw new Error('可续写字数不足，请新建章节')
+    }
+
+    const extraRequirement = String(prompt || '').trim()
+    const requirementText = extraRequirement ? `\n\n续写要求：\n${extraRequirement}\n` : ''
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          `你是一名专业的中文小说写作者。请在不改变用户原文的前提下，承接上文继续写作。\n` +
+          `要求：\n` +
+          `- 只输出“续写新增的正文内容”，不要重复原文，不要输出标题、提纲、解释或任何前后缀。\n` +
+          `- 保持与原文一致的人称、时态、语气与风格，段落结构自然。\n` +
+          `- 续写长度尽量控制在 ${maxWords} 字以内（以中文字符计数的近似，不要超过）。\n`
+      },
+      {
+        role: 'user',
+        content: `原文：\n${baseText}\n${requirementText}\n请直接输出续写内容：`
+      }
+    ]
+
+    // token 估算：中文 1 字通常约 1-2 token，这里给足但限制上限，尽量减少超长输出概率
+    const estimatedMaxTokens = Math.min(8000, Math.max(256, Math.ceil(maxWords * 2)))
+    const requestId = `continueChapter_${Date.now()}`
+    const result = await this.chat({
+      messages,
+      temperature: 0.7,
+      max_tokens: estimatedMaxTokens,
+      requestId
+    })
+
+    const content = (result.content || '').trim()
+    if (!content) {
+      throw new Error('续写结果为空，请重试')
+    }
+    return content
+  }
+
+  /**
    * 检查 API Key 是否有效
    * @returns {Promise<{isValid: boolean, message?: string}>}
    */
