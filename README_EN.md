@@ -91,6 +91,11 @@ In the **Character Profile** edit drawer, click **AI Generate Character Image** 
 - **Smart Features**: Auto-save, full-text search, one-click export of all chapters
 - **Keyboard Shortcuts**: Ctrl/Cmd + S for quick save, Ctrl/Cmd + F for search
 - **Multiple Themes**: Light, dark, eye-protection yellow, and other theme modes
+- **AI Polishing**: Polish selected text or the whole chapter to improve clarity and readability while preserving the original meaning and style
+- **AI Continuation**: Optionally provide continuation requirements; preview the generated continuation, then copy it or confirm to insert at the end of the chapter
+  - When the chapter word count reaches the target, the app will prompt you to create a new chapter
+  - Continuation length is calculated using a 120% cap of the chapter target (cap total words − current chapter words)
+  - If the current chapter is empty, the app will prefer continuing from the end of the previous chapter; if there is no previous chapter, you must write at least 200 words before using continuation
 - **Character Highlighting**: Support for highlighting character names in the editor, making it easy to track character appearances
 - **Forbidden Word Detection**: Intelligent detection and marking of forbidden words, supports custom forbidden word lists with real-time underline prompts
 - **Paragraph Dragging**: Support for dragging to adjust paragraph order, flexibly organizing content structure
@@ -411,8 +416,8 @@ As an open-source novel writing software, 51mazi has great development potential
   - ✅ **AI Random Naming**: Implemented, supports multiple types and parameter settings
   - ✅ **AI Novel Cover**: Implemented; Tongyi Wanxiang generates covers from title/pen name/style
   - ✅ **AI Character Image**: Implemented; Tongyi Wanxiang generates vertical full-body character images with multiple styles and poses, supports saving multiple images per character
-  - 🔮 **AI Continuation**: Intelligently continue writing based on existing content
-  - 🔮 **AI Polishing**: Optimize text expression, improve writing quality
+  - ✅ **AI Continuation**: Continue writing based on existing chapter content (with optional requirements and word-limit guidance)
+  - ✅ **AI Polishing**: Polish text to improve expression and overall writing quality
   - 🔮 **AI Summarization**: Automatically generate chapter summaries
   - 🔮 **AI Dialogue Generation**: Generate character dialogues
   - 🔮 **AI Plot Suggestions**: Provide plot suggestions based on existing content
