@@ -107,6 +107,18 @@
                 <li><strong>笔记模式：</strong>支持大纲式笔记编辑，层级缩进管理</li>
                 <li><strong>人物高亮：</strong>自动高亮章节中的人物名称，使用人物谱标签色</li>
                 <li><strong>禁词提示：</strong>开启后自动对命中的禁词进行标记，写作时更易自查</li>
+                <li>
+                  <strong>段落拖拽：</strong>章节正文中可拖拽调整段落顺序（章节为纯文本流式排版）
+                </li>
+                <li>
+                  <strong>AI 润色 / AI 续写（章节）：</strong>编辑区右上角「AI
+                  润色」可润色选中文本或整章；「AI 续写」可按提示承接上文续写并插入章末（需
+                  DeepSeek，详见下文「AI 助手」）
+                </li>
+                <li>
+                  <strong>AI 场景图（章节）：</strong>选中一段正文后点击「AI
+                  场景图」，在抽屉中配置画风与描述即可生成场景插图（需通义万相，详见下文）
+                </li>
               </ul>
             </div>
 
@@ -158,8 +170,15 @@
               <h3>⚙️ AI 设置（DeepSeek / 通义万相）</h3>
               <p>先配置并验证 API Key，再使用相关 AI 功能。</p>
               <ul>
-                <li><strong>DeepSeek：</strong>用于 AI 随机起名等文本类能力</li>
-                <li><strong>通义万相：</strong>用于 AI 封面生成</li>
+                <li>
+                  <strong>DeepSeek：</strong>AI 随机起名、章节内 <strong>AI 润色</strong> 与
+                  <strong>AI 续写</strong>、以及「AI
+                  场景图」中的<strong>提炼画面描述</strong>（可选）
+                </li>
+                <li>
+                  <strong>通义万相：</strong>AI 生成封面、人物档案中的
+                  <strong>AI 生成人物图</strong>、章节内的 <strong>AI 场景图</strong> 出图
+                </li>
                 <li><strong>一键验证：</strong>配置后可直接点击“验证”检查可用性</li>
               </ul>
               <div class="entry"><strong>入口：</strong>首页左侧菜单「AI 设置」</div>
@@ -195,6 +214,73 @@
               </ul>
               <div class="entry"><strong>入口：</strong>首页「新建书籍/编辑书籍」→ AI生成封面</div>
             </div>
+
+            <div class="guide-card">
+              <h3>✍️ AI 润色与 AI 续写（DeepSeek）</h3>
+              <p>在<strong>章节编辑页</strong>使用，依赖已配置的 DeepSeek API Key：</p>
+              <ul>
+                <li>
+                  <strong>AI 润色：</strong>点击「AI
+                  润色」下拉，可选「润色选中文本」或「润色整章」；在结果弹框中对比原文与润色稿，可一键复制或确认替换
+                </li>
+                <li>
+                  <strong>AI 续写：</strong>点击「AI
+                  续写」，可先填写续写要求（可选）；生成结果可插入当前章节末尾。续写可用字数与「章节目标字数」及
+                  120% 上限相关；当前章为空时可承接上一章末尾
+                </li>
+              </ul>
+              <div class="entry">
+                <strong>入口：</strong>进入书籍 → 打开某一章 → 编辑区右上角「AI 润色」「AI 续写」
+              </div>
+            </div>
+
+            <div class="guide-card">
+              <h3>🌄 AI 场景图（通义万相）</h3>
+              <p>
+                根据<strong>选中的正文片段</strong>生成一张场景插图，适合环境描写、氛围参考或素材积累。
+              </p>
+              <ul>
+                <li>
+                  <strong>选区要求：</strong>先选中一段文字，有效字数约 <strong>100～1000</strong>
+                  （与软件字数统计一致，不含空白）；过短或过长会提示调整选区
+                </li>
+                <!-- prettier-ignore -->
+                <li>
+                  <strong>抽屉配置：</strong>输出尺寸（横版/方图）、画风、景别/环境/光线、画面描述（打开时会按节选预填）、可选反向提示词
+                </li>
+                <li>
+                  <strong>AI 提炼画面（可选）：</strong>点击链接触发
+                  DeepSeek，把整段节选压缩成更适合出图的中文描述，再可手动修改
+                </li>
+                <li>
+                  <strong>保存位置：</strong>生成成功后图片写入本书目录下的
+                  <code>scene_images</code>
+                  文件夹；抽屉内可预览并<strong>复制完整本地路径</strong>；可多次「再生成一张」
+                </li>
+                <li><strong>必需：</strong>通义万相 API Key；提炼画面另需 DeepSeek Key</li>
+              </ul>
+              <div class="entry">
+                <strong>入口：</strong>章节编辑页 → 编辑区右上角「AI 场景图」（在「AI 续写」下方）
+              </div>
+            </div>
+
+            <div class="guide-card">
+              <h3>🎨 AI 生成人物图（通义万相）</h3>
+              <p>
+                在<strong>人物档案</strong>中为角色生成竖版全身参考图（720×1280），可与本地人物图混用：
+              </p>
+              <ul>
+                <li>选择画风、填写形象描述（可与「形象介绍」联动预填）、可选构图与反向提示词</li>
+                <li>
+                  可连续生成多张，在列表中选中一张后「确认使用」会保存到本书
+                  <code>character_images</code>
+                </li>
+                <li>关闭抽屉未确认时，本次临时图可被清理；已确认图保留在人物图列表中</li>
+              </ul>
+              <div class="entry">
+                <strong>入口：</strong>进入书籍 → 左侧菜单「人物谱」→ 编辑人物 → 「AI 生成人物图」
+              </div>
+            </div>
           </section>
 
           <!-- 高级功能 -->
@@ -212,6 +298,11 @@
                 <li><strong>人物高亮：</strong>在章节编辑时开启人物高亮，自动高亮匹配的人物名称</li>
                 <li><strong>视图模式：</strong>支持卡片模式和表格模式两种查看方式</li>
                 <li><strong>角色关系图：</strong>可视化角色关系，支持头像和动态字体</li>
+                <!-- prettier-ignore -->
+                <li>
+                  <strong>人物图列表：</strong>可为同一角色保存多张竖版全身图；支持选择本地图片，或使用
+                  <strong>AI 生成人物图</strong>（通义万相，详见「AI 助手」）
+                </li>
               </ul>
               <div class="tip">
                 <strong>提示：</strong>
@@ -345,6 +436,10 @@
                 <li>创建角色和设定世界观（使用人物谱管理角色信息）</li>
                 <li>设计地图和关系图谱（构建故事世界）</li>
                 <li>按章节顺序进行创作（开启人物高亮，便于检查人物出场）</li>
+                <li>
+                  关键段落可配合 <strong>AI 润色</strong> 打磨文笔，或用
+                  <strong>AI 场景图</strong> 生成插图参考（均需先配置 API Key）
+                </li>
                 <li>使用事序图管理事件时间轴和进度</li>
                 <li>定期回顾和修改（使用搜索功能快速定位）</li>
                 <li>使用组织架构管理展示组织结构和层级关系</li>
@@ -500,10 +595,21 @@
             </div>
 
             <div class="guide-card">
-              <h3>Q: AI 封面/AI 起名无法使用怎么办？</h3>
+              <h3>Q: AI 封面 / 起名 / 润色 / 续写 / 人物图 / 场景图 无法使用怎么办？</h3>
               <p>
-                A: 请先在首页打开“AI 设置”并保存有效的 API Key，然后点击“验证”。
-                若仍失败，请检查网络环境是否可访问第三方服务，或稍后重试。
+                A: 请先在首页打开「AI 设置」，分别保存 <strong>DeepSeek</strong> 与
+                <strong>通义万相</strong> 的 API
+                Key，并点击「验证」。起名、润色、续写、场景图「提炼画面」依赖
+                DeepSeek；封面、人物图、场景图出图依赖通义万相。若仍失败，请检查网络是否可访问对应服务、账户额度与内容审核提示，或稍后重试。
+              </p>
+            </div>
+
+            <div class="guide-card">
+              <h3>Q: AI 场景图提示选区字数不合要求？</h3>
+              <p>
+                A: 请重新划选一段正文：有效字数需在约
+                <strong>100～1000</strong>
+                之间（不含空格、换行等空白字符，与编辑器字数统计规则一致）。过短不利于描述场景，过长建议拆成多次生成。
               </p>
             </div>
 
