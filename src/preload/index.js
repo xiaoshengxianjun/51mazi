@@ -245,6 +245,9 @@ const customElectronAPI = {
   polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
   // AI 续写（编辑器内使用）
   continueWriteWithAI: (options) => ipcRenderer.invoke('deepseek:continue-write', options),
+  // AI 场景图：节选 → 画面描述（DeepSeek）
+  refineSceneVisualPromptWithAI: (text) =>
+    ipcRenderer.invoke('deepseek:scene-visual-prompt', { text }),
 
   // --------- 通义万相 AI 封面 ---------
   setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
@@ -259,7 +262,10 @@ const customElectronAPI = {
   confirmAICharacterImage: (options) =>
     ipcRenderer.invoke('tongyiwanxiang:confirm-character-image', options),
   discardAICharacterImages: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:discard-ai-character-images', options)
+    ipcRenderer.invoke('tongyiwanxiang:discard-ai-character-images', options),
+  // 通义万相 AI 场景图（选中文本）
+  generateAISceneImage: (options) =>
+    ipcRenderer.invoke('tongyiwanxiang:generate-scene-image', options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

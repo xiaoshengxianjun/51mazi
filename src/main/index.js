@@ -3076,6 +3076,18 @@ ipcMain.handle('deepseek:continue-write', async (_, payload) => {
   }
 })
 
+// AI 场景图：将小说节选提炼为文生图画面描述（用于「AI 提炼画面」）
+ipcMain.handle('deepseek:scene-visual-prompt', async (_, { text }) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const content = await deepseekService.sceneVisualPromptFromExcerpt(String(text || ''))
+    return { success: true, content }
+  } catch (error) {
+    console.error('AI 提炼画面描述失败:', error)
+    return { success: false, message: error.message, content: '' }
+  }
+})
+
 // --------- 通义万相 AI 封面 ---------
 
 tongyiwanxiangService.initApiKey((key) => store.get(key))
@@ -3208,6 +3220,8 @@ ipcMain.handle('tongyiwanxiang:discard-ai-covers', async () => {
 const AI_CHARACTER_TEMP_DIR = 'ai_character_temp'
 /** 人物图列表存储目录（多张人物图） */
 const CHARACTER_IMAGES_DIR = 'character_images'
+/** AI 场景图存储目录（按选中文本生成，直接落盘） */
+const SCENE_IMAGES_DIR = 'scene_images'
 
 ipcMain.handle('tongyiwanxiang:generate-character-image', async (_, options) => {
   try {
@@ -3307,5 +3321,51 @@ ipcMain.handle('tongyiwanxiang:discard-ai-character-images', async (_, options) 
   } catch (error) {
     console.error('丢弃人物图临时文件失败:', error)
     return { success: true }
+  }
+})
+
+// --------- 通义万相 AI 场景图（编辑器选中文本）---------
+ipcMain.handle('tongyiwanxiang:generate-scene-image', async (_, options) => {
+  try {
+    await tongyiwanxiangService.initApiKey((key) => store.get(key))
+    const { prompt, size, bookName, negativePrompt = '' } = options || {}
+    if (!prompt || !size || !bookName) {
+      return {
+        success: false,
+        message: '缺少参数：prompt、size、bookName 为必填'
+      }
+    }
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) {
+      return { success: false, message: '未设置或无效的书籍目录' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    const sceneDir = join(bookPath, SCENE_IMAGES_DIR)
+    fs.mkdirSync(sceneDir, { recursive: true })
+
+    const imageUrl = await tongyiwanxiangService.generateCover({
+      prompt,
+      size,
+      negativePrompt
+    })
+    const res = await fetch(imageUrl)
+    if (!res.ok) {
+      return {
+        success: false,
+        message: `下载生成图片失败: ${res.status} ${res.statusText}`
+      }
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    const fileName = `scene_${Date.now()}.png`
+    const imagePath = join(sceneDir, fileName)
+    fs.writeFileSync(imagePath, buf)
+    return { success: true, localPath: imagePath }
+  } catch (error) {
+    console.error('通义万相生成场景图失败:', error)
+    return {
+      success: false,
+      message: error?.message || '生成场景图失败'
+    }
   }
 })

@@ -177,11 +177,12 @@ class DeepSeekService {
       }
 
       if (stream) {
-        // 流式响应处理
+        // 流式响应处理（pending 在流结束后再清理由调用方负责；此处保留防重复直至连接建立）
         return this.handleStreamResponse(response)
       }
 
       const data = await response.json()
+      this.clearRequest(requestId)
       return {
         success: true,
         content: data.choices[0]?.message?.content || '',
@@ -438,6 +439,45 @@ class DeepSeekService {
       throw new Error('续写结果为空，请重试')
     }
     return content
+  }
+
+  /**
+   * 根据小说节选生成适合文生图的中文画面描述（不含解释，仅描述可视内容）
+   * @param {string} excerpt - 用户选中的正文节选
+   * @returns {Promise<string>} 建议不超过约 200 字的画面描述
+   */
+  async sceneVisualPromptFromExcerpt(excerpt) {
+    const text = typeof excerpt === 'string' ? excerpt.trim() : ''
+    if (!text) {
+      throw new Error('节选内容为空，无法提炼')
+    }
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          '你是文生图提示词编辑。用户会提供一段小说正文节选，请提炼为一段中文「画面描述」，用于 AI 绘图：只写可见的场景、人物外观与动作、环境、光线与氛围；不要写旁白评价、书名、章节号；不要分点、不要引号包裹整段；不要输出「画面描述：」等前缀。长度控制在 200 字以内。'
+      },
+      {
+        role: 'user',
+        content: `下列为小说节选，请只输出一段画面描述：\n\n${text}`
+      }
+    ]
+
+    const requestId = `sceneVisual_${Date.now()}`
+    const result = await this.chat({
+      messages,
+      temperature: 0.4,
+      max_tokens: 512,
+      requestId
+    })
+
+    const content = (result.content || '').trim()
+    if (!content) {
+      throw new Error('提炼结果为空，请重试')
+    }
+    // 去掉模型偶发加的标题行
+    return content.replace(/^(画面描述|描述)[:：]\s*/i, '').trim()
   }
 
   /**

@@ -68,6 +68,14 @@
         >
           AI 续写
         </el-button>
+        <el-button
+          type="warning"
+          size="small"
+          class="ai-scene-btn"
+          @click="handleAISceneImageClick"
+        >
+          AI 场景图
+        </el-button>
       </div>
     </div>
     <!-- AI 润色结果确认弹框（段落 / 整章共用） -->
@@ -195,6 +203,12 @@
       :file-type="editorStore.file?.type"
     />
 
+    <AISceneImageDialog
+      v-model="sceneDialogVisible"
+      :book-name="bookName"
+      :excerpt="sceneExcerpt"
+    />
+
     <!-- 搜索面板 -->
     <SearchPanel :visible="searchPanelVisible" :editor="editor" @close="closeSearchPanel" />
   </div>
@@ -213,6 +227,7 @@ import EditorStats from '@renderer/components/Editor/EditorStats.vue'
 import EditorProgress from '@renderer/components/Editor/EditorProgress.vue'
 import ChapterEditorContent from '@renderer/components/Editor/ChapterEditorContent.vue'
 import NoteEditorContent from '@renderer/components/Editor/NoteEditorContent.vue'
+import AISceneImageDialog from '@renderer/components/Editor/AISceneImageDialog.vue'
 
 const editorStore = useEditorStore()
 
@@ -238,6 +253,9 @@ watch(
 const contentWordCount = computed(() => editorStore.contentWordCount)
 const MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS = 200
 const PREVIOUS_CHAPTER_CONTEXT_LENGTH = 1200
+/** AI 场景图：选区有效字数（与全书统计一致，不含空白） */
+const SCENE_SELECTION_MIN_WORDS = 100
+const SCENE_SELECTION_MAX_WORDS = 1000
 
 function getPlainTextWordCount(text) {
   if (!text) return 0
@@ -355,6 +373,10 @@ const continueResultDialogVisible = ref(false)
 const continueResultText = ref('')
 const polishReplaceFrom = ref(0)
 const polishReplaceTo = ref(0)
+
+// AI 场景图（选中文本）
+const sceneDialogVisible = ref(false)
+const sceneExcerpt = ref('')
 
 // 获取当前编辑器内容组件
 function getEditorContentComponent() {
@@ -1183,6 +1205,46 @@ async function handlePolishSelection() {
   }
 }
 
+/** AI 场景图：校验选区字数后打开通义万相配置抽屉 */
+function handleAISceneImageClick() {
+  const ed = editor.value
+  if (!ed) {
+    ElMessage.warning('编辑器未就绪')
+    return
+  }
+  const { state } = ed
+  const { from, to } = state.selection
+  if (from === to) {
+    ElMessage.warning('请先选中要生成场景图的文本')
+    return
+  }
+  const text = state.doc.textBetween(from, to, '\n')
+  if (!text.trim()) {
+    ElMessage.warning('选中内容为空')
+    return
+  }
+  const words = getPlainTextWordCount(text)
+  if (words < SCENE_SELECTION_MIN_WORDS) {
+    ElMessage.warning(
+      `选区有效字数过少（当前 ${words} 字），请至少选中约 ${SCENE_SELECTION_MIN_WORDS} 字以便描述场景`
+    )
+    return
+  }
+  if (words > SCENE_SELECTION_MAX_WORDS) {
+    ElMessage.warning(
+      `选区有效字数过多（当前 ${words} 字），请选中不超过 ${SCENE_SELECTION_MAX_WORDS} 字后再试`
+    )
+    return
+  }
+  const name = (props.bookName || '').trim()
+  if (!name) {
+    ElMessage.error('书籍名称无效')
+    return
+  }
+  sceneExcerpt.value = text
+  sceneDialogVisible.value = true
+}
+
 /** 润色整章 */
 async function handlePolishChapter() {
   const ed = editor.value
@@ -1826,6 +1888,16 @@ watch(
   }
 }
 
+.ai-scene-btn {
+  width: 92px;
+  justify-content: center;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 1;
+  }
+}
+
 .continue-words-tip {
   color: var(--el-text-color-regular);
   font-size: 12px;
@@ -2090,5 +2162,12 @@ watch(
       }
     }
   }
+}
+:deep(.el-drawer__header) {
+  margin-bottom: 0px;
+  padding-bottom: 20px;
+}
+:deep(.el-drawer__body) {
+  padding: 0px;
 }
 </style>

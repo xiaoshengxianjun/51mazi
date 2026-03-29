@@ -95,3 +95,18 @@ export async function confirmAICharacterImage(options) {
 export async function discardAICharacterImages(options) {
   return await window.electron.discardAICharacterImages(options)
 }
+
+// --------- 通义万相 AI 场景图（编辑器选中文本）---------
+
+/**
+ * 生成场景图并保存到书籍目录 scene_images
+ * @param {Object} options
+ * @param {string} options.prompt
+ * @param {string} options.size 如 "1280*720"
+ * @param {string} options.bookName
+ * @param {string} [options.negativePrompt]
+ * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
+ */
+export async function generateAISceneImage(options) {
+  return await window.electron.generateAISceneImage(options)
+}

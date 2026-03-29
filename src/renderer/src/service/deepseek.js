@@ -41,3 +41,12 @@ export async function generateNamesWithAI(options) {
 export async function validateDeepSeekApiKey() {
   return await window.electron.validateDeepSeekApiKey()
 }
+
+/**
+ * 将小说节选提炼为文生图画面描述（需配置 DeepSeek API Key）
+ * @param {string} text - 选中文本
+ * @returns {Promise<{success: boolean, content?: string, message?: string}>}
+ */
+export async function refineSceneVisualPromptWithAI(text) {
+  return await window.electron.refineSceneVisualPromptWithAI(text)
+}

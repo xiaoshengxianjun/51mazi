@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AICharacterDrawer: typeof import('./src/components/AICharacterDrawer.vue')['default']
     AICoverDrawer: typeof import('./src/components/AICoverDrawer.vue')['default']
+    AISceneImageDialog: typeof import('./src/components/Editor/AISceneImageDialog.vue')['default']
     AISettings: typeof import('./src/components/AISettings.vue')['default']
     BannedWordsDrawer: typeof import('./src/components/Editor/BannedWordsDrawer.vue')['default']
     Book: typeof import('./src/components/Book.vue')['default']
@@ -50,6 +51,7 @@ declare module 'vue' {
     ElRadioButton: typeof import('element-plus/es')['ElRadioButton']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElRow: typeof import('element-plus/es')['ElRow']
+    ElScrollbar: typeof import('element-plus/es')['ElScrollbar']
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElSplitter: typeof import('element-plus/es')['ElSplitter']
     ElSplitterPanel: typeof import('element-plus/es')['ElSplitterPanel']
