@@ -64,7 +64,8 @@ const customElectronAPI = {
 
   // --------- 笔记本相关 ---------
   // 笔记本和笔记的增删改查
-  createNotebook: (bookName) => ipcRenderer.invoke('create-notebook', { bookName }),
+  createNotebook: (bookName, notebookName) =>
+    ipcRenderer.invoke('create-notebook', { bookName, notebookName }),
   // 删除笔记本
   deleteNotebook: (bookName, notebookName) =>
     ipcRenderer.invoke('delete-notebook', { bookName, notebookName }),
@@ -89,6 +90,17 @@ const customElectronAPI = {
     ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
   // 编辑笔记内容
   editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+  // 灵感笔记
+  saveInspirationNote: (bookName, timestamp, content) =>
+    ipcRenderer.invoke('save-inspiration-note', { bookName, timestamp, content }),
+  loadInspirationNotes: (bookName) =>
+    ipcRenderer.invoke('load-inspiration-notes', bookName),
+  deleteInspirationNote: (bookName, id) =>
+    ipcRenderer.invoke('delete-inspiration-note', { bookName, id }),
+  updateInspirationNote: (bookName, id, content) =>
+    ipcRenderer.invoke('update-inspiration-note', { bookName, id, content }),
+  cleanupInspirationNotes: (bookName) =>
+    ipcRenderer.invoke('cleanup-inspiration-notes', bookName),
 
   // --------- 章节相关 ---------
   // 读取章节内容

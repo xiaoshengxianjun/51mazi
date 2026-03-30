@@ -94,6 +94,22 @@ ipcMain.handle('store:get', async (_, key) => {
   return store.get(key)
 })
 
+ipcMain.handle('get-books-dir', async () => {
+  return store.get('booksDir')
+})
+
+ipcMain.handle('cleanup-inspiration-notes', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const oldFile = join(bookPath, '灵感笔记_old.json')
+
+  if (fs.existsSync(oldFile)) {
+    fs.unlinkSync(oldFile)
+    return { success: true, message: '已清理旧文件' }
+  }
+  return { success: true, message: '没有旧文件需要清理' }
+})
+
 ipcMain.handle('store:set', async (_, key, value) => {
   store.set(key, value)
   return true
@@ -1546,18 +1562,18 @@ ipcMain.handle('load-notes', async (event, bookName) => {
 })
 
 // 创建笔记本
-ipcMain.handle('create-notebook', async (event, { bookName }) => {
+ipcMain.handle('create-notebook', async (event, { bookName, notebookName }) => {
   const booksDir = store.get('booksDir')
   const notesPath = join(booksDir, bookName, '笔记')
-  let baseName = '新建笔记本'
-  let notebookName = baseName
+  let baseName = notebookName || '新建笔记本'
+  let name = baseName
   let index = 1
-  while (fs.existsSync(join(notesPath, notebookName))) {
-    notebookName = `${baseName}${index}`
+  while (fs.existsSync(join(notesPath, name))) {
+    name = `${baseName}${index}`
     index++
   }
-  fs.mkdirSync(join(notesPath, notebookName))
-  return { success: true, notebookName }
+  fs.mkdirSync(join(notesPath, name))
+  return { success: true, notebookName: name }
 })
 
 // 删除笔记本
@@ -1668,6 +1684,118 @@ ipcMain.handle(
     return { success: true, name: newName || noteName }
   }
 )
+
+// 灵感笔记：保存到书籍目录下的 json 文件
+ipcMain.handle('save-inspiration-note', async (event, { bookName, timestamp, content }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const inspirationFile = join(bookPath, '灵感笔记.json')
+
+  let data = []
+  if (fs.existsSync(inspirationFile)) {
+    try {
+      data = JSON.parse(fs.readFileSync(inspirationFile, 'utf-8'))
+      if (!Array.isArray(data)) {
+        const oldFile = join(bookPath, '灵感笔记_old.json')
+        fs.renameSync(inspirationFile, oldFile)
+        data = []
+      }
+    } catch {
+      data = []
+    }
+  }
+
+  const maxId = data.reduce((max, item) => Math.max(max, item.id || 0), 0)
+  const newId = maxId + 1
+
+  data.push({
+    id: newId,
+    timestamp,
+    content
+  })
+
+  fs.writeFileSync(inspirationFile, JSON.stringify(data, null, 2), 'utf-8')
+  return { success: true, id: newId }
+})
+
+// 灵感笔记：读取所有笔记
+ipcMain.handle('load-inspiration-notes', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const inspirationFile = join(bookPath, '灵感笔记.json')
+
+  if (!fs.existsSync(inspirationFile)) {
+    return []
+  }
+
+  try {
+    const data = JSON.parse(fs.readFileSync(inspirationFile, 'utf-8'))
+    if (!Array.isArray(data)) {
+      return []
+    }
+    return data
+  } catch {
+    return []
+  }
+})
+
+// 灵感笔记：删除笔记
+ipcMain.handle('delete-inspiration-note', async (event, { bookName, id }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const inspirationFile = join(bookPath, '灵感笔记.json')
+
+  if (!fs.existsSync(inspirationFile)) {
+    return { success: false, message: '文件不存在' }
+  }
+
+  try {
+    let data = JSON.parse(fs.readFileSync(inspirationFile, 'utf-8'))
+    if (!Array.isArray(data)) {
+      return { success: false, message: '数据格式错误' }
+    }
+
+    const index = data.findIndex(item => item.id === id)
+    if (index === -1) {
+      return { success: false, message: '笔记不存在' }
+    }
+
+    data.splice(index, 1)
+    fs.writeFileSync(inspirationFile, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+// 灵感笔记：更新笔记
+ipcMain.handle('update-inspiration-note', async (event, { bookName, id, content }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const inspirationFile = join(bookPath, '灵感笔记.json')
+
+  if (!fs.existsSync(inspirationFile)) {
+    return { success: false, message: '文件不存在' }
+  }
+
+  try {
+    let data = JSON.parse(fs.readFileSync(inspirationFile, 'utf-8'))
+    if (!Array.isArray(data)) {
+      return { success: false, message: '数据格式错误' }
+    }
+
+    const note = data.find(item => item.id === id)
+    if (!note) {
+      return { success: false, message: '笔记不存在' }
+    }
+
+    note.content = content
+    fs.writeFileSync(inspirationFile, JSON.stringify(data, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
 
 // 读取章节内容
 ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName }) => {
