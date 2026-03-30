@@ -316,7 +316,6 @@ onMounted(async () => {
   } else {
     bookDir.value = dir
   }
-  // 初始化更新方式（用于弹框打开时展示）
   const savedUpdateMode = await window.electronStore?.get('app.updateMode')
   if (savedUpdateMode === 'auto' || savedUpdateMode === 'manual') {
     updateMode.value = savedUpdateMode
@@ -329,6 +328,11 @@ onMounted(async () => {
   await getCurrentVersion()
   // 监听更新事件
   setupUpdateListeners()
+
+  if (sessionStorage.getItem('openAISettings') === 'true') {
+    sessionStorage.removeItem('openAISettings')
+    handleOpenAISettings()
+  }
 })
 
 // 清理定时器

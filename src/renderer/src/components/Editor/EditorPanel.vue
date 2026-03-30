@@ -220,6 +220,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { EditorContent } from '@tiptap/vue-3'
 import { TextSelection } from 'prosemirror-state'
+import { useRouter } from 'vue-router'
 import { useEditorStore } from '@renderer/stores/editor'
 import SearchPanel from '@renderer/components/Editor/SearchPanel.vue'
 import EditorMenubar from '@renderer/components/Editor/EditorMenubar.vue'
@@ -272,6 +273,28 @@ const continueAllowWords = computed(() => {
 
 // EditorStats 组件引用
 const editorStatsRef = ref(null)
+const router = useRouter()
+
+function isApiKeyError(msg) {
+  const keywords = ['API', 'apiKey', '未设置', '未配置', 'key']
+  return keywords.some((k) => msg.includes(k))
+}
+
+function handleApiError(errorMsg) {
+  if (isApiKeyError(errorMsg)) {
+    ElMessage({
+      message: errorMsg + '，点击前往设置',
+      type: 'error',
+      duration: 5000,
+      onClick: () => {
+        sessionStorage.setItem('openAISettings', 'true')
+        router.push('/')
+      }
+    })
+  } else {
+    ElMessage.error(errorMsg)
+  }
+}
 
 const chapterTitle = computed({
   get: () => editorStore.chapterTitle,
@@ -1108,7 +1131,7 @@ async function confirmContinuePrompt() {
       maxAddWords
     })
     if (!res?.success) {
-      ElMessage.error(res?.message || '续写失败')
+      handleApiError(res?.message || '续写失败')
       return
     }
     const content = (res.content || '').trim()
@@ -1189,7 +1212,7 @@ async function handlePolishSelection() {
   try {
     const res = await window.electron.polishTextWithAI(text)
     if (!res.success) {
-      ElMessage.error(res.message || '润色失败')
+      handleApiError(res.message || '润色失败')
       return
     }
     polishMode.value = 'selection'
@@ -1265,7 +1288,7 @@ async function handlePolishChapter() {
   try {
     const res = await window.electron.polishTextWithAI(fullText)
     if (!res.success) {
-      ElMessage.error(res.message || '润色失败')
+      handleApiError(res.message || '润色失败')
       return
     }
     polishMode.value = 'chapter'
