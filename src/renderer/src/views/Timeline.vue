@@ -120,7 +120,19 @@ const editTitleValue = ref('')
 async function loadTimelines() {
   try {
     const data = await window.electron.readTimeline(bookName)
-    timelines.value = Array.isArray(data) ? data : []
+    const rawTimelines = Array.isArray(data) ? data : []
+    rawTimelines.forEach((timeline) => {
+      if (timeline.nodes && Array.isArray(timeline.nodes)) {
+        const seen = new Set()
+        timeline.nodes = timeline.nodes.filter((node) => {
+          const key = node.title?.trim() || ''
+          if (!key || seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      }
+    })
+    timelines.value = rawTimelines
   } catch {
     timelines.value = []
   }
@@ -179,6 +191,16 @@ function addNode(idx, nidx) {
   dialogVisible.value = true
 }
 function confirmAddNode() {
+  const timelineNodes = timelines.value[currentTimelineIdx.value].nodes
+  const title = nodeInfo.title?.trim() || ''
+  const isDuplicate = timelineNodes.some((node, idx) => {
+    if (nodeInfo.id !== -1 && idx === currentNodeIdx.value) return false
+    return node.title?.trim() === title
+  })
+  if (isDuplicate) {
+    ElMessage.warning('节点标题已存在')
+    return
+  }
   if (nodeInfo.id === -1) {
     timelines.value[currentTimelineIdx.value].nodes.push({
       id: genId(),
