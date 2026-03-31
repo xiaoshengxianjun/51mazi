@@ -3,21 +3,22 @@
     <!-- 顶部操作栏 -->
     <div class="top-bar">
       <div>
-        <el-button type="primary" class="new-book-btn" @click="handleNewBook">
-          <el-icon><Plus /></el-icon>
-          新建书籍
-        </el-button>
-        <el-button
-          class="refresh-btn"
-          :icon="Refresh"
-          circle
+        <Button size="sm" variant="outline" class="mr-2! cursor-pointer" @click="handleNewBook">
+          <Plus /> 新建书籍
+        </Button>
+        <Button
+          class="cursor-pointer"
+          variant="outline"
+          size="sm"
           @click="
             () => {
               readBooksDir()
               refreshChart()
             }
           "
-        />
+        >
+          <RefreshCcw />
+        </Button>
       </div>
       <!-- <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
@@ -109,9 +110,12 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
 import WordCountChart from './WordCountChart.vue'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+// import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, RefreshCcw } from 'lucide-vue-next'
+
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES, BOOK_TYPE_GROUPS } from '@renderer/constants/config'
+import { Button } from '@ui/button'
 
 // 书籍类型转为级联选择器数据：先选大类，展开后再选细类
 const bookTypeCascaderOptions = BOOK_TYPE_GROUPS.map((g) => ({

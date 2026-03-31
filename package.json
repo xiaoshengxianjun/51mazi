@@ -46,6 +46,7 @@
     "lucide-vue-next": "^0.561.0",
     "perfect-freehand": "^1.2.2",
     "pinia": "^3.0.3",
+    "reka-ui": "^2.9.2",
     "relation-graph-vue3": "^2.2.11",
     "roughjs": "^4.6.6",
     "sortablejs": "^1.15.6",
@@ -55,6 +56,7 @@
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@tailwindcss/postcss": "^4.2.2",
     "@vitejs/plugin-vue": "^5.2.4",
     "autoprefixer": "^10.4.27",
     "electron": "^39.2.7",

@@ -1,4 +1,8 @@
 @import './base.css';
-@import "tailwindcss/preflight";
-@tailwind utilities;
-@tailwind utilities;
+@import "tailwindcss";
+
+
+
+@theme {
+  --radius: 0.625rem;
+}
