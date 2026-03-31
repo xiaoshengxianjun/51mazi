@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="AI 设置"
+    :title="t('aiSettings.title')"
     width="600px"
     align-center
     @close="handleClose"
@@ -10,13 +10,13 @@
       <!-- DeepSeek -->
       <div class="config-block">
         <div class="block-title">DeepSeek</div>
-        <el-form-item label="API Key">
+        <el-form-item :label="t('aiSettings.apiKey')">
           <div class="input-with-btn">
             <el-input
               v-model="apiKey"
               type="password"
               show-password
-              placeholder="请输入 DeepSeek API Key"
+              :placeholder="t('aiSettings.deepseekPlaceholder')"
               clearable
             />
             <el-button
@@ -25,7 +25,7 @@
               :disabled="anyLoading || !apiKey.trim()"
               @click="handleValidateDeepSeek"
             >
-              验证
+              {{ t('aiSettings.validate') }}
             </el-button>
           </div>
           <div class="form-tip">
@@ -35,14 +35,14 @@
               type="primary"
               :underline="false"
             >
-              获取 API Key →
+              {{ t('aiSettings.getApiKey') }}
             </el-link>
           </div>
         </el-form-item>
         <el-form-item v-if="apiKeyStatus !== null">
           <el-alert
             :type="apiKeyStatus ? 'success' : 'error'"
-            :title="apiKeyStatus ? 'API Key 验证成功' : 'API Key 验证失败'"
+            :title="apiKeyStatus ? t('aiSettings.validateSuccess') : t('aiSettings.validateFailed')"
             :closable="false"
             show-icon
           />
@@ -51,14 +51,14 @@
 
       <!-- 通义万相 -->
       <div class="config-block">
-        <div class="block-title">通义万相</div>
-        <el-form-item label="API Key">
+        <div class="block-title">{{ t('aiSettings.tongyi') }}</div>
+        <el-form-item :label="t('aiSettings.apiKey')">
           <div class="input-with-btn">
             <el-input
               v-model="apiKeyTongyi"
               type="password"
               show-password
-              placeholder="请输入通义万相 API Key"
+              :placeholder="t('aiSettings.tongyiPlaceholder')"
               clearable
             />
             <el-button
@@ -67,7 +67,7 @@
               :disabled="anyLoading || !apiKeyTongyi.trim()"
               @click="handleValidateTongyi"
             >
-              验证
+              {{ t('aiSettings.validate') }}
             </el-button>
           </div>
           <div class="form-tip">
@@ -77,14 +77,16 @@
               type="primary"
               :underline="false"
             >
-              获取 API Key →
+              {{ t('aiSettings.getApiKey') }}
             </el-link>
           </div>
         </el-form-item>
         <el-form-item v-if="apiKeyStatusTongyi !== null">
           <el-alert
             :type="apiKeyStatusTongyi ? 'success' : 'error'"
-            :title="apiKeyStatusTongyi ? 'API Key 验证成功' : 'API Key 验证失败'"
+            :title="
+              apiKeyStatusTongyi ? t('aiSettings.validateSuccess') : t('aiSettings.validateFailed')
+            "
             :closable="false"
             show-icon
           />
@@ -92,9 +94,9 @@
       </div>
     </el-form>
     <template #footer>
-      <el-button :disabled="anyLoading" @click="handleClose">取消</el-button>
+      <el-button :disabled="anyLoading" @click="handleClose">{{ t('common.cancel') }}</el-button>
       <el-button type="primary" :loading="saving" :disabled="anyLoading" @click="handleSave">
-        保存
+        {{ t('common.save') }}
       </el-button>
     </template>
   </el-dialog>
@@ -103,6 +105,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   getDeepSeekApiKey,
   setDeepSeekApiKey,
@@ -115,6 +118,7 @@ import {
 } from '@renderer/service/tongyiwanxiang'
 
 const dialogVisible = ref(false)
+const { t } = useI18n()
 const apiKey = ref('')
 const apiKeyTongyi = ref('')
 const saving = ref(false)
@@ -156,18 +160,18 @@ async function handleSave() {
     try {
       const errs = []
       const r1 = await setDeepSeekApiKey(apiKey.value.trim())
-      if (!r1?.success) errs.push(r1?.message || 'DeepSeek 保存失败')
+      if (!r1?.success) errs.push(r1?.message || t('aiSettings.deepseekSaveFailed'))
       const r2 = await setTongyiwanxiangApiKey(apiKeyTongyi.value.trim())
-      if (!r2?.success) errs.push(r2?.message || '通义万相保存失败')
+      if (!r2?.success) errs.push(r2?.message || t('aiSettings.tongyiSaveFailed'))
       if (errs.length) {
         ElMessage.error(errs.join('；'))
       } else {
-        ElMessage.success('保存成功')
+        ElMessage.success(t('aiSettings.saveSuccess'))
         dialogVisible.value = false
       }
     } catch (error) {
       console.error('保存失败:', error)
-      ElMessage.error('保存失败')
+      ElMessage.error(t('aiSettings.saveFailed'))
     } finally {
       saving.value = false
       saveTimer = null
@@ -180,7 +184,7 @@ let validateDeepTimer = null
 async function handleValidateDeepSeek() {
   if (validating.value) return
   if (!apiKey.value.trim()) {
-    ElMessage.warning('请先输入 DeepSeek API Key')
+    ElMessage.warning(t('aiSettings.pleaseInputDeepseek'))
     return
   }
   if (validateDeepTimer) clearTimeout(validateDeepTimer)
@@ -192,15 +196,15 @@ async function handleValidateDeepSeek() {
       const result = await validateDeepSeekApiKey()
       if (result?.success && result.isValid) {
         apiKeyStatus.value = true
-        ElMessage.success('DeepSeek API Key 验证成功')
+        ElMessage.success(t('aiSettings.deepseekValidateSuccess'))
       } else {
         apiKeyStatus.value = false
-        ElMessage.error(result?.message || 'DeepSeek API Key 验证失败')
+        ElMessage.error(result?.message || t('aiSettings.deepseekValidateFailed'))
       }
     } catch (error) {
       console.error('验证 DeepSeek 失败:', error)
       apiKeyStatus.value = false
-      ElMessage.error('验证失败，请检查网络连接')
+      ElMessage.error(t('aiSettings.validateNetworkFailed'))
     } finally {
       validating.value = false
       validateDeepTimer = null
@@ -213,7 +217,7 @@ let validateTongyiTimer = null
 async function handleValidateTongyi() {
   if (validatingTongyi.value) return
   if (!apiKeyTongyi.value.trim()) {
-    ElMessage.warning('请先输入通义万相 API Key')
+    ElMessage.warning(t('aiSettings.pleaseInputTongyi'))
     return
   }
   if (validateTongyiTimer) clearTimeout(validateTongyiTimer)
@@ -225,15 +229,15 @@ async function handleValidateTongyi() {
       const result = await validateTongyiwanxiangApiKey()
       if (result?.success && result.isValid) {
         apiKeyStatusTongyi.value = true
-        ElMessage.success('通义万相 API Key 验证成功')
+        ElMessage.success(t('aiSettings.tongyiValidateSuccess'))
       } else {
         apiKeyStatusTongyi.value = false
-        ElMessage.error(result?.message || '通义万相 API Key 验证失败')
+        ElMessage.error(result?.message || t('aiSettings.tongyiValidateFailed'))
       }
     } catch (error) {
       console.error('验证通义万相失败:', error)
       apiKeyStatusTongyi.value = false
-      ElMessage.error('验证失败，请检查网络连接')
+      ElMessage.error(t('aiSettings.validateNetworkFailed'))
     } finally {
       validatingTongyi.value = false
       validateTongyiTimer = null

@@ -3,13 +3,13 @@
     <Transition name="encourage-fade">
       <div v-if="modelValue" class="encourage-toast" role="status" aria-live="polite">
         <div class="encourage-toast__content">
-          <div class="encourage-toast__title">给正在写作的你</div>
+          <div class="encourage-toast__title">{{ t('encourageToast.title') }}</div>
           <div class="encourage-toast__message">{{ message }}</div>
         </div>
         <button
           class="encourage-toast__close"
           type="button"
-          aria-label="关闭提示"
+          :aria-label="t('encourageToast.closeAriaLabel')"
           @click="handleClose"
         >
           <el-icon><Close /></el-icon>
@@ -22,6 +22,7 @@
 <script setup>
 import { onBeforeUnmount, watch } from 'vue'
 import { Close } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -30,6 +31,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'close'])
+const { t } = useI18n()
 
 let autoCloseTimer = null
 

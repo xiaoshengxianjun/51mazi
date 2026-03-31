@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool title="词条字典">
+  <LayoutTool :title="t('dictionary.title')">
     <template #headrAction>
       <el-button type="primary" @click="handleCreateEntry">
         <el-icon><Plus /></el-icon>
-        <span>创建词条</span>
+        <span>{{ t('dictionary.createEntry') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -16,22 +16,24 @@
         default-expand-all
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         style="width: 100%"
-        empty-text="暂无词条"
+        :empty-text="t('dictionary.empty')"
       >
-        <el-table-column prop="name" label="名称" min-width="100">
+        <el-table-column prop="name" :label="t('dictionary.name')" min-width="100">
           <template #default="{ row }">
             <span class="entry-name">{{ row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="introduction" label="介绍" min-width="250">
+        <el-table-column prop="introduction" :label="t('dictionary.introduction')" min-width="250">
           <template #default="{ row }">
             <div class="entry-intro">{{ row.introduction }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column :label="t('dictionary.actions')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEditEntry(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDeleteEntry(row)">删除</el-button>
+            <el-button size="small" @click="handleEditEntry(row)">{{ t('common.edit') }}</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteEntry(row)">
+              {{ t('common.delete') }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -41,19 +43,23 @@
   <!-- 创建/编辑词条弹框 -->
   <el-dialog
     v-model="dialogVisible"
-    :title="isEdit ? '编辑词条' : '创建词条'"
+    :title="isEdit ? t('dictionary.editEntry') : t('dictionary.createEntry')"
     width="600px"
     @close="resetForm"
   >
     <el-form ref="formRef" :model="entryForm" :rules="formRules" label-width="80px">
-      <el-form-item label="名称" prop="name">
-        <el-input v-model="entryForm.name" placeholder="请输入词条名称" clearable />
+      <el-form-item :label="t('dictionary.name')" prop="name">
+        <el-input
+          v-model="entryForm.name"
+          :placeholder="t('dictionary.namePlaceholder')"
+          clearable
+        />
       </el-form-item>
-      <el-form-item label="父级" prop="parentId">
+      <el-form-item :label="t('dictionary.parent')" prop="parentId">
         <el-tree-select
           v-model="entryForm.parentId"
           :data="treeSelectData"
-          placeholder="请选择父级词条"
+          :placeholder="t('dictionary.parentPlaceholder')"
           clearable
           style="width: 100%"
           :props="{
@@ -66,10 +72,10 @@
           :render-after-expand="false"
         />
       </el-form-item>
-      <el-form-item label="介绍" prop="introduction">
+      <el-form-item :label="t('dictionary.introduction')" prop="introduction">
         <el-input
           v-model="entryForm.introduction"
-          placeholder="请输入词条介绍"
+          :placeholder="t('dictionary.introductionPlaceholder')"
           type="textarea"
           :rows="6"
           clearable
@@ -77,8 +83,8 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmSave">确认</el-button>
+      <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="confirmSave">{{ t('common.confirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -90,6 +96,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
 import Sortable from 'sortablejs'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const dialogVisible = ref(false)
@@ -113,12 +122,12 @@ const entryForm = reactive({
 // 表单验证规则
 const formRules = {
   name: [
-    { required: true, message: '请输入词条名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '名称长度在 1 到 50 个字符', trigger: 'blur' }
+    { required: true, message: t('dictionary.ruleNameRequired'), trigger: 'blur' },
+    { min: 1, max: 50, message: t('dictionary.ruleNameLength'), trigger: 'blur' }
   ],
   introduction: [
-    { required: true, message: '请输入词条介绍', trigger: 'blur' },
-    { min: 1, max: 1000, message: '介绍长度在 1 到 1000 个字符', trigger: 'blur' }
+    { required: true, message: t('dictionary.ruleIntroRequired'), trigger: 'blur' },
+    { min: 1, max: 1000, message: t('dictionary.ruleIntroLength'), trigger: 'blur' }
   ]
 }
 

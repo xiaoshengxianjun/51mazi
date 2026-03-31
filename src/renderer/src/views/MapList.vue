@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool title="地图列表">
+  <LayoutTool :title="t('mapList.title')">
     <template #headrAction>
       <el-button type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
-        <span>创建地图</span>
+        <span>{{ t('mapList.create') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -24,42 +24,49 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="edit">编辑</el-dropdown-item>
-              <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              <el-dropdown-item command="edit">{{ t('common.edit') }}</el-dropdown-item>
+              <el-dropdown-item command="delete" divided>{{ t('common.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
-      <el-empty v-if="maps.length === 0" :image-size="200" description="暂无地图" />
+      <el-empty v-if="maps.length === 0" :image-size="200" :description="t('mapList.empty')" />
     </template>
   </LayoutTool>
 
   <!-- 创建地图弹框 -->
   <el-dialog
     v-model="showCreateDialog"
-    title="创建新地图"
+    :title="t('mapList.createDialogTitle')"
     width="400px"
     :close-on-click-modal="false"
   >
     <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
-      <el-form-item label="地图名称" prop="name">
-        <el-input v-model="createForm.name" clearable maxlength="20" placeholder="请输入地图名称" />
+      <el-form-item :label="t('mapList.name')" prop="name">
+        <el-input
+          v-model="createForm.name"
+          clearable
+          maxlength="20"
+          :placeholder="t('mapList.namePlaceholder')"
+        />
       </el-form-item>
-      <el-form-item label="地图介绍" prop="description">
+      <el-form-item :label="t('mapList.description')" prop="description">
         <el-input
           v-model="createForm.description"
           type="textarea"
           :rows="4"
           maxlength="200"
-          placeholder="请输入地图介绍（可选）"
+          :placeholder="t('mapList.descriptionPlaceholder')"
           show-word-limit
         />
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreateMap"> 创建 </el-button>
+        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="creating" @click="handleCreateMap">
+          {{ t('mapList.create') }}
+        </el-button>
       </span>
     </template>
   </el-dialog>
@@ -67,15 +74,15 @@
   <!-- 删除确认弹框 -->
   <el-dialog
     v-model="deleteDialogVisible"
-    title="确认删除"
+    :title="t('mapList.deleteTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
-    <span>确定要删除地图 "{{ selectedMap?.name }}" 吗？此操作不可恢复。</span>
+    <span>{{ t('mapList.deleteConfirm', { name: selectedMap?.name || '' }) }}</span>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="deleteDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="confirmDelete">{{ t('mapList.deleteConfirmBtn') }}</el-button>
       </span>
     </template>
   </el-dialog>
@@ -87,10 +94,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
+const { t } = useI18n()
 
 const maps = ref([])
 const showCreateDialog = ref(false)
@@ -106,10 +115,10 @@ const createForm = ref({
 
 const rules = {
   name: [
-    { required: true, message: '请输入地图名称', trigger: 'blur' },
-    { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
+    { required: true, message: t('mapList.ruleNameRequired'), trigger: 'blur' },
+    { min: 1, max: 20, message: t('mapList.ruleNameLength'), trigger: 'blur' }
   ],
-  description: [{ max: 200, message: '介绍长度不能超过 200 个字符', trigger: 'blur' }]
+  description: [{ max: 200, message: t('mapList.ruleDescLength'), trigger: 'blur' }]
 }
 
 // 加载地图列表
@@ -119,7 +128,7 @@ const loadMaps = async () => {
     maps.value = result
   } catch (error) {
     console.error('加载地图列表失败:', error)
-    ElMessage.error('加载地图列表失败')
+    ElMessage.error(t('mapList.loadFailed'))
   }
 }
 

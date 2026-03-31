@@ -4,13 +4,13 @@
     <div class="top-navigation">
       <el-button class="back-button" type="primary" @click="goBack">
         <el-icon><ArrowLeft /></el-icon>
-        返回首页
+        {{ t('userGuide.backHome') }}
       </el-button>
     </div>
 
     <div class="guide-header">
-      <h1>51码字 - 写作指南</h1>
-      <p class="subtitle">专注本地写作管理，集成 AI 工具与多维设定，助你高效创作精彩故事</p>
+      <h1>{{ t('userGuide.title') }}</h1>
+      <p class="subtitle">{{ t('userGuide.subtitle') }}</p>
     </div>
 
     <div class="guide-content">
@@ -18,7 +18,7 @@
         <!-- 目录（大屏侧边栏 / 小屏顶部） -->
         <aside class="guide-toc">
           <div class="toc-card">
-            <div class="toc-title">目录</div>
+            <div class="toc-title">{{ t('userGuide.tocTitle') }}</div>
             <div class="toc-list">
               <button
                 v-for="item in tocItems"
@@ -680,7 +680,7 @@
     </div>
 
     <div class="guide-footer">
-      <el-button type="primary" @click="goBack">返回首页</el-button>
+      <el-button type="primary" @click="goBack">{{ t('userGuide.backHome') }}</el-button>
     </div>
   </div>
 </template>
@@ -689,8 +689,10 @@
 import { useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const goBack = () => {
   router.push('/')
@@ -703,15 +705,15 @@ const officialWebsite = 'https://www.51mazi.com'
 
 // 页面目录（锚点导航）
 const tocItems = [
-  { id: 'quick-start', title: '快速开始', icon: '🚀' },
-  { id: 'core', title: '核心功能', icon: '✨' },
-  { id: 'ai', title: 'AI 助手', icon: '🤖' },
-  { id: 'advanced', title: '高级功能', icon: '🎯' },
-  { id: 'tips', title: '使用技巧', icon: '💡' },
-  { id: 'shortcuts', title: '快捷键', icon: '⌨️' },
-  { id: 'updates', title: '更新与版本', icon: '🔄' },
-  { id: 'faq', title: '常见问题', icon: '❓' },
-  { id: 'support', title: '联系支持', icon: '📞' }
+  { id: 'quick-start', title: t('userGuide.tocQuickStart'), icon: '🚀' },
+  { id: 'core', title: t('userGuide.tocCore'), icon: '✨' },
+  { id: 'ai', title: t('userGuide.tocAI'), icon: '🤖' },
+  { id: 'advanced', title: t('userGuide.tocAdvanced'), icon: '🎯' },
+  { id: 'tips', title: t('userGuide.tocTips'), icon: '💡' },
+  { id: 'shortcuts', title: t('userGuide.tocShortcuts'), icon: '⌨️' },
+  { id: 'updates', title: t('userGuide.tocUpdates'), icon: '🔄' },
+  { id: 'faq', title: t('userGuide.tocFAQ'), icon: '❓' },
+  { id: 'support', title: t('userGuide.tocSupport'), icon: '📞' }
 ]
 
 const activeTocId = ref('quick-start')

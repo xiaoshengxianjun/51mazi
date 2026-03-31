@@ -1,13 +1,13 @@
 <template>
-  <LayoutTool title="时间线管理">
+  <LayoutTool :title="t('timeline.title')">
     <template #headrAction>
       <el-button type="primary" @click="addTimeline">
         <el-icon><Plus /></el-icon>
-        <span>新增时间线</span>
+        <span>{{ t('timeline.addTimeline') }}</span>
       </el-button>
     </template>
     <template #default>
-      <el-empty v-if="timelines.length === 0" :image-size="200" description="暂无时间线" />
+      <el-empty v-if="timelines.length === 0" :image-size="200" :description="t('timeline.empty')" />
       <div v-else class="timeline-main">
         <div class="timeline-list">
           <div v-for="(timeline, idx) in timelines" :key="timeline.id" class="timeline-column">
@@ -32,7 +32,7 @@
               <el-input
                 v-show="editTitleIdx === idx"
                 v-model="editTitleValue"
-                placeholder="时间线标题"
+                :placeholder="t('timeline.titlePlaceholder')"
                 :maxlength="20"
                 :autofocus="true"
                 input-style="text-align: center"
@@ -57,9 +57,9 @@
               </el-timeline-item>
             </el-timeline>
             <div class="timeline-actions">
-              <el-button class="add-node-btn" @click="addNode(idx)">新增节点</el-button>
+              <el-button class="add-node-btn" @click="addNode(idx)">{{ t('timeline.addNode') }}</el-button>
               <el-button class="remove-timeline-btn" type="danger" @click="removeTimeline(idx)">
-                删除时间线
+                {{ t('timeline.deleteTimeline') }}
               </el-button>
             </div>
           </div>
@@ -69,18 +69,18 @@
   </LayoutTool>
   <el-dialog
     v-model="dialogVisible"
-    :title="nodeInfo.id === -1 ? '新增节点' : '编辑节点'"
+    :title="nodeInfo.id === -1 ? t('timeline.addNodeTitle') : t('timeline.editNodeTitle')"
     width="500px"
     @close="dialogVisible = false"
   >
     <el-form :model="nodeInfo" label-width="80px">
-      <el-form-item label="节点标题">
-        <el-input v-model="nodeInfo.title" placeholder="节点标题" clearable />
+      <el-form-item :label="t('timeline.nodeTitle')">
+        <el-input v-model="nodeInfo.title" :placeholder="t('timeline.nodeTitlePlaceholder')" clearable />
       </el-form-item>
-      <el-form-item label="节点描述">
+      <el-form-item :label="t('timeline.nodeDesc')">
         <el-input
           v-model="nodeInfo.desc"
-          placeholder="节点描述"
+          :placeholder="t('timeline.nodeDescPlaceholder')"
           type="textarea"
           :rows="3"
           clearable
@@ -88,8 +88,8 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmAddNode">确认</el-button>
+      <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="confirmAddNode">{{ t('common.confirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -101,8 +101,10 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Delete, Plus } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 const dialogVisible = ref(false)
 const nodeInfo = reactive({
   id: -1,
@@ -143,30 +145,30 @@ async function saveTimelines() {
     const rawTimelines = JSON.parse(JSON.stringify(toRaw(timelines.value)))
     const result = await window.electron.writeTimeline(bookName, rawTimelines)
     if (!result) {
-      throw new Error('保存失败')
+      throw new Error(t('timeline.saveFailed'))
     }
   } catch (error) {
     console.error('保存时间线失败:', error)
-    ElMessage.error('保存时间线失败')
+    ElMessage.error(t('timeline.saveFailed'))
   }
 }
 
 function addTimeline() {
   timelines.value.push({
     id: genId(),
-    title: '新时间线',
+    title: t('timeline.newTimeline'),
     nodes: []
   })
 }
 async function removeTimeline(idx) {
   try {
-    await ElMessageBox.confirm('确定要删除该时间线吗？此操作不可恢复！', '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('timeline.deleteTimelineConfirm'), t('timeline.deleteConfirmTitle'), {
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
     timelines.value.splice(idx, 1)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('timeline.deleteSuccess'))
   } catch {
     // 用户取消，无需处理
   }
@@ -180,11 +182,11 @@ function addNode(idx, nidx) {
   currentTimelineIdx.value = idx
   currentNodeIdx.value = nidx
   if (nidx === undefined) {
-    nodeInfo.title = '新节点'
+    nodeInfo.title = t('timeline.newNode')
     nodeInfo.desc = ''
   } else {
     nodeInfo.id = timelines.value[idx].nodes[nidx].id
-    nodeInfo.title = timelines.value[idx].nodes[nidx].title || '新节点'
+    nodeInfo.title = timelines.value[idx].nodes[nidx].title || t('timeline.newNode')
     nodeInfo.desc = timelines.value[idx].nodes[nidx].desc || ''
   }
   console.log(nodeInfo)
@@ -198,7 +200,7 @@ function confirmAddNode() {
     return node.title?.trim() === title
   })
   if (isDuplicate) {
-    ElMessage.warning('节点标题已存在')
+    ElMessage.warning(t('timeline.nodeTitleDuplicate'))
     return
   }
   if (nodeInfo.id === -1) {
@@ -218,13 +220,13 @@ function confirmAddNode() {
 }
 async function removeNode(tidx, nidx) {
   try {
-    await ElMessageBox.confirm('确定要删除该节点吗？此操作不可恢复！', '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('timeline.deleteNodeConfirm'), t('timeline.deleteConfirmTitle'), {
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
     timelines.value[tidx].nodes.splice(nidx, 1)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('timeline.deleteSuccess'))
   } catch {
     // 用户取消，无需处理
   }

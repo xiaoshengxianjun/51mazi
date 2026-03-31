@@ -4,29 +4,28 @@
     <header class="page-header">
       <el-button class="back-button" type="primary" @click="goBack">
         <el-icon><ArrowLeft /></el-icon>
-        返回首页
+        {{ t('novelDownload.backHome') }}
       </el-button>
       <div class="header-content">
         <div class="header-text">
-          <h1 class="page-title">下载小说</h1>
-          <p class="subtitle">搜索书名或作者，选择书源后下载到本地并加入书架。</p>
+          <h1 class="page-title">{{ t('novelDownload.title') }}</h1>
+          <p class="subtitle">{{ t('novelDownload.subtitle') }}</p>
         </div>
       </div>
     </header>
 
     <!-- 免责声明 -->
     <section class="disclaimer-card">
-      <div class="disclaimer-title">免责声明</div>
+      <div class="disclaimer-title">{{ t('novelDownload.disclaimerTitle') }}</div>
       <ul class="disclaimer-list">
         <li>
-          本功能仅供<strong>个人、非商业性</strong>的学习、研究与备份使用，请严格遵守所在地区著作权及相关法律法规。
+          {{ t('novelDownload.disclaimer1') }}
         </li>
         <li>
-          用户应对通过本功能所获取、存储、使用或传播的<strong>全部内容自行承担法律责任</strong>；本软件及开发者不对内容来源的合法性、准确性负责，也不对因使用或无法使用本功能而产生的任何损失承担责任。
+          {{ t('novelDownload.disclaimer2') }}
         </li>
         <li>
-          <strong>禁止</strong>
-          将本功能用于下载、传播未经授权的受版权保护作品或任何违法、违规内容。使用即表示您已阅读并同意以上条款。
+          {{ t('novelDownload.disclaimer3') }}
         </li>
       </ul>
     </section>
@@ -36,7 +35,7 @@
       <div class="search-inner">
         <el-select
           v-model="currentSourceId"
-          placeholder="选择书源"
+          :placeholder="t('novelDownload.sourcePlaceholder')"
           class="source-select"
           size="large"
         >
@@ -44,7 +43,7 @@
         </el-select>
         <el-input
           v-model="keyword"
-          placeholder="输入书名或作者，按回车搜索"
+          :placeholder="t('novelDownload.keywordPlaceholder')"
           clearable
           size="large"
           class="keyword-input"
@@ -62,7 +61,7 @@
           @click="handleSearch"
         >
           <el-icon v-if="!searching"><Search /></el-icon>
-          <span>搜索</span>
+          <span>{{ t('novelDownload.search') }}</span>
         </el-button>
       </div>
     </section>
@@ -70,17 +69,34 @@
     <!-- 搜索结果 -->
     <section v-if="searchResult.length > 0" class="result-card">
       <div class="result-header">
-        <span class="result-title">搜索结果</span>
-        <el-tag type="info" size="small" round>{{ searchResult.length }} 条</el-tag>
+        <span class="result-title">{{ t('novelDownload.results') }}</span>
+        <el-tag type="info" size="small" round>{{
+          t('novelDownload.resultsCount', { count: searchResult.length })
+        }}</el-tag>
       </div>
       <div class="result-table-wrap">
         <el-table :data="searchResult" stripe class="result-table">
-          <el-table-column prop="title" label="书名" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="author" label="作者" width="120" show-overflow-tooltip />
-          <el-table-column label="操作" width="100" align="right" fixed="right">
+          <el-table-column
+            prop="title"
+            :label="t('novelDownload.bookTitle')"
+            min-width="200"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="author"
+            :label="t('novelDownload.author')"
+            width="120"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            :label="t('novelDownload.actions')"
+            width="100"
+            align="right"
+            fixed="right"
+          >
             <template #default="{ row }">
               <el-button type="primary" size="small" round @click="handleSelectBook(row)">
-                下载
+                {{ t('novelDownload.download') }}
               </el-button>
             </template>
           </el-table-column>
@@ -106,8 +122,11 @@
             <el-icon v-if="!downloading"><FolderOpened /></el-icon>
             <span>{{
               downloading
-                ? `下载中 ${downloadProgress.current}/${downloadProgress.total}`
-                : '下载并加入书架'
+                ? t('novelDownload.downloadingProgress', {
+                    current: downloadProgress.current,
+                    total: downloadProgress.total
+                  })
+                : t('novelDownload.downloadAndAdd')
             }}</span>
           </el-button>
           <el-button
@@ -117,9 +136,9 @@
             @click="handleExportTxt"
           >
             <el-icon v-if="!downloading"><Document /></el-icon>
-            <span>导出为 TXT</span>
+            <span>{{ t('novelDownload.exportTxt') }}</span>
           </el-button>
-          <el-button size="large" @click="clearSelection">取消</el-button>
+          <el-button size="large" @click="clearSelection">{{ t('common.cancel') }}</el-button>
         </div>
         <div v-if="downloading" class="progress-wrap">
           <el-progress
@@ -136,7 +155,7 @@
       v-if="!searching && keyword && searchResult.length === 0 && !selectedBook"
       class="empty-card"
     >
-      <el-empty description="未找到相关书籍，可尝试更换关键词或书源">
+      <el-empty :description="t('novelDownload.empty')">
         <template #image>
           <div class="empty-icon-wrap">
             <el-icon><Reading /></el-icon>
@@ -155,6 +174,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Search, FolderOpened, Document, Reading } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   getNovelSources,
   searchNovel,
@@ -165,6 +185,7 @@ import { createBook, readBooksDir } from '@renderer/service/books'
 import { BOOK_TYPES } from '@renderer/constants/config'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const sources = ref([])
 const currentSourceId = ref('')
@@ -195,14 +216,14 @@ async function loadSources() {
     }
   } catch (e) {
     console.error(e)
-    errorMsg.value = '获取书源失败'
+    errorMsg.value = t('novelDownload.fetchSourcesFailed')
   }
 }
 
 async function handleSearch() {
   const k = keyword.value?.trim()
   if (!k) {
-    ElMessage.warning('请输入书名或作者')
+    ElMessage.warning(t('novelDownload.pleaseInputKeyword'))
     return
   }
   searching.value = true
@@ -216,12 +237,12 @@ async function handleSearch() {
       searchResult.value = res.list
       errorMsg.value = ''
     } else {
-      errorMsg.value = res.message || '未找到结果，可尝试更换关键词或书源'
+      errorMsg.value = res.message || t('novelDownload.noResults')
       searchResult.value = []
     }
   } catch (e) {
     console.error(e)
-    errorMsg.value = e.message || '搜索失败'
+    errorMsg.value = e.message || t('novelDownload.searchFailed')
   } finally {
     searching.value = false
   }
@@ -238,11 +259,11 @@ async function handleSelectBook(book) {
     if (res.success && res.chapters?.length) {
       chapterList.value = res.chapters
     } else {
-      ElMessage.warning(res.message || '获取目录失败')
+      ElMessage.warning(res.message || t('novelDownload.fetchChaptersFailed'))
     }
   } catch (e) {
     console.error(e)
-    errorMsg.value = e.message || '获取目录失败'
+    errorMsg.value = e.message || t('novelDownload.fetchChaptersFailed')
   }
 }
 
@@ -266,15 +287,22 @@ async function handleDownloadToBookshelf() {
 
   const booksDir = await window.electronStore.get('booksDir')
   if (!booksDir) {
-    ElMessage.warning('请先在首页设置书籍目录')
+    ElMessage.warning(t('novelDownload.pleaseSetBooksDirFirst'))
     return
   }
 
   try {
     await ElMessageBox.confirm(
-      `《${book.title}》共 ${chapterList.value.length} 章，将下载并加入书架，是否继续？`,
-      '确认下载',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
+      t('novelDownload.confirmDownloadToBookshelf', {
+        title: book.title,
+        count: chapterList.value.length
+      }),
+      t('novelDownload.confirmDownloadTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'info'
+      }
     )
   } catch {
     return
@@ -287,7 +315,7 @@ async function handleDownloadToBookshelf() {
   try {
     const res = await downloadNovelChapters(chapterList.value, book.sourceId)
     if (!res.success || !res.chapters?.length) {
-      ElMessage.error(res.message || '下载失败')
+      ElMessage.error(res.message || t('novelDownload.downloadFailed'))
       return
     }
 
@@ -302,7 +330,7 @@ async function handleDownloadToBookshelf() {
       type,
       typeName,
       targetCount: 0,
-      intro: '从网络下载',
+      intro: t('novelDownload.bookIntroFromNetwork'),
       password: null,
       coverColor: '#22345c',
       coverUrl: null,
@@ -332,11 +360,13 @@ async function handleDownloadToBookshelf() {
     }
 
     await readBooksDir()
-    ElMessage.success(`《${book.title}》已加入书架，共 ${chapters.length} 章`)
+    ElMessage.success(
+      t('novelDownload.addedToBookshelfSuccess', { title: book.title, count: chapters.length })
+    )
     clearSelection()
   } catch (e) {
     console.error(e)
-    ElMessage.error(e.message || '下载或加入书架失败')
+    ElMessage.error(e.message || t('novelDownload.downloadOrAddFailed'))
   } finally {
     downloading.value = false
   }
@@ -348,9 +378,13 @@ async function handleExportTxt() {
 
   try {
     await ElMessageBox.confirm(
-      `《${book.title}》共 ${chapterList.value.length} 章，将下载并导出为 TXT，是否继续？`,
-      '确认导出',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
+      t('novelDownload.confirmExportTxt', { title: book.title, count: chapterList.value.length }),
+      t('novelDownload.confirmExportTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'info'
+      }
     )
   } catch {
     return
@@ -362,7 +396,7 @@ async function handleExportTxt() {
   try {
     const res = await downloadNovelChapters(chapterList.value, book.sourceId)
     if (!res.success || !res.chapters?.length) {
-      ElMessage.error(res.message || '下载失败')
+      ElMessage.error(res.message || t('novelDownload.downloadFailed'))
       return
     }
 
@@ -373,9 +407,9 @@ async function handleExportTxt() {
     const content = lines.join('')
 
     const saveResult = await window.electron.showSaveDialog({
-      title: '导出小说',
+      title: t('novelDownload.saveDialogTitle'),
       defaultPath: `${book.title}.txt`,
-      filters: [{ name: '文本文件', extensions: ['txt'] }]
+      filters: [{ name: t('novelDownload.textFile'), extensions: ['txt'] }]
     })
     if (!saveResult?.filePath) {
       downloading.value = false
@@ -386,11 +420,11 @@ async function handleExportTxt() {
       filePath: saveResult.filePath,
       content
     })
-    ElMessage.success('导出成功')
+    ElMessage.success(t('novelDownload.exportSuccess'))
     clearSelection()
   } catch (e) {
     console.error(e)
-    ElMessage.error(e.message || '导出失败')
+    ElMessage.error(e.message || t('novelDownload.exportFailed'))
   } finally {
     downloading.value = false
   }

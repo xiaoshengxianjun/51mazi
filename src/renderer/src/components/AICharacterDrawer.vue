@@ -20,8 +20,13 @@
           <span class="character-name-tip">{{ characterName }}</span>
         </el-form-item>
 
-        <el-form-item prop="style" label="图片风格">
-          <el-select v-model="form.style" placeholder="请选择画风" style="width: 100%" clearable>
+        <el-form-item prop="style" :label="t('aiCharacter.style')">
+          <el-select
+            v-model="form.style"
+            :placeholder="t('aiCharacter.selectStyle')"
+            style="width: 100%"
+            clearable
+          >
             <el-option
               v-for="opt in styleOptions"
               :key="opt.value"
@@ -36,7 +41,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item prop="prompt" label="形象描述">
+        <el-form-item prop="prompt" :label="t('aiCharacter.prompt')">
           <el-input
             v-model="form.prompt"
             type="textarea"
@@ -47,7 +52,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="构图与姿态">
+        <el-form-item :label="t('aiCharacter.pose')">
           <el-select
             v-model="form.pose"
             :placeholder="posePlaceholder"
@@ -63,12 +68,12 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="反向提示词">
+        <el-form-item :label="t('aiCharacter.negativePrompt')">
           <el-input
             v-model="form.negativePrompt"
             type="textarea"
             :rows="2"
-            placeholder="不希望出现的元素，如：模糊、变形、多手、多脚（可选）"
+            :placeholder="t('aiCharacter.negativePromptPlaceholder')"
             maxlength="200"
             show-word-limit
           />
@@ -100,7 +105,7 @@
         {{ generatingHint }}
       </el-alert>
       <div class="ai-character-drawer-footer">
-        <el-button @click="handleCancel">取消</el-button>
+        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="generating" @click="handleGenerate">
           {{ generatedList.length > 0 ? regenerateButtonText : generateButtonText }}
         </el-button>
@@ -110,7 +115,7 @@
           :disabled="!selectedPath"
           @click="handleConfirmUse"
         >
-          确认使用
+          {{ t('aiCharacter.confirmUse') }}
         </el-button>
       </div>
     </div>
@@ -120,6 +125,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   generateAICharacterImage,
   confirmAICharacterImage,
@@ -165,6 +171,7 @@ const props = defineProps({
   generateFailTypeName: { type: String, default: '图片' }
 })
 const emit = defineEmits(['update:modelValue', 'character-image-generated'])
+const { t } = useI18n()
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -189,92 +196,92 @@ const FIXED_SIZE = '720*1280'
 const styleOptions = [
   {
     value: 'anime',
-    label: '日系动画',
-    desc: '现代日本动画、二次元',
+    label: t('aiCharacter.styles.anime.label'),
+    desc: t('aiCharacter.styles.anime.desc'),
     prompt: '日本动画风格，二次元，精致插画'
   },
   {
     value: 'ghibli',
-    label: '吉卜力风格',
-    desc: '手绘动画、治愈系',
+    label: t('aiCharacter.styles.ghibli.label'),
+    desc: t('aiCharacter.styles.ghibli.desc'),
     prompt: '吉卜力动画风格，手绘感，柔和色彩，治愈系'
   },
   {
     value: 'retro_anime',
-    label: '复古日漫',
-    desc: '赛璐璐、怀旧动画',
+    label: t('aiCharacter.styles.retroAnime.label'),
+    desc: t('aiCharacter.styles.retroAnime.desc'),
     prompt: '复古日本动画风格，赛璐璐上色，怀旧'
   },
   {
     value: 'photorealistic',
-    label: '写实摄影',
-    desc: '真人、自然光影',
+    label: t('aiCharacter.styles.photorealistic.label'),
+    desc: t('aiCharacter.styles.photorealistic.desc'),
     prompt: '写实摄影风格，真人，自然光影'
   },
   {
     value: '3d_render',
-    label: '3D 渲染',
-    desc: '游戏 CG、立体感',
+    label: t('aiCharacter.styles.render3d.label'),
+    desc: t('aiCharacter.styles.render3d.desc'),
     prompt: '3D 渲染，CG 插画，立体感'
   },
   {
     value: 'pixar',
-    label: '欧美卡通',
-    desc: '皮克斯/迪士尼风',
+    label: t('aiCharacter.styles.pixar.label'),
+    desc: t('aiCharacter.styles.pixar.desc'),
     prompt: '欧美3D动画风格，皮克斯风格，卡通渲染'
   },
   {
     value: 'guofeng',
-    label: '国风插画',
-    desc: '古风、古典服饰',
+    label: t('aiCharacter.styles.guofeng.label'),
+    desc: t('aiCharacter.styles.guofeng.desc'),
     prompt: '国风插画，古风，古典服饰'
   },
   {
     value: 'watercolor',
-    label: '水彩插画',
-    desc: '柔和晕染、纸感',
+    label: t('aiCharacter.styles.watercolor.label'),
+    desc: t('aiCharacter.styles.watercolor.desc'),
     prompt: '水彩插画，柔和晕染'
   },
   {
     value: 'ink_wash',
-    label: '水墨画',
-    desc: '中国水墨、留白',
+    label: t('aiCharacter.styles.inkWash.label'),
+    desc: t('aiCharacter.styles.inkWash.desc'),
     prompt: '中国水墨画风格，留白，意境'
   },
   {
     value: 'oil_painting',
-    label: '厚涂插画',
-    desc: '油画质感、笔触',
+    label: t('aiCharacter.styles.oilPainting.label'),
+    desc: t('aiCharacter.styles.oilPainting.desc'),
     prompt: '厚涂插画，油画质感，笔触明显'
   },
   {
     value: 'cyberpunk',
-    label: '赛博朋克',
-    desc: '科幻、霓虹',
+    label: t('aiCharacter.styles.cyberpunk.label'),
+    desc: t('aiCharacter.styles.cyberpunk.desc'),
     prompt: '赛博朋克风格，霓虹灯，科幻'
   },
   {
     value: 'pixel_art',
-    label: '像素艺术',
-    desc: '复古游戏风',
+    label: t('aiCharacter.styles.pixelArt.label'),
+    desc: t('aiCharacter.styles.pixelArt.desc'),
     prompt: '像素艺术，复古游戏风格'
   }
 ]
 
 /** 构图与姿态：可选，增强画面描述 */
 const poseOptions = [
-  { value: '', label: '不指定' },
-  { value: 'standing', label: '站姿全身' },
-  { value: 'half_body', label: '竖版半身特写' },
-  { value: 'dynamic', label: '动态姿势' },
-  { value: 'portrait', label: '正面立绘' },
-  { value: 'side', label: '侧面/侧身' }
+  { value: '', label: t('aiCharacter.unspecified') },
+  { value: 'standing', label: t('aiCharacter.poses.standing') },
+  { value: 'half_body', label: t('aiCharacter.poses.halfBody') },
+  { value: 'dynamic', label: t('aiCharacter.poses.dynamic') },
+  { value: 'portrait', label: t('aiCharacter.poses.portrait') },
+  { value: 'side', label: t('aiCharacter.poses.side') }
 ]
 
 const formRules = computed(() => ({
   prompt: [
     { required: true, message: props.validatePromptMessage, trigger: 'blur' },
-    { min: 5, message: '描述至少 5 个字符，便于生成更准确', trigger: 'blur' }
+    { min: 5, message: t('aiCharacter.rulePromptMin'), trigger: 'blur' }
   ]
 }))
 
@@ -310,7 +317,9 @@ function buildFullPrompt() {
   const poseKey = form.value.pose
   if (poseKey) {
     const poseOpt = poseOptions.find((o) => o.value === poseKey)
-    if (poseOpt?.label && poseOpt.label !== '不指定') parts.push('，' + poseOpt.label)
+    if (poseOpt?.label && poseOpt.label !== t('aiCharacter.unspecified')) {
+      parts.push('，' + poseOpt.label)
+    }
   }
   return parts.join('')
 }
@@ -320,7 +329,7 @@ async function handleGenerate() {
     await formRef.value.validate()
     const bookName = (props.bookName || '').trim()
     if (!bookName) {
-      ElMessage.error('书籍名称为空，无法生成')
+      ElMessage.error(t('aiCharacter.bookNameEmpty'))
       return
     }
     generating.value = true
@@ -336,7 +345,7 @@ async function handleGenerate() {
       const previewUrl = `file://${res.localPath}`
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
-      ElMessage.success('已生成，请选择一张确认使用或继续生成')
+      ElMessage.success(t('aiCharacter.generatedSelectOrContinue'))
     } else {
       ElMessage.error(res?.message || `生成${props.generateFailTypeName}失败`)
     }
@@ -368,10 +377,10 @@ async function handleConfirmUse() {
       emit('update:modelValue', false)
       ElMessage.success(props.confirmSuccessMessage)
     } else {
-      ElMessage.error(res?.message || '确认失败')
+      ElMessage.error(res?.message || t('aiCharacter.confirmFailed'))
     }
   } catch (error) {
-    ElMessage.error(error?.message || '确认失败')
+    ElMessage.error(error?.message || t('aiCharacter.confirmFailed'))
   }
 }
 </script>

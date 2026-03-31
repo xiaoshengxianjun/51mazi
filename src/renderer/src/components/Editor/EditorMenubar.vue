@@ -1,7 +1,11 @@
 <template>
   <div class="editor-menubar">
     <div class="toolbar-left">
-      <el-tooltip content="字体" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.font')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-select v-model="fontFamily" class="toolbar-item" size="small" style="width: 82px">
           <el-option label="宋体" value="SimSun" />
           <el-option label="黑体" value="SimHei" />
@@ -14,7 +18,7 @@
       </el-tooltip>
       <el-tooltip
         v-if="isNoteEditor"
-        content="标题"
+        :content="t('editorMenubar.heading')"
         placement="bottom"
         :show-after="TOOLTIP_SHOW_AFTER"
       >
@@ -25,14 +29,18 @@
           style="width: 70px"
           @change="handleHeadingChange"
         >
-          <el-option label="正文" value="0" />
-          <el-option label="标题 1" value="1" />
-          <el-option label="标题 2" value="2" />
-          <el-option label="标题 3" value="3" />
-          <el-option label="标题 4" value="4" />
+          <el-option :label="t('editorMenubar.body')" value="0" />
+          <el-option :label="t('editorMenubar.heading1')" value="1" />
+          <el-option :label="t('editorMenubar.heading2')" value="2" />
+          <el-option :label="t('editorMenubar.heading3')" value="3" />
+          <el-option :label="t('editorMenubar.heading4')" value="4" />
         </el-select>
       </el-tooltip>
-      <el-tooltip content="字号" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.fontSize')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-select v-model="fontSize" class="toolbar-item" size="small" style="width: 62px">
           <el-option label="12px" value="12px" />
           <el-option label="13px" value="13px" />
@@ -45,7 +53,11 @@
           <el-option label="24px" value="24px" />
         </el-select>
       </el-tooltip>
-      <el-tooltip content="行高" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.lineHeight')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-select v-model="lineHeight" class="toolbar-item" size="small" style="width: 50px">
           <el-option label="1.4" value="1.4" />
           <el-option label="1.6" value="1.6" />
@@ -55,9 +67,13 @@
           <el-option label="2.4" value="2.4" />
         </el-select>
       </el-tooltip>
-      <el-tooltip content="段落间距" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.paragraphSpacing')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-select v-model="paragraphSpacing" class="toolbar-item" size="small" style="width: 60px">
-          <el-option label="无" value="0" />
+          <el-option :label="t('editorMenubar.none')" value="0" />
           <el-option label="0.25" value="0.25em" />
           <el-option label="0.5" value="0.5em" />
           <el-option label="0.75" value="0.75em" />
@@ -65,7 +81,11 @@
           <el-option label="1.5" value="1.5em" />
         </el-select>
       </el-tooltip>
-      <el-tooltip content="加粗" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.bold')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button
           class="toolbar-item"
           size="small"
@@ -75,7 +95,11 @@
           <b>B</b>
         </el-button>
       </el-tooltip>
-      <el-tooltip content="倾斜" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.italic')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button
           class="toolbar-item"
           :type="isItalic ? 'primary' : 'default'"
@@ -97,7 +121,7 @@
           <el-button
             size="small"
             class="toolbar-item"
-            title="高亮"
+            :title="t('editorMenubar.highlight')"
             :type="isHighlight ? 'primary' : 'default'"
           >
             <SvgIcon name="highlight" :size="12" />
@@ -122,7 +146,7 @@
             <div
               :class="{ active: !isHighlight }"
               class="highlight-color-item highlight-color-none"
-              title="无高亮"
+              :title="t('editorMenubar.noHighlight')"
             >
               <SvgIcon
                 class="hightlight-color-item-main"
@@ -136,7 +160,7 @@
       </el-popover>
       <el-tooltip
         v-if="!isNoteEditor"
-        content="一键排版"
+        :content="t('editorMenubar.oneClickFormat')"
         placement="bottom"
         :show-after="TOOLTIP_SHOW_AFTER"
       >
@@ -144,36 +168,56 @@
           <el-icon><Tickets /></el-icon>
         </el-button>
       </el-tooltip>
-      <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.undo')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button size="small" class="toolbar-item" :disabled="!canUndo" @click="handleUndo">
           <Undo :size="12" />
         </el-button>
       </el-tooltip>
-      <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.redo')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button size="small" class="toolbar-item" :disabled="!canRedo" @click="handleRedo">
           <Redo :size="12" />
         </el-button>
       </el-tooltip>
-      <el-tooltip content="复制" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.copy')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button size="small" class="toolbar-item" @click="handleCopyContent">
           <el-icon><DocumentCopy /></el-icon>
         </el-button>
       </el-tooltip>
-      <el-tooltip content="搜索" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.search')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button size="small" class="toolbar-item" @click="handleToggleSearchPanel">
           <el-icon><Search /></el-icon>
         </el-button>
       </el-tooltip>
     </div>
     <div class="toolbar-right">
-      <el-tooltip content="保存" placement="bottom" :show-after="TOOLTIP_SHOW_AFTER">
+      <el-tooltip
+        :content="t('editorMenubar.save')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
         <el-button size="small" class="toolbar-item" @click="handleSave">
           <SvgIcon name="save" :size="12" />
         </el-button>
       </el-tooltip>
       <el-tooltip
         v-if="!isNoteEditor"
-        content="导出"
+        :content="t('editorMenubar.export')"
         placement="bottom"
         :show-after="TOOLTIP_SHOW_AFTER"
       >
@@ -187,6 +231,7 @@
 
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { DocumentCopy, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Redo, Undo } from 'lucide-vue-next'
@@ -195,6 +240,7 @@ import { useEditorStore } from '@renderer/stores/editor'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
 
 const TOOLTIP_SHOW_AFTER = 2000
+const { t } = useI18n()
 
 const props = defineProps({
   editor: {
@@ -463,11 +509,11 @@ const highlightPopoverVisible = ref(false)
 
 // 高亮颜色选项（5个浅色、亮色）
 const highlightColors = [
-  { value: '#ffeb3b', label: '黄色' },
-  { value: '#a8e6cf', label: '绿色' },
-  { value: '#a8c8ec', label: '蓝色' },
-  { value: '#ffb3ba', label: '粉色' },
-  { value: '#dda0dd', label: '紫色' }
+  { value: '#ffeb3b', label: t('editorMenubar.colorYellow') },
+  { value: '#a8e6cf', label: t('editorMenubar.colorGreen') },
+  { value: '#a8c8ec', label: t('editorMenubar.colorBlue') },
+  { value: '#ffb3ba', label: t('editorMenubar.colorPink') },
+  { value: '#dda0dd', label: t('editorMenubar.colorPurple') }
 ]
 
 // 检查当前高亮是否使用指定颜色
@@ -556,10 +602,12 @@ function handleFormatContent() {
       props.editor.commands.setTextSelection(newPosition)
     }
 
-    ElMessage.success('排版完成')
+    ElMessage.success(t('editorMenubar.formatDone'))
   } catch (error) {
     console.error('排版失败:', error)
-    ElMessage.error('排版失败：' + (error.message || '未知错误'))
+    ElMessage.error(
+      t('editorMenubar.formatFailed', { reason: error.message || t('common.unknownError') })
+    )
   }
 }
 
@@ -627,7 +675,7 @@ function handleCopyContent() {
   if (!props.editor) return
   const html = props.editor.getHTML()
   navigator.clipboard.writeText(html)
-  ElMessage.success('已复制内容')
+  ElMessage.success(t('editorMenubar.copiedContent'))
 }
 
 function handleToggleSearchPanel() {
@@ -654,21 +702,25 @@ function handleSave() {
 async function handleExport() {
   try {
     // 显示确认对话框
-    await ElMessageBox.confirm('本操作会将正文下所有章节导出到一个文件，是否继续？', '导出确认', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      t('editorMenubar.exportConfirmContent'),
+      t('editorMenubar.exportConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
 
     // 生成时间戳：YYMMDDHHmm（例如：2511041729 表示 2025年11月04日17点29分）
     const timestamp = dayjs().format('YYMMDDHHmm')
 
     // 用户确认后，显示保存文件对话框
     const saveResult = await window.electron.showSaveDialog({
-      title: '导出章节',
+      title: t('editorMenubar.exportChapter'),
       defaultPath: `${props.bookName}_${timestamp}.txt`,
-      filters: [{ name: '文本文件', extensions: ['txt'] }],
-      buttonLabel: '保存'
+      filters: [{ name: t('editorMenubar.textFile'), extensions: ['txt'] }],
+      buttonLabel: t('common.save')
     })
 
     if (!saveResult || !saveResult.filePath) {
@@ -678,7 +730,7 @@ async function handleExport() {
 
     // 显示加载提示
     const loadingMessage = ElMessage({
-      message: '正在导出章节，请稍候...',
+      message: t('editorMenubar.exporting'),
       type: 'info',
       duration: 0,
       showClose: false
@@ -690,7 +742,7 @@ async function handleExport() {
 
       if (!chapters || chapters.length === 0) {
         loadingMessage.close()
-        ElMessage.warning('没有找到任何章节')
+        ElMessage.warning(t('editorMenubar.noChaptersFound'))
         return
       }
 
@@ -738,7 +790,7 @@ async function handleExport() {
 
       if (totalChapters === 0) {
         loadingMessage.close()
-        ElMessage.warning('没有找到任何可导出的章节内容')
+        ElMessage.warning(t('editorMenubar.noExportableContent'))
         return
       }
 
@@ -753,24 +805,28 @@ async function handleExport() {
 
       if (!writeResult || !writeResult.success) {
         loadingMessage.close()
-        ElMessage.error(writeResult?.message || '写入文件失败')
+        ElMessage.error(writeResult?.message || t('editorMenubar.writeFileFailed'))
         return
       }
 
       loadingMessage.close()
-      ElMessage.success(`导出成功！共导出 ${totalChapters} 个章节`)
+      ElMessage.success(t('editorMenubar.exportSuccess', { count: totalChapters }))
       emit('export', { success: true, totalChapters })
     } catch (error) {
       loadingMessage.close()
       console.error('导出失败:', error)
-      ElMessage.error('导出失败：' + (error.message || '未知错误'))
+      ElMessage.error(
+        t('editorMenubar.exportFailed', { reason: error.message || t('common.unknownError') })
+      )
       emit('export', { success: false, error })
     }
   } catch (error) {
     // 用户取消了确认对话框
     if (error !== 'cancel') {
       console.error('导出操作失败:', error)
-      ElMessage.error('导出操作失败：' + (error.message || '未知错误'))
+      ElMessage.error(
+        t('editorMenubar.exportActionFailed', { reason: error.message || t('common.unknownError') })
+      )
       emit('export', { success: false, error })
     }
   }

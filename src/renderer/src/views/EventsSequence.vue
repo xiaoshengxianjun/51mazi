@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool :title="`事序图 - ${bookName}`">
+  <LayoutTool :title="t('eventsSequence.pageTitle', { bookName })">
     <template #headrAction>
       <el-button type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
-        <span>创建事序图</span>
+        <span>{{ t('eventsSequence.createChart') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -20,16 +20,16 @@
                 </div>
                 <div class="header-right">
                   <el-button type="primary" size="small" @click="addEvent(chart.id)">
-                    添加事件
+                    {{ t('eventsSequence.addEvent') }}
                   </el-button>
                   <el-button type="warning" size="small" @click="openExpandDialog(chart.id)">
-                    扩展单元格
+                    {{ t('eventsSequence.expandCells') }}
                   </el-button>
                   <el-button type="success" size="small" @click="saveSequenceChart(chart.id)">
-                    保存事序图
+                    {{ t('eventsSequence.saveChart') }}
                   </el-button>
                   <el-button type="danger" size="small" @click="deleteSequenceChart(chart.id)">
-                    删除事序图
+                    {{ t('eventsSequence.deleteChart') }}
                   </el-button>
                 </div>
               </div>
@@ -38,9 +38,9 @@
               <div class="table-body">
                 <div class="table-left" :class="{ collapsed: isChartCollapsed(chart.id) }">
                   <div class="left-header">
-                    <div class="col-index">序号</div>
-                    <div class="col-intro">简介</div>
-                    <div class="col-progress">进度</div>
+                    <div class="col-index">{{ t('eventsSequence.index') }}</div>
+                    <div class="col-intro">{{ t('eventsSequence.introduction') }}</div>
+                    <div class="col-progress">{{ t('eventsSequence.progress') }}</div>
                   </div>
                   <div class="left-content">
                     <div v-for="event in chart.events" :key="event.id" class="event-row">
@@ -130,9 +130,9 @@
 
         <!-- 空状态 -->
         <div v-else class="content-placeholder">
-          <el-empty :image-size="200" description="暂无事序图" class="empty-state">
+          <el-empty :image-size="200" :description="t('eventsSequence.empty')" class="empty-state">
             <template #description>
-              <p>点击"创建事序图"开始创建您的事件时间轴</p>
+              <p>{{ t('eventsSequence.emptyHint') }}</p>
             </template>
           </el-empty>
         </div>
@@ -141,12 +141,17 @@
   </LayoutTool>
 
   <!-- 创建事序图弹框 -->
-  <el-dialog v-model="showCreateDialog" title="创建事序图" width="500px" @close="resetForm">
+  <el-dialog
+    v-model="showCreateDialog"
+    :title="t('eventsSequence.createDialogTitle')"
+    width="500px"
+    @close="resetForm"
+  >
     <el-form ref="chartFormRef" :model="chartForm" :rules="chartRules" label-width="100px">
-      <el-form-item label="主题名称" prop="title">
+      <el-form-item :label="t('eventsSequence.themeName')" prop="title">
         <el-input
           v-model="chartForm.title"
-          placeholder="请输入事序图的主题名称"
+          :placeholder="t('eventsSequence.themeNamePlaceholder')"
           maxlength="20"
           show-word-limit
         />
@@ -154,8 +159,8 @@
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="createSequenceChart">确认</el-button>
+        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="createSequenceChart">{{ t('common.confirm') }}</el-button>
       </span>
     </template>
   </el-dialog>
@@ -163,30 +168,33 @@
   <!-- 扩展单元格弹框 -->
   <el-dialog
     v-model="showExpandDialog"
-    title="扩展单元格数量"
+    :title="t('eventsSequence.expandDialogTitle')"
     width="500px"
     @close="resetExpandForm"
   >
     <el-form ref="expandFormRef" :model="expandForm" :rules="expandRules" label-width="120px">
-      <el-form-item label="扩展数量" prop="cellCount">
+      <el-form-item :label="t('eventsSequence.expandCount')" prop="cellCount">
         <el-input-number
           v-model="expandForm.cellCount"
           :min="100"
           :max="1000"
           :step="10"
-          placeholder="请输入扩展数量"
+          :placeholder="t('eventsSequence.expandCountPlaceholder')"
         />
         <div class="form-tip">
-          当前单元格数量：{{ getCurrentCellCount() }}，扩展后将达到：{{
-            getCurrentCellCount() + expandForm.cellCount
+          {{
+            t('eventsSequence.expandCountTip', {
+              current: getCurrentCellCount(),
+              total: getCurrentCellCount() + expandForm.cellCount
+            })
           }}
         </div>
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showExpandDialog = false">取消</el-button>
-        <el-button type="primary" @click="expandCells">确认</el-button>
+        <el-button @click="showExpandDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="expandCells">{{ t('common.confirm') }}</el-button>
       </span>
     </template>
   </el-dialog>
@@ -194,49 +202,53 @@
   <!-- 添加/编辑事件弹框 -->
   <el-dialog
     v-model="showEventDialog"
-    :title="eventDialogMode === 'create' ? '添加事件' : '编辑事件'"
+    :title="
+      eventDialogMode === 'create'
+        ? t('eventsSequence.addEventDialogTitle')
+        : t('eventsSequence.editEventDialogTitle')
+    "
     width="560px"
     @close="resetEventForm"
   >
     <el-form ref="eventFormRef" :model="eventForm" :rules="eventRules" label-width="100px">
-      <el-form-item label="简介" prop="introduction">
+      <el-form-item :label="t('eventsSequence.introduction')" prop="introduction">
         <el-input
           v-model="eventForm.introduction"
           maxlength="30"
           show-word-limit
-          placeholder="请输入事件简介（不超过30字）"
+          :placeholder="t('eventsSequence.introductionPlaceholder')"
         />
       </el-form-item>
-      <el-form-item label="详情" prop="detail">
+      <el-form-item :label="t('eventsSequence.detail')" prop="detail">
         <el-input
           v-model="eventForm.detail"
           type="textarea"
           :rows="4"
           maxlength="200"
           show-word-limit
-          placeholder="请输入事件详情（不超过200字）"
+          :placeholder="t('eventsSequence.detailPlaceholder')"
         />
       </el-form-item>
-      <el-form-item label="进度" prop="progress">
+      <el-form-item :label="t('eventsSequence.progress')" prop="progress">
         <el-slider v-model="eventForm.progress" :min="0" :max="100" :step="1" />
       </el-form-item>
-      <el-form-item label="起始点" prop="startTime">
+      <el-form-item :label="t('eventsSequence.startTime')" prop="startTime">
         <el-input-number v-model="eventForm.startTime" :min="1" :max="eventCellMax" :step="1" />
-        <span class="form-tip"> 范围 1 - {{ eventCellMax }} </span>
+        <span class="form-tip"> {{ t('eventsSequence.rangeTip', { max: eventCellMax }) }} </span>
       </el-form-item>
-      <el-form-item label="结束点" prop="endTime">
+      <el-form-item :label="t('eventsSequence.endTime')" prop="endTime">
         <el-input-number v-model="eventForm.endTime" :min="1" :max="eventCellMax" :step="1" />
-        <span class="form-tip"> 需 ≥ 起始点，且 ≤ {{ eventCellMax }} </span>
+        <span class="form-tip"> {{ t('eventsSequence.endRangeTip', { max: eventCellMax }) }} </span>
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showEventDialog = false">取消</el-button>
+        <el-button @click="showEventDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button v-if="eventDialogMode === 'edit'" type="danger" @click="confirmDeleteEvent">
-          删除
+          {{ t('common.delete') }}
         </el-button>
         <el-button type="primary" @click="submitEventForm">
-          {{ eventDialogMode === 'create' ? '添加' : '保存' }}
+          {{ eventDialogMode === 'create' ? t('eventsSequence.add') : t('common.save') }}
         </el-button>
       </span>
     </template>
@@ -249,11 +261,13 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import LayoutTool from '@renderer/components/LayoutTool.vue'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 
 // 获取书籍名称
-const bookName = ref(route.query.name || '未命名书籍')
+const bookName = ref(route.query.name || t('eventsSequence.untitledBook'))
 
 // 响应式数据
 const showCreateDialog = ref(false)
@@ -282,19 +296,19 @@ let clickSuppressTimer = null
 // 表单验证规则
 const chartRules = {
   title: [
-    { required: true, message: '请输入事序图主题名称', trigger: 'blur' },
-    { min: 1, max: 20, message: '主题名称长度在 1 到 20 个字符', trigger: 'blur' }
+    { required: true, message: t('eventsSequence.ruleThemeRequired'), trigger: 'blur' },
+    { min: 1, max: 20, message: t('eventsSequence.ruleThemeLength'), trigger: 'blur' }
   ]
 }
 
 const expandRules = {
   cellCount: [
-    { required: true, message: '请输入扩展数量', trigger: 'blur' },
+    { required: true, message: t('eventsSequence.ruleExpandRequired'), trigger: 'blur' },
     {
       type: 'number',
       min: 100,
       max: 1000,
-      message: '扩展数量必须在 100 到 1000 之间',
+      message: t('eventsSequence.ruleExpandRange'),
       trigger: 'blur'
     }
   ]
@@ -321,7 +335,7 @@ const createSequenceChart = async () => {
     showCreateDialog.value = false
     resetForm()
 
-    ElMessage.success('事序图创建成功')
+    ElMessage.success(t('eventsSequence.createSuccess'))
   } catch (error) {
     console.error('表单验证失败:', error)
   }
@@ -365,7 +379,7 @@ const expandCells = async () => {
 
     const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
     if (!chart) {
-      ElMessage.error('未找到对应的事序图')
+      ElMessage.error(t('eventsSequence.chartNotFound'))
       return
     }
 
@@ -374,7 +388,7 @@ const expandCells = async () => {
 
     // 检查是否超过最大限制
     if (newTotal > 1000) {
-      ElMessage.error(`扩展后总数量 ${newTotal} 超过最大限制 1000，请减少扩展数量`)
+      ElMessage.error(t('eventsSequence.expandOverLimit', { total: newTotal }))
       return
     }
 
@@ -385,7 +399,10 @@ const expandCells = async () => {
     resetExpandForm()
 
     ElMessage.success(
-      `单元格数量已从 ${chart.cellCount - expandForm.value.cellCount} 扩展到 ${chart.cellCount}`
+      t('eventsSequence.expandSuccess', {
+        from: chart.cellCount - expandForm.value.cellCount,
+        to: chart.cellCount
+      })
     )
   } catch (error) {
     console.error('表单验证失败:', error)
@@ -453,7 +470,11 @@ const stopDrag = async () => {
   if (chart) {
     if (hasMovedWhileMouseDown.value) {
       ElMessage.success(
-        `事件"${draggingEvent.value.introduction}"已移动到时间 ${draggingEvent.value.startTime}-${draggingEvent.value.endTime}`
+        t('eventsSequence.dragMoveSuccess', {
+          introduction: draggingEvent.value.introduction,
+          start: draggingEvent.value.startTime,
+          end: draggingEvent.value.endTime
+        })
       )
       await saveSequenceCharts()
       // 拖动结束后，短暂抑制 mouseup 触发编辑
@@ -506,16 +527,16 @@ const addEvent = (chartId) => {
 const saveSequenceChart = (chartId) => {
   const chart = sequenceCharts.value.find((c) => c.id === chartId)
   if (!chart) {
-    ElMessage.error('未找到对应的事序图')
+    ElMessage.error(t('eventsSequence.chartNotFound'))
     return
   }
   try {
     const storageKey = `events-sequence-chart-${chartId}`
     const dataToSave = JSON.stringify(chart)
     localStorage.setItem(storageKey, dataToSave)
-    ElMessage.success('事序图已保存')
+    ElMessage.success(t('eventsSequence.chartSaved'))
   } catch {
-    ElMessage.error('保存失败，请稍后重试')
+    ElMessage.error(t('eventsSequence.saveRetry'))
   }
 }
 
@@ -524,28 +545,32 @@ const deleteSequenceChart = (chartId) => {
   // 找到对应的图表
   const chart = sequenceCharts.value.find((c) => c.id === chartId)
   if (!chart) {
-    ElMessage.error('未找到对应的事序图')
+    ElMessage.error(t('eventsSequence.chartNotFound'))
     return
   }
 
   // 二次确认
-  ElMessageBox.confirm(`确定要删除事序图"${chart.title}"吗？此操作不可恢复。`, '删除确认', {
-    confirmButtonText: '确定删除',
-    cancelButtonText: '取消',
-    type: 'warning',
-    confirmButtonClass: 'el-button--danger'
-  })
+  ElMessageBox.confirm(
+    t('eventsSequence.deleteChartConfirm', { title: chart.title }),
+    t('eventsSequence.deleteTitle'),
+    {
+      confirmButtonText: t('eventsSequence.confirmDelete'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
+    }
+  )
     .then(() => {
       // 执行删除操作
       const index = sequenceCharts.value.findIndex((c) => c.id === chartId)
       if (index > -1) {
         sequenceCharts.value.splice(index, 1)
-        ElMessage.success('事序图删除成功')
+        ElMessage.success(t('eventsSequence.deleteChartSuccess'))
       }
     })
     .catch(() => {
       // 用户取消删除
-      ElMessage.info('已取消删除操作')
+      ElMessage.info(t('eventsSequence.cancelDelete'))
     })
 }
 // 事件弹框相关
@@ -564,14 +589,14 @@ const eventForm = ref({
 
 const eventRules = {
   introduction: [
-    { required: true, message: '请输入简介', trigger: 'blur' },
-    { min: 1, max: 30, message: '简介长度 1-30 字符', trigger: 'blur' }
+    { required: true, message: t('eventsSequence.ruleIntroRequired'), trigger: 'blur' },
+    { min: 1, max: 30, message: t('eventsSequence.ruleIntroLength'), trigger: 'blur' }
   ],
-  detail: [{ min: 0, max: 200, message: '详情不超过 200 字符', trigger: 'blur' }],
+  detail: [{ min: 0, max: 200, message: t('eventsSequence.ruleDetailLength'), trigger: 'blur' }],
   progress: [
     {
       validator: (_, val, cb) => {
-        if (val < 0 || val > 100) return cb(new Error('进度需在 0-100 之间'))
+        if (val < 0 || val > 100) return cb(new Error(t('eventsSequence.ruleProgressRange')))
         cb()
       },
       trigger: 'change'
@@ -580,11 +605,11 @@ const eventRules = {
   startTime: [
     {
       validator: (_rule, value, callback) => {
-        if (value < 1) return callback(new Error('起始点不能小于 1'))
+        if (value < 1) return callback(new Error(t('eventsSequence.ruleStartMin')))
         if (value > eventCellMax.value)
-          return callback(new Error(`起始点不能大于 ${eventCellMax.value}`))
+          return callback(new Error(t('eventsSequence.ruleStartMax', { max: eventCellMax.value })))
         if (eventForm.value.endTime && value > eventForm.value.endTime)
-          return callback(new Error('起始点不能大于结束点'))
+          return callback(new Error(t('eventsSequence.ruleStartGtEnd')))
         callback()
       },
       trigger: ['blur', 'change']
@@ -593,11 +618,11 @@ const eventRules = {
   endTime: [
     {
       validator: (_rule, value, callback) => {
-        if (value < 1) return callback(new Error('结束点不能小于 1'))
+        if (value < 1) return callback(new Error(t('eventsSequence.ruleEndMin')))
         if (value > eventCellMax.value)
-          return callback(new Error(`结束点不能大于 ${eventCellMax.value}`))
+          return callback(new Error(t('eventsSequence.ruleEndMax', { max: eventCellMax.value })))
         if (eventForm.value.startTime && value < eventForm.value.startTime)
-          return callback(new Error('结束点不能小于起始点'))
+          return callback(new Error(t('eventsSequence.ruleEndLtStart')))
         callback()
       },
       trigger: ['blur', 'change']
@@ -664,7 +689,7 @@ const submitEventForm = async () => {
         color: generateEventColor(chart.events?.length || 0)
       }
       chart.events.push(newEvent)
-      ElMessage.success('添加事件成功')
+      ElMessage.success(t('eventsSequence.addEventSuccess'))
     } else if (eventDialogMode.value === 'edit') {
       const targetIndex = chart.events.findIndex((e) => e.id === editingEventId.value)
       if (targetIndex !== -1) {
@@ -677,7 +702,7 @@ const submitEventForm = async () => {
           startTime: eventForm.value.startTime,
           endTime: eventForm.value.endTime
         }
-        ElMessage.success('保存成功')
+        ElMessage.success(t('eventsSequence.saveSuccess'))
       }
     }
 
@@ -692,9 +717,9 @@ const submitEventForm = async () => {
 const confirmDeleteEvent = () => {
   const chart = sequenceCharts.value.find((c) => c.id === currentChartId.value)
   if (!chart) return
-  ElMessageBox.confirm('确定删除该事件吗？此操作不可恢复。', '删除确认', {
-    confirmButtonText: '确定删除',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('eventsSequence.deleteEventConfirm'), t('eventsSequence.deleteTitle'), {
+    confirmButtonText: t('eventsSequence.confirmDelete'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning',
     confirmButtonClass: 'el-button--danger'
   })
@@ -704,7 +729,7 @@ const confirmDeleteEvent = () => {
         chart.events.splice(idx, 1)
         // 重新编号 index
         chart.events.forEach((e, i) => (e.index = i + 1))
-        ElMessage.success('删除成功')
+        ElMessage.success(t('eventsSequence.deleteSuccess'))
       }
       await saveSequenceCharts()
       showEventDialog.value = false
@@ -825,11 +850,11 @@ async function saveSequenceCharts() {
     const payload = JSON.parse(JSON.stringify(toRaw(sequenceCharts.value)))
     const result = await window.electron.writeSequenceCharts(bookName.value, payload)
     if (result && result.success === false) {
-      throw new Error(result.message || '保存失败')
+      throw new Error(result.message || t('eventsSequence.saveFailed'))
     }
   } catch (error) {
     console.error('保存事序图数据失败:', error)
-    ElMessage.error('保存事序图数据失败')
+    ElMessage.error(t('eventsSequence.saveFailed'))
   }
 }
 

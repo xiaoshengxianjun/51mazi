@@ -1,14 +1,14 @@
 <template>
   <el-drawer
     v-model="visible"
-    title="大纲管理"
+    :title="t('outlineManager.title')"
     size="70%"
     destroy-on-close
     class="outline-manager-drawer"
   >
     <div class="outline-layout">
       <div class="outline-tree-panel">
-        <div class="panel-title">大纲目录</div>
+        <div class="panel-title">{{ t('outlineManager.outlineDirectory') }}</div>
         <el-tree
           ref="treeRef"
           class="outline-tree"
@@ -25,12 +25,12 @@
       </div>
 
       <div class="outline-content-panel">
-        <div class="panel-title">大纲内容</div>
+        <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
         <el-form class="outline-form" label-position="top">
           <el-form-item>
             <el-input
               v-model="selectedNode.title"
-              placeholder="请输入大纲标题"
+              :placeholder="t('outlineManager.outlineTitlePlaceholder')"
               :disabled="isRootSelected || aiBusy"
             />
           </el-form-item>
@@ -39,7 +39,7 @@
               v-model="selectedNode.content"
               type="textarea"
               :disabled="aiBusy"
-              placeholder="请输入大纲内容"
+              :placeholder="t('outlineManager.outlineContentPlaceholder')"
             />
           </el-form-item>
         </el-form>
@@ -50,7 +50,7 @@
       <div class="drawer-footer">
         <div class="footer-left-actions">
           <el-button type="primary" :disabled="aiBusy" @click="openCreateDialog">
-            新增大纲
+            {{ t('outlineManager.addOutline') }}
           </el-button>
           <el-button
             type="success"
@@ -58,7 +58,7 @@
             :disabled="aiBusy || !hasSelectedContent"
             @click="openAiRefineDialog"
           >
-            AI完善大纲
+            {{ t('outlineManager.aiRefine') }}
           </el-button>
           <el-button
             type="success"
@@ -67,7 +67,7 @@
             :disabled="aiBusy || !hasSelectedContent"
             @click="openAiSplitDialog"
           >
-            AI拆分大纲
+            {{ t('outlineManager.aiSplit') }}
           </el-button>
         </div>
         <div class="footer-right-actions">
@@ -78,16 +78,18 @@
             :disabled="aiBusy"
             @click="handleDeleteSelectedOutline"
           >
-            删除
+            {{ t('common.delete') }}
           </el-button>
-          <el-button :disabled="aiBusy" @click="visible = false">取消</el-button>
+          <el-button :disabled="aiBusy" @click="visible = false">
+            {{ t('common.cancel') }}
+          </el-button>
           <el-button
             type="primary"
             :loading="isSaving"
             :disabled="aiBusy"
             @click="handleConfirmSave"
           >
-            确定
+            {{ t('common.confirm') }}
           </el-button>
         </div>
       </div>
@@ -96,31 +98,35 @@
 
   <el-dialog
     v-model="createDialogVisible"
-    title="新增大纲"
+    :title="t('outlineManager.addOutline')"
     width="420px"
     :close-on-click-modal="!aiBusy"
     :close-on-press-escape="!aiBusy"
     :show-close="!aiBusy"
   >
     <el-form label-position="top">
-      <el-form-item label="大纲名称">
+      <el-form-item :label="t('outlineManager.outlineName')">
         <el-input
           v-model="newOutlineTitle"
-          placeholder="请输入大纲名称"
+          :placeholder="t('outlineManager.outlineNamePlaceholder')"
           clearable
           @keyup.enter="handleCreateOutline"
         />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button :disabled="aiBusy" @click="createDialogVisible = false">取消</el-button>
-      <el-button type="primary" :disabled="aiBusy" @click="handleCreateOutline">确定</el-button>
+      <el-button :disabled="aiBusy" @click="createDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
+      <el-button type="primary" :disabled="aiBusy" @click="handleCreateOutline">
+        {{ t('common.confirm') }}
+      </el-button>
     </template>
   </el-dialog>
 
   <el-dialog
     v-model="aiRefineDialogVisible"
-    title="AI完善大纲"
+    :title="t('outlineManager.aiRefine')"
     width="800px"
     :close-on-click-modal="!aiBusy"
     :close-on-press-escape="!aiBusy"
@@ -129,7 +135,13 @@
   >
     <el-form label-position="top">
       <div class="ai-current-outline">
-        <div class="ai-current-outline-title">当前选中：{{ selectedNode.title || '总纲' }}</div>
+        <div class="ai-current-outline-title">
+          {{
+            t('outlineManager.currentSelected', {
+              title: selectedNode.title || t('outlineManager.rootTitle')
+            })
+          }}
+        </div>
         <el-input
           :model-value="aiSelectedContentPreview"
           type="textarea"
@@ -138,39 +150,53 @@
           class="ai-current-outline-preview"
         />
       </div>
-      <el-form-item label="完善方向">
+      <el-form-item :label="t('outlineManager.refineDirection')">
         <el-radio-group v-model="aiRefineMode" class="ai-radio-group" :disabled="aiBusy">
-          <el-radio-button label="details">补充关键细节</el-radio-button>
-          <el-radio-button label="conflict">强化冲突转折</el-radio-button>
-          <el-radio-button label="pacing">优化节奏层次</el-radio-button>
-          <el-radio-button label="world">补齐人物/世界观线索</el-radio-button>
-          <el-radio-button label="overall">整体扩写润色</el-radio-button>
+          <el-radio-button label="details">
+            {{ t('outlineManager.refineModes.details') }}
+          </el-radio-button>
+          <el-radio-button label="conflict">
+            {{ t('outlineManager.refineModes.conflict') }}
+          </el-radio-button>
+          <el-radio-button label="pacing">
+            {{ t('outlineManager.refineModes.pacing') }}
+          </el-radio-button>
+          <el-radio-button label="world">
+            {{ t('outlineManager.refineModes.world') }}
+          </el-radio-button>
+          <el-radio-button label="overall">
+            {{ t('outlineManager.refineModes.overall') }}
+          </el-radio-button>
         </el-radio-group>
       </el-form-item>
-      <el-form-item label="完善要求">
+      <el-form-item :label="t('outlineManager.refineRequirement')">
         <el-input
           v-model="aiRefineRequirement"
           type="textarea"
           :rows="6"
           :disabled="aiBusy"
-          placeholder="可选：写你希望 AI 做到的具体方向（不填则使用上方推荐方向的要求）"
+          :placeholder="t('outlineManager.refineRequirementPlaceholder')"
         />
       </el-form-item>
       <div class="ai-suggest-text">
-        推荐要求：<span class="ai-suggest-text-content">{{ aiRefineSuggestedRequirement }}</span>
+        {{ t('outlineManager.recommendedRequirement') }}:<span class="ai-suggest-text-content">
+          {{ aiRefineSuggestedRequirement }}
+        </span>
       </div>
     </el-form>
     <template #footer>
-      <el-button :disabled="aiBusy" @click="aiRefineDialogVisible = false">取消</el-button>
+      <el-button :disabled="aiBusy" @click="aiRefineDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
       <el-button type="primary" :loading="aiRefineLoading" @click="handleAiRefineSubmit">
-        确认
+        {{ t('common.confirm') }}
       </el-button>
     </template>
   </el-dialog>
 
   <el-dialog
     v-model="aiRefineResultDialogVisible"
-    title="AI完善结果"
+    :title="t('outlineManager.aiRefineResult')"
     width="800px"
     :close-on-click-modal="!aiBusy"
     :close-on-press-escape="!aiBusy"
@@ -179,17 +205,21 @@
   >
     <el-input v-model="aiRefineResult" type="textarea" :rows="18" readonly />
     <template #footer>
-      <el-button :disabled="aiBusy" @click="copyAiRefineResult">复制内容</el-button>
-      <el-button :disabled="aiBusy" @click="aiRefineResultDialogVisible = false">取消</el-button>
+      <el-button :disabled="aiBusy" @click="copyAiRefineResult">
+        {{ t('outlineManager.copyContent') }}
+      </el-button>
+      <el-button :disabled="aiBusy" @click="aiRefineResultDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
       <el-button type="primary" :disabled="aiBusy" @click="confirmAiRefineResult">
-        确认回填
+        {{ t('outlineManager.confirmFillBack') }}
       </el-button>
     </template>
   </el-dialog>
 
   <el-dialog
     v-model="aiSplitDialogVisible"
-    title="AI拆分大纲"
+    :title="t('outlineManager.aiSplit')"
     width="800px"
     :close-on-click-modal="!aiBusy"
     :close-on-press-escape="!aiBusy"
@@ -198,7 +228,13 @@
   >
     <el-form label-position="top">
       <div class="ai-current-outline">
-        <div class="ai-current-outline-title">当前选中：{{ selectedNode.title || '总纲' }}</div>
+        <div class="ai-current-outline-title">
+          {{
+            t('outlineManager.currentSelected', {
+              title: selectedNode.title || t('outlineManager.rootTitle')
+            })
+          }}
+        </div>
         <el-input
           :model-value="aiSelectedContentPreview"
           type="textarea"
@@ -207,41 +243,51 @@
           class="ai-current-outline-preview"
         />
       </div>
-      <el-form-item label="拆分风格">
+      <el-form-item :label="t('outlineManager.splitStyle')">
         <el-radio-group v-model="aiSplitMode" class="ai-radio-group" :disabled="aiBusy">
-          <el-radio-button label="plot">按剧情阶段</el-radio-button>
-          <el-radio-button label="conflict">按冲突升级</el-radio-button>
-          <el-radio-button label="timeline">按时间顺序</el-radio-button>
-          <el-radio-button label="chapter">按章节/小节</el-radio-button>
+          <el-radio-button label="plot">{{ t('outlineManager.splitModes.plot') }}</el-radio-button>
+          <el-radio-button label="conflict">
+            {{ t('outlineManager.splitModes.conflict') }}
+          </el-radio-button>
+          <el-radio-button label="timeline">
+            {{ t('outlineManager.splitModes.timeline') }}
+          </el-radio-button>
+          <el-radio-button label="chapter">
+            {{ t('outlineManager.splitModes.chapter') }}
+          </el-radio-button>
         </el-radio-group>
       </el-form-item>
-      <el-form-item label="拆分段数">
+      <el-form-item :label="t('outlineManager.splitCount')">
         <el-input-number v-model="aiSplitCount" :min="2" :max="12" :disabled="aiBusy" />
       </el-form-item>
-      <el-form-item label="拆分要求">
+      <el-form-item :label="t('outlineManager.splitRequirement')">
         <el-input
           v-model="aiSplitRequirement"
           type="textarea"
           :rows="6"
           :disabled="aiBusy"
-          placeholder="可选：补充更细的拆分规则（不填则使用上方拆分风格推荐要求）"
+          :placeholder="t('outlineManager.splitRequirementPlaceholder')"
         />
       </el-form-item>
       <div class="ai-suggest-text">
-        推荐要求：<span class="ai-suggest-text-content">{{ aiSplitSuggestedRequirement }}</span>
+        {{ t('outlineManager.recommendedRequirement') }}:<span class="ai-suggest-text-content">
+          {{ aiSplitSuggestedRequirement }}
+        </span>
       </div>
     </el-form>
     <template #footer>
-      <el-button :disabled="aiBusy" @click="aiSplitDialogVisible = false">取消</el-button>
+      <el-button :disabled="aiBusy" @click="aiSplitDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
       <el-button type="primary" :loading="aiSplitLoading" @click="handleAiSplitSubmit">
-        确认
+        {{ t('common.confirm') }}
       </el-button>
     </template>
   </el-dialog>
 
   <el-dialog
     v-model="aiSplitResultDialogVisible"
-    title="AI拆分结果"
+    :title="t('outlineManager.aiSplitResult')"
     width="800px"
     :close-on-click-modal="!aiBusy"
     :close-on-press-escape="!aiBusy"
@@ -267,19 +313,23 @@
         type="warning"
         show-icon
         :closable="false"
-        title="AI 返回格式无法解析，请复制原文后调整要求重试"
+        :title="t('outlineManager.splitParseFailed')"
       />
       <el-input v-model="aiSplitRawResult" type="textarea" :rows="12" readonly />
     </div>
     <template #footer>
-      <el-button :disabled="aiBusy" @click="copyAiSplitResult">复制内容</el-button>
-      <el-button :disabled="aiBusy" @click="aiSplitResultDialogVisible = false">取消</el-button>
+      <el-button :disabled="aiBusy" @click="copyAiSplitResult">
+        {{ t('outlineManager.copyContent') }}
+      </el-button>
+      <el-button :disabled="aiBusy" @click="aiSplitResultDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
       <el-button
         type="primary"
         :disabled="aiBusy || !aiSplitItems.length || Boolean(aiSplitQualityError)"
         @click="confirmAiSplitResult"
       >
-        确认创建
+        {{ t('outlineManager.confirmCreate') }}
       </el-button>
     </template>
   </el-dialog>
@@ -289,6 +339,7 @@
 import { computed, nextTick, ref, toRaw, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   bookName: {
@@ -296,6 +347,7 @@ const props = defineProps({
     default: ''
   }
 })
+const { t } = useI18n()
 
 const ROOT_ID = 'outline-root'
 
@@ -326,7 +378,7 @@ const treeRef = ref(null)
 const outlineTree = ref([
   {
     id: ROOT_ID,
-    title: '总纲',
+    title: t('outlineManager.rootTitle'),
     content: '',
     children: []
   }
@@ -353,41 +405,43 @@ const aiRefineSuggestedRequirement = computed(() => {
   const baseContent = String(selectedNode.value?.content || '').trim()
   const hasContent = baseContent.length > 0
   // 根据是否有内容给不同强度的推荐，避免空内容导致提示无意义
-  const strength = hasContent ? '对原文进行补充' : '给出可直接填充的扩写内容'
+  const strength = hasContent
+    ? t('outlineManager.refineStrengthWithContent')
+    : t('outlineManager.refineStrengthWithoutContent')
 
   switch (aiRefineMode.value) {
     case 'details':
-      return `补充关键细节与设定：补足因果链、环境描写、关键道具/规则，并让段落之间更连贯（${strength}）。`
+      return t('outlineManager.refineSuggestions.details', { strength })
     case 'conflict':
-      return `强化冲突转折：增加阻力/反转/误会或升级目标，提高戏剧张力与张力节奏（${strength}）。`
+      return t('outlineManager.refineSuggestions.conflict', { strength })
     case 'pacing':
-      return `优化节奏层次：调整信息密度与段落节拍，增强铺垫-爆发的结构，让阅读更顺畅（${strength}）。`
+      return t('outlineManager.refineSuggestions.pacing', { strength })
     case 'world':
-      return `补齐人物/世界观线索：补足人物动机、立场与世界规则连接点，确保设定可用且不产生硬伤（${strength}）。`
+      return t('outlineManager.refineSuggestions.world', { strength })
     case 'overall':
     default:
-      return `整体扩写润色：在不改变核心意图的前提下扩充内容深度、提升表达质量与叙事层次（${strength}）。`
+      return t('outlineManager.refineSuggestions.overall', { strength })
   }
 })
 
 const aiSplitSuggestedRequirement = computed(() => {
   switch (aiSplitMode.value) {
     case 'conflict':
-      return `按冲突升级拆分：每一段对应一个新的升级节点（阻力→转折→加码→解决/埋伏），并保证段与段之间有连续的因果。`
+      return t('outlineManager.splitSuggestions.conflict')
     case 'timeline':
-      return `按时间顺序拆分：每段覆盖连续的事件时间段，强调前后联系，避免跳跃导致的断层。`
+      return t('outlineManager.splitSuggestions.timeline')
     case 'chapter':
-      return `按章节/小节拆分：每一段像一个小章节，包含明确的章节主题与收束点，方便后续逐章写作。`
+      return t('outlineManager.splitSuggestions.chapter')
     case 'plot':
     default:
-      return `按剧情阶段拆分：阶段要清晰（起-承-转-合/或开端-发展-高潮-尾声），并让每段都包含核心冲突与推进信息。`
+      return t('outlineManager.splitSuggestions.plot')
   }
 })
 
 const aiSelectedContentPreview = computed(() => {
   const txt = String(selectedNode.value?.content || '')
   const trimmed = txt.trim()
-  if (!trimmed) return '（当前内容为空）'
+  if (!trimmed) return t('outlineManager.currentContentEmpty')
   const max = 280
   if (trimmed.length <= max) return trimmed
   return trimmed.slice(0, max) + '...'
@@ -400,7 +454,7 @@ function normalizeOutlineTree(rawData) {
   return [
     {
       id: ROOT_ID,
-      title: '总纲', // 总纲标题固定，不允许被存储数据覆盖
+      title: t('outlineManager.rootTitle'), // 总纲标题固定，不允许被存储数据覆盖
       content: typeof rawData?.content === 'string' ? rawData.content : '',
       children
     }
@@ -437,7 +491,7 @@ async function saveOutlineData() {
     }
     const result = await window.electron.writeOutlines(props.bookName, payload)
     if (result && result.success === false) {
-      throw new Error(result.message || '保存大纲失败')
+      throw new Error(result.message || t('outlineManager.saveFailed'))
     }
     return true
   } catch (err) {
@@ -472,11 +526,11 @@ async function handleConfirmSave(options = {}) {
   try {
     await saveOutlineData()
     if (!silentSuccess) {
-      ElMessage.success('大纲已保存')
+      ElMessage.success(t('outlineManager.saved'))
     }
     return true
   } catch {
-    ElMessage.error('保存失败')
+    ElMessage.error(t('outlineManager.saveFailed'))
     return false
   } finally {
     isSaving.value = false
@@ -544,11 +598,11 @@ async function setCurrentNode(nodeId) {
 
 async function callAi(text) {
   if (!window.electron?.polishTextWithAI) {
-    throw new Error('当前环境不支持 AI 功能')
+    throw new Error(t('outlineManager.aiUnsupported'))
   }
   const result = await window.electron.polishTextWithAI(text)
   if (!result?.success) {
-    throw new Error(result?.message || 'AI 请求失败')
+    throw new Error(result?.message || t('outlineManager.aiRequestFailed'))
   }
   return (result.content || '').trim()
 }
@@ -557,7 +611,7 @@ async function handleAiRefineSubmit() {
   const current = selectedNode.value
   const originalContent = String(current?.content || '').trim()
   if (!originalContent) {
-    ElMessage.warning('当前选中大纲内容为空，无法完善')
+    ElMessage.warning(t('outlineManager.cannotRefineEmpty'))
     return
   }
   aiRefineLoading.value = true
@@ -567,8 +621,8 @@ async function handleAiRefineSubmit() {
     const prompt = [
       '你是一名中文小说策划编辑，请在保持原意的前提下完善大纲内容。',
       '要求：',
-      `- 大纲标题：${current.title || '未命名大纲'}`,
-      `- 用户补充要求：${additionalRequirement || '无额外要求'}`,
+      `- ${t('outlineManager.aiPromptOutlineTitle')}: ${current.title || t('outlineManager.unnamedOutline')}`,
+      `- ${t('outlineManager.aiPromptUserRequirement')}: ${additionalRequirement || t('outlineManager.noExtraRequirement')}`,
       '- 输出仅返回完善后的正文内容，不要解释，不要加标题。',
       '',
       '原始大纲内容：',
@@ -576,13 +630,13 @@ async function handleAiRefineSubmit() {
     ].join('\n')
     const content = await callAi(prompt)
     if (!content) {
-      throw new Error('AI 返回结果为空，请重试')
+      throw new Error(t('outlineManager.aiEmptyResult'))
     }
     aiRefineResult.value = content
     aiRefineDialogVisible.value = false
     aiRefineResultDialogVisible.value = true
   } catch (err) {
-    ElMessage.error(err?.message || 'AI 完善失败')
+    ElMessage.error(err?.message || t('outlineManager.aiRefineFailed'))
   } finally {
     aiRefineLoading.value = false
   }
@@ -592,9 +646,9 @@ async function copyAiRefineResult() {
   if (!aiRefineResult.value) return
   try {
     await navigator.clipboard.writeText(aiRefineResult.value)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success(t('outlineManager.copiedToClipboard'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('outlineManager.copyFailed'))
   }
 }
 
@@ -626,10 +680,13 @@ function parseAiSplitOutput(text) {
 
 function validateAiSplitItems(items, expectedCount) {
   if (!Array.isArray(items) || !items.length) {
-    return 'AI 返回内容为空或无法解析，请调整要求后重试。'
+    return t('outlineManager.splitValidationEmpty')
   }
   if (items.length !== expectedCount) {
-    return `AI 返回 ${items.length} 段，未达到指定的 ${expectedCount} 段，请重试。`
+    return t('outlineManager.splitValidationCountMismatch', {
+      actual: items.length,
+      expected: expectedCount
+    })
   }
 
   // 每段需具备“可独立写作”的最小信息量，避免只拆分不扩写
@@ -638,7 +695,10 @@ function validateAiSplitItems(items, expectedCount) {
     (item) => String(item.content || '').trim().length < MIN_SEGMENT_LENGTH
   )
   if (tooShortIndex !== -1) {
-    return `第 ${tooShortIndex + 1} 段内容过短（少于 ${MIN_SEGMENT_LENGTH} 字），请重试以获得完整大纲段落。`
+    return t('outlineManager.splitValidationTooShort', {
+      index: tooShortIndex + 1,
+      min: MIN_SEGMENT_LENGTH
+    })
   }
 
   return ''
@@ -648,7 +708,7 @@ async function handleAiSplitSubmit() {
   const current = selectedNode.value
   const originalContent = String(current?.content || '').trim()
   if (!originalContent) {
-    ElMessage.warning('当前选中大纲内容为空，无法拆分')
+    ElMessage.warning(t('outlineManager.cannotSplitEmpty'))
     return
   }
   aiSplitLoading.value = true
@@ -670,8 +730,8 @@ async function handleAiSplitSubmit() {
       '内容',
       '',
       `拆分段数：${count}`,
-      `大纲标题：${current.title || '未命名大纲'}`,
-      `用户拆分要求：${additionalRequirement || '无额外要求'}`,
+      `${t('outlineManager.aiPromptOutlineTitle')}：${current.title || t('outlineManager.unnamedOutline')}`,
+      `${t('outlineManager.aiPromptSplitRequirement')}：${additionalRequirement || t('outlineManager.noExtraRequirement')}`,
       '不要输出格式说明，不要输出 JSON，不要输出其他无关内容。',
       '',
       '待拆分大纲内容：',
@@ -679,7 +739,7 @@ async function handleAiSplitSubmit() {
     ].join('\n')
     const content = await callAi(prompt)
     if (!content) {
-      throw new Error('AI 返回结果为空，请重试')
+      throw new Error(t('outlineManager.aiEmptyResult'))
     }
     aiSplitRawResult.value = content
     aiSplitItems.value = parseAiSplitOutput(content)
@@ -690,7 +750,7 @@ async function handleAiSplitSubmit() {
     aiSplitDialogVisible.value = false
     aiSplitResultDialogVisible.value = true
   } catch (err) {
-    ElMessage.error(err?.message || 'AI 拆分失败')
+    ElMessage.error(err?.message || t('outlineManager.aiSplitFailed'))
   } finally {
     aiSplitLoading.value = false
   }
@@ -705,9 +765,9 @@ async function copyAiSplitResult() {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success(t('outlineManager.copiedToClipboard'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('outlineManager.copyFailed'))
   }
 }
 
@@ -770,11 +830,13 @@ async function handleDeleteSelectedOutline() {
 
   try {
     await ElMessageBox.confirm(
-      `确定删除大纲“${current.title || '未命名大纲'}”吗？删除后不可恢复。`,
-      '删除确认',
+      t('outlineManager.deleteConfirmMessage', {
+        title: current.title || t('outlineManager.unnamedOutline')
+      }),
+      t('outlineManager.deleteConfirmTitle'),
       {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
+        confirmButtonText: t('outlineManager.confirmDelete'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning',
         confirmButtonClass: 'el-button--danger'
       }
@@ -785,14 +847,14 @@ async function handleDeleteSelectedOutline() {
 
   const removed = removeNodeById(outlineTree.value, currentId)
   if (!removed) {
-    ElMessage.error('删除失败：未找到对应大纲')
+    ElMessage.error(t('outlineManager.deleteFailedNotFound'))
     return
   }
 
   await setCurrentNode(nextSelectedId)
   const saved = await handleConfirmSave({ silentSuccess: true })
   if (saved) {
-    ElMessage.success('删除成功')
+    ElMessage.success(t('outlineManager.deleteSuccess'))
   }
 }
 
@@ -800,7 +862,7 @@ function handleCreateOutline() {
   if (aiBusy.value) return
   const title = newOutlineTitle.value.trim()
   if (!title) {
-    ElMessage.warning('请输入大纲名称')
+    ElMessage.warning(t('outlineManager.inputOutlineName'))
     return
   }
 

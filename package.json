@@ -47,6 +47,7 @@
     "relation-graph-vue3": "^2.2.11",
     "roughjs": "^4.6.6",
     "sortablejs": "^1.15.6",
+    "vue-i18n": "^11.3.0",
     "vue-router": "^4.6.0"
   },
   "devDependencies": {

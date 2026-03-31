@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    title="AI生成封面"
+    :title="t('aiCover.title')"
     size="900px"
     direction="rtl"
     class="ai-cover-drawer"
@@ -18,18 +18,18 @@
       >
         <el-row :gutter="16">
           <el-col :span="10">
-            <el-form-item prop="penName" label="笔名">
+            <el-form-item prop="penName" :label="t('aiCover.penName')">
               <el-input
                 v-model="form.penName"
-                placeholder="请输入笔名"
+                :placeholder="t('aiCover.penNamePlaceholder')"
                 maxlength="10"
                 show-word-limit
               />
             </el-form-item>
           </el-col>
           <el-col :span="14">
-            <el-form-item prop="coverSize" label="封面尺寸">
-              <el-select v-model="form.coverSize" placeholder="请选择封面尺寸" style="width: 100%">
+            <el-form-item prop="coverSize" :label="t('aiCover.coverSize')">
+              <el-select v-model="form.coverSize" :placeholder="t('aiCover.selectCoverSize')" style="width: 100%">
                 <el-option
                   v-for="size in coverSizeOptions"
                   :key="size.value"
@@ -46,27 +46,27 @@
           </el-col>
         </el-row>
         <!-- 封面要求：拆分为三部分，让提示词更明确 -->
-        <el-form-item prop="titlePrompt" label="书名要求">
+        <el-form-item prop="titlePrompt" :label="t('aiCover.titlePrompt')">
           <el-input
             v-model="form.titlePrompt"
             type="textarea"
             :rows="2"
-            placeholder="请输入书名排版要求：例如“书名居中大字、金色描边、毛笔字、可读性强、不要变形”等（可选，最多300字）"
+            :placeholder="t('aiCover.titlePromptPlaceholder')"
             maxlength="200"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item prop="authorPrompt" label="笔名要求">
+        <el-form-item prop="authorPrompt" :label="t('aiCover.authorPrompt')">
           <el-input
             v-model="form.authorPrompt"
             type="textarea"
             :rows="2"
-            placeholder="请输入笔名排版要求：例如“笔名放底部小字、白色、简洁清晰”等（可选，最多300字）"
+            :placeholder="t('aiCover.authorPromptPlaceholder')"
             maxlength="100"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item prop="backgroundPrompt" label="背景要求">
+        <el-form-item prop="backgroundPrompt" :label="t('aiCover.backgroundPrompt')">
           <div v-if="selectedPromptTags.length > 0" class="selected-tags">
             <el-tag
               v-for="(tag, index) in selectedPromptTags"
@@ -82,7 +82,7 @@
             v-model="form.backgroundPrompt"
             type="textarea"
             :rows="4"
-            placeholder="请输入封面背景/画面要求：风格、元素、色彩、构图、氛围等（支持中英文，最多300字）。也可点击下方标签快速选择。"
+            :placeholder="t('aiCover.backgroundPromptPlaceholder')"
             maxlength="300"
             show-word-limit
           />
@@ -101,7 +101,7 @@
                   size="small"
                   @click="applyRecommendedTags(category.key)"
                 >
-                  一键应用推荐
+                  {{ t('aiCover.applyRecommended') }}
                 </el-button>
               </div>
               <div class="preset-tags">
@@ -124,7 +124,7 @@
       <!-- 已生成的封面：多图排列，点击选择一张后确认使用 -->
       <div v-if="generatedList.length > 0" class="generated-section">
         <div class="section-title">
-          已生成的封面（共 {{ generatedList.length }} 张，点击选择一张后确认使用）
+          {{ t('aiCover.generatedTitle', { count: generatedList.length }) }}
         </div>
         <div class="generated-grid">
           <div
@@ -134,18 +134,18 @@
             :class="{ selected: selectedPath === item.localPath }"
             @click="selectedPath = item.localPath"
           >
-            <img :src="item.previewUrl" :alt="`封面 ${index + 1}`" />
+            <img :src="item.previewUrl" :alt="t('aiCover.generatedAlt', { index: index + 1 })" />
           </div>
         </div>
       </div>
 
       <el-alert v-if="generating" type="info" :closable="false" show-icon class="generating-hint">
-        正在努力生图中，请勿关闭弹框
+        {{ t('aiCover.generatingHint') }}
       </el-alert>
       <div class="ai-cover-drawer-footer">
-        <el-button @click="handleCancel">取消</el-button>
+        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="generating" @click="handleGenerate">
-          {{ generatedList.length > 0 ? '再生成一张' : '生成封面' }}
+          {{ generatedList.length > 0 ? t('aiCover.generateOneMore') : t('aiCover.generate') }}
         </el-button>
         <el-button
           v-if="generatedList.length > 0"
@@ -153,7 +153,7 @@
           :disabled="!selectedPath"
           @click="handleConfirmUse"
         >
-          确认使用
+          {{ t('aiCover.confirmUse') }}
         </el-button>
       </div>
     </div>
@@ -163,6 +163,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { generateAICover, confirmAICover, discardAICovers } from '@renderer/service/tongyiwanxiang'
 
 const props = defineProps({
@@ -171,6 +172,7 @@ const props = defineProps({
   bookType: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'cover-generated'])
+const { t } = useI18n()
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -189,13 +191,13 @@ const form = ref({
 
 const rules = {
   penName: [
-    { required: true, message: '请输入笔名', trigger: 'blur' },
-    { max: 10, message: '笔名不能超过10个字符', trigger: 'blur' }
+    { required: true, message: t('aiCover.rulePenNameRequired'), trigger: 'blur' },
+    { max: 10, message: t('aiCover.rulePenNameMax'), trigger: 'blur' }
   ],
-  coverSize: [{ required: true, message: '请选择封面尺寸', trigger: 'change' }],
+  coverSize: [{ required: true, message: t('aiCover.ruleCoverSizeRequired'), trigger: 'change' }],
   backgroundPrompt: [
-    { required: true, message: '请输入封面背景要求', trigger: 'blur' },
-    { min: 10, message: '封面背景要求至少10个字符', trigger: 'blur' }
+    { required: true, message: t('aiCover.ruleBackgroundRequired'), trigger: 'blur' },
+    { min: 10, message: t('aiCover.ruleBackgroundMin'), trigger: 'blur' }
   ]
 }
 
@@ -530,7 +532,7 @@ function getRecommendationsForBookType(bookType) {
 
 function applyRecommendedTags(categoryKey) {
   if (!form.value.bookType) {
-    ElMessage.warning('请先选择书籍类型')
+    ElMessage.warning(t('aiCover.selectBookTypeFirst'))
     return
   }
   const recommendations = getRecommendationsForBookType(form.value.bookType)
@@ -539,7 +541,7 @@ function applyRecommendedTags(categoryKey) {
     if (!selectedPromptTags.value.includes(tag)) selectedPromptTags.value.push(tag)
   })
   updatePromptFromTags()
-  ElMessage.success('已应用推荐标签')
+  ElMessage.success(t('aiCover.appliedRecommended'))
 }
 
 async function handleGenerate() {
@@ -547,13 +549,13 @@ async function handleGenerate() {
     await formRef.value.validate()
     const selectedSize = coverSizeOptions.find((o) => o.value === form.value.coverSize)
     if (!selectedSize) {
-      ElMessage.error('请选择有效的封面尺寸')
+      ElMessage.error(t('aiCover.invalidCoverSize'))
       return
     }
     const size = `${selectedSize.apiWidth}*${selectedSize.apiHeight}`
     const bookName = (props.bookName || '').trim()
     if (!bookName) {
-      ElMessage.error('请先填写书名')
+      ElMessage.error(t('aiCover.bookNameRequired'))
       return
     }
     // 构建完整提示词：强制要求封面上显示书名和笔名，再拼接用户填写的风格/元素描述
@@ -581,7 +583,7 @@ async function handleGenerate() {
     const fullPrompt = [backgroundPart, titlePart, authorPart].filter(Boolean).join('\n')
 
     generating.value = true
-    ElMessage.info('正在努力生图中，不要关闭弹框')
+    ElMessage.info(t('aiCover.generatingInfo'))
     const res = await generateAICover({
       prompt: fullPrompt,
       size,
@@ -592,12 +594,12 @@ async function handleGenerate() {
       const previewUrl = `file://${res.localPath}`
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
-      ElMessage.success('已生成，请在上方选择一张确认使用或继续生成')
+      ElMessage.success(t('aiCover.generatedSelectOrContinue'))
     } else {
-      ElMessage.error(res?.message || '生成封面失败')
+      ElMessage.error(res?.message || t('aiCover.generateFailed'))
     }
   } catch (error) {
-    if (error !== false) ElMessage.error(error?.message || '请检查表单输入')
+    if (error !== false) ElMessage.error(error?.message || t('aiCover.checkFormInput'))
   } finally {
     generating.value = false
   }
@@ -619,12 +621,12 @@ async function handleConfirmUse() {
     if (res?.success && res.localPath) {
       emit('cover-generated', { localPath: res.localPath })
       emit('update:modelValue', false)
-      ElMessage.success('已设为书籍封面，保存书籍后将写入书籍目录')
+      ElMessage.success(t('aiCover.confirmSuccess'))
     } else {
-      ElMessage.error(res?.message || '确认失败')
+      ElMessage.error(res?.message || t('aiCover.confirmFailed'))
     }
   } catch (error) {
-    ElMessage.error(error?.message || '确认失败')
+    ElMessage.error(error?.message || t('aiCover.confirmFailed'))
   }
 }
 </script>

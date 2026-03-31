@@ -10,6 +10,46 @@ import deepseekService from './services/deepseek.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
 import novelDownloader from './services/novelDownloader.js'
 const { autoUpdater } = pkg
+const MAIN_I18N_MESSAGES = {
+  'zh-CN': {
+    appTitle: '51码字',
+    imageFiles: '图片文件',
+    allFiles: '所有文件',
+    saveFile: '保存文件',
+    textFiles: '文本文件',
+    save: '保存',
+    updateUnsupportedInDev: '开发环境不支持更新检查',
+    updateCheckFailed: '检查更新失败',
+    updateDownloadUnsupportedInDev: '开发环境不支持更新下载',
+    updateDownloadFailed: '下载更新失败',
+    updateInstallUnsupportedInDev: '开发环境不支持更新安装',
+    updateInstallFailed: '安装更新失败'
+  },
+  'en-US': {
+    appTitle: '51Mazi',
+    imageFiles: 'Image Files',
+    allFiles: 'All Files',
+    saveFile: 'Save File',
+    textFiles: 'Text Files',
+    save: 'Save',
+    updateUnsupportedInDev: 'Update check is not supported in development mode',
+    updateCheckFailed: 'Failed to check for updates',
+    updateDownloadUnsupportedInDev: 'Update download is not supported in development mode',
+    updateDownloadFailed: 'Failed to download update',
+    updateInstallUnsupportedInDev: 'Update install is not supported in development mode',
+    updateInstallFailed: 'Failed to install update'
+  }
+}
+
+function getMainLocale() {
+  const locale = String(store?.get('config.locale') || 'zh-CN')
+  return locale.startsWith('en') ? 'en-US' : 'zh-CN'
+}
+
+function mt(key) {
+  const locale = getMainLocale()
+  return MAIN_I18N_MESSAGES[locale]?.[key] || MAIN_I18N_MESSAGES['zh-CN'][key] || key
+}
 
 // -------------------- Auto Update Feed URL (production) --------------------
 // 说明：
@@ -317,7 +357,7 @@ function createWindow() {
   })
 
   mainWindow = new BrowserWindow({
-    title: '51码字',
+    title: mt('appTitle'),
     ...mainWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
@@ -429,8 +469,8 @@ ipcMain.handle('select-image', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
-      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
-      { name: '所有文件', extensions: ['*'] }
+      { name: mt('imageFiles'), extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+      { name: mt('allFiles'), extensions: ['*'] }
     ]
   })
 
@@ -444,10 +484,10 @@ ipcMain.handle('select-image', async () => {
 // 选择保存文件路径
 ipcMain.handle('show-save-dialog', async (event, options) => {
   const result = await dialog.showSaveDialog({
-    title: options.title || '保存文件',
+    title: options.title || mt('saveFile'),
     defaultPath: options.defaultPath || '',
-    filters: options.filters || [{ name: '文本文件', extensions: ['txt'] }],
-    buttonLabel: options.buttonLabel || '保存'
+    filters: options.filters || [{ name: mt('textFiles'), extensions: ['txt'] }],
+    buttonLabel: options.buttonLabel || mt('save')
   })
 
   if (!result.canceled && result.filePath) {
@@ -765,7 +805,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
 
   // 新建窗口
   const editorWindow = new BrowserWindow({
-    title: `${name} - 51码字`,
+    title: `${name} - ${mt('appTitle')}`,
     ...editorWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
@@ -793,7 +833,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   })
   // 页面加载完成后，确保窗口标题正确显示书籍名称
   editorWindow.webContents.on('did-finish-load', () => {
-    editorWindow.setTitle(`${name} - 51码字`)
+    editorWindow.setTitle(`${name} - ${mt('appTitle')}`)
   })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     // 直接跳转到编辑页
@@ -2938,42 +2978,62 @@ ipcMain.handle('set-update-mode', async (_, mode) => {
 // 手动检查更新
 ipcMain.handle('check-for-update', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新检查' }
+    return { success: false, code: 'UPDATE_UNSUPPORTED_IN_DEV', message: mt('updateUnsupportedInDev') }
   }
   try {
     await autoUpdater.checkForUpdates()
     return { success: true }
   } catch (error) {
     console.error('检查更新失败:', error)
-    return { success: false, message: error.message || '检查更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_CHECK_FAILED',
+      message: error.message || mt('updateCheckFailed')
+    }
   }
 })
 
 // 下载更新
 ipcMain.handle('download-update', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新下载' }
+    return {
+      success: false,
+      code: 'UPDATE_DOWNLOAD_UNSUPPORTED_IN_DEV',
+      message: mt('updateDownloadUnsupportedInDev')
+    }
   }
   try {
     await autoUpdater.downloadUpdate()
     return { success: true }
   } catch (error) {
     console.error('下载更新失败:', error)
-    return { success: false, message: error.message || '下载更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_DOWNLOAD_FAILED',
+      message: error.message || mt('updateDownloadFailed')
+    }
   }
 })
 
 // 安装更新并重启应用
 ipcMain.handle('quit-and-install', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新安装' }
+    return {
+      success: false,
+      code: 'UPDATE_INSTALL_UNSUPPORTED_IN_DEV',
+      message: mt('updateInstallUnsupportedInDev')
+    }
   }
   try {
     autoUpdater.quitAndInstall(false, true)
     return { success: true }
   } catch (error) {
     console.error('安装更新失败:', error)
-    return { success: false, message: error.message || '安装更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_INSTALL_FAILED',
+      message: error.message || mt('updateInstallFailed')
+    }
   }
 })
 

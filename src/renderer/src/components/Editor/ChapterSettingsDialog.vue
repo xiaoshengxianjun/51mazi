@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     :model-value="visible"
-    title="正文设置"
+    :title="t('chapterSettings.title')"
     width="580px"
     center
     align-center
@@ -12,18 +12,18 @@
     <div class="settings-content">
       <!-- 编号格式设置 -->
       <div class="setting-section">
-        <h4>章节编号格式</h4>
+        <h4>{{ t('chapterSettings.chapterNumberFormat') }}</h4>
         <div class="format-options">
           <el-radio-group v-model="settings.chapterFormat">
-            <el-radio value="number">数字编号</el-radio>
-            <el-radio value="hanzi">汉字编号</el-radio>
+            <el-radio value="number">{{ t('chapterSettings.numberMode') }}</el-radio>
+            <el-radio value="hanzi">{{ t('chapterSettings.hanziMode') }}</el-radio>
           </el-radio-group>
         </div>
       </div>
 
       <!-- 后缀类型设置 -->
       <div class="setting-section">
-        <h4>后缀类型</h4>
+        <h4>{{ t('chapterSettings.suffixType') }}</h4>
         <div class="suffix-options">
           <el-radio-group v-model="settings.suffixType">
             <el-radio value="章">章</el-radio>
@@ -38,18 +38,18 @@
 
       <!-- 预览效果 -->
       <div class="setting-section">
-        <h4>预览效果</h4>
+        <h4>{{ t('chapterSettings.preview') }}</h4>
         <div class="preview-examples">
           <div class="preview-item">
-            <span class="label">第1个：</span>
+            <span class="label">{{ t('chapterSettings.preview1') }}</span>
             <span class="preview-text">{{ getPreviewText(1) }}</span>
           </div>
           <div class="preview-item">
-            <span class="label">第12个：</span>
+            <span class="label">{{ t('chapterSettings.preview12') }}</span>
             <span class="preview-text">{{ getPreviewText(12) }}</span>
           </div>
           <div class="preview-item">
-            <span class="label">第123个：</span>
+            <span class="label">{{ t('chapterSettings.preview123') }}</span>
             <span class="preview-text">{{ getPreviewText(123) }}</span>
           </div>
         </div>
@@ -58,7 +58,7 @@
       <!-- 警告提示 -->
       <div class="warning-section">
         <el-alert
-          title="注意：修改设置后，所有现有章节将被重命名"
+          :title="t('chapterSettings.warningRenameAll')"
           type="warning"
           :closable="false"
           show-icon
@@ -67,16 +67,16 @@
 
       <!-- 章节目标字数 -->
       <div class="setting-section">
-        <h4>章节目标字数</h4>
+        <h4>{{ t('chapterSettings.targetWordsTitle') }}</h4>
         <el-select
           v-model="settings.targetWords"
-          placeholder="选择章节目标字数"
+          :placeholder="t('chapterSettings.selectTargetWords')"
           class="target-select"
         >
           <el-option
             v-for="option in targetWordOptions"
             :key="option"
-            :label="`${option} 字`"
+            :label="t('chapterSettings.wordsLabel', { count: option })"
             :value="option"
           />
         </el-select>
@@ -85,11 +85,13 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
         <el-button type="warning" :loading="reformatLoading" @click="handleReformat">
-          重新格式化章节编号
+          {{ t('chapterSettings.reformatChapterNumber') }}
         </el-button>
-        <el-button type="primary" :loading="loading" @click="handleConfirm"> 确认修改 </el-button>
+        <el-button type="primary" :loading="loading" @click="handleConfirm">
+          {{ t('chapterSettings.confirmModify') }}
+        </el-button>
       </div>
     </template>
   </el-dialog>
@@ -98,6 +100,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   visible: {
@@ -118,6 +121,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:visible', 'settings-changed', 'reformat-requested'])
+const { t } = useI18n()
 
 // 设置状态
 const targetWordOptions = [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
@@ -210,11 +214,11 @@ async function handleConfirm() {
   try {
     // 确认对话框
     await ElMessageBox.confirm(
-      '确定要修改正文章节设置吗？这将应用到所有现有章节，此操作不可恢复！',
-      '确认修改',
+      t('chapterSettings.confirmModifyContent'),
+      t('chapterSettings.confirmModifyTitle'),
       {
-        confirmButtonText: '确定修改',
-        cancelButtonText: '取消',
+        confirmButtonText: t('chapterSettings.confirmModify'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
@@ -234,17 +238,17 @@ async function handleConfirm() {
     const result = await window.electron.updateChapterFormat(props.bookName, cleanSettings)
 
     if (result.success) {
-      ElMessage.success('正文章节设置修改成功')
+      ElMessage.success(t('chapterSettings.modifySuccess'))
       settings.value.targetWords = cleanSettings.targetWords
       emit('settings-changed', { ...settings.value })
       emit('update:visible', false)
     } else {
-      ElMessage.error(result.message || '修改失败')
+      ElMessage.error(result.message || t('chapterSettings.modifyFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('设置修改失败:', error)
-      ElMessage.error(`操作失败: ${error.message || '未知错误'}`)
+      ElMessage.error(t('chapterSettings.actionFailed', { reason: error.message || t('common.unknownError') }))
     }
   } finally {
     loading.value = false
@@ -256,13 +260,11 @@ async function handleReformat() {
   try {
     // 确认对话框
     await ElMessageBox.confirm(
-      '确定要重新格式化章节编号吗？\n\n' +
-        '这将按照文件顺序重新编号所有章节，保持章节内容不变。\n' +
-        '此操作不可恢复！',
-      '确认重新格式化',
+      t('chapterSettings.confirmReformatContent'),
+      t('chapterSettings.confirmReformatTitle'),
       {
-        confirmButtonText: '确定格式化',
-        cancelButtonText: '取消',
+        confirmButtonText: t('chapterSettings.confirmReformat'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
@@ -276,11 +278,11 @@ async function handleReformat() {
       chapterFormat: settings.value.chapterFormat
     })
 
-    ElMessage.success('章节编号重新格式化请求已发送')
+    ElMessage.success(t('chapterSettings.reformatRequested'))
   } catch (error) {
     if (error !== 'cancel') {
       console.error('重新格式化失败:', error)
-      ElMessage.error(`操作失败: ${error.message || '未知错误'}`)
+      ElMessage.error(t('chapterSettings.actionFailed', { reason: error.message || t('common.unknownError') }))
     }
   } finally {
     reformatLoading.value = false

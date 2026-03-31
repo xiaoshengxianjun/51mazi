@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool :title="organizationName || '组织架构编辑'">
+  <LayoutTool :title="organizationName || t('organizationDesign.titleFallback')">
     <template #headrAction>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
-        <span>保存</span>
+        <span>{{ t('common.save') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -31,7 +31,7 @@
           <div v-if="tooltipVisible" class="node-tooltip">
             <div class="tooltip-title">{{ hoveredNode?.text }}</div>
             <div class="tooltip-description">
-              {{ hoveredNode?.data?.description || '暂无描述' }}
+              {{ hoveredNode?.data?.description || t('organizationDesign.noDescription') }}
             </div>
           </div>
         </div>
@@ -47,10 +47,10 @@
     :close-on-click-modal="false"
   >
     <el-form label-width="80px">
-      <el-form-item label="节点名称">
+      <el-form-item :label="t('organizationDesign.nodeName')">
         <el-input v-model="currentForm.text" :placeholder="dialogConfig.namePlaceholder" />
       </el-form-item>
-      <el-form-item label="节点描述">
+      <el-form-item :label="t('organizationDesign.nodeDescription')">
         <el-input
           v-model="currentForm.description"
           type="textarea"
@@ -58,7 +58,7 @@
           :placeholder="dialogConfig.descPlaceholder"
         />
       </el-form-item>
-      <el-form-item label="节点颜色">
+      <el-form-item :label="t('organizationDesign.nodeColor')">
         <div class="color-picker-container">
           <el-color-picker v-model="currentForm.color" />
           <div class="color-presets">
@@ -81,15 +81,15 @@
             type="danger"
             @click="showDeleteConfirm"
           >
-            删除节点
+            {{ t('organizationDesign.deleteNode') }}
           </el-button>
           <el-button v-if="dialogConfig.showAddChild" type="success" @click="switchToAddChildMode">
-            添加子节点
+            {{ t('organizationDesign.addChildNode') }}
           </el-button>
         </div>
         <div class="dialog-footer-right">
-          <el-button @click="closeNodeDialog">取消</el-button>
-          <el-button type="primary" @click="confirmNodeAction">确定</el-button>
+          <el-button @click="closeNodeDialog">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="confirmNodeAction">{{ t('common.confirm') }}</el-button>
         </div>
       </div>
     </template>
@@ -98,7 +98,7 @@
   <!-- 删除确认弹框 -->
   <el-dialog
     v-model="deleteConfirmVisible"
-    title="确认删除"
+    :title="t('organizationDesign.deleteTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
@@ -106,15 +106,15 @@
       <el-icon class="warning-icon"><Warning /></el-icon>
       <div class="warning-text">
         <p>
-          确定要删除节点 <strong>"{{ selectedNode?.text }}"</strong> 吗？
+          {{ t('organizationDesign.deleteNodeConfirm', { name: selectedNode?.text || '' }) }}
         </p>
-        <p class="warning-detail">此操作将删除该节点及其所有子节点，且不可恢复。</p>
+        <p class="warning-detail">{{ t('organizationDesign.deleteWarningDetail') }}</p>
       </div>
     </div>
     <template #footer>
       <div class="dialog-footer delete-confirm-footer">
-        <el-button @click="deleteConfirmVisible = false">取消</el-button>
-        <el-button type="danger" @click="confirmDeleteNode">确认删除</el-button>
+        <el-button @click="deleteConfirmVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="confirmDeleteNode">{{ t('organizationDesign.confirmDelete') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -128,8 +128,10 @@ import { useRoute } from 'vue-router'
 import { Check, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 const bookName = route.query.name
 const organizationId = route.query.id
 
@@ -202,33 +204,33 @@ const dialogConfig = computed(() => {
   switch (dialogMode.value) {
     case 'edit':
       return {
-        title: '编辑节点信息',
-        namePlaceholder: '请输入节点名称',
-        descPlaceholder: '请输入节点描述',
+        title: t('organizationDesign.editNodeTitle'),
+        namePlaceholder: t('organizationDesign.nodeNamePlaceholder'),
+        descPlaceholder: t('organizationDesign.nodeDescriptionPlaceholder'),
         showDelete: true,
         showAddChild: true
       }
     case 'add':
       return {
-        title: '新增节点',
-        namePlaceholder: '请输入节点名称',
-        descPlaceholder: '请输入节点描述',
+        title: t('organizationDesign.addNodeTitle'),
+        namePlaceholder: t('organizationDesign.nodeNamePlaceholder'),
+        descPlaceholder: t('organizationDesign.nodeDescriptionPlaceholder'),
         showDelete: false,
         showAddChild: false
       }
     case 'addChild':
       return {
-        title: '添加子节点',
-        namePlaceholder: '请输入子节点名称',
-        descPlaceholder: '请输入子节点描述',
+        title: t('organizationDesign.addChildNodeTitle'),
+        namePlaceholder: t('organizationDesign.childNodeNamePlaceholder'),
+        descPlaceholder: t('organizationDesign.childNodeDescriptionPlaceholder'),
         showDelete: false,
         showAddChild: false
       }
     default:
       return {
-        title: '编辑节点信息',
-        namePlaceholder: '请输入节点名称',
-        descPlaceholder: '请输入节点描述',
+        title: t('organizationDesign.editNodeTitle'),
+        namePlaceholder: t('organizationDesign.nodeNamePlaceholder'),
+        descPlaceholder: t('organizationDesign.nodeDescriptionPlaceholder'),
         showDelete: true,
         showAddChild: true
       }
@@ -310,7 +312,7 @@ const handleNodeInfo = () => {
 // 确认节点操作（统一处理编辑、添加、添加子节点）
 const confirmNodeAction = () => {
   if (!currentForm.value.text.trim()) {
-    ElMessage.warning('请输入节点名称')
+    ElMessage.warning(t('organizationDesign.inputNodeName'))
     return
   }
 
@@ -363,7 +365,7 @@ const updateNode = () => {
   }
 
   refreshGraph()
-  ElMessage.success('节点更新成功')
+  ElMessage.success(t('organizationDesign.nodeUpdateSuccess'))
 }
 
 // 添加节点
@@ -396,7 +398,7 @@ const addNode = () => {
   }
 
   refreshGraph()
-  ElMessage.success('节点添加成功')
+  ElMessage.success(t('organizationDesign.nodeAddSuccess'))
 }
 
 // 添加子节点
@@ -429,7 +431,7 @@ const addChildNode = () => {
   organizationData.value.lines.push(newLine)
 
   refreshGraph()
-  ElMessage.success('子节点添加成功')
+  ElMessage.success(t('organizationDesign.childNodeAddSuccess'))
 }
 
 // 刷新图表数据
@@ -461,7 +463,7 @@ const confirmDeleteNode = () => {
   refreshGraph()
   deleteConfirmVisible.value = false
   closeNodeDialog()
-  ElMessage.success('节点删除成功')
+  ElMessage.success(t('organizationDesign.nodeDeleteSuccess'))
 }
 
 // 获取节点及其所有子节点的ID列表
@@ -492,11 +494,11 @@ const loadOrganizationData = async () => {
       organizationName.value = result.data.name || organizationId
     } else {
       console.error('组织架构数据加载失败:', result)
-      ElMessage.error('加载组织架构数据失败')
+      ElMessage.error(t('organizationDesign.loadFailed'))
     }
   } catch (error) {
     console.error('加载组织架构数据失败:', error)
-    ElMessage.error('加载组织架构数据失败')
+    ElMessage.error(t('organizationDesign.loadFailed'))
   }
 }
 
@@ -526,10 +528,10 @@ const handleSave = async () => {
       })
     }
 
-    ElMessage.success('保存成功')
+    ElMessage.success(t('organizationDesign.saveSuccess'))
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(t('organizationDesign.saveFailed'))
   } finally {
     saving.value = false
   }

@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool title="关系图列表">
+  <LayoutTool :title="t('relationshipList.title')">
     <template #headrAction>
       <el-button type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
-        <span>创建关系图</span>
+        <span>{{ t('relationshipList.create') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -28,38 +28,42 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="edit">编辑</el-dropdown-item>
-              <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              <el-dropdown-item command="edit">{{ t('common.edit') }}</el-dropdown-item>
+              <el-dropdown-item command="delete" divided>{{ t('common.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
-      <el-empty v-if="relationships.length === 0" :image-size="200" description="暂无关系图" />
+      <el-empty
+        v-if="relationships.length === 0"
+        :image-size="200"
+        :description="t('relationshipList.empty')"
+      />
     </template>
   </LayoutTool>
 
   <!-- 创建关系图弹框 -->
   <el-dialog
     v-model="showCreateDialog"
-    title="创建新关系图"
+    :title="t('relationshipList.createDialogTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
     <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="t('relationshipList.name')" prop="name">
         <el-input
           v-model="createForm.name"
           clearable
           maxlength="20"
-          placeholder="请输入关系图名称"
+          :placeholder="t('relationshipList.namePlaceholder')"
         />
       </el-form-item>
-      <el-form-item label="描述" prop="description">
+      <el-form-item :label="t('relationshipList.description')" prop="description">
         <el-input
           v-model="createForm.description"
           type="textarea"
           :rows="3"
-          placeholder="请输入关系图描述"
+          :placeholder="t('relationshipList.descriptionPlaceholder')"
           maxlength="200"
           show-word-limit
         />
@@ -67,9 +71,9 @@
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="creating" @click="handleCreateRelationship">
-          创建
+          {{ t('relationshipList.create') }}
         </el-button>
       </span>
     </template>
@@ -78,15 +82,17 @@
   <!-- 删除确认弹框 -->
   <el-dialog
     v-model="deleteDialogVisible"
-    title="确认删除"
+    :title="t('relationshipList.deleteTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
-    <span>确定要删除关系图 "{{ selectedRelationship?.name }}" 吗？此操作不可恢复。</span>
+    <span>
+      {{ t('relationshipList.deleteConfirm', { name: selectedRelationship?.name || '' }) }}
+    </span>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="deleteDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="confirmDelete">{{ t('relationshipList.deleteConfirmBtn') }}</el-button>
       </span>
     </template>
   </el-dialog>
@@ -99,10 +105,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
+const { t } = useI18n()
 
 const relationships = ref([])
 const showCreateDialog = ref(false)
@@ -119,10 +127,10 @@ const createForm = ref({
 
 const rules = {
   name: [
-    { required: true, message: '请输入关系图名称', trigger: 'blur' },
-    { min: 1, max: 20, message: '长度在 1 到 20 个字符', trigger: 'blur' }
+    { required: true, message: t('relationshipList.ruleNameRequired'), trigger: 'blur' },
+    { min: 1, max: 20, message: t('relationshipList.ruleNameLength'), trigger: 'blur' }
   ],
-  description: [{ max: 200, message: '描述长度不能超过 200 个字符', trigger: 'blur' }]
+  description: [{ max: 200, message: t('relationshipList.ruleDescLength'), trigger: 'blur' }]
 }
 
 // 加载关系图列表

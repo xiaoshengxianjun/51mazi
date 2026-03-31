@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="随机起名"
+    :title="t('randomName.title')"
     width="900px"
     :close-on-click-modal="false"
     @close="onClose"
@@ -17,43 +17,58 @@
       <div class="spec-panel">
         <el-form label-width="60px">
           <template v-if="showChineseOptions || showJapaneseOptions || showWesternOptions">
-            <el-form-item label="姓氏">
-              <el-input v-model="surname" placeholder="请输入或随机" style="width: 100%" />
+            <el-form-item :label="t('randomName.surname')">
+              <el-input
+                v-model="surname"
+                :placeholder="t('randomName.inputOrRandom')"
+                style="width: 100%"
+              />
               <div
                 style="margin-top: 8px; width: 100%; display: flex; justify-content: space-between"
               >
-                <el-button size="small" @click="randomSurname">随机姓氏</el-button>
+                <el-button size="small" @click="randomSurname">
+                  {{ t('randomName.randomSurname') }}
+                </el-button>
                 <el-button v-if="showChineseOptions" size="small" @click="randomCompoundSurname">
-                  随机复姓
+                  {{ t('randomName.randomCompoundSurname') }}
                 </el-button>
               </div>
             </el-form-item>
-            <el-form-item label="性别">
+            <el-form-item :label="t('randomName.gender')">
               <el-radio-group v-model="gender">
-                <el-radio value="男">男</el-radio>
-                <el-radio value="女">女</el-radio>
+                <el-radio value="男">{{ t('randomName.male') }}</el-radio>
+                <el-radio value="女">{{ t('randomName.female') }}</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item v-if="showChineseOptions" label="字数">
+            <el-form-item v-if="showChineseOptions" :label="t('randomName.nameLength')">
               <el-radio-group v-model="nameLength">
-                <el-radio :value="2">二字名</el-radio>
-                <el-radio :value="3">三字名</el-radio>
+                <el-radio :value="2">{{ t('randomName.twoChars') }}</el-radio>
+                <el-radio :value="3">{{ t('randomName.threeChars') }}</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item v-if="showChineseOptions && nameLength === 3" label="中间字">
+            <el-form-item
+              v-if="showChineseOptions && nameLength === 3"
+              :label="t('randomName.middleChar')"
+            >
               <el-input
                 v-model="middleChar"
                 maxlength="1"
-                placeholder="请输入中间一个字"
+                :placeholder="t('randomName.middleCharPlaceholder')"
                 style="width: 100%"
               />
             </el-form-item>
           </template>
           <template v-if="showCustomOptions">
-            <el-form-item label="后缀">
-              <el-input v-model="customSuffix" placeholder="请输入或随机" style="width: 100%" />
+            <el-form-item :label="t('randomName.suffix')">
+              <el-input
+                v-model="customSuffix"
+                :placeholder="t('randomName.inputOrRandom')"
+                style="width: 100%"
+              />
               <div style="margin-top: 8px; width: 100%">
-                <el-button size="small" @click="randomSuffix">随机后缀</el-button>
+                <el-button size="small" @click="randomSuffix">
+                  {{ t('randomName.randomSuffix') }}
+                </el-button>
               </div>
             </el-form-item>
           </template>
@@ -65,10 +80,10 @@
           :disabled="generating"
           @click="handleGenerateNames"
         >
-          {{ useAI ? 'AI 生成名字' : '生成名字' }}
+          {{ useAI ? t('randomName.generateWithAI') : t('randomName.generate') }}
         </el-button>
         <el-checkbox v-model="useAI" :disabled="generating">
-          使用 AI 生成（需要配置 API Key）
+          {{ t('randomName.useAI') }}
         </el-checkbox>
       </div>
       <!-- 右侧名字列表 -->
@@ -79,7 +94,7 @@
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false">关闭</el-button>
+      <el-button @click="visible = false">{{ t('common.close') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -87,6 +102,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   CHINESE_SURNAMES,
   CHINESE_COMPOUND_SURNAMES,
@@ -106,17 +122,18 @@ import {
   CORE_WORDS
 } from '../constants/config'
 import { generateNamesWithAI } from '@renderer/service/deepseek'
+const { t } = useI18n()
 
-const types = [
-  { label: '中国人名', value: 'cn' },
-  { label: '日本人名', value: 'jp' },
-  { label: '西方人名', value: 'en' },
-  { label: '各方势力', value: 'force' },
-  { label: '地名', value: 'place' },
-  { label: '秘籍', value: 'book' },
-  { label: '法宝', value: 'item' },
-  { label: '灵药', value: 'elixir' }
-]
+const types = computed(() => [
+  { label: t('randomName.types.cn'), value: 'cn' },
+  { label: t('randomName.types.jp'), value: 'jp' },
+  { label: t('randomName.types.en'), value: 'en' },
+  { label: t('randomName.types.force'), value: 'force' },
+  { label: t('randomName.types.place'), value: 'place' },
+  { label: t('randomName.types.book'), value: 'book' },
+  { label: t('randomName.types.item'), value: 'item' },
+  { label: t('randomName.types.elixir'), value: 'elixir' }
+])
 const type = ref('cn')
 const surname = ref('')
 const gender = ref('男')
@@ -222,14 +239,14 @@ async function generateNamesWithAIService() {
 
     if (result.success && result.names.length > 0) {
       names.value = result.names
-      ElMessage.success(`AI 生成了 ${result.names.length} 个名字`)
+      ElMessage.success(t('randomName.aiGeneratedCount', { count: result.names.length }))
     } else {
-      ElMessage.warning(result.message || 'AI 生成失败，使用本地生成')
+      ElMessage.warning(result.message || t('randomName.aiGenerateFallback'))
       generateNamesLocal() // 降级到本地生成
     }
   } catch (error) {
     console.error('AI 起名失败:', error)
-    ElMessage.error('AI 起名失败，使用本地生成')
+    ElMessage.error(t('randomName.aiGenerateErrorFallback'))
     generateNamesLocal() // 降级到本地生成
   } finally {
     generating.value = false
@@ -330,7 +347,7 @@ function generateNamesLocal() {
 
 function copyName(name) {
   navigator.clipboard.writeText(name)
-  ElMessage.success('已复制：' + name)
+  ElMessage.success(t('randomName.copied', { name }))
 }
 
 defineExpose({ open })

@@ -11,7 +11,7 @@
       <div class="target-selector">
         <el-dropdown trigger="click" size="small" @command="handleTargetSelect">
           <span class="dropdown-trigger" :class="{ 'is-disabled': isUpdating }">
-            目标{{ currentTargetWords }}字
+            {{ t('editorProgress.targetWords', { count: currentTargetWords }) }}
             <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
@@ -22,7 +22,7 @@
                 :command="option"
                 :disabled="isUpdating"
               >
-                <span>{{ option }} 字</span>
+                <span>{{ t('editorProgress.wordUnit', { count: option }) }}</span>
                 <el-icon v-if="option === currentTargetWords" class="check-icon">
                   <Check />
                 </el-icon>
@@ -40,6 +40,7 @@ import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, Check } from '@element-plus/icons-vue'
 import { useEditorStore } from '@renderer/stores/editor'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   currentWords: {
@@ -57,6 +58,7 @@ const props = defineProps({
 })
 
 const targetWordOptions = [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+const { t } = useI18n()
 
 const editorStore = useEditorStore()
 const isUpdating = ref(false)
@@ -113,13 +115,13 @@ async function handleTargetSelect(option) {
     if (bookName) {
       const result = await window.electron.setChapterTargetWords(bookName, numeric)
       if (!result?.success) {
-        throw new Error(result?.message || '设置失败')
+        throw new Error(result?.message || t('editorProgress.setFailed'))
       }
     }
   } catch (error) {
     const fallback = previousTargetWords.value ?? 2000
     editorStore.setChapterTargetWords(fallback)
-    ElMessage.error(error.message || '目标字数更新失败')
+    ElMessage.error(error.message || t('editorProgress.updateTargetFailed'))
   } finally {
     isUpdating.value = false
   }

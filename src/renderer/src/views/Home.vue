@@ -11,61 +11,61 @@
           <span class="menu-item-icon" aria-hidden="true">
             <Library v-bind="menuIconProps" />
           </span>
-          我的书架
+          {{ t('home.menu.bookshelf') }}
         </div>
         <div class="menu-item" @click="goToNovelDownload">
           <span class="menu-item-icon" aria-hidden="true">
             <Download v-bind="menuIconProps" />
           </span>
-          下载小说
+          {{ t('home.menu.downloadNovel') }}
         </div>
         <div class="menu-item" @click="showPasswordDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Lock v-bind="menuIconProps" />
           </span>
-          书架密码
+          {{ t('home.menu.bookshelfPassword') }}
         </div>
         <div class="menu-item" @click="showThemeDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Palette v-bind="menuIconProps" />
           </span>
-          主题设置
+          {{ t('home.menu.themeSetting') }}
         </div>
         <div class="menu-item" @click="showDirDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Settings v-bind="menuIconProps" />
           </span>
-          系统设置
+          {{ t('home.menu.systemSetting') }}
         </div>
         <div class="menu-item" @click="handleOpenAISettings">
           <span class="menu-item-icon" aria-hidden="true">
             <Sparkles v-bind="menuIconProps" />
           </span>
-          AI 设置
+          {{ t('home.menu.aiSetting') }}
         </div>
         <div class="menu-item" @click="goToUserGuide">
           <span class="menu-item-icon" aria-hidden="true">
             <BookOpenText v-bind="menuIconProps" />
           </span>
-          写作指南
+          {{ t('home.menu.writingGuide') }}
         </div>
         <div class="menu-item" @click="showHelpDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <CircleQuestionMark v-bind="menuIconProps" />
           </span>
-          帮助中心
+          {{ t('home.menu.helpCenter') }}
         </div>
         <div class="menu-item" @click="handleCheckUpdate">
           <span class="menu-item-icon" aria-hidden="true">
             <RefreshCw v-bind="menuIconProps" />
           </span>
-          检查更新
+          {{ t('home.menu.checkUpdate') }}
         </div>
         <div class="menu-item" @click="showSponsorDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Gift v-bind="menuIconProps" />
           </span>
-          赞助作者
+          {{ t('home.menu.sponsorAuthor') }}
         </div>
       </div>
 
@@ -84,7 +84,7 @@
     <!-- 系统设置弹窗 -->
     <el-dialog
       v-model="showDirDialog"
-      title="系统设置"
+      :title="t('home.systemSettings.title')"
       width="700px"
       align-center
       :close-on-click-modal="false"
@@ -92,34 +92,50 @@
       @opened="onSystemSettingsOpened"
     >
       <el-form label-width="100px">
-        <el-form-item label="书籍目录">
+        <el-form-item :label="t('home.systemSettings.booksDir')">
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="18">
-              <el-input v-model="bookDir" readonly placeholder="请选择目录" />
+              <el-input
+                v-model="bookDir"
+                readonly
+                :placeholder="t('home.systemSettings.selectDirPlaceholder')"
+              />
             </el-col>
             <el-col :span="6">
               <el-button type="primary" style="width: 100%" @click="handleChooseDir">
-                选择目录
+                {{ t('home.systemSettings.selectDir') }}
               </el-button>
             </el-col>
           </el-row>
         </el-form-item>
-        <el-form-item label="更新方式">
+        <el-form-item :label="t('home.systemSettings.updateMode')">
           <el-radio-group
             v-model="updateMode"
             class="update-mode-radios"
             @change="handleUpdateModeChange"
           >
-            <el-radio value="auto">自动更新</el-radio>
-            <el-radio value="manual">手动更新</el-radio>
+            <el-radio value="auto">{{ t('home.systemSettings.autoUpdate') }}</el-radio>
+            <el-radio value="manual">{{ t('home.systemSettings.manualUpdate') }}</el-radio>
           </el-radio-group>
           <div class="setting-desc">
-            选择「手动更新」后，将不再自动检查更新，可随时通过左侧菜单「检查更新」手动检查。
+            {{ t('home.systemSettings.updateModeDesc') }}
           </div>
+        </el-form-item>
+        <el-form-item :label="t('common.language')">
+          <el-select v-model="selectedLocale" style="width: 100%">
+            <el-option
+              v-for="item in localeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">确定</el-button>
+        <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">
+          {{ t('common.confirm') }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -188,13 +204,15 @@
       <div class="update-dialog-content">
         <div v-if="updateInfo">
           <p class="update-text">
-            <strong>新版本：{{ updateInfo.version }}</strong>
+            <strong>{{ t('home.update.newVersion', { version: updateInfo.version }) }}</strong>
           </p>
           <p v-if="updateInfo.releaseDate" class="update-text">
-            发布日期：{{ formatDate(updateInfo.releaseDate) }}
+            {{ t('home.update.releaseDate', { date: formatDate(updateInfo.releaseDate) }) }}
           </p>
           <div v-if="updateInfo.releaseNotes" class="update-notes">
-            <p><strong>更新内容：</strong></p>
+            <p>
+              <strong>{{ t('home.update.releaseNotes') }}</strong>
+            </p>
             <!-- eslint-disable-next-line vue/no-v-html -->
             <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
           </div>
@@ -204,26 +222,28 @@
             :percentage="downloadProgress"
             :status="downloadProgress === 100 ? 'success' : ''"
           />
-          <p class="progress-text">正在下载更新... {{ Math.round(downloadProgress) }}%</p>
+          <p class="progress-text">
+            {{ t('home.update.downloadingPercent', { percent: Math.round(downloadProgress) }) }}
+          </p>
         </div>
         <div v-if="isDownloaded" class="download-complete">
           <el-alert type="success" :closable="false">
             <template #title>
-              <span>更新已下载完成，点击"立即安装"重启应用以完成更新</span>
+              <span>{{ t('home.update.downloadCompleteHint') }}</span>
             </template>
           </el-alert>
         </div>
       </div>
       <template #footer>
         <el-button v-if="!isDownloading && !isDownloaded" @click="showUpdateDialog = false">
-          稍后提醒
+          {{ t('home.update.remindLater') }}
         </el-button>
         <el-button
           v-if="!isDownloading && !isDownloaded"
           type="primary"
           @click="handleDownloadUpdate"
         >
-          下载更新
+          {{ t('home.update.downloadUpdate') }}
         </el-button>
         <el-button
           v-if="isDownloaded"
@@ -231,7 +251,7 @@
           :loading="isInstalling"
           @click="handleInstallUpdate"
         >
-          立即安装
+          {{ t('home.update.installNow') }}
         </el-button>
       </template>
     </el-dialog>
@@ -246,13 +266,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
 import AISettings from '@renderer/components/AISettings.vue'
 import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
+import { useI18n } from 'vue-i18n'
+import { getCurrentLocale, setLocale } from '@renderer/i18n'
 import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
 import {
   BookOpenText,
@@ -271,10 +293,12 @@ import {
 const menuIconProps = { size: 20, strokeWidth: 2 }
 
 const router = useRouter()
+const { t } = useI18n()
 const showDirDialog = ref(false)
 const bookDir = ref('')
 /** 更新方式：auto 自动更新（默认） | manual 手动更新 */
 const updateMode = ref('auto')
+const selectedLocale = ref('zh-CN')
 const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
@@ -296,7 +320,11 @@ const isDownloaded = ref(false)
 const isInstalling = ref(false)
 const downloadProgress = ref(0)
 const currentVersion = ref('')
-const updateDialogTitle = ref('检查更新')
+const updateDialogTitle = ref('')
+const localeOptions = computed(() => [
+  { value: 'zh-CN', label: t('common.simplifiedChinese') },
+  { value: 'en-US', label: t('common.english') }
+])
 
 // 定时器 ID
 let sponsorDialogTimer = null
@@ -321,6 +349,8 @@ onMounted(async () => {
   if (savedUpdateMode === 'auto' || savedUpdateMode === 'manual') {
     updateMode.value = savedUpdateMode
   }
+  selectedLocale.value = getCurrentLocale()
+  updateDialogTitle.value = t('home.menu.checkUpdate')
   // 初始化主题
   await themeStore.initTheme()
   // 检查是否需要自动显示赞助弹框
@@ -504,6 +534,14 @@ async function handleChooseDir() {
 // 确认目录
 async function handleConfirmDir() {
   await window.electronStore.set('booksDir', bookDir.value)
+  const oldLocale = getCurrentLocale()
+  const nextLocale = setLocale(selectedLocale.value)
+  await window.electronStore?.set('config.locale', nextLocale)
+  if (oldLocale !== nextLocale) {
+    const languageLabel =
+      nextLocale === 'en-US' ? t('common.english') : t('common.simplifiedChinese')
+    ElMessage.success(t('common.switchLanguageSuccess', { language: languageLabel }))
+  }
   showDirDialog.value = false
 }
 
@@ -513,6 +551,7 @@ async function onSystemSettingsOpened() {
   if (saved === 'auto' || saved === 'manual') {
     updateMode.value = saved
   }
+  selectedLocale.value = getCurrentLocale()
 }
 
 // 用户切换更新方式时，通知主进程并持久化，自动更新逻辑会立即暂停或恢复
@@ -542,7 +581,7 @@ const getPreviewStyle = (themeKey) => {
 const handleThemeChange = (theme) => {
   themeStore.setTheme(theme)
   const themeName = themeStore.getThemeName(theme)
-  ElMessage.success(`已切换到${themeName}主题`)
+  ElMessage.success(t('home.theme.switchSuccess', { themeName }))
 }
 
 // 跳转到写作指南
@@ -570,14 +609,14 @@ async function getCurrentVersion() {
 function setupUpdateListeners() {
   // 正在检查更新
   window.addEventListener('update-checking', () => {
-    updateDialogTitle.value = '正在检查更新...'
+    updateDialogTitle.value = t('home.update.checking')
     showUpdateDialog.value = true
   })
 
   // 发现新版本
   window.addEventListener('update-available', (event) => {
     updateInfo.value = event.detail
-    updateDialogTitle.value = '发现新版本'
+    updateDialogTitle.value = t('home.update.foundNewVersion')
     isDownloading.value = false
     isDownloaded.value = false
     downloadProgress.value = 0
@@ -586,7 +625,7 @@ function setupUpdateListeners() {
 
   // 当前已是最新版本
   window.addEventListener('update-not-available', () => {
-    ElMessage.success('当前已是最新版本')
+    ElMessage.success(t('home.update.upToDate'))
     if (showUpdateDialog.value) {
       showUpdateDialog.value = false
     }
@@ -594,7 +633,7 @@ function setupUpdateListeners() {
 
   // 更新检查出错
   window.addEventListener('update-error', (event) => {
-    ElMessage.error(`更新检查失败: ${event.detail.message}`)
+    ElMessage.error(t('home.update.checkFailedWithReason', { reason: event.detail.message }))
     if (showUpdateDialog.value) {
       showUpdateDialog.value = false
     }
@@ -611,23 +650,23 @@ function setupUpdateListeners() {
     isDownloading.value = false
     isDownloaded.value = true
     downloadProgress.value = 100
-    ElMessage.success('更新下载完成')
+    ElMessage.success(t('home.update.downloadCompleted'))
   })
 }
 
 // 手动检查更新
 async function handleCheckUpdate() {
   try {
-    updateDialogTitle.value = '正在检查更新...'
+    updateDialogTitle.value = t('home.update.checking')
     showUpdateDialog.value = true
     const result = await window.electron?.checkForUpdate()
     if (!result?.success) {
-      ElMessage.warning(result?.message || '检查更新失败')
+      ElMessage.warning(result?.message || t('home.update.checkFailed'))
       showUpdateDialog.value = false
     }
   } catch (error) {
     console.error('检查更新失败:', error)
-    ElMessage.error('检查更新失败')
+    ElMessage.error(t('home.update.checkFailed'))
     showUpdateDialog.value = false
   }
 }
@@ -639,12 +678,12 @@ async function handleDownloadUpdate() {
     downloadProgress.value = 0
     const result = await window.electron?.downloadUpdate()
     if (!result?.success) {
-      ElMessage.error(result?.message || '下载更新失败')
+      ElMessage.error(result?.message || t('home.update.downloadFailed'))
       isDownloading.value = false
     }
   } catch (error) {
     console.error('下载更新失败:', error)
-    ElMessage.error('下载更新失败')
+    ElMessage.error(t('home.update.downloadFailed'))
     isDownloading.value = false
   }
 }
@@ -655,12 +694,12 @@ async function handleInstallUpdate() {
     isInstalling.value = true
     const result = await window.electron?.quitAndInstall()
     if (!result?.success) {
-      ElMessage.error(result?.message || '安装更新失败')
+      ElMessage.error(result?.message || t('home.update.installFailed'))
       isInstalling.value = false
     }
   } catch (error) {
     console.error('安装更新失败:', error)
-    ElMessage.error('安装更新失败')
+    ElMessage.error(t('home.update.installFailed'))
     isInstalling.value = false
   }
 }
@@ -670,7 +709,7 @@ function formatDate(dateString) {
   if (!dateString) return ''
   try {
     const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(getCurrentLocale(), {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
