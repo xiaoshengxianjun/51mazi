@@ -1887,8 +1887,12 @@ watch(
 
 /* AI 润色按钮：默认半透明，悬停不透明 */
 .ai-polish-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 132px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
@@ -1897,8 +1901,12 @@ watch(
 }
 
 .ai-continue-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 132px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
@@ -1907,15 +1915,18 @@ watch(
 }
 
 .ai-scene-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 152px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
     opacity: 1;
   }
 }
-
 .continue-words-tip {
   color: var(--el-text-color-regular);
   font-size: 12px;

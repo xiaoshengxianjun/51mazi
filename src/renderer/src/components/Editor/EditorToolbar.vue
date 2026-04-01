@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-toolbar">
+  <div class="editor-toolbar" :class="{ 'is-en': locale === 'en-US' }">
     <div class="toolbar-title">{{ t('editorToolbar.title') }}</div>
     <div class="toolbar-buttons">
       <el-button class="tool-btn" @click="handleOutlineManager">
@@ -63,7 +63,7 @@ const bannedWordsRef = ref(null)
 const outlineManagerRef = ref(null)
 const router = useRouter()
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 工具栏功能处理函数
 const handleRandomName = () => {
@@ -147,6 +147,11 @@ const handleBannedWords = () => {
 
     .tool-btn {
       justify-content: flex-start;
+      align-items: flex-start;
+      width: 100%;
+      height: auto;
+      min-height: 40px;
+      white-space: normal;
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
       color: var(--text-base);
@@ -157,7 +162,17 @@ const handleBannedWords = () => {
       }
       span {
         margin-left: 6px;
+        line-height: 1.2;
+        word-break: break-word;
+        white-space: normal;
+        flex: 1;
       }
+    }
+  }
+
+  &.is-en {
+    .toolbar-buttons .tool-btn span {
+      font-size: 13px;
     }
   }
 }
