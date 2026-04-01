@@ -11,18 +11,19 @@
             @mousedown="handleResourceMouseDown(resource, $event)"
           >
             <SvgIcon :name="resource.icon" :size="32" />
-            <span class="resource-name">{{ resource.name }}</span>
+            <span class="resource-name">{{ resource.label }}</span>
           </div>
         </div>
-        <div class="resource-tip">可拖拽任意资源图标到画布中</div>
+        <div class="resource-tip">{{ t('resourceToolPanel.tip') }}</div>
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import SvgIcon from '../SvgIcon.vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   visible: {
@@ -32,22 +33,23 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['resource-select', 'resource-mousedown', 'update:visible'])
+const { t } = useI18n()
 
 const panelRef = ref(null)
 
 // 资源数据定义在组件内部，使用图标资源
-const resources = [
-  { name: '宫殿', icon: 'gongdian' },
-  { name: '村庄', icon: 'cunzhuang' },
-  { name: '房屋', icon: 'fangwu' },
-  { name: '森林', icon: 'senlin' },
-  { name: '山', icon: 'shanmai' },
-  { name: '城市', icon: 'chengshi' },
-  { name: '战场', icon: 'zhanchang' },
-  { name: '城堡', icon: 'chengbao' },
-  { name: '湖泊', icon: 'hubo' },
-  { name: '沙漠', icon: 'shamo' }
-]
+const resources = computed(() => [
+  { label: t('resourceToolPanel.items.palace'), icon: 'gongdian' },
+  { label: t('resourceToolPanel.items.village'), icon: 'cunzhuang' },
+  { label: t('resourceToolPanel.items.house'), icon: 'fangwu' },
+  { label: t('resourceToolPanel.items.forest'), icon: 'senlin' },
+  { label: t('resourceToolPanel.items.mountain'), icon: 'shanmai' },
+  { label: t('resourceToolPanel.items.city'), icon: 'chengshi' },
+  { label: t('resourceToolPanel.items.battlefield'), icon: 'zhanchang' },
+  { label: t('resourceToolPanel.items.castle'), icon: 'chengbao' },
+  { label: t('resourceToolPanel.items.lake'), icon: 'hubo' },
+  { label: t('resourceToolPanel.items.desert'), icon: 'shamo' }
+])
 
 // 点击外部关闭弹出层
 function handleClickOutside(event) {

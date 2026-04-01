@@ -23,12 +23,12 @@
 
     <!-- 撤销和回退按钮 -->
     <div class="action-buttons">
-      <el-tooltip content="撤销 (Ctrl+Z)" placement="top">
+      <el-tooltip :content="t('mapZoom.undo')" placement="top">
         <div :class="['action-btn', { disabled: !canUndo }]" @click="handleUndo">
           <SvgIcon name="undo" :size="14" />
         </div>
       </el-tooltip>
-      <el-tooltip content="回退 (Ctrl+Shift+Z)" placement="top">
+      <el-tooltip :content="t('mapZoom.redo')" placement="top">
         <div :class="['action-btn', { disabled: !canRedo }]" @click="handleRedo">
           <SvgIcon name="redo" :size="14" />
         </div>
@@ -40,6 +40,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Minus, Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   scale: {
@@ -65,6 +66,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['zoom-in', 'zoom-out', 'reset-zoom', 'undo', 'redo'])
+const { t } = useI18n()
 
 // 计算缩放百分比
 const zoomPercentage = computed(() => {

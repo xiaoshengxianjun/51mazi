@@ -7,6 +7,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
+import { useI18n } from 'vue-i18n'
 
 defineProps({
   height: {
@@ -17,6 +18,7 @@ defineProps({
 
 const chartRef = ref(null)
 let chart = null
+const { t } = useI18n()
 
 // 获取最近30天的日期数组
 function getLast30Days() {
@@ -39,7 +41,7 @@ function initChart() {
   // 设置图表配置
   const option = {
     title: {
-      text: '最近30天净增字数统计',
+      text: t('wordCountChart.title'),
       left: 'center',
       textStyle: {
         // color: 'var(--text-base)',
@@ -55,7 +57,7 @@ function initChart() {
         const data = params[0]
         const value = data.value
         const sign = value >= 0 ? '+' : ''
-        return `${data.name}<br/>${data.seriesName}：${sign}${value}字`
+        return `${data.name}<br/>${data.seriesName}: ${sign}${value}${t('wordCountChart.wordUnit')}`
       }
     },
     grid: {
@@ -74,14 +76,14 @@ function initChart() {
     },
     yAxis: {
       type: 'value',
-      name: '字数',
+      name: t('wordCountChart.axisName'),
       axisLabel: {
         // color: 'var(--text-base)'
       }
     },
     series: [
       {
-        name: '日码字数',
+        name: t('wordCountChart.dailyWords'),
         type: 'bar',
         data: new Array(30).fill(0),
         itemStyle: {
@@ -120,14 +122,14 @@ async function updateChartData() {
       chart.setOption({
         series: [
           {
-            name: '日净增字数',
+            name: t('wordCountChart.dailyNetWords'),
             data: netWordsData
           }
         ]
       })
     }
   } catch (error) {
-    console.error('获取码字统计数据失败:', error)
+    console.error(t('wordCountChart.fetchFailedLog'), error)
   }
 }
 

@@ -140,7 +140,7 @@
     </el-dialog>
 
     <!-- 主题设置弹框 -->
-    <el-dialog v-model="showThemeDialog" title="主题设置" width="600">
+    <el-dialog v-model="showThemeDialog" :title="t('home.theme.title')" width="600">
       <div class="theme-selector">
         <div
           v-for="theme in availableThemes"
@@ -161,35 +161,49 @@
     </el-dialog>
 
     <!-- 帮助中心弹框 -->
-    <el-dialog v-model="showHelpDialog" title="帮助中心" width="420px" align-center>
+    <el-dialog v-model="showHelpDialog" :title="t('home.help.title')" width="420px" align-center>
       <div class="dialog-content">
-        <img :src="qqGroupQrcode" alt="QQ 群二维码" class="dialog-image" />
-        <p class="dialog-text">QQ 交流群：777690109</p>
+        <img :src="qqGroupQrcode" :alt="t('home.help.qqAlt')" class="dialog-image" />
+        <p class="dialog-text">{{ t('home.help.qqGroup') }}：777690109</p>
         <p class="dialog-text">
-          问题反馈 / 商务合作邮箱：
+          {{ t('home.help.contactEmail') }}：
           <a class="dialog-link" :href="`mailto:${contactEmail}`">{{ contactEmail }}</a>
         </p>
       </div>
     </el-dialog>
 
     <!-- 赞助作者弹框 -->
-    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="520px" align-center center>
+    <el-dialog
+      v-model="showSponsorDialog"
+      :title="t('home.sponsor.title')"
+      width="520px"
+      align-center
+      center
+    >
       <div class="dialog-content">
-        <p class="dialog-text">感谢每一位支持本项目的朋友！可通过以下方式打赏支持：</p>
+        <p class="dialog-text">{{ t('home.sponsor.thanks') }}</p>
         <div class="sponsor-qrcodes">
           <div class="sponsor-qrcode-item">
-            <img :src="wechatPayQrcode" alt="微信收款码" class="dialog-image" />
-            <span class="sponsor-label">微信收款码</span>
+            <img
+              :src="wechatPayQrcode"
+              :alt="t('home.sponsor.wechatPayAlt')"
+              class="dialog-image"
+            />
+            <span class="sponsor-label">{{ t('home.sponsor.wechatPayLabel') }}</span>
           </div>
           <div class="sponsor-qrcode-item">
-            <img :src="alipayQrcode" alt="支付宝收款码" class="dialog-image" />
-            <span class="sponsor-label">支付宝收款码</span>
+            <img :src="alipayQrcode" :alt="t('home.sponsor.alipayAlt')" class="dialog-image" />
+            <span class="sponsor-label">{{ t('home.sponsor.alipayLabel') }}</span>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button type="primary" @click="handleConsiderClick">考虑一下</el-button>
-        <el-button type="primary" @click="handleRewardClick">朕已恩赏</el-button>
+        <el-button type="primary" @click="handleConsiderClick">
+          {{ t('home.sponsor.consider') }}
+        </el-button>
+        <el-button type="primary" @click="handleRewardClick">
+          {{ t('home.sponsor.rewarded') }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -259,7 +273,11 @@
     <!-- 感谢gif图片遮罩层 -->
     <Transition name="fade">
       <div v-if="showRewardGif" class="reward-gif-overlay" @click="showRewardGif = false">
-        <img :src="xiezhulongenGif" alt="谢主隆恩" class="reward-gif-image" />
+        <img
+          :src="xiezhulongenGif"
+          :alt="t('home.sponsor.rewardedGifAlt')"
+          class="reward-gif-image"
+        />
       </div>
     </Transition>
   </div>
@@ -787,7 +805,7 @@ function formatReleaseNotes(notes) {
 }
 
 .menu-item {
-  padding: 12px 20px;
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -802,6 +820,7 @@ function formatReleaseNotes(notes) {
   box-shadow: var(--neu-shadow-raised, 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff);
   border-radius: 10px;
   margin: 0px 10px 10px;
+  font-size: 14px;
 }
 
 .menu-item-icon {

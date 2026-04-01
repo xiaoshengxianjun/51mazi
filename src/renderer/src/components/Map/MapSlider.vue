@@ -27,7 +27,7 @@
     <Transition name="preview-fade">
       <div v-if="showPreview" class="slider-preview">
         <div class="preview-info">
-          <span class="preview-info-label">{{ label || '大小' }}</span>
+          <span class="preview-info-label">{{ label || t('mapSlider.size') }}</span>
           <span class="preview-info-value">{{ displayValue }}</span>
         </div>
         <div class="preview-main">
@@ -40,6 +40,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   modelValue: {
@@ -74,6 +75,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])
+const { t } = useI18n()
 
 const dragging = ref(false)
 const trackRef = ref(null)

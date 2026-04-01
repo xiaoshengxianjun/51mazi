@@ -323,7 +323,25 @@
       "sponsorAuthor": "赞助作者"
     },
     "theme": {
+      "title": "主题设置",
       "switchSuccess": "已切换到{themeName}主题"
+    },
+    "help": {
+      "title": "帮助中心",
+      "qqAlt": "QQ 群二维码",
+      "qqGroup": "QQ 交流群",
+      "contactEmail": "问题反馈 / 商务合作邮箱"
+    },
+    "sponsor": {
+      "title": "赞助作者",
+      "thanks": "感谢每一位支持本项目的朋友！可通过以下方式打赏支持：",
+      "wechatPayAlt": "微信收款码",
+      "wechatPayLabel": "微信收款码",
+      "alipayAlt": "支付宝收款码",
+      "alipayLabel": "支付宝收款码",
+      "consider": "考虑一下",
+      "rewarded": "朕已恩赏",
+      "rewardedGifAlt": "谢主隆恩"
     },
     "systemSettings": {
       "title": "系统设置",
@@ -863,6 +881,23 @@
       "cyberpunk": { "label": "赛博朋克", "desc": "霓虹科幻" },
       "pixelArt": { "label": "像素艺术", "desc": "复古像素" }
     },
+    "stylePrompts": {
+      "anime": "日本动画风格，二次元，精致插画",
+      "ghibli": "吉卜力动画风格，手绘感，柔和色彩，治愈系",
+      "retroAnime": "复古日本动画风格，赛璐璐上色，怀旧",
+      "photorealistic": "写实摄影风格，自然光影，电影感",
+      "render3d": "3D 渲染，CG 插画，立体感",
+      "pixar": "欧美3D动画风格，皮克斯风格，卡通渲染",
+      "guofeng": "国风插画，古风场景，古典意境",
+      "watercolor": "水彩插画，柔和晕染",
+      "inkWash": "中国水墨画风格，留白，意境",
+      "oilPainting": "厚涂插画，油画质感，笔触明显",
+      "cyberpunk": "赛博朋克风格，霓虹灯，科幻",
+      "pixelArt": "像素艺术，复古游戏风格"
+    },
+    "promptSquareFrame": "方形画幅场景插图，环境氛围明确，构图完整",
+    "promptLandscapeFrame": "横向宽画幅场景插图，环境氛围明确，构图完整",
+    "promptScenePrefix": "。场景与内容：",
     "rulePromptRequired": "请输入画面描述",
     "rulePromptMin": "描述至少 5 个字符",
     "excerptEmpty": "节选为空",
@@ -913,6 +948,25 @@
     }
   },
   "aiCharacter": {
+    "drawerTitle": "AI 生成人物图",
+    "subjectLabel": "当前人物",
+    "promptIntro": "竖版全身人物立绘，清晰完整的人物",
+    "promptDetailPrefix": "人物形象：",
+    "promptPlaceholder": "描述人物外貌、气质、穿着、表情等，用于生成竖版全身参考图。可结合「形象介绍」填写，支持中英文，最多 500 字。",
+    "posePlaceholder": "可选：人物姿态/构图",
+    "outputTip": "输出尺寸：720×1280 竖版全身参考图",
+    "generatedImageTypeName": "人物图",
+    "generateButtonText": "生成人物图",
+    "regenerateButtonText": "再生成一张",
+    "generatingHint": "正在生成图片中，请勿关闭",
+    "infoGeneratingMessage": "正在生成图片，请勿关闭",
+    "validatePromptMessage": "请输入形象描述",
+    "confirmSuccessMessage": "已加入列表，保存档案后生效",
+    "generateFailTypeName": "图片",
+    "generatedTitle": "已生成的{typeName}（共 {count} 张，点击选择一张后确认使用）",
+    "generatedAlt": "{typeName} {index}",
+    "promptDetailLead": "。{prefix}",
+    "promptPoseLead": "，{pose}",
     "style": "图片风格",
     "selectStyle": "请选择画风",
     "prompt": "形象描述",
@@ -925,6 +979,8 @@
     "bookNameEmpty": "书籍名称为空，无法生成",
     "generatedSelectOrContinue": "已生成，请选择一张确认使用或继续生成",
     "confirmFailed": "确认失败",
+    "generateByTypeFailed": "生成{type}失败",
+    "checkFormInput": "请检查表单输入",
     "poses": {
       "standing": "站姿全身",
       "halfBody": "竖版半身特写",
@@ -945,6 +1001,20 @@
       "oilPainting": { "label": "厚涂插画", "desc": "油画质感、笔触" },
       "cyberpunk": { "label": "赛博朋克", "desc": "科幻、霓虹" },
       "pixelArt": { "label": "像素艺术", "desc": "复古游戏风" }
+    },
+    "stylePrompts": {
+      "anime": "日本动画风格，二次元，精致插画",
+      "ghibli": "吉卜力动画风格，手绘感，柔和色彩，治愈系",
+      "retroAnime": "复古日本动画风格，赛璐璐上色，怀旧",
+      "photorealistic": "写实摄影风格，真人，自然光影",
+      "render3d": "3D 渲染，CG 插画，立体感",
+      "pixar": "欧美3D动画风格，皮克斯风格，卡通渲染",
+      "guofeng": "国风插画，古风，古典服饰",
+      "watercolor": "水彩插画，柔和晕染",
+      "inkWash": "中国水墨画风格，留白，意境",
+      "oilPainting": "厚涂插画，油画质感，笔触明显",
+      "cyberpunk": "赛博朋克风格，霓虹灯，科幻",
+      "pixelArt": "像素艺术，复古游戏风格"
     }
   },
   "aiCover": {
@@ -980,7 +1050,34 @@
     "generateFailed": "生成封面失败",
     "checkFormInput": "请检查表单输入",
     "confirmSuccess": "已设为书籍封面，保存书籍后将写入书籍目录",
-    "confirmFailed": "确认失败"
+    "confirmFailed": "确认失败",
+    "sizes": {
+      "s600x800": "600×800 像素",
+      "s200x280": "200×280 像素",
+      "s400x560": "400×560 像素",
+      "s300x400": "300×400 像素",
+      "s240x320": "240×320 像素"
+    },
+    "platforms": {
+      "mainstream": "多数主流平台（起点、番茄、创世、云起等）",
+      "jjwxc": "晋江文学城作品封面",
+      "heiyan": "黑岩小说",
+      "zhulang": "逐浪小说",
+      "zongheng": "纵横中文网"
+    },
+    "categories": {
+      "style": "风格",
+      "element": "元素",
+      "color": "色彩",
+      "composition": "构图",
+      "atmosphere": "氛围"
+    },
+    "promptBackgroundWithValue": "封面背景/画面要求：{value}",
+    "promptBackgroundDefault": "封面背景/画面要求：小说封面风格，美观大气，主体明确，画面干净。",
+    "promptTitleBase": "封面上必须清晰、醒目地显示书名《{bookName}》，书名字形端正、可读性强，不要错别字，不要变形，不要额外添加无关文字。",
+    "promptTitleWithLayout": "{base} 书名排版要求：{layout}",
+    "promptAuthorBase": "封面上必须清晰显示作者笔名：{penName}，笔名字形端正、可读性强。",
+    "promptAuthorWithLayout": "{base} 笔名排版要求：{layout}"
   },
   "outlineManager": {
     "title": "大纲管理",
@@ -1078,5 +1175,158 @@
   "encourageToast": {
     "title": "给正在写作的你",
     "closeAriaLabel": "关闭提示"
+  },
+  "radialMenu": {
+    "rootCannotDelete": "根节点不能删除"
+  },
+  "mapToolbar": {
+    "move": "移动 (H)",
+    "select": "选框 (V)",
+    "background": "背景 (G)",
+    "pencil": "画笔 (P)",
+    "eraser": "橡皮擦 (E)",
+    "shape": "形状 (S)",
+    "bucket": "油漆桶 (B)",
+    "text": "文字 (T)",
+    "resource": "资源 (R)",
+    "clearCanvas": "清空画板"
+  },
+  "mapZoom": {
+    "undo": "撤销 (Ctrl+Z)",
+    "redo": "回退 (Ctrl+Shift+Z)"
+  },
+  "mapSlider": {
+    "size": "大小"
+  },
+  "wordCountChart": {
+    "title": "最近30天净增字数统计",
+    "axisName": "字数",
+    "dailyWords": "日码字数",
+    "dailyNetWords": "日净增字数",
+    "wordUnit": "字",
+    "fetchFailedLog": "获取码字统计数据失败:"
+  },
+  "noteChapter": {
+    "notes": "笔记",
+    "chapters": "正文",
+    "createNotebook": "创建笔记本",
+    "createVolume": "创建卷",
+    "sortVolumes": "卷排序",
+    "chapterSettings": "正文设置",
+    "noNotes": "暂无笔记",
+    "noChapters": "暂无章节",
+    "readNoteFailed": "读取笔记失败",
+    "readChapterFailed": "读取章节失败",
+    "createVolumeSuccess": "创建卷成功",
+    "createVolumeFailed": "创建卷失败",
+    "createChapterSuccess": "创建章节成功",
+    "createChapterFailed": "创建章节失败",
+    "loadChaptersFailed": "加载章节失败",
+    "editSuccess": "编辑成功",
+    "editFailed": "编辑失败",
+    "deleteConfirmTitle": "删除确认",
+    "deleteChapterConfirmMessage": "确定要删除{type}吗？此操作不可恢复！",
+    "volume": "卷",
+    "chapter": "章节",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "createNotebookSuccess": "创建笔记本\"{name}\"成功",
+    "createNotebookFailed": "创建笔记本失败",
+    "createNoteSuccess": "创建笔记成功",
+    "createNoteFailed": "创建笔记失败",
+    "notebookNameExists": "笔记本名已存在",
+    "renameSuccess": "重命名成功",
+    "renameFailed": "重命名失败",
+    "notebook": "笔记本",
+    "note": "笔记",
+    "defaultNotebookName": "大纲",
+    "deleteNoteConfirmMessage": "确定要删除{type}\"{name}\"吗？此操作不可恢复！",
+    "loadBookDataFailed": "加载书籍数据失败",
+    "reformatFailed": "重新格式化失败",
+    "noVolumeToReformat": "没有找到可格式化的卷"
+  },
+  "noteEditorContent": {
+    "dragHandleTitle": "拖动以移动该段落"
+  },
+  "layoutTool": {
+    "back": "返回"
+  },
+  "bookForm": {
+    "newBook": "新建书籍",
+    "editBook": "编辑书籍",
+    "create": "创建",
+    "name": "书名",
+    "namePlaceholder": "请输入书籍名称（最多15个字符）",
+    "type": "类型",
+    "typePlaceholder": "先选大类，再选细类",
+    "targetWords": "目标字数",
+    "targetWordsPlaceholder": "请输入目标字数",
+    "intro": "简介",
+    "introPlaceholder": "请输入简介",
+    "password": "密码",
+    "passwordPlaceholder": "请输入4-8位数字或字母组合（可选）",
+    "confirmPassword": "确认密码",
+    "confirmPasswordPlaceholder": "请再次输入密码",
+    "coverColor": "封面颜色",
+    "coverImage": "封面图片",
+    "coverPreview": "封面预览",
+    "selectCoverImage": "选择封面图片",
+    "aiGenerateCover": "AI生成封面",
+    "fillNameAndTypeFirst": "请先填写书名和类型"
+  },
+  "bookshelf": {
+    "newBook": "新建书籍",
+    "passwordVerify": "密码验证",
+    "passwordPlaceholder": "请输入书籍密码",
+    "noBooks": "暂无书籍",
+    "ruleNameRequired": "请输入书籍名称",
+    "ruleNameMax": "书名不能超过15个字符",
+    "ruleTypeRequired": "请选择类型",
+    "ruleTargetRequired": "请输入目标字数",
+    "ruleIntroRequired": "请输入简介",
+    "rulePasswordFormat": "密码必须是4-8位数字或字母组合",
+    "rulePasswordNotMatch": "两次输入的密码不一致",
+    "rulePasswordRequired": "请输入密码",
+    "deleteConfirmTitle": "删除确认",
+    "deleteConfirmMessage": "确定要删除《{name}》吗？此操作不可恢复！",
+    "deleteSuccess": "删除成功",
+    "deleteFailedNotFound": "删除失败，书籍不存在或已被删除",
+    "deleteFailedRetry": "删除失败，请重试",
+    "passwordWrong": "密码错误，请重新输入",
+    "duplicateBookName": "已存在同名书籍，不能重复创建！",
+    "editFailed": "编辑失败",
+    "editSuccess": "编辑成功",
+    "createSuccess": "创建成功",
+    "selectImageFailed": "选择图片失败",
+    "color": {
+      "deepBlue": "深蓝",
+      "deepGreen": "深绿",
+      "deepRed": "深红",
+      "deepPurple": "深紫",
+      "deepBrown": "深棕",
+      "deepGray": "深灰",
+      "inkGreen": "墨绿",
+      "navy": "藏青"
+    }
+  },
+  "book": {
+    "wordCount": "字数：{count}",
+    "updatedAt": "更新：{time}",
+    "noUpdate": "暂无更新"
+  },
+  "resourceToolPanel": {
+    "tip": "可拖拽任意资源图标到画布中",
+    "items": {
+      "palace": "宫殿",
+      "village": "村庄",
+      "house": "房屋",
+      "forest": "森林",
+      "mountain": "山",
+      "city": "城市",
+      "battlefield": "战场",
+      "castle": "城堡",
+      "lake": "湖泊",
+      "desert": "沙漠"
+    }
   }
 }

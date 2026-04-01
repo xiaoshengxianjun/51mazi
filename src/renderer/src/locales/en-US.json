@@ -323,7 +323,25 @@
       "sponsorAuthor": "Sponsor Author"
     },
     "theme": {
+      "title": "Theme Settings",
       "switchSuccess": "Switched to {themeName} theme"
+    },
+    "help": {
+      "title": "Help Center",
+      "qqAlt": "QQ group QR code",
+      "qqGroup": "QQ Group",
+      "contactEmail": "Issue feedback / business cooperation"
+    },
+    "sponsor": {
+      "title": "Sponsor Author",
+      "thanks": "Thank you for supporting this project! You can sponsor via:",
+      "wechatPayAlt": "WeChat payment QR code",
+      "wechatPayLabel": "WeChat Pay",
+      "alipayAlt": "Alipay QR code",
+      "alipayLabel": "Alipay",
+      "consider": "Maybe Later",
+      "rewarded": "Rewarded",
+      "rewardedGifAlt": "Reward animation"
     },
     "systemSettings": {
       "title": "System Settings",
@@ -863,6 +881,23 @@
       "cyberpunk": { "label": "Cyberpunk", "desc": "neon sci-fi" },
       "pixelArt": { "label": "Pixel art", "desc": "retro pixels" }
     },
+    "stylePrompts": {
+      "anime": "Japanese anime style, 2D, refined illustration",
+      "ghibli": "Ghibli animation style, hand-drawn, soft colors, healing tone",
+      "retroAnime": "Retro Japanese animation style, cel-shading, nostalgic",
+      "photorealistic": "Photorealistic style, natural lighting, cinematic mood",
+      "render3d": "3D rendering, CG illustration, strong depth",
+      "pixar": "Western 3D animation style, Pixar-like, toon shading",
+      "guofeng": "Chinese illustration style, traditional scene, classical mood",
+      "watercolor": "Watercolor illustration, soft diffusion",
+      "inkWash": "Chinese ink-wash style, negative space, poetic mood",
+      "oilPainting": "Thick paint illustration, oil texture, visible brush strokes",
+      "cyberpunk": "Cyberpunk style, neon lights, sci-fi mood",
+      "pixelArt": "Pixel art, retro game style"
+    },
+    "promptSquareFrame": "Square-format scene illustration with clear atmosphere and complete composition",
+    "promptLandscapeFrame": "Wide landscape scene illustration with clear atmosphere and complete composition",
+    "promptScenePrefix": ". Scene and content:",
     "rulePromptRequired": "Please enter scene description",
     "rulePromptMin": "Description must be at least 5 characters",
     "excerptEmpty": "Excerpt is empty",
@@ -913,6 +948,25 @@
     }
   },
   "aiCharacter": {
+    "drawerTitle": "AI Character Image",
+    "subjectLabel": "Current Character",
+    "promptIntro": "Full-body vertical character illustration with clear and complete character details",
+    "promptDetailPrefix": "Character details:",
+    "promptPlaceholder": "Describe appearance, temperament, outfit, expression, etc. for a full-body vertical reference image. You can combine it with \"Appearance\" and use either Chinese or English, up to 500 characters.",
+    "posePlaceholder": "Optional: pose/composition",
+    "outputTip": "Output size: 720×1280 full-body vertical reference image",
+    "generatedImageTypeName": "character image",
+    "generateButtonText": "Generate Character Image",
+    "regenerateButtonText": "Generate Another",
+    "generatingHint": "Generating image, please do not close",
+    "infoGeneratingMessage": "Generating image, please do not close",
+    "validatePromptMessage": "Please enter character description",
+    "confirmSuccessMessage": "Added to the list. It will take effect after saving the profile",
+    "generateFailTypeName": "image",
+    "generatedTitle": "Generated {typeName} ({count} total, click one then confirm)",
+    "generatedAlt": "{typeName} {index}",
+    "promptDetailLead": ". {prefix}",
+    "promptPoseLead": ", {pose}",
     "style": "Image style",
     "selectStyle": "Select style",
     "prompt": "Appearance description",
@@ -925,6 +979,8 @@
     "bookNameEmpty": "Book name is empty and cannot generate",
     "generatedSelectOrContinue": "Generated. Select one to confirm use, or continue generating.",
     "confirmFailed": "Confirm failed",
+    "generateByTypeFailed": "Failed to generate {type}",
+    "checkFormInput": "Please check form input",
     "poses": {
       "standing": "Full-body standing",
       "halfBody": "Vertical half-body close-up",
@@ -945,6 +1001,20 @@
       "oilPainting": { "label": "Oil painting", "desc": "thick texture, brush strokes" },
       "cyberpunk": { "label": "Cyberpunk", "desc": "sci-fi neon" },
       "pixelArt": { "label": "Pixel art", "desc": "retro game style" }
+    },
+    "stylePrompts": {
+      "anime": "Japanese anime style, 2D, refined illustration",
+      "ghibli": "Ghibli animation style, hand-drawn, soft colors, healing tone",
+      "retroAnime": "Retro Japanese animation style, cel-shaded, nostalgic",
+      "photorealistic": "Photorealistic style, real person, natural lighting",
+      "render3d": "3D rendering, CG illustration, strong depth",
+      "pixar": "Western 3D animation style, Pixar-like, toon shading",
+      "guofeng": "Chinese illustration style, traditional costume aesthetics",
+      "watercolor": "Watercolor illustration, soft diffusion",
+      "inkWash": "Chinese ink-wash style, negative space, poetic mood",
+      "oilPainting": "Thick paint illustration, oil texture, visible brush strokes",
+      "cyberpunk": "Cyberpunk style, neon lights, sci-fi mood",
+      "pixelArt": "Pixel art, retro game style"
     }
   },
   "aiCover": {
@@ -980,7 +1050,34 @@
     "generateFailed": "Failed to generate cover",
     "checkFormInput": "Please check form inputs",
     "confirmSuccess": "Set as book cover. It will be written to the book directory after saving.",
-    "confirmFailed": "Confirm failed"
+    "confirmFailed": "Confirm failed",
+    "sizes": {
+      "s600x800": "600×800 px",
+      "s200x280": "200×280 px",
+      "s400x560": "400×560 px",
+      "s300x400": "300×400 px",
+      "s240x320": "240×320 px"
+    },
+    "platforms": {
+      "mainstream": "Most mainstream platforms (Qidian, Fanqie, Chuangshi, Yunqi, etc.)",
+      "jjwxc": "JJWXC cover size",
+      "heiyan": "HeiYan Novel",
+      "zhulang": "ZhuLang Novel",
+      "zongheng": "Zongheng Chinese Network"
+    },
+    "categories": {
+      "style": "Style",
+      "element": "Elements",
+      "color": "Color",
+      "composition": "Composition",
+      "atmosphere": "Atmosphere"
+    },
+    "promptBackgroundWithValue": "Cover background/visual requirements: {value}",
+    "promptBackgroundDefault": "Cover background/visual requirements: novel cover style, visually appealing, clear subject, and clean composition.",
+    "promptTitleBase": "The cover must clearly and prominently display the book title \"{bookName}\" with correct, readable typography. Avoid typos, distortions, or unrelated extra text.",
+    "promptTitleWithLayout": "{base} Title layout requirements: {layout}",
+    "promptAuthorBase": "The cover must clearly display the author pen name: {penName}, with readable typography.",
+    "promptAuthorWithLayout": "{base} Pen-name layout requirements: {layout}"
   },
   "outlineManager": {
     "title": "Outline Manager",
@@ -1078,5 +1175,158 @@
   "encourageToast": {
     "title": "To you who are writing",
     "closeAriaLabel": "Close toast"
+  },
+  "radialMenu": {
+    "rootCannotDelete": "Root node cannot be deleted"
+  },
+  "mapToolbar": {
+    "move": "Move (H)",
+    "select": "Select (V)",
+    "background": "Background (G)",
+    "pencil": "Pencil (P)",
+    "eraser": "Eraser (E)",
+    "shape": "Shape (S)",
+    "bucket": "Bucket (B)",
+    "text": "Text (T)",
+    "resource": "Resource (R)",
+    "clearCanvas": "Clear canvas"
+  },
+  "mapZoom": {
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Shift+Z)"
+  },
+  "mapSlider": {
+    "size": "Size"
+  },
+  "wordCountChart": {
+    "title": "Net Added Words in Last 30 Days",
+    "axisName": "Words",
+    "dailyWords": "Daily words",
+    "dailyNetWords": "Daily net words",
+    "wordUnit": " words",
+    "fetchFailedLog": "Failed to fetch writing stats:"
+  },
+  "noteChapter": {
+    "notes": "Notes",
+    "chapters": "Chapters",
+    "createNotebook": "Create notebook",
+    "createVolume": "Create volume",
+    "sortVolumes": "Sort volumes",
+    "chapterSettings": "Chapter settings",
+    "noNotes": "No notes",
+    "noChapters": "No chapters",
+    "readNoteFailed": "Failed to read note",
+    "readChapterFailed": "Failed to read chapter",
+    "createVolumeSuccess": "Volume created",
+    "createVolumeFailed": "Failed to create volume",
+    "createChapterSuccess": "Chapter created",
+    "createChapterFailed": "Failed to create chapter",
+    "loadChaptersFailed": "Failed to load chapters",
+    "editSuccess": "Edited successfully",
+    "editFailed": "Edit failed",
+    "deleteConfirmTitle": "Delete confirmation",
+    "deleteChapterConfirmMessage": "Are you sure to delete this {type}? This action cannot be undone.",
+    "volume": "volume",
+    "chapter": "chapter",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed",
+    "createNotebookSuccess": "Notebook \"{name}\" created",
+    "createNotebookFailed": "Failed to create notebook",
+    "createNoteSuccess": "Note created",
+    "createNoteFailed": "Failed to create note",
+    "notebookNameExists": "Notebook name already exists",
+    "renameSuccess": "Renamed successfully",
+    "renameFailed": "Rename failed",
+    "notebook": "notebook",
+    "note": "note",
+    "defaultNotebookName": "Outline",
+    "deleteNoteConfirmMessage": "Are you sure to delete {type} \"{name}\"? This action cannot be undone.",
+    "loadBookDataFailed": "Failed to load book data",
+    "reformatFailed": "Reformat failed",
+    "noVolumeToReformat": "No volume found for reformat"
+  },
+  "noteEditorContent": {
+    "dragHandleTitle": "Drag to move this paragraph"
+  },
+  "layoutTool": {
+    "back": "Back"
+  },
+  "bookForm": {
+    "newBook": "New Book",
+    "editBook": "Edit Book",
+    "create": "Create",
+    "name": "Title",
+    "namePlaceholder": "Enter book title (max 15 chars)",
+    "type": "Type",
+    "typePlaceholder": "Select parent type, then subtype",
+    "targetWords": "Target words",
+    "targetWordsPlaceholder": "Enter target words",
+    "intro": "Introduction",
+    "introPlaceholder": "Enter introduction",
+    "password": "Password",
+    "passwordPlaceholder": "Enter 4-8 letters or numbers (optional)",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordPlaceholder": "Enter password again",
+    "coverColor": "Cover color",
+    "coverImage": "Cover image",
+    "coverPreview": "Cover preview",
+    "selectCoverImage": "Select cover image",
+    "aiGenerateCover": "AI Generate Cover",
+    "fillNameAndTypeFirst": "Please fill in title and type first"
+  },
+  "bookshelf": {
+    "newBook": "New Book",
+    "passwordVerify": "Password Verification",
+    "passwordPlaceholder": "Please enter book password",
+    "noBooks": "No books",
+    "ruleNameRequired": "Please enter book title",
+    "ruleNameMax": "Title cannot exceed 15 characters",
+    "ruleTypeRequired": "Please select type",
+    "ruleTargetRequired": "Please enter target words",
+    "ruleIntroRequired": "Please enter introduction",
+    "rulePasswordFormat": "Password must be 4-8 letters or numbers",
+    "rulePasswordNotMatch": "Passwords do not match",
+    "rulePasswordRequired": "Please enter password",
+    "deleteConfirmTitle": "Delete Confirmation",
+    "deleteConfirmMessage": "Delete \"{name}\"? This action cannot be undone.",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailedNotFound": "Delete failed, book not found or already removed",
+    "deleteFailedRetry": "Delete failed, please retry",
+    "passwordWrong": "Wrong password, please retry",
+    "duplicateBookName": "A book with the same name already exists",
+    "editFailed": "Edit failed",
+    "editSuccess": "Edited successfully",
+    "createSuccess": "Created successfully",
+    "selectImageFailed": "Failed to select image",
+    "color": {
+      "deepBlue": "Deep Blue",
+      "deepGreen": "Deep Green",
+      "deepRed": "Deep Red",
+      "deepPurple": "Deep Purple",
+      "deepBrown": "Deep Brown",
+      "deepGray": "Deep Gray",
+      "inkGreen": "Ink Green",
+      "navy": "Navy"
+    }
+  },
+  "book": {
+    "wordCount": "Words: {count}",
+    "updatedAt": "Updated: {time}",
+    "noUpdate": "No updates yet"
+  },
+  "resourceToolPanel": {
+    "tip": "Drag any resource icon onto the canvas",
+    "items": {
+      "palace": "Palace",
+      "village": "Village",
+      "house": "House",
+      "forest": "Forest",
+      "mountain": "Mountain",
+      "city": "City",
+      "battlefield": "Battlefield",
+      "castle": "Castle",
+      "lake": "Lake",
+      "desert": "Desert"
+    }
   }
 }

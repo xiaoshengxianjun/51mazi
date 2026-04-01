@@ -1,7 +1,7 @@
 <template>
   <div class="map-toolbar">
     <!-- 选择工具组 -->
-    <el-tooltip content="移动 (H)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.move')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'move' ? 'active' : '']"
         @click="handleToolSelect('move')"
@@ -9,7 +9,7 @@
         <SvgIcon name="hand" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="选框 (V)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.select')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'select' ? 'active' : '']"
         @click="handleToolSelect('select')"
@@ -20,7 +20,7 @@
     <el-divider direction="vertical" />
 
     <!-- 绘图工具组 -->
-    <el-tooltip content="背景 (G)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.background')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'background' ? 'active' : '']"
         @click="handleToolSelect('background')"
@@ -28,7 +28,7 @@
         <SvgIcon name="background" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="画笔 (P)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.pencil')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'pencil' ? 'active' : '']"
         @click="handleToolSelect('pencil')"
@@ -36,7 +36,7 @@
         <SvgIcon name="pencil" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="橡皮擦 (E)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.eraser')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'eraser' ? 'active' : '']"
         @click="handleToolSelect('eraser')"
@@ -45,7 +45,7 @@
       </div>
     </el-tooltip>
     <div class="shape-tool-btn-wrapper">
-      <el-tooltip content="形状 (S)" placement="bottom" :show-after="2000">
+      <el-tooltip :content="t('mapToolbar.shape')" placement="bottom" :show-after="2000">
         <div
           :class="['tool-btn', modelValue === 'shape' ? 'active' : '']"
           @click.stop="handleShapeToolClick"
@@ -61,7 +61,7 @@
         @update:visible="shapeToolPanelVisible = $event"
       />
     </div>
-    <el-tooltip content="油漆桶 (B)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.bucket')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'bucket' ? 'active' : '']"
         @click="handleToolSelect('bucket')"
@@ -69,7 +69,7 @@
         <SvgIcon name="bucket" :size="iconSize" />
       </div>
     </el-tooltip>
-    <el-tooltip content="文字 (T)" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.text')" placement="bottom" :show-after="2000">
       <div
         :class="['tool-btn', modelValue === 'text' ? 'active' : '']"
         @click="handleToolSelect('text')"
@@ -80,7 +80,7 @@
 
     <!-- 资源工具 -->
     <div class="resource-tool-btn-wrapper">
-      <el-tooltip content="资源 (R)" placement="bottom" :show-after="2000">
+      <el-tooltip :content="t('mapToolbar.resource')" placement="bottom" :show-after="2000">
         <div
           :class="['tool-btn', resourcePanelVisible ? 'active' : '']"
           @click.stop="handleResourceToolClick"
@@ -100,13 +100,13 @@
     <el-divider direction="vertical" />
 
     <!-- 操作工具组 -->
-    <el-tooltip content="清空画板" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('mapToolbar.clearCanvas')" placement="bottom" :show-after="2000">
       <div class="tool-btn" @click="handleClear">
         <SvgIcon name="clear" :size="iconSize" />
       </div>
     </el-tooltip>
     <el-divider direction="vertical" />
-    <el-tooltip content="保存" placement="bottom" :show-after="2000">
+    <el-tooltip :content="t('common.save')" placement="bottom" :show-after="2000">
       <div class="tool-btn" @click="handleSaveMap">
         <SvgIcon name="save" :size="iconSize" />
       </div>
@@ -118,6 +118,7 @@
 import { ref, watch, computed } from 'vue'
 import ShapeToolPanel from './ShapeToolPanel.vue'
 import ResourceToolPanel from './ResourceToolPanel.vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   modelValue: {
@@ -135,6 +136,7 @@ const props = defineProps({
 })
 
 const iconSize = 18
+const { t } = useI18n()
 
 const emit = defineEmits([
   'update:modelValue',

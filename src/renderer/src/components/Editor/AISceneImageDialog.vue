@@ -214,73 +214,73 @@ const styleOptions = [
     value: 'anime',
     label: t('aiSceneImage.styles.anime.label'),
     desc: t('aiSceneImage.styles.anime.desc'),
-    prompt: '日本动画风格，二次元，精致插画'
+    prompt: t('aiSceneImage.stylePrompts.anime')
   },
   {
     value: 'ghibli',
     label: t('aiSceneImage.styles.ghibli.label'),
     desc: t('aiSceneImage.styles.ghibli.desc'),
-    prompt: '吉卜力动画风格，手绘感，柔和色彩，治愈系'
+    prompt: t('aiSceneImage.stylePrompts.ghibli')
   },
   {
     value: 'retro_anime',
     label: t('aiSceneImage.styles.retroAnime.label'),
     desc: t('aiSceneImage.styles.retroAnime.desc'),
-    prompt: '复古日本动画风格，赛璐璐上色，怀旧'
+    prompt: t('aiSceneImage.stylePrompts.retroAnime')
   },
   {
     value: 'photorealistic',
     label: t('aiSceneImage.styles.photorealistic.label'),
     desc: t('aiSceneImage.styles.photorealistic.desc'),
-    prompt: '写实摄影风格，自然光影，电影感'
+    prompt: t('aiSceneImage.stylePrompts.photorealistic')
   },
   {
     value: '3d_render',
     label: t('aiSceneImage.styles.render3d.label'),
     desc: t('aiSceneImage.styles.render3d.desc'),
-    prompt: '3D 渲染，CG 插画，立体感'
+    prompt: t('aiSceneImage.stylePrompts.render3d')
   },
   {
     value: 'pixar',
     label: t('aiSceneImage.styles.pixar.label'),
     desc: t('aiSceneImage.styles.pixar.desc'),
-    prompt: '欧美3D动画风格，皮克斯风格，卡通渲染'
+    prompt: t('aiSceneImage.stylePrompts.pixar')
   },
   {
     value: 'guofeng',
     label: t('aiSceneImage.styles.guofeng.label'),
     desc: t('aiSceneImage.styles.guofeng.desc'),
-    prompt: '国风插画，古风场景，古典意境'
+    prompt: t('aiSceneImage.stylePrompts.guofeng')
   },
   {
     value: 'watercolor',
     label: t('aiSceneImage.styles.watercolor.label'),
     desc: t('aiSceneImage.styles.watercolor.desc'),
-    prompt: '水彩插画，柔和晕染'
+    prompt: t('aiSceneImage.stylePrompts.watercolor')
   },
   {
     value: 'ink_wash',
     label: t('aiSceneImage.styles.inkWash.label'),
     desc: t('aiSceneImage.styles.inkWash.desc'),
-    prompt: '中国水墨画风格，留白，意境'
+    prompt: t('aiSceneImage.stylePrompts.inkWash')
   },
   {
     value: 'oil_painting',
     label: t('aiSceneImage.styles.oilPainting.label'),
     desc: t('aiSceneImage.styles.oilPainting.desc'),
-    prompt: '厚涂插画，油画质感，笔触明显'
+    prompt: t('aiSceneImage.stylePrompts.oilPainting')
   },
   {
     value: 'cyberpunk',
     label: t('aiSceneImage.styles.cyberpunk.label'),
     desc: t('aiSceneImage.styles.cyberpunk.desc'),
-    prompt: '赛博朋克风格，霓虹灯，科幻'
+    prompt: t('aiSceneImage.stylePrompts.cyberpunk')
   },
   {
     value: 'pixel_art',
     label: t('aiSceneImage.styles.pixelArt.label'),
     desc: t('aiSceneImage.styles.pixelArt.desc'),
-    prompt: '像素艺术，复古游戏风格'
+    prompt: t('aiSceneImage.stylePrompts.pixelArt')
   }
 ]
 
@@ -362,15 +362,15 @@ function buildFullPrompt() {
   const isSquare = form.value.outputSize === '1280*1280'
   const parts = [
     isSquare
-      ? '方形画幅场景插图，环境氛围明确，构图完整'
-      : '横向宽画幅场景插图，环境氛围明确，构图完整'
+      ? t('aiSceneImage.promptSquareFrame')
+      : t('aiSceneImage.promptLandscapeFrame')
   ]
   const styleKey = form.value.style
   if (styleKey) {
     const s = styleOptions.find((o) => o.value === styleKey)
     if (s?.prompt) parts.push(s.prompt)
   }
-  parts.push('。场景与内容：')
+  parts.push(t('aiSceneImage.promptScenePrefix'))
   parts.push(form.value.prompt.trim())
 
   const shot = labelFromOptions(shotRangeOptions, form.value.shotRange)

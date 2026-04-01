@@ -5,7 +5,7 @@
       <div>
         <el-button type="primary" class="new-book-btn" @click="handleNewBook">
           <el-icon><Plus /></el-icon>
-          新建书籍
+          {{ t('bookshelf.newBook') }}
         </el-button>
         <el-button
           class="refresh-btn"
@@ -53,18 +53,18 @@
     />
 
     <!-- 密码验证弹框 -->
-    <el-dialog v-model="passwordDialogVisible" title="密码验证" width="400px">
+    <el-dialog v-model="passwordDialogVisible" :title="t('bookshelf.passwordVerify')" width="400px">
       <el-form
         ref="passwordFormRef"
         :model="passwordForm"
         :rules="passwordRules"
         label-width="80px"
       >
-        <el-form-item prop="password" label="密码">
+        <el-form-item prop="password" :label="t('bookForm.password')">
           <el-input
             v-model="passwordForm.password"
             type="password"
-            placeholder="请输入书籍密码"
+            :placeholder="t('bookshelf.passwordPlaceholder')"
             maxlength="8"
             show-password
             @keyup.enter="handlePasswordConfirm"
@@ -72,15 +72,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handlePasswordConfirm">确认</el-button>
+        <el-button @click="passwordDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handlePasswordConfirm">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 书籍列表 -->
     <div class="books-box">
       <div v-if="books.length === 0" class="books-box-empty">
-        <el-empty description="暂无书籍" />
+        <el-empty :description="t('bookshelf.noBooks')" />
       </div>
       <Book
         v-for="book in books"
@@ -112,6 +112,7 @@ import WordCountChart from './WordCountChart.vue'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
 import { BOOK_TYPES, BOOK_TYPE_GROUPS } from '@renderer/constants/config'
+import { useI18n } from 'vue-i18n'
 
 // 书籍类型转为级联选择器数据：先选大类，展开后再选细类
 const bookTypeCascaderOptions = BOOK_TYPE_GROUPS.map((g) => ({
@@ -127,6 +128,7 @@ import { useRouter } from 'vue-router'
 
 const mainStore = useMainStore()
 const router = useRouter()
+const { t } = useI18n()
 
 // 新建/编辑书籍抽屉相关
 const dialogVisible = ref(false)
@@ -147,28 +149,28 @@ const form = ref({
 
 // 预设封面颜色
 const presetColors = [
-  { label: '深蓝', value: '#22345c' },
-  { label: '深绿', value: '#2d4a3e' },
-  { label: '深红', value: '#4a2d2d' },
-  { label: '深紫', value: '#3d2d4a' },
-  { label: '深棕', value: '#4a3d2d' },
-  { label: '深灰', value: '#3d3d3d' },
-  { label: '墨绿', value: '#1e3a2e' },
-  { label: '藏青', value: '#1e2a3a' }
+  { label: t('bookshelf.color.deepBlue'), value: '#22345c' },
+  { label: t('bookshelf.color.deepGreen'), value: '#2d4a3e' },
+  { label: t('bookshelf.color.deepRed'), value: '#4a2d2d' },
+  { label: t('bookshelf.color.deepPurple'), value: '#3d2d4a' },
+  { label: t('bookshelf.color.deepBrown'), value: '#4a3d2d' },
+  { label: t('bookshelf.color.deepGray'), value: '#3d3d3d' },
+  { label: t('bookshelf.color.inkGreen'), value: '#1e3a2e' },
+  { label: t('bookshelf.color.navy'), value: '#1e2a3a' }
 ]
-const rules = ref({
+const rules = computed(() => ({
   name: [
-    { required: true, message: '请输入书籍名称', trigger: 'blur' },
-    { max: 15, message: '书名不能超过15个字符', trigger: 'blur' }
+    { required: true, message: t('bookshelf.ruleNameRequired'), trigger: 'blur' },
+    { max: 15, message: t('bookshelf.ruleNameMax'), trigger: 'blur' }
   ],
-  type: [{ required: true, message: '请选择类型', trigger: 'blur' }],
-  targetCount: [{ required: true, message: '请输入目标字数', trigger: 'blur' }],
-  intro: [{ required: true, message: '请输入简介', trigger: 'blur' }],
+  type: [{ required: true, message: t('bookshelf.ruleTypeRequired'), trigger: 'blur' }],
+  targetCount: [{ required: true, message: t('bookshelf.ruleTargetRequired'), trigger: 'blur' }],
+  intro: [{ required: true, message: t('bookshelf.ruleIntroRequired'), trigger: 'blur' }],
   password: [
     {
       validator: (rule, value, callback) => {
         if (value && !/^[a-zA-Z0-9]{4,8}$/.test(value)) {
-          callback(new Error('密码必须是4-8位数字或字母组合'))
+          callback(new Error(t('bookshelf.rulePasswordFormat')))
         } else {
           callback()
         }
@@ -180,7 +182,7 @@ const rules = ref({
     {
       validator: (rule, value, callback) => {
         if (form.value.password && value !== form.value.password) {
-          callback(new Error('两次输入的密码不一致'))
+          callback(new Error(t('bookshelf.rulePasswordNotMatch')))
         } else {
           callback()
         }
@@ -188,7 +190,7 @@ const rules = ref({
       trigger: 'blur'
     }
   ]
-})
+}))
 
 // 书籍列表数据
 const books = computed(() => mainStore.books)
@@ -204,9 +206,9 @@ const passwordFormRef = ref(null)
 const passwordForm = ref({
   password: ''
 })
-const passwordRules = ref({
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-})
+const passwordRules = computed(() => ({
+  password: [{ required: true, message: t('bookshelf.rulePasswordRequired'), trigger: 'blur' }]
+}))
 const pendingAction = ref(null) // 存储待执行的操作
 const currentBook = ref(null) // 当前操作的书籍
 
@@ -292,26 +294,30 @@ async function onDelete(book) {
 // 执行删除书籍操作
 async function executeDeleteBook(book) {
   try {
-    console.log('准备删除书籍:', book)
-    await ElMessageBox.confirm(`确定要删除《${book.name}》吗？此操作不可恢复！`, '删除确认', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    console.log('调用删除函数，书名:', book.name)
+    console.log('Preparing to delete book:', book)
+    await ElMessageBox.confirm(
+      t('bookshelf.deleteConfirmMessage', { name: book.name }),
+      t('bookshelf.deleteConfirmTitle'),
+      {
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+    console.log('Calling delete for book:', book.name)
     const result = await deleteBook(book.folderName || book.name)
-    console.log('删除结果:', result)
+    console.log('Delete result:', result)
     if (result) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('bookshelf.deleteSuccess'))
       await readBooksDir()
     } else {
-      ElMessage.error('删除失败，书籍不存在或已被删除')
+      ElMessage.error(t('bookshelf.deleteFailedNotFound'))
     }
   } catch (e) {
     // 用户取消或删除失败
     if (e !== 'cancel') {
-      console.error('删除书籍失败:', e)
-      ElMessage.error('删除失败，请重试')
+      console.error('Failed to delete book:', e)
+      ElMessage.error(t('bookshelf.deleteFailedRetry'))
     }
   }
 }
@@ -341,10 +347,10 @@ async function handlePasswordConfirm() {
       pendingAction.value = null
       currentBook.value = null
     } else {
-      ElMessage.error('密码错误，请重新输入')
+      ElMessage.error(t('bookshelf.passwordWrong'))
     }
   } catch (error) {
-    console.error('密码验证失败:', error)
+    console.error('Password verification failed:', error)
   }
 }
 
@@ -354,7 +360,7 @@ async function handleConfirm() {
     (b) => b.name === form.value.name && (!isEdit.value || b.id !== editBookId.value)
   )
   if (exists) {
-    ElMessage.error('已存在同名书籍，不能重复创建！')
+    ElMessage.error(t('bookshelf.duplicateBookName'))
     return
   }
   const randomId = isEdit.value
@@ -389,13 +395,13 @@ async function handleConfirm() {
       originalName: form.value.originalName
     })
     if (!result.success) {
-      ElMessage.error(result.message || '编辑失败')
+      ElMessage.error(result.message || t('bookshelf.editFailed'))
       return
     }
-    ElMessage.success('编辑成功')
+    ElMessage.success(t('bookshelf.editSuccess'))
   } else {
     await createBook(bookData)
-    ElMessage.success('创建成功')
+    ElMessage.success(t('bookshelf.createSuccess'))
   }
   dialogVisible.value = false
   isEdit.value = false
@@ -430,8 +436,8 @@ async function handleSelectCoverImage() {
       form.value.coverImagePreview = `file://${result.filePath}`
     }
   } catch (error) {
-    console.error('选择封面图片失败:', error)
-    ElMessage.error('选择图片失败')
+    console.error('Failed to select cover image:', error)
+    ElMessage.error(t('bookshelf.selectImageFailed'))
   }
 }
 
@@ -454,7 +460,7 @@ async function loadCoverImagePreview(bookName, coverUrl) {
       form.value.coverImagePreview = coverUrl
     }
   } catch (error) {
-    console.error('加载封面预览失败:', error)
+    console.error('Failed to load cover preview:', error)
     form.value.coverImagePreview = ''
   }
 }
@@ -462,7 +468,7 @@ async function loadCoverImagePreview(bookName, coverUrl) {
 // 打开 AI 生成封面抽屉（需先填书名和类型）
 function handleOpenAICoverDialog() {
   if (!form.value.name?.trim() || !form.value.type) {
-    ElMessage.warning('请先填写书名和类型')
+    ElMessage.warning(t('bookForm.fillNameAndTypeFirst'))
     return
   }
   aiCoverDialogVisible.value = true
