@@ -485,6 +485,15 @@ async function refreshChart() {
   chartRef.value?.updateData()
 }
 
+async function reloadBookshelf() {
+  await readBooksDir()
+  await refreshChart()
+}
+
+defineExpose({
+  reloadBookshelf
+})
+
 onMounted(() => {
   readBooksDir()
   refreshChart()

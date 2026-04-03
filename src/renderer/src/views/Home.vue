@@ -76,7 +76,7 @@
     </div>
 
     <!-- 书架区 -->
-    <Bookshelf />
+    <Bookshelf ref="bookshelfRef" />
 
     <!-- 右上角鼓励提示（调度逻辑已封装到组件，避免首页逻辑混杂） -->
     <EncourageToastScheduler />
@@ -284,7 +284,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
@@ -317,6 +317,7 @@ const bookDir = ref('')
 /** 更新方式：auto 自动更新（默认） | manual 手动更新 */
 const updateMode = ref('auto')
 const selectedLocale = ref('zh-CN')
+const bookshelfRef = ref(null)
 const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
@@ -545,6 +546,8 @@ async function handleChooseDir() {
   if (result && result.filePaths && result.filePaths[0]) {
     bookDir.value = result.filePaths[0]
     await window.electronStore.set('booksDir', bookDir.value)
+    await nextTick()
+    await bookshelfRef.value?.reloadBookshelf?.()
     showDirDialog.value = false
   }
 }
@@ -552,6 +555,8 @@ async function handleChooseDir() {
 // 确认目录
 async function handleConfirmDir() {
   await window.electronStore.set('booksDir', bookDir.value)
+  await nextTick()
+  await bookshelfRef.value?.reloadBookshelf?.()
   const oldLocale = getCurrentLocale()
   const nextLocale = setLocale(selectedLocale.value)
   await window.electronStore?.set('config.locale', nextLocale)
