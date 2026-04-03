@@ -284,7 +284,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
@@ -339,10 +339,10 @@ const isInstalling = ref(false)
 const downloadProgress = ref(0)
 const currentVersion = ref('')
 const updateDialogTitle = ref('')
-const localeOptions = computed(() => [
-  { value: 'zh-CN', label: t('common.simplifiedChinese') },
-  { value: 'en-US', label: t('common.english') }
-])
+const localeOptions = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en-US', label: 'English' }
+]
 
 // 定时器 ID
 let sponsorDialogTimer = null
