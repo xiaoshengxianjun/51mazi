@@ -464,6 +464,36 @@ ipcMain.handle('select-books-dir', async () => {
   return result
 })
 
+// 校验书籍目录：用于系统设置确认前给出可读错误
+ipcMain.handle('validate-books-dir', async (event, dirPath) => {
+  try {
+    if (!dirPath || typeof dirPath !== 'string') {
+      return { valid: false, code: 'EMPTY' }
+    }
+    if (!fs.existsSync(dirPath)) {
+      return { valid: false, code: 'NOT_EXISTS' }
+    }
+    const stat = fs.statSync(dirPath)
+    if (!stat.isDirectory()) {
+      return { valid: false, code: 'NOT_DIRECTORY' }
+    }
+    try {
+      fs.accessSync(dirPath, fs.constants.R_OK)
+    } catch {
+      return { valid: false, code: 'NOT_READABLE' }
+    }
+    try {
+      fs.accessSync(dirPath, fs.constants.W_OK)
+    } catch {
+      return { valid: false, code: 'NOT_WRITABLE' }
+    }
+    return { valid: true }
+  } catch (error) {
+    console.error('validate-books-dir failed:', error)
+    return { valid: false, code: 'UNKNOWN' }
+  }
+})
+
 // 选择图片文件
 ipcMain.handle('select-image', async () => {
   const result = await dialog.showOpenDialog({
@@ -613,8 +643,15 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
 ipcMain.handle('read-books-dir', async () => {
   const books = []
   const booksDir = store.get('booksDir')
+  if (!booksDir || typeof booksDir !== 'string') return books
   if (!fs.existsSync(booksDir)) return books
-  const files = fs.readdirSync(booksDir, { withFileTypes: true })
+  let files = []
+  try {
+    files = fs.readdirSync(booksDir, { withFileTypes: true })
+  } catch (error) {
+    console.error('read-books-dir failed to read directory:', error)
+    return books
+  }
   for (const file of files) {
     if (file.isDirectory()) {
       const metaPath = join(booksDir, file.name, 'mazi.json')

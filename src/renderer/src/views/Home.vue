@@ -92,7 +92,7 @@
       @opened="onSystemSettingsOpened"
     >
       <el-form label-width="100px">
-        <el-form-item :label="t('home.systemSettings.booksDir')">
+        <el-form-item :label="t('home.systemSettings.booksDir')" required>
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="18">
               <el-input
@@ -345,6 +345,37 @@ const localeOptions = [
   { value: 'en-US', label: 'English' }
 ]
 
+function getBooksDirValidationMessage(code) {
+  switch (code) {
+    case 'NOT_EXISTS':
+      return t('home.systemSettings.booksDirNotExists')
+    case 'NOT_DIRECTORY':
+      return t('home.systemSettings.booksDirNotDirectory')
+    case 'NOT_READABLE':
+      return t('home.systemSettings.booksDirNotReadable')
+    case 'NOT_WRITABLE':
+      return t('home.systemSettings.booksDirNotWritable')
+    case 'EMPTY':
+      return t('home.systemSettings.booksDirRequired')
+    default:
+      return t('home.systemSettings.booksDirInvalid')
+  }
+}
+
+async function validateBooksDirOrNotify(pathValue) {
+  const candidate = String(pathValue || '').trim()
+  if (!candidate) {
+    ElMessage.warning(t('home.systemSettings.booksDirRequired'))
+    return null
+  }
+  const result = await window.electron?.validateBooksDir?.(candidate)
+  if (!result?.valid) {
+    ElMessage.warning(getBooksDirValidationMessage(result?.code))
+    return null
+  }
+  return candidate
+}
+
 // 定时器 ID
 let sponsorDialogTimer = null
 
@@ -542,30 +573,46 @@ async function handleRewardClick() {
 
 // 选择目录
 async function handleChooseDir() {
-  const result = await window.electron?.selectBooksDir()
-  if (result && result.filePaths && result.filePaths[0]) {
-    bookDir.value = result.filePaths[0]
-    await window.electronStore.set('booksDir', bookDir.value)
-    await nextTick()
-    await bookshelfRef.value?.reloadBookshelf?.()
-    showDirDialog.value = false
+  try {
+    const result = await window.electron?.selectBooksDir()
+    if (result && result.filePaths && result.filePaths[0]) {
+      const validDir = await validateBooksDirOrNotify(result.filePaths[0])
+      if (!validDir) return
+      bookDir.value = validDir
+      await window.electronStore.set('booksDir', validDir)
+      await nextTick()
+      await bookshelfRef.value?.reloadBookshelf?.()
+      showDirDialog.value = false
+    }
+  } catch (error) {
+    console.error('Failed to choose books directory:', error)
+    ElMessage.error(t('home.systemSettings.saveDirFailed'))
   }
 }
 
 // 确认目录
 async function handleConfirmDir() {
-  await window.electronStore.set('booksDir', bookDir.value)
-  await nextTick()
-  await bookshelfRef.value?.reloadBookshelf?.()
-  const oldLocale = getCurrentLocale()
-  const nextLocale = setLocale(selectedLocale.value)
-  await window.electronStore?.set('config.locale', nextLocale)
-  if (oldLocale !== nextLocale) {
-    const languageLabel =
-      nextLocale === 'en-US' ? t('common.english') : t('common.simplifiedChinese')
-    ElMessage.success(t('common.switchLanguageSuccess', { language: languageLabel }))
+  const nextDir = await validateBooksDirOrNotify(bookDir.value)
+  if (!nextDir) return
+
+  try {
+    bookDir.value = nextDir
+    await window.electronStore.set('booksDir', bookDir.value)
+    await nextTick()
+    await bookshelfRef.value?.reloadBookshelf?.()
+    const oldLocale = getCurrentLocale()
+    const nextLocale = setLocale(selectedLocale.value)
+    await window.electronStore?.set('config.locale', nextLocale)
+    if (oldLocale !== nextLocale) {
+      const languageLabel =
+        nextLocale === 'en-US' ? t('common.english') : t('common.simplifiedChinese')
+      ElMessage.success(t('common.switchLanguageSuccess', { language: languageLabel }))
+    }
+    showDirDialog.value = false
+  } catch (error) {
+    console.error('Failed to confirm books directory:', error)
+    ElMessage.error(t('home.systemSettings.saveDirFailed'))
   }
-  showDirDialog.value = false
 }
 
 // 系统设置弹框打开时，同步一次更新方式（从 store 读取，保证与主进程一致）
