@@ -213,63 +213,6 @@
     <!-- AI 设置 -->
     <AISettings ref="aiSettingsRef" />
 
-    <!-- 更新提示弹框 -->
-    <el-dialog v-model="showUpdateDialog" :title="updateDialogTitle" width="500px" align-center>
-      <div class="update-dialog-content">
-        <div v-if="updateInfo">
-          <p class="update-text">
-            <strong>{{ t('home.update.newVersion', { version: updateInfo.version }) }}</strong>
-          </p>
-          <p v-if="updateInfo.releaseDate" class="update-text">
-            {{ t('home.update.releaseDate', { date: formatDate(updateInfo.releaseDate) }) }}
-          </p>
-          <div v-if="updateInfo.releaseNotes" class="update-notes">
-            <p>
-              <strong>{{ t('home.update.releaseNotes') }}</strong>
-            </p>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
-          </div>
-        </div>
-        <div v-if="isDownloading" class="download-progress">
-          <el-progress
-            :percentage="downloadProgress"
-            :status="downloadProgress === 100 ? 'success' : ''"
-          />
-          <p class="progress-text">
-            {{ t('home.update.downloadingPercent', { percent: Math.round(downloadProgress) }) }}
-          </p>
-        </div>
-        <div v-if="isDownloaded" class="download-complete">
-          <el-alert type="success" :closable="false">
-            <template #title>
-              <span>{{ t('home.update.downloadCompleteHint') }}</span>
-            </template>
-          </el-alert>
-        </div>
-      </div>
-      <template #footer>
-        <el-button v-if="!isDownloading && !isDownloaded" @click="showUpdateDialog = false">
-          {{ t('home.update.remindLater') }}
-        </el-button>
-        <el-button
-          v-if="!isDownloading && !isDownloaded"
-          type="primary"
-          @click="handleDownloadUpdate"
-        >
-          {{ t('home.update.downloadUpdate') }}
-        </el-button>
-        <el-button
-          v-if="isDownloaded"
-          type="primary"
-          :loading="isInstalling"
-          @click="handleInstallUpdate"
-        >
-          {{ t('home.update.installNow') }}
-        </el-button>
-      </template>
-    </el-dialog>
-
     <!-- 感谢gif图片遮罩层 -->
     <Transition name="fade">
       <div v-if="showRewardGif" class="reward-gif-overlay" @click="showRewardGif = false">
@@ -291,9 +234,10 @@ import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSet
 import AISettings from '@renderer/components/AISettings.vue'
 import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
+import { useAppUpdaterStore } from '@renderer/stores/appUpdater'
 import { useI18n } from 'vue-i18n'
 import { getCurrentLocale, setLocale } from '@renderer/i18n'
-import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
+import { ElDialog, ElMessage } from 'element-plus'
 import {
   BookOpenText,
   CircleQuestionMark,
@@ -324,6 +268,7 @@ const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
+const appUpdaterStore = useAppUpdaterStore()
 const aiSettingsRef = ref(null)
 const qqGroupQrcode = new URL('../../../../static/QQQRCode.png', import.meta.url).href
 const wechatPayQrcode = new URL('../../../../static/WeChatPayQRCode.png', import.meta.url).href
@@ -331,15 +276,7 @@ const alipayQrcode = new URL('../../../../static/AliPayQRCode.png', import.meta.
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
-// 更新相关状态
-const showUpdateDialog = ref(false)
-const updateInfo = ref(null)
-const isDownloading = ref(false)
-const isDownloaded = ref(false)
-const isInstalling = ref(false)
-const downloadProgress = ref(0)
 const currentVersion = ref('')
-const updateDialogTitle = ref('')
 const localeOptions = [
   { value: 'zh-CN', label: '简体中文' },
   { value: 'en-US', label: 'English' }
@@ -400,15 +337,12 @@ onMounted(async () => {
     updateMode.value = savedUpdateMode
   }
   selectedLocale.value = getCurrentLocale()
-  updateDialogTitle.value = t('home.menu.checkUpdate')
   // 初始化主题
   await themeStore.initTheme()
   // 检查是否需要自动显示赞助弹框
   await checkAutoShowSponsorDialog()
   // 获取当前版本
   await getCurrentVersion()
-  // 监听更新事件
-  setupUpdateListeners()
 })
 
 // 清理定时器
@@ -675,132 +609,20 @@ async function getCurrentVersion() {
   }
 }
 
-// 设置更新事件监听
-function setupUpdateListeners() {
-  // 正在检查更新
-  window.addEventListener('update-checking', () => {
-    updateDialogTitle.value = t('home.update.checking')
-    showUpdateDialog.value = true
-  })
-
-  // 发现新版本
-  window.addEventListener('update-available', (event) => {
-    updateInfo.value = event.detail
-    updateDialogTitle.value = t('home.update.foundNewVersion')
-    isDownloading.value = false
-    isDownloaded.value = false
-    downloadProgress.value = 0
-    showUpdateDialog.value = true
-  })
-
-  // 当前已是最新版本
-  window.addEventListener('update-not-available', () => {
-    ElMessage.success(t('home.update.upToDate'))
-    if (showUpdateDialog.value) {
-      showUpdateDialog.value = false
-    }
-  })
-
-  // 更新检查出错
-  window.addEventListener('update-error', (event) => {
-    ElMessage.error(t('home.update.checkFailedWithReason', { reason: event.detail.message }))
-    if (showUpdateDialog.value) {
-      showUpdateDialog.value = false
-    }
-  })
-
-  // 下载进度
-  window.addEventListener('update-download-progress', (event) => {
-    isDownloading.value = true
-    downloadProgress.value = event.detail.percent || 0
-  })
-
-  // 下载完成
-  window.addEventListener('update-downloaded', () => {
-    isDownloading.value = false
-    isDownloaded.value = true
-    downloadProgress.value = 100
-    ElMessage.success(t('home.update.downloadCompleted'))
-  })
-}
-
-// 手动检查更新
+// 手动检查更新（窗口事件由 App 根 composable 统一订阅，状态在 appUpdater store）
 async function handleCheckUpdate() {
   try {
-    updateDialogTitle.value = t('home.update.checking')
-    showUpdateDialog.value = true
+    appUpdaterStore.beginManualCheck()
     const result = await window.electron?.checkForUpdate()
     if (!result?.success) {
-      ElMessage.warning(result?.message || t('home.update.checkFailed'))
-      showUpdateDialog.value = false
+      ElMessage.error(result?.message || t('home.update.checkFailed'))
+      appUpdaterStore.dismissAfterManualCheckFailure()
     }
   } catch (error) {
     console.error('检查更新失败:', error)
     ElMessage.error(t('home.update.checkFailed'))
-    showUpdateDialog.value = false
+    appUpdaterStore.dismissAfterManualCheckFailure()
   }
-}
-
-// 下载更新
-async function handleDownloadUpdate() {
-  try {
-    isDownloading.value = true
-    downloadProgress.value = 0
-    const result = await window.electron?.downloadUpdate()
-    if (!result?.success) {
-      ElMessage.error(result?.message || t('home.update.downloadFailed'))
-      isDownloading.value = false
-    }
-  } catch (error) {
-    console.error('下载更新失败:', error)
-    ElMessage.error(t('home.update.downloadFailed'))
-    isDownloading.value = false
-  }
-}
-
-// 安装更新
-async function handleInstallUpdate() {
-  try {
-    isInstalling.value = true
-    const result = await window.electron?.quitAndInstall()
-    if (!result?.success) {
-      ElMessage.error(result?.message || t('home.update.installFailed'))
-      isInstalling.value = false
-    }
-  } catch (error) {
-    console.error('安装更新失败:', error)
-    ElMessage.error(t('home.update.installFailed'))
-    isInstalling.value = false
-  }
-}
-
-// 格式化日期
-function formatDate(dateString) {
-  if (!dateString) return ''
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString(getCurrentLocale(), {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  } catch {
-    return dateString
-  }
-}
-
-// 格式化更新日志
-function formatReleaseNotes(notes) {
-  if (!notes) return ''
-  // 将换行符转换为 <br>
-  if (typeof notes === 'string') {
-    return notes.replace(/\n/g, '<br>')
-  }
-  // 如果是数组，转换为HTML列表
-  if (Array.isArray(notes)) {
-    return notes.map((note) => `<li>${note}</li>`).join('')
-  }
-  return String(notes)
 }
 </script>
 
@@ -1032,55 +854,6 @@ function formatReleaseNotes(notes) {
   align-items: center;
   margin-right: 0;
   height: 32px;
-}
-
-.update-dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.update-text {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-base);
-  line-height: 1.6;
-}
-
-.update-notes {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: var(--bg-mute);
-  border-radius: 6px;
-
-  p {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    color: var(--text-base);
-  }
-}
-
-.release-notes {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.8;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.download-progress {
-  margin-top: 12px;
-
-  .progress-text {
-    margin-top: 8px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    text-align: center;
-  }
-}
-
-.download-complete {
-  margin-top: 12px;
 }
 
 .reward-gif-overlay {

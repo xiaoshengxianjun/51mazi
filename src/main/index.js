@@ -23,7 +23,12 @@ const MAIN_I18N_MESSAGES = {
     updateDownloadUnsupportedInDev: '开发环境不支持更新下载',
     updateDownloadFailed: '下载更新失败',
     updateInstallUnsupportedInDev: '开发环境不支持更新安装',
-    updateInstallFailed: '安装更新失败'
+    updateInstallFailed: '安装更新失败',
+    updateErrorNetwork: '无法连接更新服务器，请检查网络后重试',
+    updateErrorCert: '更新服务器证书验证失败，请检查系统时间与代理设置',
+    updateErrorNotFound: '未找到更新信息（404），请稍后再试或联系客服',
+    updateErrorForbidden: '更新服务暂时不可用（权限被拒绝），请稍后再试',
+    updateErrorServer: '更新服务异常，请稍后再试'
   },
   'en-US': {
     appTitle: '51Mazi',
@@ -37,7 +42,12 @@ const MAIN_I18N_MESSAGES = {
     updateDownloadUnsupportedInDev: 'Update download is not supported in development mode',
     updateDownloadFailed: 'Failed to download update',
     updateInstallUnsupportedInDev: 'Update install is not supported in development mode',
-    updateInstallFailed: 'Failed to install update'
+    updateInstallFailed: 'Failed to install update',
+    updateErrorNetwork: 'Cannot reach the update server. Check your network and try again.',
+    updateErrorCert: 'Update server certificate verification failed. Check your system time and proxy settings.',
+    updateErrorNotFound: 'Update metadata was not found (404). Try again later.',
+    updateErrorForbidden: 'Update service is temporarily unavailable (access denied). Try again later.',
+    updateErrorServer: 'Update service error. Please try again later.'
   }
 }
 
@@ -252,6 +262,113 @@ autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装更新
 let autoUpdateCheckTimeoutId = null
 let autoUpdateCheckIntervalId = null
 
+/** 当前更新阶段，用于 autoUpdater error 事件展示对应提示（检查 / 下载） */
+let updaterErrorPhase = 'check'
+/** 手动 check/download IPC 开始后一段时间内抑制 update-error 广播，避免与 Promise 拒绝重复弹窗（error 事件可能晚于 reject） */
+let suppressUpdaterErrorBroadcastUntil = 0
+
+function beginManualUpdaterIpcErrorSuppression() {
+  suppressUpdaterErrorBroadcastUntil = Date.now() + 1500
+}
+
+function shouldSuppressUpdaterErrorBroadcast() {
+  return Date.now() < suppressUpdaterErrorBroadcastUntil
+}
+
+/**
+ * 将 electron-updater / Node 网络错误映射为用户可读文案，避免把 HTTP 二进制体等直接展示成乱码
+ * @param {unknown} error
+ * @param {'check'|'download'|'install'} phase
+ */
+function mapUpdaterErrorToUserMessage(error, phase = 'check') {
+  const code = error && typeof error === 'object' ? error.code : undefined
+  const msg = String((error && error.message) || '')
+  const lower = msg.toLowerCase()
+
+  if (
+    code === 'ENOTFOUND' ||
+    code === 'EAI_AGAIN' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKETTIMEDOUT' ||
+    code === 'ENETUNREACH' ||
+    code === 'EHOSTUNREACH'
+  ) {
+    return mt('updateErrorNetwork')
+  }
+  if (lower.includes('getaddrinfo') || lower.includes('network error') || lower.includes('socket hang up')) {
+    return mt('updateErrorNetwork')
+  }
+  if (
+    code === 'CERT_HAS_EXPIRED' ||
+    code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+    lower.includes('certificate') ||
+    lower.includes('ssl') ||
+    lower.includes('tls')
+  ) {
+    return mt('updateErrorCert')
+  }
+  if (/404|not\s+found|statuscode:\s*404/i.test(msg)) {
+    return mt('updateErrorNotFound')
+  }
+  if (/403|401|402|forbidden|unauthorized|statuscode:\s*40[123]/i.test(msg)) {
+    return mt('updateErrorForbidden')
+  }
+  if (/statuscode:\s*5\d\d|\b5\d\d\b/.test(msg) || lower.includes('internal server error')) {
+    return mt('updateErrorServer')
+  }
+
+  // 疑似二进制 / 乱码：非打印字符比例高或过长时不再拼接原始 message
+  const sample = msg.slice(0, 500)
+  let nonPrint = 0
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i)
+    if (c < 32 && c !== 9 && c !== 10 && c !== 13) nonPrint++
+  }
+  if (sample.length > 40 && nonPrint / sample.length > 0.08) {
+    if (phase === 'install') return mt('updateInstallFailed')
+    return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+  }
+
+  const asciiPrintable = /^[\x09\x0A\x0D\x20-\x7E]+$/.test(msg.slice(0, 200))
+  if (msg.length > 120 && !asciiPrintable) {
+    if (phase === 'install') return mt('updateInstallFailed')
+    return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+  }
+
+  if (phase === 'install') return mt('updateInstallFailed')
+  return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+}
+
+/** 规范化 releaseNotes，避免 Buffer / 异常字节在渲染进程显示为乱码 */
+function normalizeReleaseNotesForRenderer(notes) {
+  if (notes == null) return undefined
+  if (Buffer.isBuffer(notes)) {
+    const s = notes.toString('utf8').replace(/\0/g, '')
+    return s.trim() || undefined
+  }
+  if (Array.isArray(notes)) {
+    const list = notes
+      .map((n) => {
+        if (n == null) return ''
+        if (Buffer.isBuffer(n)) return n.toString('utf8').replace(/\0/g, '')
+        if (typeof n === 'object' && n !== null && typeof n.toString === 'function') {
+          return String(n)
+        }
+        return String(n)
+      })
+      .map((s) => s.replace(/\0/g, '').trim())
+      .filter(Boolean)
+    return list.length ? list : undefined
+  }
+  if (typeof notes === 'string') {
+    const s = notes.replace(/\0/g, '').trim()
+    return s || undefined
+  }
+  return String(notes).replace(/\0/g, '').trim() || undefined
+}
+
 /**
  * 根据「更新方式」设置调度或暂停自动检查更新：仅当为「自动更新」时启动 5 秒后首次检查及每 4 小时定时检查
  */
@@ -293,6 +410,7 @@ function setupUpdaterEvents() {
 
   // 检查更新事件
   autoUpdater.on('checking-for-update', () => {
+    updaterErrorPhase = 'check'
     console.log('正在检查更新...')
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-checking')
@@ -305,7 +423,7 @@ function setupUpdaterEvents() {
       mainWindow.webContents.send('update-available', {
         version: info.version,
         releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes
+        releaseNotes: normalizeReleaseNotesForRenderer(info.releaseNotes)
       })
     }
   })
@@ -318,15 +436,19 @@ function setupUpdaterEvents() {
   })
 
   autoUpdater.on('error', (error) => {
-    console.error('更新检查出错:', error)
+    console.error('自动更新出错:', error)
+    if (shouldSuppressUpdaterErrorBroadcast()) {
+      return
+    }
+    const phase = updaterErrorPhase === 'download' ? 'download' : 'check'
+    const message = mapUpdaterErrorToUserMessage(error, phase)
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-error', {
-        message: error.message || '检查更新时发生错误'
-      })
+      mainWindow.webContents.send('update-error', { message, phase })
     }
   })
 
   autoUpdater.on('download-progress', (progressObj) => {
+    updaterErrorPhase = 'download'
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-download-progress', {
         percent: progressObj.percent,
@@ -3017,6 +3139,8 @@ ipcMain.handle('check-for-update', async () => {
   if (is.dev) {
     return { success: false, code: 'UPDATE_UNSUPPORTED_IN_DEV', message: mt('updateUnsupportedInDev') }
   }
+  updaterErrorPhase = 'check'
+  beginManualUpdaterIpcErrorSuppression()
   try {
     await autoUpdater.checkForUpdates()
     return { success: true }
@@ -3025,7 +3149,8 @@ ipcMain.handle('check-for-update', async () => {
     return {
       success: false,
       code: 'UPDATE_CHECK_FAILED',
-      message: error.message || mt('updateCheckFailed')
+      message: mapUpdaterErrorToUserMessage(error, 'check'),
+      phase: 'check'
     }
   }
 })
@@ -3039,6 +3164,8 @@ ipcMain.handle('download-update', async () => {
       message: mt('updateDownloadUnsupportedInDev')
     }
   }
+  updaterErrorPhase = 'download'
+  beginManualUpdaterIpcErrorSuppression()
   try {
     await autoUpdater.downloadUpdate()
     return { success: true }
@@ -3047,7 +3174,8 @@ ipcMain.handle('download-update', async () => {
     return {
       success: false,
       code: 'UPDATE_DOWNLOAD_FAILED',
-      message: error.message || mt('updateDownloadFailed')
+      message: mapUpdaterErrorToUserMessage(error, 'download'),
+      phase: 'download'
     }
   }
 })
@@ -3069,7 +3197,7 @@ ipcMain.handle('quit-and-install', async () => {
     return {
       success: false,
       code: 'UPDATE_INSTALL_FAILED',
-      message: error.message || mt('updateInstallFailed')
+      message: mapUpdaterErrorToUserMessage(error, 'install')
     }
   }
 })
