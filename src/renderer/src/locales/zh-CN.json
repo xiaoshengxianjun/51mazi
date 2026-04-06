@@ -279,7 +279,33 @@
     "pleaseInputTongyi": "请先输入通义万相 API Key",
     "tongyiValidateSuccess": "通义万相 API Key 验证成功",
     "tongyiValidateFailed": "通义万相 API Key 验证失败",
-    "validateNetworkFailed": "验证失败，请检查网络连接"
+    "validateNetworkFailed": "验证失败，请检查网络连接",
+    "sectionTextAi": "文本 AI",
+    "sectionImageAi": "图像 AI",
+    "gemini": "Gemini Imagen",
+    "geminiTip": "Imagen 官方说明以英文提示词为主，中文描述效果可能不稳定。",
+    "geminiPlaceholder": "请输入 Google AI Studio / Gemini API Key",
+    "geminiSaveFailed": "Gemini 保存失败",
+    "pleaseInputGemini": "请先输入 Gemini API Key",
+    "geminiValidateSuccess": "Gemini API Key 验证成功",
+    "geminiValidateFailed": "Gemini API Key 验证失败",
+    "doubao": "豆包图像（火山方舟）",
+    "doubaoModel": "模型 ID",
+    "doubaoModelPlaceholder": "方舟控制台中的模型名或推理接入点 ID",
+    "doubaoBaseUrl": "API 地址（可选）",
+    "doubaoBaseUrlPlaceholder": "默认 https://ark.cn-beijing.volces.com/api/v3",
+    "doubaoPlaceholder": "请输入火山方舟 API Key",
+    "doubaoSaveFailed": "豆包配置保存失败",
+    "pleaseInputDoubao": "请先填写豆包 API Key 与模型 ID",
+    "doubaoValidateSuccess": "豆包配置已填写（未发起真实出图请求）",
+    "doubaoValidateFailed": "豆包配置不完整"
+  },
+  "imageAi": {
+    "serviceLabel": "图像服务",
+    "noProviderHint": "请先在设置中至少配置一种图像服务（通义万相、Gemini Imagen 或豆包），保存后再试。",
+    "providerTongyi": "通义万相",
+    "providerGemini": "Gemini Imagen",
+    "providerDoubao": "豆包（火山方舟）"
   },
   "bookshelfPassword": {
     "title": "书架密码设置",
@@ -835,7 +861,7 @@
   },
   "aiSceneImage": {
     "title": "AI 场景图",
-    "tip": "需先在设置中配置通义万相 API Key；生成结果保存在本书籍目录下的 scene_images 文件夹。",
+    "tip": "请先在设置中配置至少一种图像服务；生成结果保存在本书籍目录下的 scene_images 文件夹。",
     "excerptBasis": "节选依据",
     "excerptHint": "以上为选中正文，「画面描述」请改为适合绘图的场景要素（主体、环境、光线、氛围）。",
     "outputSize": "输出尺寸",

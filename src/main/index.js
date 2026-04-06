@@ -8,6 +8,12 @@ import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
+import {
+  generateImageBuffer as generateImageBufferByProvider,
+  listConfiguredImageProviders
+} from './services/imageGenerationRouter.js'
+import * as geminiImagenService from './services/geminiImagen.js'
+import { validateConfigNonEmpty as validateDoubaoConfigNonEmpty } from './services/doubaoImage.js'
 import novelDownloader from './services/novelDownloader.js'
 const { autoUpdater } = pkg
 const MAIN_I18N_MESSAGES = {
@@ -3360,6 +3366,100 @@ ipcMain.handle('tongyiwanxiang:validate-api-key', async () => {
   }
 })
 
+// --------- 图像 AI 通用（多服务商：Gemini / 豆包配置与列表）---------
+ipcMain.handle('imageAi:list-configured-providers', async () => {
+  try {
+    const providers = listConfiguredImageProviders(store)
+    return { success: true, providers }
+  } catch (error) {
+    console.error('list-configured-providers:', error)
+    return { success: false, providers: [], message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-last-provider', async () => {
+  try {
+    const provider = store.get('imageAi.lastProvider', null)
+    return { success: true, provider }
+  } catch (error) {
+    return { success: false, provider: null, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-last-provider', async (_, provider) => {
+  try {
+    if (provider != null && String(provider).trim()) {
+      store.set('imageAi.lastProvider', String(provider).trim())
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-gemini-api-key', async (_, apiKey) => {
+  try {
+    store.set('gemini.apiKey', apiKey || '')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-gemini-api-key', async () => {
+  try {
+    return { success: true, apiKey: store.get('gemini.apiKey', '') || '' }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:validate-gemini-api-key', async () => {
+  try {
+    const key = store.get('gemini.apiKey', '')
+    const result = await geminiImagenService.validateApiKey(key)
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    return { success: false, isValid: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-doubao-config', async (_, payload) => {
+  try {
+    const { apiKey, baseUrl, model } = payload || {}
+    store.set('doubao.apiKey', apiKey || '')
+    store.set('doubao.baseUrl', baseUrl || '')
+    store.set('doubao.model', model || '')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-doubao-config', async () => {
+  try {
+    return {
+      success: true,
+      apiKey: store.get('doubao.apiKey', '') || '',
+      baseUrl: store.get('doubao.baseUrl', '') || '',
+      model: store.get('doubao.model', '') || ''
+    }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:validate-doubao-config', async () => {
+  try {
+    const apiKey = store.get('doubao.apiKey', '')
+    const model = store.get('doubao.model', '')
+    const result = validateDoubaoConfigNonEmpty(apiKey, model)
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    return { success: false, isValid: false, message: error.message }
+  }
+})
+
 // 生成封面：调用通义万相 → 下载图片 → 保存到书籍目录
 ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
   try {
@@ -3379,19 +3479,12 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
     const bookPath = join(booksDir, safeName)
     fs.mkdirSync(bookPath, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     // 书籍根目录下按 ai_cover1.png、ai_cover2.png 递增命名
     const existing = fs.readdirSync(bookPath).filter((f) => /^ai_cover\d+\.png$/i.test(f))
     const nextNum =
@@ -3467,19 +3560,12 @@ ipcMain.handle('tongyiwanxiang:generate-character-image', async (_, options) => 
     const tempDir = join(bookPath, AI_CHARACTER_TEMP_DIR)
     fs.mkdirSync(tempDir, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     const existing = fs.readdirSync(tempDir).filter((f) => /^ai_char\d+\.png$/i.test(f))
     const nextNum =
       existing.length === 0
@@ -3569,19 +3655,12 @@ ipcMain.handle('tongyiwanxiang:generate-scene-image', async (_, options) => {
     const sceneDir = join(bookPath, SCENE_IMAGES_DIR)
     fs.mkdirSync(sceneDir, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     const fileName = `scene_${Date.now()}.png`
     const imagePath = join(sceneDir, fileName)
     fs.writeFileSync(imagePath, buf)

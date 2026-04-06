@@ -49,6 +49,27 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <template v-if="providersLoaded">
+          <el-alert
+            v-if="noImageProviders"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ai-drawer-provider-alert"
+          >
+            {{ t('imageAi.noProviderHint') }}
+          </el-alert>
+          <el-form-item v-else :label="t('imageAi.serviceLabel')">
+            <el-select v-model="selectedProvider" style="width: 100%">
+              <el-option
+                v-for="p in imageProviders"
+                :key="p"
+                :label="labelForImageProvider(p)"
+                :value="p"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
         <!-- 封面要求：拆分为三部分，让提示词更明确 -->
         <el-form-item prop="titlePrompt" :label="t('aiCover.titlePrompt')">
           <el-input
@@ -148,7 +169,12 @@
       </el-alert>
       <div class="ai-cover-drawer-footer">
         <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
+        <el-button
+          type="primary"
+          :loading="generating"
+          :disabled="noImageProviders || !selectedProvider"
+          @click="handleGenerate"
+        >
           {{ generatedList.length > 0 ? t('aiCover.generateOneMore') : t('aiCover.generate') }}
         </el-button>
         <el-button
@@ -165,10 +191,11 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { generateAICover, confirmAICover, discardAICovers } from '@renderer/service/tongyiwanxiang'
+import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -177,6 +204,19 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'cover-generated'])
 const { t, locale } = useI18n()
+
+const modelOpen = toRef(props, 'modelValue')
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+  useImageAiProviderSelect(modelOpen)
+
+function labelForImageProvider(id) {
+  const keys = {
+    tongyi: 'imageAi.providerTongyi',
+    gemini: 'imageAi.providerGemini',
+    doubao: 'imageAi.providerDoubao'
+  }
+  return t(keys[id] || id)
+}
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -785,6 +825,10 @@ async function handleGenerate() {
       ElMessage.error(t('aiCover.bookNameRequired'))
       return
     }
+    if (!selectedProvider.value) {
+      ElMessage.warning(t('imageAi.noProviderHint'))
+      return
+    }
     // 构建完整提示词：强制要求封面上显示书名和笔名，再拼接用户填写的风格/元素描述
     const penName = (form.value.penName || '').trim()
     const backgroundPrompt = (form.value.backgroundPrompt || '').trim()
@@ -815,7 +859,8 @@ async function handleGenerate() {
       prompt: fullPrompt,
       size,
       bookName,
-      negativePrompt: (form.value.negativePrompt || '').trim() || undefined
+      negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
+      imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
       const previewUrl = `file://${res.localPath}`
@@ -859,6 +904,9 @@ async function handleConfirmUse() {
 </script>
 
 <style lang="scss" scoped>
+.ai-drawer-provider-alert {
+  margin-bottom: 12px;
+}
 .ai-cover-drawer-content {
   display: flex;
   flex-direction: column;

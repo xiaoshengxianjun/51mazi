@@ -267,7 +267,18 @@ const customElectronAPI = {
     ipcRenderer.invoke('tongyiwanxiang:discard-ai-character-images', options),
   // 通义万相 AI 场景图（选中文本）
   generateAISceneImage: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:generate-scene-image', options)
+    ipcRenderer.invoke('tongyiwanxiang:generate-scene-image', options),
+
+  // --------- 图像 AI 多服务商（配置与上次选用）---------
+  listConfiguredImageProviders: () => ipcRenderer.invoke('imageAi:list-configured-providers'),
+  getImageAiLastProvider: () => ipcRenderer.invoke('imageAi:get-last-provider'),
+  setImageAiLastProvider: (provider) => ipcRenderer.invoke('imageAi:set-last-provider', provider),
+  setGeminiApiKey: (apiKey) => ipcRenderer.invoke('imageAi:set-gemini-api-key', apiKey),
+  getGeminiApiKey: () => ipcRenderer.invoke('imageAi:get-gemini-api-key'),
+  validateGeminiApiKey: () => ipcRenderer.invoke('imageAi:validate-gemini-api-key'),
+  setDoubaoConfig: (payload) => ipcRenderer.invoke('imageAi:set-doubao-config', payload),
+  getDoubaoConfig: () => ipcRenderer.invoke('imageAi:get-doubao-config'),
+  validateDoubaoConfig: () => ipcRenderer.invoke('imageAi:validate-doubao-config')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

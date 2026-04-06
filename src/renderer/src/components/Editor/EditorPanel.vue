@@ -1223,7 +1223,7 @@ async function handlePolishSelection() {
   }
 }
 
-/** AI 场景图：校验选区字数后打开通义万相配置抽屉 */
+/** AI 场景图：校验选区字数后打开场景图抽屉（图像服务在抽屉内选择） */
 function handleAISceneImageClick() {
   const ed = editor.value
   if (!ed) {

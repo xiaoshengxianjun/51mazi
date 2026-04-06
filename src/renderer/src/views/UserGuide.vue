@@ -193,7 +193,7 @@ const guideData = {
         listType: 'ul',
         items: [
           'DeepSeek：起名、润色、续写、场景图提炼',
-          '通义万相：封面、人物图、场景图出图',
+          '图像 AI：通义万相、Gemini Imagen、豆包（火山方舟），用于封面 / 人物图 / 场景图',
           '支持一键验证 API Key'
         ],
         entry: '首页左侧菜单「AI 设置」'
@@ -355,7 +355,7 @@ const guideData = {
         listType: 'ul',
         items: [
           'DeepSeek: naming, polishing, continuation, scene prompt refinement',
-          'Tongyi Wanxiang: cover, character image, scene image generation',
+          'Image AI: Tongyi Wanxiang, Gemini Imagen, or Doubao (Volcano Ark) for cover / character / scene images',
           'One-click API key verification'
         ],
         entry: 'Home sidebar → AI Settings'

@@ -5,6 +5,8 @@
     size="700px"
     direction="rtl"
     class="ai-character-drawer"
+    header-class="ai-character-drawer__header"
+    body-class="ai-character-drawer__body"
     :close-on-click-modal="false"
     @update:model-value="$emit('update:modelValue', $event)"
   >
@@ -19,6 +21,28 @@
         <el-form-item v-if="characterName" :label="resolvedSubjectLabel">
           <span class="character-name-tip">{{ characterName }}</span>
         </el-form-item>
+
+        <template v-if="providersLoaded">
+          <el-alert
+            v-if="noImageProviders"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ai-drawer-provider-alert"
+          >
+            {{ t('imageAi.noProviderHint') }}
+          </el-alert>
+          <el-form-item v-else :label="t('imageAi.serviceLabel')">
+            <el-select v-model="selectedProvider" style="width: 100%">
+              <el-option
+                v-for="p in imageProviders"
+                :key="p"
+                :label="labelForImageProvider(p)"
+                :value="p"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
 
         <el-form-item prop="style" :label="t('aiCharacter.style')">
           <el-select
@@ -118,7 +142,12 @@
       </el-alert>
       <div class="ai-character-drawer-footer">
         <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
+        <el-button
+          type="primary"
+          :loading="generating"
+          :disabled="noImageProviders || !selectedProvider"
+          @click="handleGenerate"
+        >
           {{ generatedList.length > 0 ? resolvedRegenerateButtonText : resolvedGenerateButtonText }}
         </el-button>
         <el-button
@@ -135,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import {
@@ -143,6 +172,7 @@ import {
   confirmAICharacterImage,
   discardAICharacterImages
 } from '@renderer/service/tongyiwanxiang'
+import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -183,6 +213,19 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'character-image-generated'])
 const { t } = useI18n()
+
+const modelOpen = toRef(props, 'modelValue')
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+  useImageAiProviderSelect(modelOpen)
+
+function labelForImageProvider(id) {
+  const keys = {
+    tongyi: 'imageAi.providerTongyi',
+    gemini: 'imageAi.providerGemini',
+    doubao: 'imageAi.providerDoubao'
+  }
+  return t(keys[id] || id)
+}
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -380,6 +423,10 @@ async function handleGenerate() {
       ElMessage.error(t('aiCharacter.bookNameEmpty'))
       return
     }
+    if (!selectedProvider.value) {
+      ElMessage.warning(t('imageAi.noProviderHint'))
+      return
+    }
     generating.value = true
     ElMessage.info(resolvedInfoGeneratingMessage.value)
     const fullPrompt = buildFullPrompt()
@@ -387,7 +434,8 @@ async function handleGenerate() {
       prompt: fullPrompt,
       size: FIXED_SIZE,
       bookName,
-      negativePrompt: (form.value.negativePrompt || '').trim() || undefined
+      negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
+      imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
       const previewUrl = `file://${res.localPath}`
@@ -436,7 +484,21 @@ async function handleConfirmUse() {
 }
 </script>
 
+<!-- 抽屉 Teleport 到 body，header/body 用官方 class 挂接；无 scoped 避免匹配不到 -->
+<style lang="scss">
+.ai-character-drawer__header.el-drawer__header {
+  margin-bottom: 0;
+  padding-bottom: 20px;
+}
+.ai-character-drawer__body.el-drawer__body {
+  padding: 0;
+}
+</style>
+
 <style lang="scss" scoped>
+.ai-drawer-provider-alert {
+  margin-bottom: 12px;
+}
 .ai-character-drawer-content {
   display: flex;
   flex-direction: column;

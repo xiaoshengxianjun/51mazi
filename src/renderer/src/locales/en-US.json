@@ -279,7 +279,33 @@
     "pleaseInputTongyi": "Please input Tongyi Wanxiang API Key first",
     "tongyiValidateSuccess": "Tongyi Wanxiang API Key validated",
     "tongyiValidateFailed": "Tongyi Wanxiang API Key validation failed",
-    "validateNetworkFailed": "Validation failed, please check network connection"
+    "validateNetworkFailed": "Validation failed, please check network connection",
+    "sectionTextAi": "Text AI",
+    "sectionImageAi": "Image AI",
+    "gemini": "Gemini Imagen",
+    "geminiTip": "Imagen works best with English prompts; Chinese may be less reliable.",
+    "geminiPlaceholder": "Enter Google AI Studio / Gemini API Key",
+    "geminiSaveFailed": "Failed to save Gemini key",
+    "pleaseInputGemini": "Please enter Gemini API Key first",
+    "geminiValidateSuccess": "Gemini API Key validated",
+    "geminiValidateFailed": "Gemini API Key validation failed",
+    "doubao": "Doubao image (Volcano Ark)",
+    "doubaoModel": "Model ID",
+    "doubaoModelPlaceholder": "Model name or endpoint ID from Ark console",
+    "doubaoBaseUrl": "API base URL (optional)",
+    "doubaoBaseUrlPlaceholder": "Default https://ark.cn-beijing.volces.com/api/v3",
+    "doubaoPlaceholder": "Enter Volcano Ark API Key",
+    "doubaoSaveFailed": "Failed to save Doubao config",
+    "pleaseInputDoubao": "Please enter Doubao API Key and Model ID",
+    "doubaoValidateSuccess": "Doubao config present (no image request sent)",
+    "doubaoValidateFailed": "Doubao config incomplete"
+  },
+  "imageAi": {
+    "serviceLabel": "Image service",
+    "noProviderHint": "Configure at least one image provider (Tongyi, Gemini Imagen, or Doubao) in AI Settings, then save.",
+    "providerTongyi": "Tongyi Wanxiang",
+    "providerGemini": "Gemini Imagen",
+    "providerDoubao": "Doubao (Volcano Ark)"
   },
   "bookshelfPassword": {
     "title": "Bookshelf Password",
@@ -835,7 +861,7 @@
   },
   "aiSceneImage": {
     "title": "AI Scene Image",
-    "tip": "Configure the Tongyi Wanxiang API Key in Settings first. Generated images are saved to the current book's `scene_images` folder.",
+    "tip": "Configure at least one image provider in Settings first. Generated images are saved to the current book's `scene_images` folder.",
     "excerptBasis": "Excerpt basis",
     "excerptHint": "This is the selected text. Please rewrite \"Scene description\" into drawing-friendly elements (subject, environment, lighting, mood).",
     "outputSize": "Output size",

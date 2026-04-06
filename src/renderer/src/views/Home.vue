@@ -887,4 +887,11 @@ async function handleCheckUpdate() {
 .fade-leave-to {
   opacity: 0;
 }
+:deep(.el-drawer__header) {
+  margin-bottom: 0px;
+  padding-bottom: 20px;
+}
+:deep(.el-drawer__body) {
+  padding: 0px;
+}
 </style>

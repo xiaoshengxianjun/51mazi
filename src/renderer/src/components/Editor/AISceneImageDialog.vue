@@ -22,6 +22,29 @@
           label-width="100px"
           class="ai-scene-form"
         >
+          <template v-if="providersLoaded">
+            <el-form-item v-if="noImageProviders">
+              <el-alert
+                type="warning"
+                :closable="false"
+                show-icon
+                class="ai-drawer-provider-alert"
+              >
+                {{ t('imageAi.noProviderHint') }}
+              </el-alert>
+            </el-form-item>
+            <el-form-item v-else :label="t('imageAi.serviceLabel')">
+              <el-select v-model="selectedProvider" style="width: 100%">
+                <el-option
+                  v-for="p in imageProviders"
+                  :key="p"
+                  :label="labelForImageProvider(p)"
+                  :value="p"
+                />
+              </el-select>
+            </el-form-item>
+          </template>
+
           <el-form-item :label="t('aiSceneImage.excerptBasis')">
             <div class="excerpt-box">
               <el-scrollbar max-height="140px">
@@ -161,7 +184,12 @@
 
       <div class="ai-scene-drawer-footer">
         <el-button @click="handleClose">{{ t('common.close') }}</el-button>
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
+        <el-button
+          type="primary"
+          :loading="generating"
+          :disabled="noImageProviders || !selectedProvider"
+          @click="handleGenerate"
+        >
           {{
             generatedList.length > 0 ? t('aiSceneImage.generateOneMore') : t('aiSceneImage.generate')
           }}
@@ -172,11 +200,12 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { generateAISceneImage } from '@renderer/service/tongyiwanxiang'
 import { refineSceneVisualPromptWithAI } from '@renderer/service/deepseek'
 import { useI18n } from 'vue-i18n'
+import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -187,6 +216,19 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 const { t } = useI18n()
+
+const modelOpen = toRef(props, 'modelValue')
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+  useImageAiProviderSelect(modelOpen)
+
+function labelForImageProvider(id) {
+  const keys = {
+    tongyi: 'imageAi.providerTongyi',
+    gemini: 'imageAi.providerGemini',
+    doubao: 'imageAi.providerDoubao'
+  }
+  return t(keys[id] || id)
+}
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -429,6 +471,10 @@ async function handleGenerate() {
     ElMessage.error(t('aiSceneImage.generateUnsupported'))
     return
   }
+  if (!selectedProvider.value) {
+    ElMessage.warning(t('imageAi.noProviderHint'))
+    return
+  }
   generating.value = true
   try {
     const fullPrompt = buildFullPrompt()
@@ -436,7 +482,8 @@ async function handleGenerate() {
       prompt: fullPrompt,
       size: form.value.outputSize,
       bookName,
-      negativePrompt: (form.value.negativePrompt || '').trim() || undefined
+      negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
+      imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
       const previewUrl = `file://${res.localPath}`
@@ -468,6 +515,9 @@ function handleClose() {
 </script>
 
 <style scoped lang="scss">
+.ai-drawer-provider-alert {
+  width: 100%;
+}
 /* 抽屉内铺满高度，底部操作栏固定 */
 .ai-scene-drawer {
   :deep(.el-drawer__body) {
