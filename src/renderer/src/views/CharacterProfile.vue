@@ -87,7 +87,17 @@
             <!-- 生平介绍 -->
             <div v-if="character.biography" class="character-section">
               <div class="section-title">{{ kindUi.biographyLabel }}</div>
-              <p class="character-intro biography-intro">{{ character.biography }}</p>
+              <el-tooltip
+                placement="top-start"
+                :show-after="300"
+                popper-class="biography-tooltip-popper"
+                :popper-style="{ maxWidth: '400px', width: '400px' }"
+              >
+                <template #content>
+                  <div class="biography-tooltip-content">{{ character.biography }}</div>
+                </template>
+                <p class="character-intro biography-intro">{{ character.biography }}</p>
+              </el-tooltip>
             </div>
             <!-- 人物图列表：卡片下方一行多张 -->
             <div class="character-portrait-row">
@@ -270,6 +280,9 @@
     size="700px"
     direction="rtl"
     class="character-form-drawer"
+    header-class="ai-character-drawer__header"
+    body-class="ai-character-drawer__body"
+    footer-class="character-form-drawer__footer"
     @close="resetForm"
   >
     <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="100px">
@@ -387,7 +400,7 @@
           v-model="characterForm.appearance"
           :placeholder="kindUi.appearancePlaceholder"
           type="textarea"
-          :rows="4"
+          :rows="3"
           clearable
         />
       </el-form-item>
@@ -1761,6 +1774,17 @@ onBeforeUnmount(() => {
     text-overflow: ellipsis;
   }
 
+  // 生平介绍悬停气泡内容
+  :deep(.biography-tooltip-popper) {
+    white-space: normal;
+    line-height: 1.6;
+  }
+
+  .biography-tooltip-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
   // 人物图列表：卡片下方一行多张
   .character-portrait-row {
     margin-top: 10px;
@@ -2023,11 +2047,14 @@ onBeforeUnmount(() => {
 }
 </style>
 <style lang="scss">
-:deep(.el-drawer__header) {
-  margin-bottom: 0px;
+.ai-character-drawer__header.el-drawer__header {
+  margin-bottom: 0;
   padding-bottom: 20px;
 }
-:deep(.el-drawer__body) {
-  padding: 0px;
+.ai-character-drawer__body.el-drawer__body {
+  padding: 0 10px 0 0;
+}
+.character-form-drawer__footer.el-drawer__footer {
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 </style>
