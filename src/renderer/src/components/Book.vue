@@ -28,8 +28,8 @@
     <div class="info" :class="{ 'show-on-hover': hasCoverImage }">
       <div class="type">{{ typeName }}</div>
       <div class="stats">
-        <div class="word-count">字数：{{ totalWords }}</div>
-        <div class="update-time">更新：{{ formattedUpdatedAt }}</div>
+        <div class="word-count">{{ t('book.wordCount', { count: totalWords }) }}</div>
+        <div class="update-time">{{ t('book.updatedAt', { time: formattedUpdatedAt }) }}</div>
       </div>
     </div>
     <Teleport to="body">
@@ -41,10 +41,10 @@
         @click.stop
       >
         <div class="menu-item" @click="handleEdit">
-          <el-icon><Edit /></el-icon> 编辑
+          <el-icon><Edit /></el-icon> {{ t('common.edit') }}
         </div>
         <div class="menu-item delete" @click="handleDelete">
-          <el-icon><Delete /></el-icon> 删除
+          <el-icon><Delete /></el-icon> {{ t('common.delete') }}
         </div>
       </div>
     </Teleport>
@@ -55,6 +55,7 @@
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['onOpen', 'onEdit', 'onDelete'])
 const props = defineProps({
@@ -68,7 +69,7 @@ const props = defineProps({
   },
   updatedAt: {
     type: String,
-    default: '暂无更新'
+    default: ''
   },
   coverUrl: String,
   coverColor: {
@@ -83,6 +84,7 @@ const menuVisible = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
 const coverImageUrl = ref('')
+const { t } = useI18n()
 
 // 判断是否有封面图片
 const hasCoverImage = computed(() => {
@@ -113,7 +115,7 @@ async function loadCoverImage() {
     const booksDir = await window.electronStore.get('booksDir')
     const coverPath = `${booksDir}/${pathName}/${props.coverUrl}`
     let timestamp = Date.now()
-    if (props.updatedAt && props.updatedAt !== '暂无更新') {
+    if (props.updatedAt) {
       try {
         const date = new Date(props.updatedAt)
         if (!isNaN(date.getTime())) timestamp = date.getTime()
@@ -132,7 +134,7 @@ async function loadCoverImage() {
     }
     img.src = url
   } catch (error) {
-    console.error('加载封面图片失败:', error)
+    console.error('Failed to load cover image:', error)
     coverImageUrl.value = ''
   }
 }
@@ -152,8 +154,8 @@ watch(
 
 // 格式化更新时间
 const formattedUpdatedAt = computed(() => {
-  if (!props.updatedAt || props.updatedAt === '暂无更新') {
-    return '暂无更新'
+  if (!props.updatedAt) {
+    return t('book.noUpdate')
   }
   const date = dayjs(props.updatedAt)
   return date.isValid() ? date.format('YYYY/MM/DD HH:mm:ss') : props.updatedAt

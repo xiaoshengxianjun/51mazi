@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="书架密码设置"
+    :title="t('bookshelfPassword.title')"
     width="500px"
     align-center
     @close="handleClose"
@@ -14,19 +14,19 @@
         :rules="passwordRules"
         label-width="100px"
       >
-        <el-form-item label="输入密码" prop="password">
+        <el-form-item :label="t('bookshelfPassword.inputPassword')" prop="password">
           <el-input
             v-model="passwordForm.password"
             type="password"
-            placeholder="8-16位数字或字母组合"
+            :placeholder="t('bookshelfPassword.passwordPlaceholder')"
             show-password
           />
         </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword">
+        <el-form-item :label="t('bookshelfPassword.confirmPassword')" prop="confirmPassword">
           <el-input
             v-model="passwordForm.confirmPassword"
             type="password"
-            placeholder="请再次输入密码"
+            :placeholder="t('bookshelfPassword.confirmPlaceholder')"
             show-password
           />
         </el-form-item>
@@ -45,27 +45,27 @@
         :rules="modifyPasswordRules"
         label-width="100px"
       >
-        <el-form-item label="原密码" prop="oldPassword">
+        <el-form-item :label="t('bookshelfPassword.oldPassword')" prop="oldPassword">
           <el-input
             v-model="modifyPasswordForm.oldPassword"
             type="password"
-            placeholder="请输入原密码"
+            :placeholder="t('bookshelfPassword.oldPasswordPlaceholder')"
             show-password
           />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
+        <el-form-item :label="t('bookshelfPassword.newPassword')" prop="newPassword">
           <el-input
             v-model="modifyPasswordForm.newPassword"
             type="password"
-            placeholder="8-16位数字或字母组合，留空则取消密码"
+            :placeholder="t('bookshelfPassword.newPasswordPlaceholder')"
             show-password
           />
         </el-form-item>
-        <el-form-item label="确认密码" prop="confirmNewPassword">
+        <el-form-item :label="t('bookshelfPassword.confirmPassword')" prop="confirmNewPassword">
           <el-input
             v-model="modifyPasswordForm.confirmNewPassword"
             type="password"
-            placeholder="请再次输入新密码，取消密码时留空"
+            :placeholder="t('bookshelfPassword.confirmNewPlaceholder')"
             show-password
           />
         </el-form-item>
@@ -73,19 +73,21 @@
     </div>
     <template #footer>
       <template v-if="!hasPassword">
-        <el-button @click="handleClose">取消</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
         <el-button :loading="passwordLoading" type="primary" @click="handleSetPassword">
-          确认
+          {{ t('common.confirm') }}
         </el-button>
       </template>
       <template v-else>
-        <el-button v-if="!isModifyingPassword" @click="handleClose">关闭</el-button>
-        <el-button v-else @click="handleCancelModify">取消</el-button>
+        <el-button v-if="!isModifyingPassword" @click="handleClose">
+          {{ t('bookshelfPassword.close') }}
+        </el-button>
+        <el-button v-else @click="handleCancelModify">{{ t('common.cancel') }}</el-button>
         <el-button v-if="!isModifyingPassword" type="primary" @click="isModifyingPassword = true">
-          修改
+          {{ t('bookshelfPassword.modify') }}
         </el-button>
         <el-button v-else :loading="passwordLoading" type="primary" @click="handleModifyPassword">
-          确认
+          {{ t('common.confirm') }}
         </el-button>
       </template>
     </template>
@@ -95,6 +97,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   modelValue: {
@@ -104,6 +107,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue'])
+const { t } = useI18n()
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -133,9 +137,9 @@ const modifyPasswordFormRef = ref(null)
 // 密码验证规则
 const validatePassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请输入密码'))
+    callback(new Error(t('bookshelfPassword.pleaseInputPassword')))
   } else if (!/^[a-zA-Z0-9]{8,16}$/.test(value)) {
-    callback(new Error('密码长度8-16位，只能包含数字或字母'))
+    callback(new Error(t('bookshelfPassword.passwordRuleError')))
   } else {
     callback()
   }
@@ -143,9 +147,9 @@ const validatePassword = (rule, value, callback) => {
 
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请确认密码'))
+    callback(new Error(t('bookshelfPassword.pleaseConfirmPassword')))
   } else if (value !== passwordForm.value.password) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('bookshelfPassword.passwordNotMatch')))
   } else {
     callback()
   }
@@ -158,9 +162,9 @@ const passwordRules = {
 
 const validateOldPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请输入原密码'))
+    callback(new Error(t('bookshelfPassword.pleaseInputOldPassword')))
   } else if (value !== storedPassword.value) {
-    callback(new Error('原密码错误'))
+    callback(new Error(t('bookshelfPassword.oldPasswordIncorrect')))
   } else {
     callback()
   }
@@ -171,7 +175,7 @@ const validateNewPassword = (rule, value, callback) => {
   if (!value || value.trim() === '') {
     callback()
   } else if (!/^[a-zA-Z0-9]{8,16}$/.test(value)) {
-    callback(new Error('密码长度8-16位，只能包含数字或字母'))
+    callback(new Error(t('bookshelfPassword.passwordRuleError')))
   } else {
     callback()
   }
@@ -182,16 +186,16 @@ const validateConfirmNewPassword = (rule, value, callback) => {
   // 如果新密码为空，确认密码也应该为空
   if (!newPassword || newPassword.trim() === '') {
     if (value && value.trim() !== '') {
-      callback(new Error('取消密码时确认密码也应为空'))
+      callback(new Error(t('bookshelfPassword.confirmShouldEmptyWhenCancel')))
     } else {
       callback()
     }
   } else {
     // 如果新密码不为空，确认密码不能为空且必须一致
     if (!value) {
-      callback(new Error('请确认新密码'))
+      callback(new Error(t('bookshelfPassword.pleaseConfirmNewPassword')))
     } else if (value !== newPassword) {
-      callback(new Error('两次输入的新密码不一致'))
+      callback(new Error(t('bookshelfPassword.newPasswordNotMatch')))
     } else {
       callback()
     }
@@ -267,12 +271,12 @@ async function handleSetPassword() {
         await window.electronStore?.set('bookshelfPassword', passwordForm.value.password)
         storedPassword.value = passwordForm.value.password
         hasPassword.value = true
-        ElMessage.success('密码设置成功')
+        ElMessage.success(t('bookshelfPassword.setSuccess'))
         handleClose()
         // 刷新页面，进入认证流程
         window.location.reload()
       } catch {
-        ElMessage.error('密码设置失败')
+        ElMessage.error(t('bookshelfPassword.setFailed'))
       } finally {
         passwordLoading.value = false
       }
@@ -306,13 +310,13 @@ async function handleModifyPassword() {
           await window.electronStore?.delete('bookshelfPassword')
           storedPassword.value = ''
           hasPassword.value = false
-          ElMessage.success('密码已取消')
+          ElMessage.success(t('bookshelfPassword.cancelSuccess'))
         } else {
           // 设置新密码
           await window.electronStore?.set('bookshelfPassword', newPassword)
           storedPassword.value = newPassword
           hasPassword.value = true
-          ElMessage.success('密码修改成功')
+          ElMessage.success(t('bookshelfPassword.modifySuccess'))
         }
         isModifyingPassword.value = false
         modifyPasswordForm.value = {
@@ -324,7 +328,7 @@ async function handleModifyPassword() {
         // 刷新页面
         window.location.reload()
       } catch {
-        ElMessage.error('操作失败')
+        ElMessage.error(t('bookshelfPassword.actionFailed'))
       } finally {
         passwordLoading.value = false
       }

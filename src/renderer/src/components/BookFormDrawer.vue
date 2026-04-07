@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    :title="isEdit ? '编辑书籍' : '新建书籍'"
+    :title="isEdit ? t('bookForm.editBook') : t('bookForm.newBook')"
     size="700px"
     direction="rtl"
     class="book-drawer"
@@ -15,56 +15,61 @@
         label-width="80px"
         class="drawer-form"
       >
-        <el-form-item prop="name" label="书名">
+        <el-form-item prop="name" :label="t('bookForm.name')">
           <el-input
             v-model="localForm.name"
-            placeholder="请输入书籍名称（最多15个字符）"
+            :placeholder="t('bookForm.namePlaceholder')"
             maxlength="15"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item prop="type" label="类型">
+        <el-form-item prop="type" :label="t('bookForm.type')">
           <el-cascader
             v-model="localForm.type"
             :options="bookTypeCascaderOptions"
             :props="{ expandTrigger: 'hover', emitPath: false }"
-            placeholder="先选大类，再选细类"
+            :placeholder="t('bookForm.typePlaceholder')"
             style="width: 100%"
             clearable
           />
         </el-form-item>
-        <el-form-item prop="targetCount" label="目标字数">
+        <el-form-item prop="targetCount" :label="t('bookForm.targetWords')">
           <el-input
             v-model="localForm.targetCount"
-            placeholder="请输入目标字数"
+            :placeholder="t('bookForm.targetWordsPlaceholder')"
             type="number"
             :min="10000"
             :max="10000000"
             :step="100000"
           />
         </el-form-item>
-        <el-form-item prop="intro" label="简介">
-          <el-input v-model="localForm.intro" type="textarea" :rows="5" placeholder="请输入简介" />
+        <el-form-item prop="intro" :label="t('bookForm.intro')">
+          <el-input
+            v-model="localForm.intro"
+            type="textarea"
+            :rows="5"
+            :placeholder="t('bookForm.introPlaceholder')"
+          />
         </el-form-item>
-        <el-form-item prop="password" label="密码">
+        <el-form-item prop="password" :label="t('bookForm.password')">
           <el-input
             v-model="localForm.password"
             type="password"
-            placeholder="请输入4-8位数字或字母组合（可选）"
+            :placeholder="t('bookForm.passwordPlaceholder')"
             maxlength="8"
             show-password
           />
         </el-form-item>
-        <el-form-item prop="confirmPassword" label="确认密码">
+        <el-form-item prop="confirmPassword" :label="t('bookForm.confirmPassword')">
           <el-input
             v-model="localForm.confirmPassword"
             type="password"
-            placeholder="请再次输入密码"
+            :placeholder="t('bookForm.confirmPasswordPlaceholder')"
             maxlength="8"
             show-password
           />
         </el-form-item>
-        <el-form-item label="封面颜色">
+        <el-form-item :label="t('bookForm.coverColor')">
           <div class="cover-color-selector">
             <div class="preset-colors">
               <div
@@ -80,10 +85,10 @@
             <el-color-picker v-model="localForm.coverColor" />
           </div>
         </el-form-item>
-        <el-form-item label="封面图片">
+        <el-form-item :label="t('bookForm.coverImage')">
           <div class="cover-image-selector">
             <div v-if="localForm.coverImagePreview" class="cover-preview">
-              <img :src="localForm.coverImagePreview" alt="封面预览" />
+              <img :src="localForm.coverImagePreview" :alt="t('bookForm.coverPreview')" />
               <el-button
                 type="danger"
                 size="small"
@@ -96,16 +101,16 @@
             </div>
             <div v-else class="cover-buttons">
               <el-button type="primary" :icon="Plus" @click="$emit('select-cover')">
-                选择封面图片
+                {{ t('bookForm.selectCoverImage') }}
               </el-button>
               <el-button
                 type="success"
                 :icon="MagicStick"
                 :disabled="!localForm.name || !localForm.type"
-                :title="!localForm.name || !localForm.type ? '请先填写书名和类型' : ''"
+                :title="!localForm.name || !localForm.type ? t('bookForm.fillNameAndTypeFirst') : ''"
                 @click="$emit('open-ai-cover')"
               >
-                AI生成封面
+                {{ t('bookForm.aiGenerateCover') }}
               </el-button>
             </div>
             <div v-if="localForm.coverImagePath" class="cover-path">
@@ -115,9 +120,9 @@
         </el-form-item>
       </el-form>
       <div class="drawer-footer">
-        <el-button @click="$emit('update:modelValue', false)">取消</el-button>
+        <el-button @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleConfirm">
-          {{ isEdit ? '保存' : '创建' }}
+          {{ isEdit ? t('common.save') : t('bookForm.create') }}
         </el-button>
       </div>
     </div>
@@ -127,6 +132,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { Plus, Delete, MagicStick } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -144,6 +150,7 @@ const emit = defineEmits([
   'remove-cover',
   'open-ai-cover'
 ])
+const { t } = useI18n()
 
 const formRef = ref(null)
 // 统一默认表单结构：避免“某次打开没传某字段导致沿用上次残留值”

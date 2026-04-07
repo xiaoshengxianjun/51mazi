@@ -11,61 +11,61 @@
           <span class="menu-item-icon" aria-hidden="true">
             <Library v-bind="menuIconProps" />
           </span>
-          我的书架
+          {{ t('home.menu.bookshelf') }}
         </div>
         <div class="menu-item" @click="goToNovelDownload">
           <span class="menu-item-icon" aria-hidden="true">
             <Download v-bind="menuIconProps" />
           </span>
-          下载小说
+          {{ t('home.menu.downloadNovel') }}
         </div>
         <div class="menu-item" @click="showPasswordDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Lock v-bind="menuIconProps" />
           </span>
-          书架密码
+          {{ t('home.menu.bookshelfPassword') }}
         </div>
         <div class="menu-item" @click="showThemeDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Palette v-bind="menuIconProps" />
           </span>
-          主题设置
+          {{ t('home.menu.themeSetting') }}
         </div>
         <div class="menu-item" @click="showDirDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Settings v-bind="menuIconProps" />
           </span>
-          系统设置
+          {{ t('home.menu.systemSetting') }}
         </div>
         <div class="menu-item" @click="handleOpenAISettings">
           <span class="menu-item-icon" aria-hidden="true">
             <Sparkles v-bind="menuIconProps" />
           </span>
-          AI 设置
+          {{ t('home.menu.aiSetting') }}
         </div>
         <div class="menu-item" @click="goToUserGuide">
           <span class="menu-item-icon" aria-hidden="true">
             <BookOpenText v-bind="menuIconProps" />
           </span>
-          写作指南
+          {{ t('home.menu.writingGuide') }}
         </div>
         <div class="menu-item" @click="showHelpDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <CircleQuestionMark v-bind="menuIconProps" />
           </span>
-          帮助中心
+          {{ t('home.menu.helpCenter') }}
         </div>
         <div class="menu-item" @click="handleCheckUpdate">
           <span class="menu-item-icon" aria-hidden="true">
             <RefreshCw v-bind="menuIconProps" />
           </span>
-          检查更新
+          {{ t('home.menu.checkUpdate') }}
         </div>
         <div class="menu-item" @click="showSponsorDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Gift v-bind="menuIconProps" />
           </span>
-          赞助作者
+          {{ t('home.menu.sponsorAuthor') }}
         </div>
       </div>
 
@@ -76,7 +76,7 @@
     </div>
 
     <!-- 书架区 -->
-    <Bookshelf />
+    <Bookshelf ref="bookshelfRef" />
 
     <!-- 右上角鼓励提示（调度逻辑已封装到组件，避免首页逻辑混杂） -->
     <EncourageToastScheduler />
@@ -84,7 +84,7 @@
     <!-- 系统设置弹窗 -->
     <el-dialog
       v-model="showDirDialog"
-      title="系统设置"
+      :title="t('home.systemSettings.title')"
       width="700px"
       align-center
       :close-on-click-modal="false"
@@ -92,39 +92,55 @@
       @opened="onSystemSettingsOpened"
     >
       <el-form label-width="100px">
-        <el-form-item label="书籍目录">
+        <el-form-item :label="t('home.systemSettings.booksDir')" required>
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="18">
-              <el-input v-model="bookDir" readonly placeholder="请选择目录" />
+              <el-input
+                v-model="bookDir"
+                readonly
+                :placeholder="t('home.systemSettings.selectDirPlaceholder')"
+              />
             </el-col>
             <el-col :span="6">
               <el-button type="primary" style="width: 100%" @click="handleChooseDir">
-                选择目录
+                {{ t('home.systemSettings.selectDir') }}
               </el-button>
             </el-col>
           </el-row>
         </el-form-item>
-        <el-form-item label="更新方式">
+        <el-form-item :label="t('home.systemSettings.updateMode')">
           <el-radio-group
             v-model="updateMode"
             class="update-mode-radios"
             @change="handleUpdateModeChange"
           >
-            <el-radio value="auto">自动更新</el-radio>
-            <el-radio value="manual">手动更新</el-radio>
+            <el-radio value="auto">{{ t('home.systemSettings.autoUpdate') }}</el-radio>
+            <el-radio value="manual">{{ t('home.systemSettings.manualUpdate') }}</el-radio>
           </el-radio-group>
           <div class="setting-desc">
-            选择「手动更新」后，将不再自动检查更新，可随时通过左侧菜单「检查更新」手动检查。
+            {{ t('home.systemSettings.updateModeDesc') }}
           </div>
+        </el-form-item>
+        <el-form-item :label="t('common.language')">
+          <el-select v-model="selectedLocale" style="width: 100%">
+            <el-option
+              v-for="item in localeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">确定</el-button>
+        <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">
+          {{ t('common.confirm') }}
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 主题设置弹框 -->
-    <el-dialog v-model="showThemeDialog" title="主题设置" width="600">
+    <el-dialog v-model="showThemeDialog" :title="t('home.theme.title')" width="600">
       <div class="theme-selector">
         <div
           v-for="theme in availableThemes"
@@ -145,35 +161,49 @@
     </el-dialog>
 
     <!-- 帮助中心弹框 -->
-    <el-dialog v-model="showHelpDialog" title="帮助中心" width="420px" align-center>
+    <el-dialog v-model="showHelpDialog" :title="t('home.help.title')" width="420px" align-center>
       <div class="dialog-content">
-        <img :src="qqGroupQrcode" alt="QQ 群二维码" class="dialog-image" />
-        <p class="dialog-text">QQ 交流群：777690109</p>
+        <img :src="qqGroupQrcode" :alt="t('home.help.qqAlt')" class="dialog-image" />
+        <p class="dialog-text">{{ t('home.help.qqGroup') }}：777690109</p>
         <p class="dialog-text">
-          问题反馈 / 商务合作邮箱：
+          {{ t('home.help.contactEmail') }}：
           <a class="dialog-link" :href="`mailto:${contactEmail}`">{{ contactEmail }}</a>
         </p>
       </div>
     </el-dialog>
 
     <!-- 赞助作者弹框 -->
-    <el-dialog v-model="showSponsorDialog" title="赞助作者" width="520px" align-center center>
+    <el-dialog
+      v-model="showSponsorDialog"
+      :title="t('home.sponsor.title')"
+      width="520px"
+      align-center
+      center
+    >
       <div class="dialog-content">
-        <p class="dialog-text">感谢每一位支持本项目的朋友！可通过以下方式打赏支持：</p>
+        <p class="dialog-text">{{ t('home.sponsor.thanks') }}</p>
         <div class="sponsor-qrcodes">
           <div class="sponsor-qrcode-item">
-            <img :src="wechatPayQrcode" alt="微信收款码" class="dialog-image" />
-            <span class="sponsor-label">微信收款码</span>
+            <img
+              :src="wechatPayQrcode"
+              :alt="t('home.sponsor.wechatPayAlt')"
+              class="dialog-image"
+            />
+            <span class="sponsor-label">{{ t('home.sponsor.wechatPayLabel') }}</span>
           </div>
           <div class="sponsor-qrcode-item">
-            <img :src="alipayQrcode" alt="支付宝收款码" class="dialog-image" />
-            <span class="sponsor-label">支付宝收款码</span>
+            <img :src="alipayQrcode" :alt="t('home.sponsor.alipayAlt')" class="dialog-image" />
+            <span class="sponsor-label">{{ t('home.sponsor.alipayLabel') }}</span>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button type="primary" @click="handleConsiderClick">考虑一下</el-button>
-        <el-button type="primary" @click="handleRewardClick">朕已恩赏</el-button>
+        <el-button type="primary" @click="handleConsiderClick">
+          {{ t('home.sponsor.consider') }}
+        </el-button>
+        <el-button type="primary" @click="handleRewardClick">
+          {{ t('home.sponsor.rewarded') }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -183,77 +213,31 @@
     <!-- AI 设置 -->
     <AISettings ref="aiSettingsRef" />
 
-    <!-- 更新提示弹框 -->
-    <el-dialog v-model="showUpdateDialog" :title="updateDialogTitle" width="500px" align-center>
-      <div class="update-dialog-content">
-        <div v-if="updateInfo">
-          <p class="update-text">
-            <strong>新版本：{{ updateInfo.version }}</strong>
-          </p>
-          <p v-if="updateInfo.releaseDate" class="update-text">
-            发布日期：{{ formatDate(updateInfo.releaseDate) }}
-          </p>
-          <div v-if="updateInfo.releaseNotes" class="update-notes">
-            <p><strong>更新内容：</strong></p>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="release-notes" v-html="formatReleaseNotes(updateInfo.releaseNotes)"></div>
-          </div>
-        </div>
-        <div v-if="isDownloading" class="download-progress">
-          <el-progress
-            :percentage="downloadProgress"
-            :status="downloadProgress === 100 ? 'success' : ''"
-          />
-          <p class="progress-text">正在下载更新... {{ Math.round(downloadProgress) }}%</p>
-        </div>
-        <div v-if="isDownloaded" class="download-complete">
-          <el-alert type="success" :closable="false">
-            <template #title>
-              <span>更新已下载完成，点击"立即安装"重启应用以完成更新</span>
-            </template>
-          </el-alert>
-        </div>
-      </div>
-      <template #footer>
-        <el-button v-if="!isDownloading && !isDownloaded" @click="showUpdateDialog = false">
-          稍后提醒
-        </el-button>
-        <el-button
-          v-if="!isDownloading && !isDownloaded"
-          type="primary"
-          @click="handleDownloadUpdate"
-        >
-          下载更新
-        </el-button>
-        <el-button
-          v-if="isDownloaded"
-          type="primary"
-          :loading="isInstalling"
-          @click="handleInstallUpdate"
-        >
-          立即安装
-        </el-button>
-      </template>
-    </el-dialog>
-
     <!-- 感谢gif图片遮罩层 -->
     <Transition name="fade">
       <div v-if="showRewardGif" class="reward-gif-overlay" @click="showRewardGif = false">
-        <img :src="xiezhulongenGif" alt="谢主隆恩" class="reward-gif-image" />
+        <img
+          :src="xiezhulongenGif"
+          :alt="t('home.sponsor.rewardedGifAlt')"
+          class="reward-gif-image"
+        />
       </div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
 import AISettings from '@renderer/components/AISettings.vue'
 import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
-import { ElDialog, ElMessage, ElProgress, ElAlert } from 'element-plus'
+import { useAppUpdaterStore } from '@renderer/stores/appUpdater'
+import { useI18n } from 'vue-i18n'
+import { getCurrentLocale, setLocale } from '@renderer/i18n'
+import { ElDialog, ElMessage } from 'element-plus'
 import {
   BookOpenText,
   CircleQuestionMark,
@@ -271,16 +255,20 @@ import {
 const menuIconProps = { size: 20, strokeWidth: 2 }
 
 const router = useRouter()
+const { t } = useI18n()
 const showDirDialog = ref(false)
 const bookDir = ref('')
 /** 更新方式：auto 自动更新（默认） | manual 手动更新 */
 const updateMode = ref('auto')
+const selectedLocale = ref('zh-CN')
+const bookshelfRef = ref(null)
 const showThemeDialog = ref(false)
 const showHelpDialog = ref(false)
 const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
+const appUpdaterStore = useAppUpdaterStore()
 const aiSettingsRef = ref(null)
 const qqGroupQrcode = new URL('../../../../static/QQQRCode.png', import.meta.url).href
 const wechatPayQrcode = new URL('../../../../static/WeChatPayQRCode.png', import.meta.url).href
@@ -288,15 +276,42 @@ const alipayQrcode = new URL('../../../../static/AliPayQRCode.png', import.meta.
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
-// 更新相关状态
-const showUpdateDialog = ref(false)
-const updateInfo = ref(null)
-const isDownloading = ref(false)
-const isDownloaded = ref(false)
-const isInstalling = ref(false)
-const downloadProgress = ref(0)
 const currentVersion = ref('')
-const updateDialogTitle = ref('检查更新')
+const localeOptions = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en-US', label: 'English' }
+]
+
+function getBooksDirValidationMessage(code) {
+  switch (code) {
+    case 'NOT_EXISTS':
+      return t('home.systemSettings.booksDirNotExists')
+    case 'NOT_DIRECTORY':
+      return t('home.systemSettings.booksDirNotDirectory')
+    case 'NOT_READABLE':
+      return t('home.systemSettings.booksDirNotReadable')
+    case 'NOT_WRITABLE':
+      return t('home.systemSettings.booksDirNotWritable')
+    case 'EMPTY':
+      return t('home.systemSettings.booksDirRequired')
+    default:
+      return t('home.systemSettings.booksDirInvalid')
+  }
+}
+
+async function validateBooksDirOrNotify(pathValue) {
+  const candidate = String(pathValue || '').trim()
+  if (!candidate) {
+    ElMessage.warning(t('home.systemSettings.booksDirRequired'))
+    return null
+  }
+  const result = await window.electron?.validateBooksDir?.(candidate)
+  if (!result?.valid) {
+    ElMessage.warning(getBooksDirValidationMessage(result?.code))
+    return null
+  }
+  return candidate
+}
 
 // 定时器 ID
 let sponsorDialogTimer = null
@@ -321,14 +336,13 @@ onMounted(async () => {
   if (savedUpdateMode === 'auto' || savedUpdateMode === 'manual') {
     updateMode.value = savedUpdateMode
   }
+  selectedLocale.value = getCurrentLocale()
   // 初始化主题
   await themeStore.initTheme()
   // 检查是否需要自动显示赞助弹框
   await checkAutoShowSponsorDialog()
   // 获取当前版本
   await getCurrentVersion()
-  // 监听更新事件
-  setupUpdateListeners()
 })
 
 // 清理定时器
@@ -493,18 +507,46 @@ async function handleRewardClick() {
 
 // 选择目录
 async function handleChooseDir() {
-  const result = await window.electron?.selectBooksDir()
-  if (result && result.filePaths && result.filePaths[0]) {
-    bookDir.value = result.filePaths[0]
-    await window.electronStore.set('booksDir', bookDir.value)
-    showDirDialog.value = false
+  try {
+    const result = await window.electron?.selectBooksDir()
+    if (result && result.filePaths && result.filePaths[0]) {
+      const validDir = await validateBooksDirOrNotify(result.filePaths[0])
+      if (!validDir) return
+      bookDir.value = validDir
+      await window.electronStore.set('booksDir', validDir)
+      await nextTick()
+      await bookshelfRef.value?.reloadBookshelf?.()
+      showDirDialog.value = false
+    }
+  } catch (error) {
+    console.error('Failed to choose books directory:', error)
+    ElMessage.error(t('home.systemSettings.saveDirFailed'))
   }
 }
 
 // 确认目录
 async function handleConfirmDir() {
-  await window.electronStore.set('booksDir', bookDir.value)
-  showDirDialog.value = false
+  const nextDir = await validateBooksDirOrNotify(bookDir.value)
+  if (!nextDir) return
+
+  try {
+    bookDir.value = nextDir
+    await window.electronStore.set('booksDir', bookDir.value)
+    await nextTick()
+    await bookshelfRef.value?.reloadBookshelf?.()
+    const oldLocale = getCurrentLocale()
+    const nextLocale = setLocale(selectedLocale.value)
+    await window.electronStore?.set('config.locale', nextLocale)
+    if (oldLocale !== nextLocale) {
+      const languageLabel =
+        nextLocale === 'en-US' ? t('common.english') : t('common.simplifiedChinese')
+      ElMessage.success(t('common.switchLanguageSuccess', { language: languageLabel }))
+    }
+    showDirDialog.value = false
+  } catch (error) {
+    console.error('Failed to confirm books directory:', error)
+    ElMessage.error(t('home.systemSettings.saveDirFailed'))
+  }
 }
 
 // 系统设置弹框打开时，同步一次更新方式（从 store 读取，保证与主进程一致）
@@ -513,6 +555,7 @@ async function onSystemSettingsOpened() {
   if (saved === 'auto' || saved === 'manual') {
     updateMode.value = saved
   }
+  selectedLocale.value = getCurrentLocale()
 }
 
 // 用户切换更新方式时，通知主进程并持久化，自动更新逻辑会立即暂停或恢复
@@ -542,7 +585,7 @@ const getPreviewStyle = (themeKey) => {
 const handleThemeChange = (theme) => {
   themeStore.setTheme(theme)
   const themeName = themeStore.getThemeName(theme)
-  ElMessage.success(`已切换到${themeName}主题`)
+  ElMessage.success(t('home.theme.switchSuccess', { themeName }))
 }
 
 // 跳转到写作指南
@@ -566,132 +609,20 @@ async function getCurrentVersion() {
   }
 }
 
-// 设置更新事件监听
-function setupUpdateListeners() {
-  // 正在检查更新
-  window.addEventListener('update-checking', () => {
-    updateDialogTitle.value = '正在检查更新...'
-    showUpdateDialog.value = true
-  })
-
-  // 发现新版本
-  window.addEventListener('update-available', (event) => {
-    updateInfo.value = event.detail
-    updateDialogTitle.value = '发现新版本'
-    isDownloading.value = false
-    isDownloaded.value = false
-    downloadProgress.value = 0
-    showUpdateDialog.value = true
-  })
-
-  // 当前已是最新版本
-  window.addEventListener('update-not-available', () => {
-    ElMessage.success('当前已是最新版本')
-    if (showUpdateDialog.value) {
-      showUpdateDialog.value = false
-    }
-  })
-
-  // 更新检查出错
-  window.addEventListener('update-error', (event) => {
-    ElMessage.error(`更新检查失败: ${event.detail.message}`)
-    if (showUpdateDialog.value) {
-      showUpdateDialog.value = false
-    }
-  })
-
-  // 下载进度
-  window.addEventListener('update-download-progress', (event) => {
-    isDownloading.value = true
-    downloadProgress.value = event.detail.percent || 0
-  })
-
-  // 下载完成
-  window.addEventListener('update-downloaded', () => {
-    isDownloading.value = false
-    isDownloaded.value = true
-    downloadProgress.value = 100
-    ElMessage.success('更新下载完成')
-  })
-}
-
-// 手动检查更新
+// 手动检查更新（窗口事件由 App 根 composable 统一订阅，状态在 appUpdater store）
 async function handleCheckUpdate() {
   try {
-    updateDialogTitle.value = '正在检查更新...'
-    showUpdateDialog.value = true
+    appUpdaterStore.beginManualCheck()
     const result = await window.electron?.checkForUpdate()
     if (!result?.success) {
-      ElMessage.warning(result?.message || '检查更新失败')
-      showUpdateDialog.value = false
+      ElMessage.error(result?.message || t('home.update.checkFailed'))
+      appUpdaterStore.dismissAfterManualCheckFailure()
     }
   } catch (error) {
     console.error('检查更新失败:', error)
-    ElMessage.error('检查更新失败')
-    showUpdateDialog.value = false
+    ElMessage.error(t('home.update.checkFailed'))
+    appUpdaterStore.dismissAfterManualCheckFailure()
   }
-}
-
-// 下载更新
-async function handleDownloadUpdate() {
-  try {
-    isDownloading.value = true
-    downloadProgress.value = 0
-    const result = await window.electron?.downloadUpdate()
-    if (!result?.success) {
-      ElMessage.error(result?.message || '下载更新失败')
-      isDownloading.value = false
-    }
-  } catch (error) {
-    console.error('下载更新失败:', error)
-    ElMessage.error('下载更新失败')
-    isDownloading.value = false
-  }
-}
-
-// 安装更新
-async function handleInstallUpdate() {
-  try {
-    isInstalling.value = true
-    const result = await window.electron?.quitAndInstall()
-    if (!result?.success) {
-      ElMessage.error(result?.message || '安装更新失败')
-      isInstalling.value = false
-    }
-  } catch (error) {
-    console.error('安装更新失败:', error)
-    ElMessage.error('安装更新失败')
-    isInstalling.value = false
-  }
-}
-
-// 格式化日期
-function formatDate(dateString) {
-  if (!dateString) return ''
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  } catch {
-    return dateString
-  }
-}
-
-// 格式化更新日志
-function formatReleaseNotes(notes) {
-  if (!notes) return ''
-  // 将换行符转换为 <br>
-  if (typeof notes === 'string') {
-    return notes.replace(/\n/g, '<br>')
-  }
-  // 如果是数组，转换为HTML列表
-  if (Array.isArray(notes)) {
-    return notes.map((note) => `<li>${note}</li>`).join('')
-  }
-  return String(notes)
 }
 </script>
 
@@ -748,7 +679,7 @@ function formatReleaseNotes(notes) {
 }
 
 .menu-item {
-  padding: 12px 20px;
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -763,6 +694,7 @@ function formatReleaseNotes(notes) {
   box-shadow: var(--neu-shadow-raised, 20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff);
   border-radius: 10px;
   margin: 0px 10px 10px;
+  font-size: 14px;
 }
 
 .menu-item-icon {
@@ -924,55 +856,6 @@ function formatReleaseNotes(notes) {
   height: 32px;
 }
 
-.update-dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.update-text {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-base);
-  line-height: 1.6;
-}
-
-.update-notes {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: var(--bg-mute);
-  border-radius: 6px;
-
-  p {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    color: var(--text-base);
-  }
-}
-
-.release-notes {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.8;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.download-progress {
-  margin-top: 12px;
-
-  .progress-text {
-    margin-top: 8px;
-    font-size: 13px;
-    color: var(--text-secondary);
-    text-align: center;
-  }
-}
-
-.download-complete {
-  margin-top: 12px;
-}
-
 .reward-gif-overlay {
   position: fixed;
   top: 0;
@@ -1003,5 +886,12 @@ function formatReleaseNotes(notes) {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+:deep(.el-drawer__header) {
+  margin-bottom: 0px;
+  padding-bottom: 20px;
+}
+:deep(.el-drawer__body) {
+  padding: 0px;
 }
 </style>

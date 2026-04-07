@@ -34,9 +34,15 @@ export function updateBook(bookInfo) {
  */
 export async function readBooksDir() {
   const mainStore = useMainStore()
-  const books = await window.electron.readBooksDir()
-  mainStore.setBooks(books)
-  return books
+  try {
+    const books = await window.electron.readBooksDir()
+    mainStore.setBooks(books)
+    return books
+  } catch (error) {
+    console.error('Failed to read books directory:', error)
+    mainStore.setBooks([])
+    return []
+  }
 }
 
 /**

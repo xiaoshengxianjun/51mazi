@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     v-model="visible"
-    title="禁词管理"
+    :title="t('bannedWords.title')"
     direction="rtl"
     size="500px"
     header-class="drawer-header"
@@ -9,11 +9,16 @@
   >
     <!-- 新增禁词输入区 -->
     <div class="add-word-section">
-      <el-input v-model="newWord" placeholder="请输入禁词" clearable @keyup.enter="handleAddWord" />
-      <el-button type="primary" @click="handleAddWord">新增</el-button>
+      <el-input
+        v-model="newWord"
+        :placeholder="t('bannedWords.inputPlaceholder')"
+        clearable
+        @keyup.enter="handleAddWord"
+      />
+      <el-button type="primary" @click="handleAddWord">{{ t('bannedWords.add') }}</el-button>
     </div>
 
-    <el-empty v-if="bannedWords.length === 0" :image-size="200" description="暂无禁词" />
+    <el-empty v-if="bannedWords.length === 0" :image-size="200" :description="t('bannedWords.empty')" />
     <!-- 禁词标签列表 -->
     <div v-else class="words-list">
       <el-tag
@@ -32,6 +37,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   bookName: {
@@ -43,6 +49,7 @@ const props = defineProps({
 const visible = ref(false)
 const newWord = ref('')
 const bannedWords = ref([])
+const { t } = useI18n()
 
 // 打开抽屉
 const open = () => {
@@ -69,13 +76,13 @@ const handleAddWord = async () => {
 
   // 校验：是否为空
   if (!word) {
-    ElMessage.warning('请输入禁词')
+    ElMessage.warning(t('bannedWords.inputRequired'))
     return
   }
 
   // 校验：是否已存在
   if (bannedWords.value.includes(word)) {
-    ElMessage.warning('该禁词已存在')
+    ElMessage.warning(t('bannedWords.duplicate'))
     return
   }
 
@@ -84,13 +91,13 @@ const handleAddWord = async () => {
     if (result.success) {
       bannedWords.value.unshift(word)
       newWord.value = ''
-      ElMessage.success('添加成功')
+      ElMessage.success(t('bannedWords.addSuccess'))
     } else {
-      ElMessage.error(result.message || '添加失败')
+      ElMessage.error(result.message || t('bannedWords.addFailed'))
     }
   } catch (error) {
     console.error('添加禁词失败:', error)
-    ElMessage.error('添加失败')
+    ElMessage.error(t('bannedWords.addFailed'))
   }
 }
 
@@ -103,13 +110,13 @@ const handleDeleteWord = async (word) => {
       if (index > -1) {
         bannedWords.value.splice(index, 1)
       }
-      ElMessage.success('删除成功')
+      ElMessage.success(t('bannedWords.deleteSuccess'))
     } else {
-      ElMessage.error(result.message || '删除失败')
+      ElMessage.error(result.message || t('bannedWords.deleteFailed'))
     }
   } catch (error) {
     console.error('删除禁词失败:', error)
-    ElMessage.error('删除失败')
+    ElMessage.error(t('bannedWords.deleteFailed'))
   }
 }
 

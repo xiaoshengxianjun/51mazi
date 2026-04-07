@@ -35,6 +35,7 @@ export async function validateTongyiwanxiangApiKey() {
  * @param {string} options.size - API 尺寸，如 "1200*1600"
  * @param {string} options.bookName - 书籍名称（用于落盘路径）
  * @param {string} [options.negativePrompt] - 反向提示词，可选
+ * @param {string} [options.imageProvider] - tongyi | gemini | doubao
  * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
  */
 export async function generateAICover(options) {
@@ -70,6 +71,7 @@ export async function discardAICovers(options) {
  * @param {string} options.size - API 尺寸，如 "1024*1024"
  * @param {string} options.bookName - 书籍名称
  * @param {string} [options.negativePrompt] - 反向提示词，可选
+ * @param {string} [options.imageProvider] - tongyi | gemini | doubao
  * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
  */
 export async function generateAICharacterImage(options) {
@@ -105,6 +107,7 @@ export async function discardAICharacterImages(options) {
  * @param {string} options.size 如 "1280*720"
  * @param {string} options.bookName
  * @param {string} [options.negativePrompt]
+ * @param {string} [options.imageProvider] - tongyi | gemini | doubao
  * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
  */
 export async function generateAISceneImage(options) {

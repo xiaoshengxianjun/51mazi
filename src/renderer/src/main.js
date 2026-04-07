@@ -13,12 +13,14 @@ import App from './App.vue'
 import { useThemeStore } from './stores/theme'
 import IconFont from './components/IconFont.vue'
 import SvgIcon from './components/SvgIcon.vue'
+import { i18n, initLocale } from './i18n'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(ElementPlus)
 app.use(pinia)
+app.use(i18n)
 app.use(router)
 
 // 全局注册图标组件
@@ -29,4 +31,6 @@ app.component('SvgIcon', SvgIcon)
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
-app.mount('#app')
+initLocale().finally(() => {
+  app.mount('#app')
+})

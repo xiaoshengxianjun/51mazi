@@ -1,12 +1,21 @@
 <template>
   <div class="editor-stats">
     <div class="editor-stats-left">
-      <span class="book-word-count">书籍字数：{{ displayedBookWords }}字</span>
-      <span class="word-count">章节字数：{{ contentWordCount }}字</span>
+      <span class="book-word-count">
+        {{ t('editorStats.bookWordCount', { count: displayedBookWords }) }}
+      </span>
+      <span class="word-count">
+        {{ t('editorStats.chapterWordCount', { count: contentWordCount }) }}
+      </span>
     </div>
     <div class="editor-stats-right">
       <span class="typing-speed">
-        码字速度：{{ typingSpeed.perMinute }}字/分钟 ({{ typingSpeed.perHour }}字/小时)
+        {{
+          t('editorStats.typingSpeed', {
+            perMinute: typingSpeed.perMinute,
+            perHour: typingSpeed.perHour
+          })
+        }}
       </span>
     </div>
   </div>
@@ -15,6 +24,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useEditorStore } from '@renderer/stores/editor'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   bookName: {
@@ -32,6 +42,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update-book-words'])
+const { t } = useI18n()
 
 const editorStore = useEditorStore()
 

@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool title="组织架构列表">
+  <LayoutTool :title="t('organizationList.title')">
     <template #headrAction>
       <el-button type="primary" @click="showCreateDialog = true">
         <el-icon><Plus /></el-icon>
-        <span>创建组织架构</span>
+        <span>{{ t('organizationList.create') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -28,38 +28,38 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="edit">编辑</el-dropdown-item>
-              <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              <el-dropdown-item command="edit">{{ t('common.edit') }}</el-dropdown-item>
+              <el-dropdown-item command="delete" divided>{{ t('common.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
-      <el-empty v-if="organizations.length === 0" :image-size="200" description="暂无组织架构" />
+      <el-empty v-if="organizations.length === 0" :image-size="200" :description="t('organizationList.empty')" />
     </template>
   </LayoutTool>
 
   <!-- 创建组织架构弹框 -->
   <el-dialog
     v-model="showCreateDialog"
-    title="创建新组织架构"
+    :title="t('organizationList.createDialogTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
     <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="t('organizationList.name')" prop="name">
         <el-input
           v-model="createForm.name"
           clearable
           maxlength="20"
-          placeholder="请输入组织架构名称"
+          :placeholder="t('organizationList.namePlaceholder')"
         />
       </el-form-item>
-      <el-form-item label="描述" prop="description">
+      <el-form-item :label="t('organizationList.description')" prop="description">
         <el-input
           v-model="createForm.description"
           type="textarea"
           :rows="3"
-          placeholder="请输入组织架构描述"
+          :placeholder="t('organizationList.descriptionPlaceholder')"
           maxlength="200"
           show-word-limit
         />
@@ -67,9 +67,9 @@
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :loading="creating" @click="handleCreateOrganization">
-          创建
+          {{ t('organizationList.createBtn') }}
         </el-button>
       </span>
     </template>
@@ -78,15 +78,15 @@
   <!-- 删除确认弹框 -->
   <el-dialog
     v-model="deleteDialogVisible"
-    title="确认删除"
+    :title="t('organizationList.deleteTitle')"
     width="500px"
     :close-on-click-modal="false"
   >
-    <span>确定要删除组织架构 "{{ selectedOrganization?.name }}" 吗？此操作不可恢复。</span>
+    <span>{{ t('organizationList.deleteConfirm', { name: selectedOrganization?.name || '' }) }}</span>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="deleteDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="confirmDelete">{{ t('organizationList.deleteConfirmBtn') }}</el-button>
       </span>
     </template>
   </el-dialog>
@@ -99,10 +99,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const bookName = route.query.name
+const { t } = useI18n()
 
 const organizations = ref([])
 const showCreateDialog = ref(false)
@@ -119,10 +121,10 @@ const createForm = ref({
 
 const rules = {
   name: [
-    { required: true, message: '请输入组织架构名称', trigger: 'blur' },
-    { min: 1, max: 20, message: '名称长度在 1 到 20 个字符', trigger: 'blur' }
+    { required: true, message: t('organizationList.ruleNameRequired'), trigger: 'blur' },
+    { min: 1, max: 20, message: t('organizationList.ruleNameLength'), trigger: 'blur' }
   ],
-  description: [{ max: 200, message: '描述长度不能超过 200 个字符', trigger: 'blur' }]
+  description: [{ max: 200, message: t('organizationList.ruleDescLength'), trigger: 'blur' }]
 }
 
 // 获取默认图片
@@ -156,11 +158,11 @@ const loadOrganizations = async () => {
       }
     } else {
       console.error('加载组织架构失败:', result.error)
-      ElMessage.error('加载组织架构失败')
+      ElMessage.error(t('organizationList.loadFailed'))
     }
   } catch (error) {
     console.error('加载组织架构失败:', error)
-    ElMessage.error('加载组织架构失败')
+    ElMessage.error(t('organizationList.loadFailed'))
   }
 }
 
@@ -183,7 +185,7 @@ const handleCreateOrganization = async () => {
       type: 'root',
       color: '#409eff',
       data: {
-        description: createForm.value.description || '组织架构根节点',
+        description: createForm.value.description || t('organizationList.rootNodeDescription'),
         fontSize: 16
       }
     }
@@ -207,7 +209,7 @@ const handleCreateOrganization = async () => {
     // 保存组织名称用于跳转
     const organizationName = createForm.value.name
 
-    ElMessage.success('创建成功')
+    ElMessage.success(t('organizationList.createSuccess'))
     showCreateDialog.value = false
     createForm.value = { name: '', description: '' }
 
@@ -227,7 +229,7 @@ const handleCreateOrganization = async () => {
     })
   } catch (error) {
     console.error('创建组织架构失败:', error)
-    ElMessage.error('创建组织架构失败')
+    ElMessage.error(t('organizationList.createFailed'))
   } finally {
     creating.value = false
   }
@@ -264,7 +266,7 @@ const confirmDelete = async () => {
       organizationName: selectedOrganization.value.name
     })
 
-    ElMessage.success('删除成功')
+    ElMessage.success(t('organizationList.deleteSuccess'))
     deleteDialogVisible.value = false
     selectedOrganization.value = null
 
@@ -272,7 +274,7 @@ const confirmDelete = async () => {
     await loadOrganizations()
   } catch (error) {
     console.error('删除组织架构失败:', error)
-    ElMessage.error('删除组织架构失败')
+    ElMessage.error(t('organizationList.deleteFailed'))
   }
 }
 </script>

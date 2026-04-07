@@ -8,8 +8,64 @@ import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
+import {
+  generateImageBuffer as generateImageBufferByProvider,
+  listConfiguredImageProviders
+} from './services/imageGenerationRouter.js'
+import * as geminiImagenService from './services/geminiImagen.js'
+import { validateConfigNonEmpty as validateDoubaoConfigNonEmpty } from './services/doubaoImage.js'
 import novelDownloader from './services/novelDownloader.js'
 const { autoUpdater } = pkg
+const MAIN_I18N_MESSAGES = {
+  'zh-CN': {
+    appTitle: '51码字',
+    imageFiles: '图片文件',
+    allFiles: '所有文件',
+    saveFile: '保存文件',
+    textFiles: '文本文件',
+    save: '保存',
+    updateUnsupportedInDev: '开发环境不支持更新检查',
+    updateCheckFailed: '检查更新失败',
+    updateDownloadUnsupportedInDev: '开发环境不支持更新下载',
+    updateDownloadFailed: '下载更新失败',
+    updateInstallUnsupportedInDev: '开发环境不支持更新安装',
+    updateInstallFailed: '安装更新失败',
+    updateErrorNetwork: '无法连接更新服务器，请检查网络后重试',
+    updateErrorCert: '更新服务器证书验证失败，请检查系统时间与代理设置',
+    updateErrorNotFound: '未找到更新信息（404），请稍后再试或联系客服',
+    updateErrorForbidden: '更新服务暂时不可用（权限被拒绝），请稍后再试',
+    updateErrorServer: '更新服务异常，请稍后再试'
+  },
+  'en-US': {
+    appTitle: '51Mazi',
+    imageFiles: 'Image Files',
+    allFiles: 'All Files',
+    saveFile: 'Save File',
+    textFiles: 'Text Files',
+    save: 'Save',
+    updateUnsupportedInDev: 'Update check is not supported in development mode',
+    updateCheckFailed: 'Failed to check for updates',
+    updateDownloadUnsupportedInDev: 'Update download is not supported in development mode',
+    updateDownloadFailed: 'Failed to download update',
+    updateInstallUnsupportedInDev: 'Update install is not supported in development mode',
+    updateInstallFailed: 'Failed to install update',
+    updateErrorNetwork: 'Cannot reach the update server. Check your network and try again.',
+    updateErrorCert: 'Update server certificate verification failed. Check your system time and proxy settings.',
+    updateErrorNotFound: 'Update metadata was not found (404). Try again later.',
+    updateErrorForbidden: 'Update service is temporarily unavailable (access denied). Try again later.',
+    updateErrorServer: 'Update service error. Please try again later.'
+  }
+}
+
+function getMainLocale() {
+  const locale = String(store?.get('config.locale') || 'zh-CN')
+  return locale.startsWith('en') ? 'en-US' : 'zh-CN'
+}
+
+function mt(key) {
+  const locale = getMainLocale()
+  return MAIN_I18N_MESSAGES[locale]?.[key] || MAIN_I18N_MESSAGES['zh-CN'][key] || key
+}
 
 // -------------------- Auto Update Feed URL (production) --------------------
 // 说明：
@@ -212,6 +268,113 @@ autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装更新
 let autoUpdateCheckTimeoutId = null
 let autoUpdateCheckIntervalId = null
 
+/** 当前更新阶段，用于 autoUpdater error 事件展示对应提示（检查 / 下载） */
+let updaterErrorPhase = 'check'
+/** 手动 check/download IPC 开始后一段时间内抑制 update-error 广播，避免与 Promise 拒绝重复弹窗（error 事件可能晚于 reject） */
+let suppressUpdaterErrorBroadcastUntil = 0
+
+function beginManualUpdaterIpcErrorSuppression() {
+  suppressUpdaterErrorBroadcastUntil = Date.now() + 1500
+}
+
+function shouldSuppressUpdaterErrorBroadcast() {
+  return Date.now() < suppressUpdaterErrorBroadcastUntil
+}
+
+/**
+ * 将 electron-updater / Node 网络错误映射为用户可读文案，避免把 HTTP 二进制体等直接展示成乱码
+ * @param {unknown} error
+ * @param {'check'|'download'|'install'} phase
+ */
+function mapUpdaterErrorToUserMessage(error, phase = 'check') {
+  const code = error && typeof error === 'object' ? error.code : undefined
+  const msg = String((error && error.message) || '')
+  const lower = msg.toLowerCase()
+
+  if (
+    code === 'ENOTFOUND' ||
+    code === 'EAI_AGAIN' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKETTIMEDOUT' ||
+    code === 'ENETUNREACH' ||
+    code === 'EHOSTUNREACH'
+  ) {
+    return mt('updateErrorNetwork')
+  }
+  if (lower.includes('getaddrinfo') || lower.includes('network error') || lower.includes('socket hang up')) {
+    return mt('updateErrorNetwork')
+  }
+  if (
+    code === 'CERT_HAS_EXPIRED' ||
+    code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+    lower.includes('certificate') ||
+    lower.includes('ssl') ||
+    lower.includes('tls')
+  ) {
+    return mt('updateErrorCert')
+  }
+  if (/404|not\s+found|statuscode:\s*404/i.test(msg)) {
+    return mt('updateErrorNotFound')
+  }
+  if (/403|401|402|forbidden|unauthorized|statuscode:\s*40[123]/i.test(msg)) {
+    return mt('updateErrorForbidden')
+  }
+  if (/statuscode:\s*5\d\d|\b5\d\d\b/.test(msg) || lower.includes('internal server error')) {
+    return mt('updateErrorServer')
+  }
+
+  // 疑似二进制 / 乱码：非打印字符比例高或过长时不再拼接原始 message
+  const sample = msg.slice(0, 500)
+  let nonPrint = 0
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i)
+    if (c < 32 && c !== 9 && c !== 10 && c !== 13) nonPrint++
+  }
+  if (sample.length > 40 && nonPrint / sample.length > 0.08) {
+    if (phase === 'install') return mt('updateInstallFailed')
+    return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+  }
+
+  const asciiPrintable = /^[\x09\x0A\x0D\x20-\x7E]+$/.test(msg.slice(0, 200))
+  if (msg.length > 120 && !asciiPrintable) {
+    if (phase === 'install') return mt('updateInstallFailed')
+    return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+  }
+
+  if (phase === 'install') return mt('updateInstallFailed')
+  return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
+}
+
+/** 规范化 releaseNotes，避免 Buffer / 异常字节在渲染进程显示为乱码 */
+function normalizeReleaseNotesForRenderer(notes) {
+  if (notes == null) return undefined
+  if (Buffer.isBuffer(notes)) {
+    const s = notes.toString('utf8').replace(/\0/g, '')
+    return s.trim() || undefined
+  }
+  if (Array.isArray(notes)) {
+    const list = notes
+      .map((n) => {
+        if (n == null) return ''
+        if (Buffer.isBuffer(n)) return n.toString('utf8').replace(/\0/g, '')
+        if (typeof n === 'object' && n !== null && typeof n.toString === 'function') {
+          return String(n)
+        }
+        return String(n)
+      })
+      .map((s) => s.replace(/\0/g, '').trim())
+      .filter(Boolean)
+    return list.length ? list : undefined
+  }
+  if (typeof notes === 'string') {
+    const s = notes.replace(/\0/g, '').trim()
+    return s || undefined
+  }
+  return String(notes).replace(/\0/g, '').trim() || undefined
+}
+
 /**
  * 根据「更新方式」设置调度或暂停自动检查更新：仅当为「自动更新」时启动 5 秒后首次检查及每 4 小时定时检查
  */
@@ -253,6 +416,7 @@ function setupUpdaterEvents() {
 
   // 检查更新事件
   autoUpdater.on('checking-for-update', () => {
+    updaterErrorPhase = 'check'
     console.log('正在检查更新...')
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-checking')
@@ -265,7 +429,7 @@ function setupUpdaterEvents() {
       mainWindow.webContents.send('update-available', {
         version: info.version,
         releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes
+        releaseNotes: normalizeReleaseNotesForRenderer(info.releaseNotes)
       })
     }
   })
@@ -278,15 +442,19 @@ function setupUpdaterEvents() {
   })
 
   autoUpdater.on('error', (error) => {
-    console.error('更新检查出错:', error)
+    console.error('自动更新出错:', error)
+    if (shouldSuppressUpdaterErrorBroadcast()) {
+      return
+    }
+    const phase = updaterErrorPhase === 'download' ? 'download' : 'check'
+    const message = mapUpdaterErrorToUserMessage(error, phase)
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-error', {
-        message: error.message || '检查更新时发生错误'
-      })
+      mainWindow.webContents.send('update-error', { message, phase })
     }
   })
 
   autoUpdater.on('download-progress', (progressObj) => {
+    updaterErrorPhase = 'download'
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-download-progress', {
         percent: progressObj.percent,
@@ -317,7 +485,7 @@ function createWindow() {
   })
 
   mainWindow = new BrowserWindow({
-    title: '51码字',
+    title: mt('appTitle'),
     ...mainWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
@@ -424,13 +592,43 @@ ipcMain.handle('select-books-dir', async () => {
   return result
 })
 
+// 校验书籍目录：用于系统设置确认前给出可读错误
+ipcMain.handle('validate-books-dir', async (event, dirPath) => {
+  try {
+    if (!dirPath || typeof dirPath !== 'string') {
+      return { valid: false, code: 'EMPTY' }
+    }
+    if (!fs.existsSync(dirPath)) {
+      return { valid: false, code: 'NOT_EXISTS' }
+    }
+    const stat = fs.statSync(dirPath)
+    if (!stat.isDirectory()) {
+      return { valid: false, code: 'NOT_DIRECTORY' }
+    }
+    try {
+      fs.accessSync(dirPath, fs.constants.R_OK)
+    } catch {
+      return { valid: false, code: 'NOT_READABLE' }
+    }
+    try {
+      fs.accessSync(dirPath, fs.constants.W_OK)
+    } catch {
+      return { valid: false, code: 'NOT_WRITABLE' }
+    }
+    return { valid: true }
+  } catch (error) {
+    console.error('validate-books-dir failed:', error)
+    return { valid: false, code: 'UNKNOWN' }
+  }
+})
+
 // 选择图片文件
 ipcMain.handle('select-image', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
-      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
-      { name: '所有文件', extensions: ['*'] }
+      { name: mt('imageFiles'), extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+      { name: mt('allFiles'), extensions: ['*'] }
     ]
   })
 
@@ -444,10 +642,10 @@ ipcMain.handle('select-image', async () => {
 // 选择保存文件路径
 ipcMain.handle('show-save-dialog', async (event, options) => {
   const result = await dialog.showSaveDialog({
-    title: options.title || '保存文件',
+    title: options.title || mt('saveFile'),
     defaultPath: options.defaultPath || '',
-    filters: options.filters || [{ name: '文本文件', extensions: ['txt'] }],
-    buttonLabel: options.buttonLabel || '保存'
+    filters: options.filters || [{ name: mt('textFiles'), extensions: ['txt'] }],
+    buttonLabel: options.buttonLabel || mt('save')
   })
 
   if (!result.canceled && result.filePath) {
@@ -573,8 +771,15 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
 ipcMain.handle('read-books-dir', async () => {
   const books = []
   const booksDir = store.get('booksDir')
+  if (!booksDir || typeof booksDir !== 'string') return books
   if (!fs.existsSync(booksDir)) return books
-  const files = fs.readdirSync(booksDir, { withFileTypes: true })
+  let files = []
+  try {
+    files = fs.readdirSync(booksDir, { withFileTypes: true })
+  } catch (error) {
+    console.error('read-books-dir failed to read directory:', error)
+    return books
+  }
   for (const file of files) {
     if (file.isDirectory()) {
       const metaPath = join(booksDir, file.name, 'mazi.json')
@@ -765,7 +970,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
 
   // 新建窗口
   const editorWindow = new BrowserWindow({
-    title: `${name} - 51码字`,
+    title: `${name} - ${mt('appTitle')}`,
     ...editorWindowState.bounds,
     minWidth: 1100,
     minHeight: 800,
@@ -793,7 +998,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   })
   // 页面加载完成后，确保窗口标题正确显示书籍名称
   editorWindow.webContents.on('did-finish-load', () => {
-    editorWindow.setTitle(`${name} - 51码字`)
+    editorWindow.setTitle(`${name} - ${mt('appTitle')}`)
   })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     // 直接跳转到编辑页
@@ -2938,42 +3143,68 @@ ipcMain.handle('set-update-mode', async (_, mode) => {
 // 手动检查更新
 ipcMain.handle('check-for-update', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新检查' }
+    return { success: false, code: 'UPDATE_UNSUPPORTED_IN_DEV', message: mt('updateUnsupportedInDev') }
   }
+  updaterErrorPhase = 'check'
+  beginManualUpdaterIpcErrorSuppression()
   try {
     await autoUpdater.checkForUpdates()
     return { success: true }
   } catch (error) {
     console.error('检查更新失败:', error)
-    return { success: false, message: error.message || '检查更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_CHECK_FAILED',
+      message: mapUpdaterErrorToUserMessage(error, 'check'),
+      phase: 'check'
+    }
   }
 })
 
 // 下载更新
 ipcMain.handle('download-update', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新下载' }
+    return {
+      success: false,
+      code: 'UPDATE_DOWNLOAD_UNSUPPORTED_IN_DEV',
+      message: mt('updateDownloadUnsupportedInDev')
+    }
   }
+  updaterErrorPhase = 'download'
+  beginManualUpdaterIpcErrorSuppression()
   try {
     await autoUpdater.downloadUpdate()
     return { success: true }
   } catch (error) {
     console.error('下载更新失败:', error)
-    return { success: false, message: error.message || '下载更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_DOWNLOAD_FAILED',
+      message: mapUpdaterErrorToUserMessage(error, 'download'),
+      phase: 'download'
+    }
   }
 })
 
 // 安装更新并重启应用
 ipcMain.handle('quit-and-install', async () => {
   if (is.dev) {
-    return { success: false, message: '开发环境不支持更新安装' }
+    return {
+      success: false,
+      code: 'UPDATE_INSTALL_UNSUPPORTED_IN_DEV',
+      message: mt('updateInstallUnsupportedInDev')
+    }
   }
   try {
     autoUpdater.quitAndInstall(false, true)
     return { success: true }
   } catch (error) {
     console.error('安装更新失败:', error)
-    return { success: false, message: error.message || '安装更新失败' }
+    return {
+      success: false,
+      code: 'UPDATE_INSTALL_FAILED',
+      message: mapUpdaterErrorToUserMessage(error, 'install')
+    }
   }
 })
 
@@ -3135,6 +3366,100 @@ ipcMain.handle('tongyiwanxiang:validate-api-key', async () => {
   }
 })
 
+// --------- 图像 AI 通用（多服务商：Gemini / 豆包配置与列表）---------
+ipcMain.handle('imageAi:list-configured-providers', async () => {
+  try {
+    const providers = listConfiguredImageProviders(store)
+    return { success: true, providers }
+  } catch (error) {
+    console.error('list-configured-providers:', error)
+    return { success: false, providers: [], message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-last-provider', async () => {
+  try {
+    const provider = store.get('imageAi.lastProvider', null)
+    return { success: true, provider }
+  } catch (error) {
+    return { success: false, provider: null, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-last-provider', async (_, provider) => {
+  try {
+    if (provider != null && String(provider).trim()) {
+      store.set('imageAi.lastProvider', String(provider).trim())
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-gemini-api-key', async (_, apiKey) => {
+  try {
+    store.set('gemini.apiKey', apiKey || '')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-gemini-api-key', async () => {
+  try {
+    return { success: true, apiKey: store.get('gemini.apiKey', '') || '' }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:validate-gemini-api-key', async () => {
+  try {
+    const key = store.get('gemini.apiKey', '')
+    const result = await geminiImagenService.validateApiKey(key)
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    return { success: false, isValid: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:set-doubao-config', async (_, payload) => {
+  try {
+    const { apiKey, baseUrl, model } = payload || {}
+    store.set('doubao.apiKey', apiKey || '')
+    store.set('doubao.baseUrl', baseUrl || '')
+    store.set('doubao.model', model || '')
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:get-doubao-config', async () => {
+  try {
+    return {
+      success: true,
+      apiKey: store.get('doubao.apiKey', '') || '',
+      baseUrl: store.get('doubao.baseUrl', '') || '',
+      model: store.get('doubao.model', '') || ''
+    }
+  } catch (error) {
+    return { success: false, message: error.message }
+  }
+})
+
+ipcMain.handle('imageAi:validate-doubao-config', async () => {
+  try {
+    const apiKey = store.get('doubao.apiKey', '')
+    const model = store.get('doubao.model', '')
+    const result = validateDoubaoConfigNonEmpty(apiKey, model)
+    return { success: true, isValid: result.isValid, message: result.message }
+  } catch (error) {
+    return { success: false, isValid: false, message: error.message }
+  }
+})
+
 // 生成封面：调用通义万相 → 下载图片 → 保存到书籍目录
 ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
   try {
@@ -3154,19 +3479,12 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
     const bookPath = join(booksDir, safeName)
     fs.mkdirSync(bookPath, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     // 书籍根目录下按 ai_cover1.png、ai_cover2.png 递增命名
     const existing = fs.readdirSync(bookPath).filter((f) => /^ai_cover\d+\.png$/i.test(f))
     const nextNum =
@@ -3242,19 +3560,12 @@ ipcMain.handle('tongyiwanxiang:generate-character-image', async (_, options) => 
     const tempDir = join(bookPath, AI_CHARACTER_TEMP_DIR)
     fs.mkdirSync(tempDir, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     const existing = fs.readdirSync(tempDir).filter((f) => /^ai_char\d+\.png$/i.test(f))
     const nextNum =
       existing.length === 0
@@ -3344,19 +3655,12 @@ ipcMain.handle('tongyiwanxiang:generate-scene-image', async (_, options) => {
     const sceneDir = join(bookPath, SCENE_IMAGES_DIR)
     fs.mkdirSync(sceneDir, { recursive: true })
 
-    const imageUrl = await tongyiwanxiangService.generateCover({
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider: options?.imageProvider,
       prompt,
       size,
       negativePrompt
     })
-    const res = await fetch(imageUrl)
-    if (!res.ok) {
-      return {
-        success: false,
-        message: `下载生成图片失败: ${res.status} ${res.statusText}`
-      }
-    }
-    const buf = Buffer.from(await res.arrayBuffer())
     const fileName = `scene_${Date.now()}.png`
     const imagePath = join(sceneDir, fileName)
     fs.writeFileSync(imagePath, buf)

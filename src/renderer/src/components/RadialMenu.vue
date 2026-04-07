@@ -109,6 +109,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 /**
  * 环绕菜单组件
  * @prop {Boolean} isRoot 是否为根节点，根节点不显示删除按钮
@@ -123,10 +124,11 @@ const props = defineProps({
 
 const emit = defineEmits(['info', 'add', 'link', 'delete'])
 const hover = ref('')
+const { t } = useI18n()
 
 const handleDelete = () => {
   if (props.isRoot) {
-    ElMessage.error('根节点不能删除')
+    ElMessage.error(t('radialMenu.rootCannotDelete'))
     return
   }
   emit('delete')

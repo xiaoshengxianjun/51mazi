@@ -1,10 +1,12 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    :title="drawerTitle"
+    :title="resolvedDrawerTitle"
     size="700px"
     direction="rtl"
     class="ai-character-drawer"
+    header-class="ai-character-drawer__header"
+    body-class="ai-character-drawer__body"
     :close-on-click-modal="false"
     @update:model-value="$emit('update:modelValue', $event)"
   >
@@ -16,12 +18,39 @@
         label-width="100px"
         class="ai-character-drawer-form"
       >
-        <el-form-item v-if="characterName" :label="subjectLabel">
+        <el-form-item v-if="characterName" :label="resolvedSubjectLabel">
           <span class="character-name-tip">{{ characterName }}</span>
         </el-form-item>
 
-        <el-form-item prop="style" label="图片风格">
-          <el-select v-model="form.style" placeholder="请选择画风" style="width: 100%" clearable>
+        <template v-if="providersLoaded">
+          <el-alert
+            v-if="noImageProviders"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ai-drawer-provider-alert"
+          >
+            {{ t('imageAi.noProviderHint') }}
+          </el-alert>
+          <el-form-item v-else :label="t('imageAi.serviceLabel')">
+            <el-select v-model="selectedProvider" style="width: 100%">
+              <el-option
+                v-for="p in imageProviders"
+                :key="p"
+                :label="labelForImageProvider(p)"
+                :value="p"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
+
+        <el-form-item prop="style" :label="t('aiCharacter.style')">
+          <el-select
+            v-model="form.style"
+            :placeholder="t('aiCharacter.selectStyle')"
+            style="width: 100%"
+            clearable
+          >
             <el-option
               v-for="opt in styleOptions"
               :key="opt.value"
@@ -36,21 +65,21 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item prop="prompt" label="形象描述">
+        <el-form-item prop="prompt" :label="t('aiCharacter.prompt')">
           <el-input
             v-model="form.prompt"
             type="textarea"
             :rows="4"
-            :placeholder="promptPlaceholder"
+            :placeholder="resolvedPromptPlaceholder"
             maxlength="500"
             show-word-limit
           />
         </el-form-item>
 
-        <el-form-item label="构图与姿态">
+        <el-form-item :label="t('aiCharacter.pose')">
           <el-select
             v-model="form.pose"
-            :placeholder="posePlaceholder"
+            :placeholder="resolvedPosePlaceholder"
             style="width: 100%"
             clearable
           >
@@ -63,25 +92,29 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="反向提示词">
+        <el-form-item :label="t('aiCharacter.negativePrompt')">
           <el-input
             v-model="form.negativePrompt"
             type="textarea"
             :rows="2"
-            placeholder="不希望出现的元素，如：模糊、变形、多手、多脚（可选）"
+            :placeholder="t('aiCharacter.negativePromptPlaceholder')"
             maxlength="200"
             show-word-limit
           />
         </el-form-item>
 
-        <div class="form-tip">{{ outputTip }}</div>
+        <div class="form-tip">{{ resolvedOutputTip }}</div>
       </el-form>
 
       <!-- 已生成的图片列表 -->
       <div v-if="generatedList.length > 0" class="generated-section">
         <div class="section-title">
-          已生成的{{ generatedImageTypeName }}（共
-          {{ generatedList.length }} 张，点击选择一张后确认使用）
+          {{
+            t('aiCharacter.generatedTitle', {
+              typeName: resolvedGeneratedImageTypeName,
+              count: generatedList.length
+            })
+          }}
         </div>
         <div class="generated-grid">
           <div
@@ -91,18 +124,31 @@
             :class="{ selected: selectedPath === item.localPath }"
             @click="selectedPath = item.localPath"
           >
-            <img :src="item.previewUrl" :alt="`${generatedImageTypeName} ${index + 1}`" />
+            <img
+              :src="item.previewUrl"
+              :alt="
+                t('aiCharacter.generatedAlt', {
+                  typeName: resolvedGeneratedImageTypeName,
+                  index: index + 1
+                })
+              "
+            />
           </div>
         </div>
       </div>
 
       <el-alert v-if="generating" type="info" :closable="false" show-icon class="generating-hint">
-        {{ generatingHint }}
+        {{ resolvedGeneratingHint }}
       </el-alert>
       <div class="ai-character-drawer-footer">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
-          {{ generatedList.length > 0 ? regenerateButtonText : generateButtonText }}
+        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="generating"
+          :disabled="noImageProviders || !selectedProvider"
+          @click="handleGenerate"
+        >
+          {{ generatedList.length > 0 ? resolvedRegenerateButtonText : resolvedGenerateButtonText }}
         </el-button>
         <el-button
           v-if="generatedList.length > 0"
@@ -110,7 +156,7 @@
           :disabled="!selectedPath"
           @click="handleConfirmUse"
         >
-          确认使用
+          {{ t('aiCharacter.confirmUse') }}
         </el-button>
       </div>
     </div>
@@ -118,13 +164,15 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   generateAICharacterImage,
   confirmAICharacterImage,
   discardAICharacterImages
 } from '@renderer/service/tongyiwanxiang'
+import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -135,36 +183,49 @@ const props = defineProps({
   /** 形象介绍，打开抽屉时预填到提示词 */
   appearance: { type: String, default: '' },
   /** 抽屉标题 */
-  drawerTitle: { type: String, default: 'AI 生成人物图' },
+  drawerTitle: { type: String, default: '' },
   /** 「当前xxx」表单项标签 */
-  subjectLabel: { type: String, default: '当前人物' },
+  subjectLabel: { type: String, default: '' },
   /** 拼入模型提示词的开头主体描述（区分人物/坐骑/宝器等） */
   promptIntro: {
     type: String,
-    default: '竖版全身人物立绘，清晰完整的人物'
+    default: ''
   },
   /** 接在画风后的细节引导语，如「人物形象：」「外形与细节：」 */
-  promptDetailPrefix: { type: String, default: '人物形象：' },
+  promptDetailPrefix: { type: String, default: '' },
   promptPlaceholder: {
     type: String,
-    default:
-      '描述人物外貌、气质、穿着、表情等，用于生成竖版全身参考图。可结合「形象介绍」填写，支持中英文，最多 500 字。'
+    default: ''
   },
-  posePlaceholder: { type: String, default: '可选：人物姿态/构图' },
-  outputTip: { type: String, default: '输出尺寸：720×1280 竖版全身参考图' },
+  posePlaceholder: { type: String, default: '' },
+  outputTip: { type: String, default: '' },
   /** 用于列表标题、按钮、alt，如「人物图」「形象图」 */
-  generatedImageTypeName: { type: String, default: '人物图' },
-  generateButtonText: { type: String, default: '生成人物图' },
-  regenerateButtonText: { type: String, default: '再生成一张' },
-  generatingHint: { type: String, default: '正在生成图片中，请勿关闭' },
+  generatedImageTypeName: { type: String, default: '' },
+  generateButtonText: { type: String, default: '' },
+  regenerateButtonText: { type: String, default: '' },
+  generatingHint: { type: String, default: '' },
   /** 点击生成时的全局提示 */
-  infoGeneratingMessage: { type: String, default: '正在生成图片，请勿关闭' },
-  validatePromptMessage: { type: String, default: '请输入形象描述' },
-  confirmSuccessMessage: { type: String, default: '已加入列表，保存档案后生效' },
+  infoGeneratingMessage: { type: String, default: '' },
+  validatePromptMessage: { type: String, default: '' },
+  confirmSuccessMessage: { type: String, default: '' },
   /** 生成失败等场景下的简短类型名，用于错误提示 */
-  generateFailTypeName: { type: String, default: '图片' }
+  generateFailTypeName: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'character-image-generated'])
+const { t } = useI18n()
+
+const modelOpen = toRef(props, 'modelValue')
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+  useImageAiProviderSelect(modelOpen)
+
+function labelForImageProvider(id) {
+  const keys = {
+    tongyi: 'imageAi.providerTongyi',
+    gemini: 'imageAi.providerGemini',
+    doubao: 'imageAi.providerDoubao'
+  }
+  return t(keys[id] || id)
+}
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -180,6 +241,43 @@ const form = ref({
 
 // 固定尺寸：竖版全身
 const FIXED_SIZE = '720*1280'
+const resolvedDrawerTitle = computed(() => props.drawerTitle || t('aiCharacter.drawerTitle'))
+const resolvedSubjectLabel = computed(() => props.subjectLabel || t('aiCharacter.subjectLabel'))
+const resolvedPromptIntro = computed(() => props.promptIntro || t('aiCharacter.promptIntro'))
+const resolvedPromptDetailPrefix = computed(
+  () => props.promptDetailPrefix || t('aiCharacter.promptDetailPrefix')
+)
+const resolvedPromptPlaceholder = computed(
+  () => props.promptPlaceholder || t('aiCharacter.promptPlaceholder')
+)
+const resolvedPosePlaceholder = computed(
+  () => props.posePlaceholder || t('aiCharacter.posePlaceholder')
+)
+const resolvedOutputTip = computed(() => props.outputTip || t('aiCharacter.outputTip'))
+const resolvedGeneratedImageTypeName = computed(
+  () => props.generatedImageTypeName || t('aiCharacter.generatedImageTypeName')
+)
+const resolvedGenerateButtonText = computed(
+  () => props.generateButtonText || t('aiCharacter.generateButtonText')
+)
+const resolvedRegenerateButtonText = computed(
+  () => props.regenerateButtonText || t('aiCharacter.regenerateButtonText')
+)
+const resolvedGeneratingHint = computed(
+  () => props.generatingHint || t('aiCharacter.generatingHint')
+)
+const resolvedInfoGeneratingMessage = computed(
+  () => props.infoGeneratingMessage || t('aiCharacter.infoGeneratingMessage')
+)
+const resolvedValidatePromptMessage = computed(
+  () => props.validatePromptMessage || t('aiCharacter.validatePromptMessage')
+)
+const resolvedConfirmSuccessMessage = computed(
+  () => props.confirmSuccessMessage || t('aiCharacter.confirmSuccessMessage')
+)
+const resolvedGenerateFailTypeName = computed(
+  () => props.generateFailTypeName || t('aiCharacter.generateFailTypeName')
+)
 
 /**
  * 图片风格选项
@@ -189,92 +287,92 @@ const FIXED_SIZE = '720*1280'
 const styleOptions = [
   {
     value: 'anime',
-    label: '日系动画',
-    desc: '现代日本动画、二次元',
-    prompt: '日本动画风格，二次元，精致插画'
+    label: t('aiCharacter.styles.anime.label'),
+    desc: t('aiCharacter.styles.anime.desc'),
+    prompt: t('aiCharacter.stylePrompts.anime')
   },
   {
     value: 'ghibli',
-    label: '吉卜力风格',
-    desc: '手绘动画、治愈系',
-    prompt: '吉卜力动画风格，手绘感，柔和色彩，治愈系'
+    label: t('aiCharacter.styles.ghibli.label'),
+    desc: t('aiCharacter.styles.ghibli.desc'),
+    prompt: t('aiCharacter.stylePrompts.ghibli')
   },
   {
     value: 'retro_anime',
-    label: '复古日漫',
-    desc: '赛璐璐、怀旧动画',
-    prompt: '复古日本动画风格，赛璐璐上色，怀旧'
+    label: t('aiCharacter.styles.retroAnime.label'),
+    desc: t('aiCharacter.styles.retroAnime.desc'),
+    prompt: t('aiCharacter.stylePrompts.retroAnime')
   },
   {
     value: 'photorealistic',
-    label: '写实摄影',
-    desc: '真人、自然光影',
-    prompt: '写实摄影风格，真人，自然光影'
+    label: t('aiCharacter.styles.photorealistic.label'),
+    desc: t('aiCharacter.styles.photorealistic.desc'),
+    prompt: t('aiCharacter.stylePrompts.photorealistic')
   },
   {
     value: '3d_render',
-    label: '3D 渲染',
-    desc: '游戏 CG、立体感',
-    prompt: '3D 渲染，CG 插画，立体感'
+    label: t('aiCharacter.styles.render3d.label'),
+    desc: t('aiCharacter.styles.render3d.desc'),
+    prompt: t('aiCharacter.stylePrompts.render3d')
   },
   {
     value: 'pixar',
-    label: '欧美卡通',
-    desc: '皮克斯/迪士尼风',
-    prompt: '欧美3D动画风格，皮克斯风格，卡通渲染'
+    label: t('aiCharacter.styles.pixar.label'),
+    desc: t('aiCharacter.styles.pixar.desc'),
+    prompt: t('aiCharacter.stylePrompts.pixar')
   },
   {
     value: 'guofeng',
-    label: '国风插画',
-    desc: '古风、古典服饰',
-    prompt: '国风插画，古风，古典服饰'
+    label: t('aiCharacter.styles.guofeng.label'),
+    desc: t('aiCharacter.styles.guofeng.desc'),
+    prompt: t('aiCharacter.stylePrompts.guofeng')
   },
   {
     value: 'watercolor',
-    label: '水彩插画',
-    desc: '柔和晕染、纸感',
-    prompt: '水彩插画，柔和晕染'
+    label: t('aiCharacter.styles.watercolor.label'),
+    desc: t('aiCharacter.styles.watercolor.desc'),
+    prompt: t('aiCharacter.stylePrompts.watercolor')
   },
   {
     value: 'ink_wash',
-    label: '水墨画',
-    desc: '中国水墨、留白',
-    prompt: '中国水墨画风格，留白，意境'
+    label: t('aiCharacter.styles.inkWash.label'),
+    desc: t('aiCharacter.styles.inkWash.desc'),
+    prompt: t('aiCharacter.stylePrompts.inkWash')
   },
   {
     value: 'oil_painting',
-    label: '厚涂插画',
-    desc: '油画质感、笔触',
-    prompt: '厚涂插画，油画质感，笔触明显'
+    label: t('aiCharacter.styles.oilPainting.label'),
+    desc: t('aiCharacter.styles.oilPainting.desc'),
+    prompt: t('aiCharacter.stylePrompts.oilPainting')
   },
   {
     value: 'cyberpunk',
-    label: '赛博朋克',
-    desc: '科幻、霓虹',
-    prompt: '赛博朋克风格，霓虹灯，科幻'
+    label: t('aiCharacter.styles.cyberpunk.label'),
+    desc: t('aiCharacter.styles.cyberpunk.desc'),
+    prompt: t('aiCharacter.stylePrompts.cyberpunk')
   },
   {
     value: 'pixel_art',
-    label: '像素艺术',
-    desc: '复古游戏风',
-    prompt: '像素艺术，复古游戏风格'
+    label: t('aiCharacter.styles.pixelArt.label'),
+    desc: t('aiCharacter.styles.pixelArt.desc'),
+    prompt: t('aiCharacter.stylePrompts.pixelArt')
   }
 ]
 
 /** 构图与姿态：可选，增强画面描述 */
 const poseOptions = [
-  { value: '', label: '不指定' },
-  { value: 'standing', label: '站姿全身' },
-  { value: 'half_body', label: '竖版半身特写' },
-  { value: 'dynamic', label: '动态姿势' },
-  { value: 'portrait', label: '正面立绘' },
-  { value: 'side', label: '侧面/侧身' }
+  { value: '', label: t('aiCharacter.unspecified') },
+  { value: 'standing', label: t('aiCharacter.poses.standing') },
+  { value: 'half_body', label: t('aiCharacter.poses.halfBody') },
+  { value: 'dynamic', label: t('aiCharacter.poses.dynamic') },
+  { value: 'portrait', label: t('aiCharacter.poses.portrait') },
+  { value: 'side', label: t('aiCharacter.poses.side') }
 ]
 
 const formRules = computed(() => ({
   prompt: [
-    { required: true, message: props.validatePromptMessage, trigger: 'blur' },
-    { min: 5, message: '描述至少 5 个字符，便于生成更准确', trigger: 'blur' }
+    { required: true, message: resolvedValidatePromptMessage.value, trigger: 'blur' },
+    { min: 5, message: t('aiCharacter.rulePromptMin'), trigger: 'blur' }
   ]
 }))
 
@@ -299,18 +397,20 @@ watch(
 
 /** 根据表单拼接完整提示词：主体类型 + 风格 + 形象描述 + 姿态 */
 function buildFullPrompt() {
-  const parts = [props.promptIntro]
+  const parts = [resolvedPromptIntro.value]
   const styleKey = form.value.style
   if (styleKey) {
     const styleOpt = styleOptions.find((o) => o.value === styleKey)
     if (styleOpt?.prompt) parts.push(styleOpt.prompt)
   }
-  parts.push('。' + props.promptDetailPrefix)
+  parts.push(t('aiCharacter.promptDetailLead', { prefix: resolvedPromptDetailPrefix.value }))
   parts.push(form.value.prompt.trim())
   const poseKey = form.value.pose
   if (poseKey) {
     const poseOpt = poseOptions.find((o) => o.value === poseKey)
-    if (poseOpt?.label && poseOpt.label !== '不指定') parts.push('，' + poseOpt.label)
+    if (poseOpt?.label && poseOpt.label !== t('aiCharacter.unspecified')) {
+      parts.push(t('aiCharacter.promptPoseLead', { pose: poseOpt.label }))
+    }
   }
   return parts.join('')
 }
@@ -320,28 +420,36 @@ async function handleGenerate() {
     await formRef.value.validate()
     const bookName = (props.bookName || '').trim()
     if (!bookName) {
-      ElMessage.error('书籍名称为空，无法生成')
+      ElMessage.error(t('aiCharacter.bookNameEmpty'))
+      return
+    }
+    if (!selectedProvider.value) {
+      ElMessage.warning(t('imageAi.noProviderHint'))
       return
     }
     generating.value = true
-    ElMessage.info(props.infoGeneratingMessage)
+    ElMessage.info(resolvedInfoGeneratingMessage.value)
     const fullPrompt = buildFullPrompt()
     const res = await generateAICharacterImage({
       prompt: fullPrompt,
       size: FIXED_SIZE,
       bookName,
-      negativePrompt: (form.value.negativePrompt || '').trim() || undefined
+      negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
+      imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
       const previewUrl = `file://${res.localPath}`
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
-      ElMessage.success('已生成，请选择一张确认使用或继续生成')
+      ElMessage.success(t('aiCharacter.generatedSelectOrContinue'))
     } else {
-      ElMessage.error(res?.message || `生成${props.generateFailTypeName}失败`)
+      ElMessage.error(
+        res?.message ||
+          t('aiCharacter.generateByTypeFailed', { type: resolvedGenerateFailTypeName.value })
+      )
     }
   } catch (error) {
-    if (error !== false) ElMessage.error(error?.message || '请检查表单输入')
+    if (error !== false) ElMessage.error(error?.message || t('aiCharacter.checkFormInput'))
   } finally {
     generating.value = false
   }
@@ -366,17 +474,31 @@ async function handleConfirmUse() {
     if (res?.success && res.localPath) {
       emit('character-image-generated', { localPath: res.localPath })
       emit('update:modelValue', false)
-      ElMessage.success(props.confirmSuccessMessage)
+      ElMessage.success(resolvedConfirmSuccessMessage.value)
     } else {
-      ElMessage.error(res?.message || '确认失败')
+      ElMessage.error(res?.message || t('aiCharacter.confirmFailed'))
     }
   } catch (error) {
-    ElMessage.error(error?.message || '确认失败')
+    ElMessage.error(error?.message || t('aiCharacter.confirmFailed'))
   }
 }
 </script>
 
+<!-- 抽屉 Teleport 到 body，header/body 用官方 class 挂接；无 scoped 避免匹配不到 -->
+<style lang="scss">
+.ai-character-drawer__header.el-drawer__header {
+  margin-bottom: 0;
+  padding-bottom: 20px;
+}
+.ai-character-drawer__body.el-drawer__body {
+  padding: 0;
+}
+</style>
+
 <style lang="scss" scoped>
+.ai-drawer-provider-alert {
+  margin-bottom: 12px;
+}
 .ai-character-drawer-content {
   display: flex;
   flex-direction: column;

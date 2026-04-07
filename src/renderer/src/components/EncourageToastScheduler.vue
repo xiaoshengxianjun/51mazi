@@ -10,8 +10,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import EncourageToast from '@renderer/components/EncourageToast.vue'
+import { useI18n } from 'vue-i18n'
 
 defineProps({
   duration: { type: Number, default: 10000 }
@@ -19,9 +20,10 @@ defineProps({
 
 const visible = ref(false)
 const message = ref('')
+const { locale } = useI18n()
 
 // 预设鼓励语（写作/小说相关，风格略夸张）
-const encouragePresets = [
+const encouragePresetsZh = [
   '你终将会成为了不起的小说家，加油！',
   '你的文笔让我欣赏不已，你太棒了～',
   '你是地球上最伟大的作家（至少今天是）。',
@@ -62,6 +64,28 @@ const encouragePresets = [
   '你写的转折太妙了，像打了个漂亮的响指。',
   '你写到这里，已经很伟大了——因为你在坚持。'
 ]
+
+const encouragePresetsEn = [
+  'You are becoming an incredible novelist. Keep going!',
+  'Your writing voice is impressive. You are doing great.',
+  'You are one chapter away from another breakthrough.',
+  'This paragraph already feels publishable. Do not stop.',
+  'Your protagonist feels alive. Keep writing their story.',
+  'Your atmosphere is vivid. Readers will keep turning pages.',
+  'Every sentence you write expands a whole new universe.',
+  'Today is a great writing day. Keep the momentum.',
+  'This chapter would light up the comments section.',
+  'You are not just typing words, you are building worlds.',
+  'One more paragraph. One more step toward completion.',
+  'Inspiration comes while writing, not while waiting.',
+  'Your dialogue sounds natural and memorable.',
+  'You are turning talent into finished work right now.',
+  'You are doing amazing because you are still showing up.'
+]
+
+const encouragePresets = computed(() =>
+  String(locale.value).startsWith('en') ? encouragePresetsEn : encouragePresetsZh
+)
 
 const ENCOURAGE_KEYS = {
   firstRunAt: 'home.encourage.firstRunAt', // 视为“安装/首次运行时间”
@@ -154,7 +178,7 @@ async function checkAndMaybeShow() {
     }
 
     // 满足条件：弹出一次，并立刻写入当天已提示 + 计算下一次随机时间
-    message.value = pickRandom(encouragePresets)
+    message.value = pickRandom(encouragePresets.value)
     visible.value = true
 
     const store = window.electronStore
@@ -166,7 +190,7 @@ async function checkAndMaybeShow() {
 
     scheduleNextCheck(newNextAt)
   } catch (error) {
-    console.error('鼓励提示调度失败:', error)
+    console.error('Encourage toast scheduler failed:', error)
   }
 }
 

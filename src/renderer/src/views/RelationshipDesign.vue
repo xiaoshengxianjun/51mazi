@@ -1,9 +1,9 @@
 <template>
-  <LayoutTool :title="relationshipName || '关系图编辑'">
+  <LayoutTool :title="relationshipName || t('relationshipDesign.titleFallback')">
     <template #headrAction>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
-        <span>保存</span>
+        <span>{{ t('common.save') }}</span>
       </el-button>
     </template>
     <template #default>
@@ -47,14 +47,14 @@
   </LayoutTool>
   <el-dialog
     v-model="infoDialogVisible"
-    :title="isAddMode ? '新增节点' : '编辑节点信息'"
+    :title="isAddMode ? t('relationshipDesign.addNodeTitle') : t('relationshipDesign.editNodeTitle')"
     width="500px"
   >
     <el-form label-width="80px">
-      <el-form-item label="节点文本">
+      <el-form-item :label="t('relationshipDesign.nodeText')">
         <el-select
           v-model="infoForm.characterId"
-          placeholder="选择人物或输入新名称"
+          :placeholder="t('relationshipDesign.nodeTextPlaceholder')"
           style="width: 100%"
           filterable
           allow-create
@@ -71,13 +71,13 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="性别">
+      <el-form-item :label="t('relationshipDesign.gender')">
         <el-radio-group v-model="infoForm.gender">
-          <el-radio value="male">男</el-radio>
-          <el-radio value="female">女</el-radio>
+          <el-radio value="male">{{ t('characterProfile.genderMale') }}</el-radio>
+          <el-radio value="female">{{ t('characterProfile.genderFemale') }}</el-radio>
         </el-radio-group>
       </el-form-item>
-      <el-form-item label="背景色">
+      <el-form-item :label="t('relationshipDesign.backgroundColor')">
         <div style="display: flex; gap: 8px; align-items: center">
           <div class="color-squares">
             <div
@@ -92,10 +92,13 @@
           <el-color-picker v-model="customColor" style="margin-left: 8px" @change="onCustomColor" />
         </div>
       </el-form-item>
-      <el-form-item label="头像">
+      <el-form-item :label="t('relationshipDesign.avatar')">
         <div style="width: 100%; display: flex; gap: 8px; align-items: flex-start">
-          <el-input v-model="infoForm.avatar" placeholder="请输入图片链接或选择本地图片" />
-          <el-button @click="selectLocalImage">选择本地图片</el-button>
+          <el-input
+            v-model="infoForm.avatar"
+            :placeholder="t('relationshipDesign.avatarPlaceholder')"
+          />
+          <el-button @click="selectLocalImage">{{ t('characterProfile.selectLocalImage') }}</el-button>
           <div v-if="infoForm.avatar" class="avatar-preview">
             <el-image
               :src="getAvatarSrc(infoForm.avatar)"
@@ -106,31 +109,35 @@
           </div>
         </div>
       </el-form-item>
-      <el-form-item label="描述">
+      <el-form-item :label="t('relationshipDesign.description')">
         <el-input
           v-model="infoForm.description"
           type="textarea"
           :rows="3"
-          placeholder="请输入描述"
+          :placeholder="t('relationshipDesign.descriptionPlaceholder')"
         />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="closeDialog">取消</el-button>
-      <el-button type="primary" @click="saveNodeInfo">保存</el-button>
+      <el-button @click="closeDialog">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="saveNodeInfo">{{ t('common.save') }}</el-button>
     </template>
   </el-dialog>
 
   <!-- 连线编辑弹框 -->
-  <el-dialog v-model="edgeDialogVisible" title="编辑关系" width="400px">
+  <el-dialog v-model="edgeDialogVisible" :title="t('relationshipDesign.editEdgeTitle')" width="400px">
     <el-form label-width="80px">
-      <el-form-item label="关系描述">
-        <el-input v-model="edgeForm.text" placeholder="请输入关系描述" style="width: 100%" />
+      <el-form-item :label="t('relationshipDesign.edgeDescription')">
+        <el-input
+          v-model="edgeForm.text"
+          :placeholder="t('relationshipDesign.edgeDescriptionPlaceholder')"
+          style="width: 100%"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="closeEdgeDialog">取消</el-button>
-      <el-button type="primary" @click="saveEdgeInfo">保存</el-button>
+      <el-button @click="closeEdgeDialog">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="saveEdgeInfo">{{ t('common.save') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -144,8 +151,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import RelationGraph from 'relation-graph-vue3'
 import RadialMenu from '@renderer/components/RadialMenu.vue'
 import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 const bookName = route.query.name
 const relationshipName = route.query.id
 
@@ -281,7 +290,7 @@ const loadRelationshipData = async () => {
     }
   } catch (error) {
     console.error('加载关系图数据失败:', error)
-    ElMessage.error('加载关系图数据失败')
+    ElMessage.error(t('relationshipDesign.loadFailed'))
     // 保证nodes/edges为数组
     relationshipData.nodes = []
     relationshipData.lines = []
@@ -318,10 +327,10 @@ const handleSave = async () => {
       })
     }
 
-    ElMessage.success('保存成功')
+    ElMessage.success(t('relationshipDesign.saveSuccess'))
   } catch (error) {
     console.error('保存关系图失败:', error)
-    ElMessage.error('保存关系图失败')
+    ElMessage.error(t('relationshipDesign.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -512,7 +521,7 @@ function handleNodeLink() {
             graphInstance.stopCreatingLinePlot()
           }
 
-          ElMessage.success('连线创建成功')
+          ElMessage.success(t('relationshipDesign.lineCreateSuccess'))
         }
       }
 
@@ -538,29 +547,25 @@ function handleNodeLink() {
       }
     } else {
       console.warn('startCreatingLinePlot method not found')
-      ElMessage.error('连线功能不可用')
+      ElMessage.error(t('relationshipDesign.lineUnavailable'))
       return
     }
   }
 
   // 显示连线模式提示
-  ElMessage.info('连线模式已启动，请点击目标节点完成连线')
+  ElMessage.info(t('relationshipDesign.linkModeTip'))
 }
 function handleNodeDelete() {
   if (!selectedNode.value) return
 
-  const nodeName = selectedNode.value.text || '未知节点'
+  const nodeName = selectedNode.value.text || t('relationshipDesign.unknownNode')
 
-  ElMessageBox.confirm(
-    `确定要删除节点"${nodeName}"吗？\n删除操作将同时删除当前节点和所有子节点，此操作不可恢复！`,
-    '确认删除',
-    {
-      confirmButtonText: '确认删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-      dangerouslyUseHTMLString: false
-    }
-  )
+  ElMessageBox.confirm(t('relationshipDesign.deleteNodeConfirm', { name: nodeName }), t('relationshipDesign.deleteTitle'), {
+    confirmButtonText: t('relationshipDesign.confirmDelete'),
+    cancelButtonText: t('common.cancel'),
+    type: 'warning',
+    dangerouslyUseHTMLString: false
+  })
     .then(() => {
       // 用户确认删除
       const nodeId = selectedNode.value.id
@@ -609,13 +614,13 @@ function handleNodeDelete() {
 
         // 显示删除结果
         if (deleteCount === 1) {
-          ElMessage.success('节点已删除')
+          ElMessage.success(t('relationshipDesign.nodeDeleted'))
         } else {
-          ElMessage.success(`已删除 ${deleteCount} 个节点及其相关连线`)
+          ElMessage.success(t('relationshipDesign.nodesDeletedCount', { count: deleteCount }))
         }
       } catch (error) {
         console.error('删除节点失败:', error)
-        ElMessage.error('删除失败，请重试')
+        ElMessage.error(t('relationshipDesign.deleteFailed'))
       }
     })
     .catch(() => {
@@ -649,10 +654,10 @@ const isAddMode = ref(false)
 const isLinkMode = ref(false)
 
 const presetColors = [
-  { label: '蓝色', value: '#409eff' },
-  { label: '橙色', value: '#ff5819' },
-  { label: '红色', value: '#f56c6c' },
-  { label: '绿色', value: '#67c23a' }
+  { label: t('relationshipDesign.colors.blue'), value: '#409eff' },
+  { label: t('relationshipDesign.colors.orange'), value: '#ff5819' },
+  { label: t('relationshipDesign.colors.red'), value: '#f56c6c' },
+  { label: t('relationshipDesign.colors.green'), value: '#67c23a' }
 ]
 const customColor = ref('')
 
@@ -717,11 +722,11 @@ async function selectLocalImage() {
     if (result && result.filePath) {
       // 将本地文件路径转换为 file:// 协议，以便在浏览器中正确显示
       infoForm.avatar = `file://${result.filePath}`
-      ElMessage.success('图片选择成功')
+      ElMessage.success(t('characterProfile.selectImageSuccess'))
     }
   } catch (error) {
     console.error('选择图片失败:', error)
-    ElMessage.error('选择图片失败')
+    ElMessage.error(t('characterProfile.selectImageFailed'))
   }
 }
 
@@ -755,7 +760,7 @@ function saveNodeInfo() {
   if (isAddMode.value) {
     // 新增模式：创建新节点
     if (!infoForm.characterId.trim()) {
-      ElMessage.warning('请输入节点名称')
+      ElMessage.warning(t('relationshipDesign.inputNodeName'))
       return
     }
     const newNodeId = genId()
@@ -836,11 +841,11 @@ function saveNodeInfo() {
 
     infoDialogVisible.value = false
     isAddMode.value = false
-    ElMessage.success('新节点已创建')
+    ElMessage.success(t('relationshipDesign.newNodeCreated'))
   } else {
     // 编辑模式：更新现有节点
     if (!infoForm.characterId.trim()) {
-      ElMessage.warning('请输入节点名称')
+      ElMessage.warning(t('relationshipDesign.inputNodeName'))
       return
     }
 
@@ -910,19 +915,19 @@ function saveNodeInfo() {
     }
 
     infoDialogVisible.value = false
-    ElMessage.success('节点信息已更新')
+    ElMessage.success(t('relationshipDesign.nodeUpdated'))
   }
 }
 
 // 保存连线信息
 function saveEdgeInfo() {
   if (!selectedEdge.value) {
-    ElMessage.warning('没有选中的连线')
+    ElMessage.warning(t('relationshipDesign.noSelectedEdge'))
     return
   }
 
   if (!edgeForm.text.trim()) {
-    ElMessage.warning('请输入关系描述')
+    ElMessage.warning(t('relationshipDesign.inputEdgeDescription'))
     return
   }
 
@@ -946,10 +951,10 @@ function saveEdgeInfo() {
     }
 
     edgeDialogVisible.value = false
-    ElMessage.success('关系信息已更新')
+    ElMessage.success(t('relationshipDesign.edgeUpdated'))
   } catch (error) {
     console.error('Error saving edge info:', error)
-    ElMessage.error('保存失败，请重试')
+    ElMessage.error(t('relationshipDesign.saveRetry'))
   }
 }
 

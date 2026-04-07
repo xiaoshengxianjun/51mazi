@@ -14,7 +14,7 @@
     <div class="chapter-title">
       <el-input
         v-model="chapterTitle"
-        placeholder="章节标题"
+        :placeholder="t('editorPanel.chapterTitle')"
         maxlength="20"
         class="chapter-title-input"
         @blur="handleTitleBlur"
@@ -23,8 +23,8 @@
       <el-switch
         v-if="editorStore.file?.type === 'chapter'"
         v-model="characterHighlightEnabled"
-        active-text="人物高亮"
-        inactive-text="人物高亮"
+        :active-text="t('editorPanel.characterHighlight')"
+        :inactive-text="t('editorPanel.characterHighlight')"
         inline-prompt
         style="--el-switch-off-color: #999999"
         class="character-highlight-switch"
@@ -34,8 +34,8 @@
       <el-switch
         v-if="editorStore.file?.type === 'chapter'"
         v-model="bannedWordsHintEnabled"
-        active-text="禁词提示"
-        inactive-text="禁词提示"
+        :active-text="t('editorPanel.bannedWordsHint')"
+        :inactive-text="t('editorPanel.bannedWordsHint')"
         inline-prompt
         style="--el-switch-off-color: #999999"
         class="banned-words-hint-switch"
@@ -49,13 +49,17 @@
       <div v-if="editorStore.file?.type === 'chapter'" class="ai-polish-wrap">
         <el-dropdown trigger="click" @command="handlePolishCommand">
           <el-button type="primary" size="small" class="ai-polish-btn" :loading="polishLoading">
-            AI 润色
+            {{ t('editorPanel.aiPolish') }}
             <el-icon class="el-icon--right"><arrow-down /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="selection">润色选中文本</el-dropdown-item>
-              <el-dropdown-item command="chapter">润色整章</el-dropdown-item>
+              <el-dropdown-item command="selection">
+                {{ t('editorPanel.polishSelection') }}
+              </el-dropdown-item>
+              <el-dropdown-item command="chapter">
+                {{ t('editorPanel.polishChapter') }}
+              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -66,7 +70,7 @@
           :loading="continueLoading"
           @click="handleContinueClick"
         >
-          AI 续写
+          {{ t('editorPanel.aiContinue') }}
         </el-button>
         <el-button
           type="warning"
@@ -74,14 +78,18 @@
           class="ai-scene-btn"
           @click="handleAISceneImageClick"
         >
-          AI 场景图
+          {{ t('editorPanel.aiSceneImage') }}
         </el-button>
       </div>
     </div>
     <!-- AI 润色结果确认弹框（段落 / 整章共用） -->
     <el-dialog
       v-model="polishDialogVisible"
-      :title="polishMode === 'chapter' ? 'AI 润色结果（整章）' : 'AI 润色结果（选中文本）'"
+      :title="
+        polishMode === 'chapter'
+          ? t('editorPanel.aiPolishResultChapter')
+          : t('editorPanel.aiPolishResultSelection')
+      "
       width="80%"
       class="polish-dialog"
       destroy-on-close
@@ -89,20 +97,24 @@
     >
       <div class="polish-dialog-body">
         <div class="polish-block">
-          <div class="polish-label">原文</div>
+          <div class="polish-label">{{ t('editorPanel.originalText') }}</div>
           <div class="polish-content original">{{ polishOriginalText }}</div>
         </div>
         <div class="polish-block">
-          <div class="polish-label">润色后</div>
+          <div class="polish-label">{{ t('editorPanel.polishedText') }}</div>
           <div class="polish-content polished">{{ polishResultText }}</div>
         </div>
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="polishDialogVisible = false">取消</el-button>
-          <el-button @click="copyPolishedText">一键复制</el-button>
+          <el-button @click="polishDialogVisible = false">{{ t('common.cancel') }}</el-button>
+          <el-button @click="copyPolishedText">{{ t('editorPanel.copyOneClick') }}</el-button>
           <el-button type="primary" @click="confirmPolishReplace">
-            {{ polishMode === 'chapter' ? '确认替换整章' : '确认替换' }}
+            {{
+              polishMode === 'chapter'
+                ? t('editorPanel.confirmReplaceChapter')
+                : t('editorPanel.confirmReplace')
+            }}
           </el-button>
         </span>
       </template>
@@ -111,7 +123,7 @@
     <!-- AI 续写：续写要求输入弹框 -->
     <el-dialog
       v-model="continuePromptDialogVisible"
-      title="AI 续写"
+      :title="t('editorPanel.aiContinue')"
       width="520px"
       class="continue-prompt-dialog"
       destroy-on-close
@@ -119,29 +131,29 @@
       @close="continuePromptDialogVisible = false"
     >
       <el-form label-width="80px">
-        <el-form-item label="续写要求">
+        <el-form-item :label="t('editorPanel.continuePrompt')">
           <el-input
             v-model="continuePromptText"
             type="textarea"
             :rows="4"
-            placeholder="可选：例如“加强冲突”“增加环境描写”“加快节奏”“用第一人称”等"
+            :placeholder="t('editorPanel.continuePromptPlaceholder')"
             maxlength="500"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item label="可续写">
+        <el-form-item :label="t('editorPanel.canContinue')">
           <span class="continue-words-tip">
-            {{ continueAllowWords }} 字（按目标字数的 120% 上限计算）
+            {{ t('editorPanel.continueAllowWords', { words: continueAllowWords }) }}
           </span>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button :disabled="continueLoading" @click="continuePromptDialogVisible = false">
-            取消
+            {{ t('common.cancel') }}
           </el-button>
           <el-button type="primary" :loading="continueLoading" @click="confirmContinuePrompt">
-            确认
+            {{ t('common.confirm') }}
           </el-button>
         </span>
       </template>
@@ -150,7 +162,7 @@
     <!-- AI 续写：结果展示弹框 -->
     <el-dialog
       v-model="continueResultDialogVisible"
-      title="AI 续写结果"
+      :title="t('editorPanel.aiContinueResult')"
       width="80%"
       class="continue-result-dialog"
       destroy-on-close
@@ -158,15 +170,19 @@
     >
       <div class="continue-result-body">
         <div class="continue-block">
-          <div class="continue-label">续写内容</div>
+          <div class="continue-label">{{ t('editorPanel.continueContent') }}</div>
           <div class="continue-content">{{ continueResultText }}</div>
         </div>
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="continueResultDialogVisible = false">取消</el-button>
-          <el-button @click="copyContinueText">复制</el-button>
-          <el-button type="primary" @click="confirmContinueInsert">确认插入到章节末尾</el-button>
+          <el-button @click="continueResultDialogVisible = false">
+            {{ t('common.cancel') }}
+          </el-button>
+          <el-button @click="copyContinueText">{{ t('editorMenubar.copy') }}</el-button>
+          <el-button type="primary" @click="confirmContinueInsert">
+            {{ t('editorPanel.confirmInsertEnd') }}
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -220,6 +236,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { EditorContent } from '@tiptap/vue-3'
 import { TextSelection } from 'prosemirror-state'
+import { useI18n } from 'vue-i18n'
 import { useEditorStore } from '@renderer/stores/editor'
 import SearchPanel from '@renderer/components/Editor/SearchPanel.vue'
 import EditorMenubar from '@renderer/components/Editor/EditorMenubar.vue'
@@ -230,6 +247,7 @@ import NoteEditorContent from '@renderer/components/Editor/NoteEditorContent.vue
 import AISceneImageDialog from '@renderer/components/Editor/AISceneImageDialog.vue'
 
 const editorStore = useEditorStore()
+const { t } = useI18n()
 
 const props = defineProps({
   bookName: String
@@ -863,7 +881,7 @@ onBeforeUnmount(async () => {
 async function saveFile(showMessage = false) {
   const file = editorStore.file
   if (!file) {
-    if (showMessage) ElMessage.warning('未选择章节或笔记')
+    if (showMessage) ElMessage.warning(t('editorPanel.noChapterOrNoteSelected'))
     return false
   }
 
@@ -923,11 +941,11 @@ async function saveFile(showMessage = false) {
         emit('refresh-chapters')
       }
     }
-    if (showMessage) ElMessage.success('保存成功')
+    if (showMessage) ElMessage.success(t('editorPanel.saveSuccess'))
     return true
   } else {
-    if (showMessage) ElMessage.error(result?.message || '保存失败')
-    else ElMessage.error(result?.message || '自动保存失败')
+    if (showMessage) ElMessage.error(result?.message || t('editorPanel.saveFailed'))
+    else ElMessage.error(result?.message || t('editorPanel.autoSaveFailed'))
     return false
   }
 }
@@ -1050,11 +1068,11 @@ function handleContinueClick() {
   const targetWords = Number(editorStore.chapterTargetWords) || 0
   const currentWords = Number(contentWordCount.value) || 0
   if (targetWords > 0 && currentWords >= targetWords) {
-    ElMessage.warning('当前章节字数已经达到目标字数，请新建章节。')
+    ElMessage.warning(t('editorPanel.chapterReachedTarget'))
     return
   }
   if (continueAllowWords.value <= 0) {
-    ElMessage.warning('可续写字数不足，请新建章节。')
+    ElMessage.warning(t('editorPanel.continueWordsNotEnough'))
     return
   }
   continuePromptText.value = ''
@@ -1064,20 +1082,20 @@ function handleContinueClick() {
 async function confirmContinuePrompt() {
   const ed = editor.value
   if (!ed) {
-    ElMessage.warning('编辑器未就绪')
+    ElMessage.warning(t('editorPanel.editorNotReady'))
     return
   }
   const fullText = ed.getText() || ''
   const currentWords = getPlainTextWordCount(fullText)
   if (!window.electron?.continueWriteWithAI) {
-    ElMessage.error('当前环境不支持 AI 续写')
+    ElMessage.error(t('editorPanel.aiContinueUnsupported'))
     return
   }
 
   const previousInfo = await getPreviousChapterContextInfo()
   if (!previousInfo.hasPrevious && currentWords < MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS) {
     ElMessage.warning(
-      `当前章节暂无可承接内容，请先写至少${MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS}字后再续写。`
+      t('editorPanel.noContinuableContent', { min: MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS })
     )
     return
   }
@@ -1086,10 +1104,10 @@ async function confirmContinuePrompt() {
   if (!sourceText) {
     if (previousInfo.contextText) {
       sourceText = previousInfo.contextText
-      ElMessage.info('当前章节为空，已自动参考上一章末尾进行续写。')
+      ElMessage.info(t('editorPanel.chapterEmptyUsePrevious'))
     } else {
       ElMessage.warning(
-        `当前章节暂无可承接内容，请先写至少${MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS}字后再续写。`
+        t('editorPanel.noContinuableContent', { min: MIN_CONTINUE_WORDS_WITHOUT_PREVIOUS })
       )
       return
     }
@@ -1097,7 +1115,7 @@ async function confirmContinuePrompt() {
 
   const maxAddWords = continueAllowWords.value
   if (!maxAddWords || maxAddWords <= 0) {
-    ElMessage.warning('可续写字数不足，请新建章节。')
+    ElMessage.warning(t('editorPanel.continueWordsNotEnough'))
     return
   }
   continueLoading.value = true
@@ -1108,12 +1126,12 @@ async function confirmContinuePrompt() {
       maxAddWords
     })
     if (!res?.success) {
-      ElMessage.error(res?.message || '续写失败')
+      ElMessage.error(res?.message || t('editorPanel.continueFailed'))
       return
     }
     const content = (res.content || '').trim()
     if (!content) {
-      ElMessage.error('续写结果为空，请重试')
+      ElMessage.error(t('editorPanel.continueEmpty'))
       return
     }
     // 兜底：若 AI 返回过长，仍展示结果；后续插入时会导致超限，但主约束已通过 maxAddWords 尽量控制
@@ -1121,7 +1139,7 @@ async function confirmContinuePrompt() {
     continuePromptDialogVisible.value = false
     continueResultDialogVisible.value = true
   } catch (e) {
-    ElMessage.error(e?.message || '续写请求异常')
+    ElMessage.error(e?.message || t('editorPanel.continueRequestError'))
   } finally {
     continueLoading.value = false
   }
@@ -1131,9 +1149,9 @@ async function copyContinueText() {
   if (!continueResultText.value) return
   try {
     await navigator.clipboard.writeText(continueResultText.value)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success(t('editorPanel.copiedToClipboard'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('editorPanel.copyFailed'))
   }
 }
 
@@ -1154,9 +1172,9 @@ function confirmContinueInsert() {
   const afterText = ed.getText()
   const afterWords = getPlainTextWordCount(afterText)
   if (maxTotal > 0 && afterWords > maxTotal) {
-    ElMessage.warning(`已插入续写内容，但当前章节字数已超过目标字数 120% 上限（${maxTotal}字）`)
+    ElMessage.warning(t('editorPanel.insertedButOverLimit', { max: maxTotal }))
   } else {
-    ElMessage.success('已插入续写内容')
+    ElMessage.success(t('editorPanel.insertedContinueContent'))
   }
 
   continueResultDialogVisible.value = false
@@ -1167,29 +1185,29 @@ function confirmContinueInsert() {
 async function handlePolishSelection() {
   const ed = editor.value
   if (!ed) {
-    ElMessage.warning('编辑器未就绪')
+    ElMessage.warning(t('editorPanel.editorNotReady'))
     return
   }
   const { state } = ed
   const { from, to } = state.selection
   if (from === to) {
-    ElMessage.warning('请先选中要润色的文本')
+    ElMessage.warning(t('editorPanel.selectTextToPolish'))
     return
   }
   const text = state.doc.textBetween(from, to, '\n')
   if (!text.trim()) {
-    ElMessage.warning('选中内容为空，无法润色')
+    ElMessage.warning(t('editorPanel.selectedTextEmpty'))
     return
   }
   if (!window.electron?.polishTextWithAI) {
-    ElMessage.error('当前环境不支持 AI 润色')
+    ElMessage.error(t('editorPanel.aiPolishUnsupported'))
     return
   }
   polishLoading.value = true
   try {
     const res = await window.electron.polishTextWithAI(text)
     if (!res.success) {
-      ElMessage.error(res.message || '润色失败')
+      ElMessage.error(res.message || t('editorPanel.polishFailed'))
       return
     }
     polishMode.value = 'selection'
@@ -1199,46 +1217,46 @@ async function handlePolishSelection() {
     polishReplaceTo.value = to
     polishDialogVisible.value = true
   } catch (e) {
-    ElMessage.error(e?.message || '润色请求异常')
+    ElMessage.error(e?.message || t('editorPanel.polishRequestError'))
   } finally {
     polishLoading.value = false
   }
 }
 
-/** AI 场景图：校验选区字数后打开通义万相配置抽屉 */
+/** AI 场景图：校验选区字数后打开场景图抽屉（图像服务在抽屉内选择） */
 function handleAISceneImageClick() {
   const ed = editor.value
   if (!ed) {
-    ElMessage.warning('编辑器未就绪')
+    ElMessage.warning(t('editorPanel.editorNotReady'))
     return
   }
   const { state } = ed
   const { from, to } = state.selection
   if (from === to) {
-    ElMessage.warning('请先选中要生成场景图的文本')
+    ElMessage.warning(t('editorPanel.selectTextToGenerateScene'))
     return
   }
   const text = state.doc.textBetween(from, to, '\n')
   if (!text.trim()) {
-    ElMessage.warning('选中内容为空')
+    ElMessage.warning(t('editorPanel.selectedTextEmptySimple'))
     return
   }
   const words = getPlainTextWordCount(text)
   if (words < SCENE_SELECTION_MIN_WORDS) {
     ElMessage.warning(
-      `选区有效字数过少（当前 ${words} 字），请至少选中约 ${SCENE_SELECTION_MIN_WORDS} 字以便描述场景`
+      t('editorPanel.sceneSelectionTooShort', { current: words, min: SCENE_SELECTION_MIN_WORDS })
     )
     return
   }
   if (words > SCENE_SELECTION_MAX_WORDS) {
     ElMessage.warning(
-      `选区有效字数过多（当前 ${words} 字），请选中不超过 ${SCENE_SELECTION_MAX_WORDS} 字后再试`
+      t('editorPanel.sceneSelectionTooLong', { current: words, max: SCENE_SELECTION_MAX_WORDS })
     )
     return
   }
   const name = (props.bookName || '').trim()
   if (!name) {
-    ElMessage.error('书籍名称无效')
+    ElMessage.error(t('editorPanel.invalidBookName'))
     return
   }
   sceneExcerpt.value = text
@@ -1249,23 +1267,23 @@ function handleAISceneImageClick() {
 async function handlePolishChapter() {
   const ed = editor.value
   if (!ed) {
-    ElMessage.warning('编辑器未就绪')
+    ElMessage.warning(t('editorPanel.editorNotReady'))
     return
   }
   const fullText = ed.getText()
   if (!fullText || !fullText.trim()) {
-    ElMessage.warning('当前章节内容为空，无法润色')
+    ElMessage.warning(t('editorPanel.chapterContentEmptyCannotPolish'))
     return
   }
   if (!window.electron?.polishTextWithAI) {
-    ElMessage.error('当前环境不支持 AI 润色')
+    ElMessage.error(t('editorPanel.aiPolishUnsupported'))
     return
   }
   polishLoading.value = true
   try {
     const res = await window.electron.polishTextWithAI(fullText)
     if (!res.success) {
-      ElMessage.error(res.message || '润色失败')
+      ElMessage.error(res.message || t('editorPanel.polishFailed'))
       return
     }
     polishMode.value = 'chapter'
@@ -1273,7 +1291,7 @@ async function handlePolishChapter() {
     polishResultText.value = res.content || ''
     polishDialogVisible.value = true
   } catch (e) {
-    ElMessage.error(e?.message || '润色请求异常')
+    ElMessage.error(e?.message || t('editorPanel.polishRequestError'))
   } finally {
     polishLoading.value = false
   }
@@ -1284,9 +1302,9 @@ async function copyPolishedText() {
   if (!polishResultText.value) return
   try {
     await navigator.clipboard.writeText(polishResultText.value)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success(t('editorPanel.copiedToClipboard'))
   } catch {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('editorPanel.copyFailed'))
   }
 }
 
@@ -1302,11 +1320,11 @@ function confirmPolishReplace() {
         polishResultText.value
       )
       .run()
-    ElMessage.success('已替换为润色内容')
+    ElMessage.success(t('editorPanel.replacedWithPolishedText'))
   } else {
     const html = plainTextToEditorHtml(polishResultText.value)
     ed.chain().focus().setContent(html).run()
-    ElMessage.success('已用润色结果替换整章内容')
+    ElMessage.success(t('editorPanel.replacedWholeChapterWithPolish'))
   }
   polishDialogVisible.value = false
   polishOriginalText.value = ''
@@ -1869,8 +1887,12 @@ watch(
 
 /* AI 润色按钮：默认半透明，悬停不透明 */
 .ai-polish-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 132px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
@@ -1879,8 +1901,12 @@ watch(
 }
 
 .ai-continue-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 132px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
@@ -1889,15 +1915,18 @@ watch(
 }
 
 .ai-scene-btn {
-  width: 92px;
+  min-width: 100px;
+  max-width: 152px;
+  height: auto;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
   opacity: 0.45;
   transition: opacity 0.2s ease;
   &:hover {
     opacity: 1;
   }
 }
-
 .continue-words-tip {
   color: var(--el-text-color-regular);
   font-size: 12px;

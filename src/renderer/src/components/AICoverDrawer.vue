@@ -1,7 +1,7 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    title="AI生成封面"
+    :title="t('aiCover.title')"
     size="900px"
     direction="rtl"
     class="ai-cover-drawer"
@@ -18,18 +18,22 @@
       >
         <el-row :gutter="16">
           <el-col :span="10">
-            <el-form-item prop="penName" label="笔名">
+            <el-form-item prop="penName" :label="t('aiCover.penName')">
               <el-input
                 v-model="form.penName"
-                placeholder="请输入笔名"
+                :placeholder="t('aiCover.penNamePlaceholder')"
                 maxlength="10"
                 show-word-limit
               />
             </el-form-item>
           </el-col>
           <el-col :span="14">
-            <el-form-item prop="coverSize" label="封面尺寸">
-              <el-select v-model="form.coverSize" placeholder="请选择封面尺寸" style="width: 100%">
+            <el-form-item prop="coverSize" :label="t('aiCover.coverSize')">
+              <el-select
+                v-model="form.coverSize"
+                :placeholder="t('aiCover.selectCoverSize')"
+                style="width: 100%"
+              >
                 <el-option
                   v-for="size in coverSizeOptions"
                   :key="size.value"
@@ -45,28 +49,49 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <template v-if="providersLoaded">
+          <el-alert
+            v-if="noImageProviders"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ai-drawer-provider-alert"
+          >
+            {{ t('imageAi.noProviderHint') }}
+          </el-alert>
+          <el-form-item v-else :label="t('imageAi.serviceLabel')">
+            <el-select v-model="selectedProvider" style="width: 100%">
+              <el-option
+                v-for="p in imageProviders"
+                :key="p"
+                :label="labelForImageProvider(p)"
+                :value="p"
+              />
+            </el-select>
+          </el-form-item>
+        </template>
         <!-- 封面要求：拆分为三部分，让提示词更明确 -->
-        <el-form-item prop="titlePrompt" label="书名要求">
+        <el-form-item prop="titlePrompt" :label="t('aiCover.titlePrompt')">
           <el-input
             v-model="form.titlePrompt"
             type="textarea"
             :rows="2"
-            placeholder="请输入书名排版要求：例如“书名居中大字、金色描边、毛笔字、可读性强、不要变形”等（可选，最多300字）"
+            :placeholder="t('aiCover.titlePromptPlaceholder')"
             maxlength="200"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item prop="authorPrompt" label="笔名要求">
+        <el-form-item prop="authorPrompt" :label="t('aiCover.authorPrompt')">
           <el-input
             v-model="form.authorPrompt"
             type="textarea"
             :rows="2"
-            placeholder="请输入笔名排版要求：例如“笔名放底部小字、白色、简洁清晰”等（可选，最多300字）"
+            :placeholder="t('aiCover.authorPromptPlaceholder')"
             maxlength="100"
             show-word-limit
           />
         </el-form-item>
-        <el-form-item prop="backgroundPrompt" label="背景要求">
+        <el-form-item prop="backgroundPrompt" :label="t('aiCover.backgroundPrompt')">
           <div v-if="selectedPromptTags.length > 0" class="selected-tags">
             <el-tag
               v-for="(tag, index) in selectedPromptTags"
@@ -82,7 +107,7 @@
             v-model="form.backgroundPrompt"
             type="textarea"
             :rows="4"
-            placeholder="请输入封面背景/画面要求：风格、元素、色彩、构图、氛围等（支持中英文，最多300字）。也可点击下方标签快速选择。"
+            :placeholder="t('aiCover.backgroundPromptPlaceholder')"
             maxlength="300"
             show-word-limit
           />
@@ -101,7 +126,7 @@
                   size="small"
                   @click="applyRecommendedTags(category.key)"
                 >
-                  一键应用推荐
+                  {{ t('aiCover.applyRecommended') }}
                 </el-button>
               </div>
               <div class="preset-tags">
@@ -124,7 +149,7 @@
       <!-- 已生成的封面：多图排列，点击选择一张后确认使用 -->
       <div v-if="generatedList.length > 0" class="generated-section">
         <div class="section-title">
-          已生成的封面（共 {{ generatedList.length }} 张，点击选择一张后确认使用）
+          {{ t('aiCover.generatedTitle', { count: generatedList.length }) }}
         </div>
         <div class="generated-grid">
           <div
@@ -134,18 +159,23 @@
             :class="{ selected: selectedPath === item.localPath }"
             @click="selectedPath = item.localPath"
           >
-            <img :src="item.previewUrl" :alt="`封面 ${index + 1}`" />
+            <img :src="item.previewUrl" :alt="t('aiCover.generatedAlt', { index: index + 1 })" />
           </div>
         </div>
       </div>
 
       <el-alert v-if="generating" type="info" :closable="false" show-icon class="generating-hint">
-        正在努力生图中，请勿关闭弹框
+        {{ t('aiCover.generatingHint') }}
       </el-alert>
       <div class="ai-cover-drawer-footer">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
-          {{ generatedList.length > 0 ? '再生成一张' : '生成封面' }}
+        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="generating"
+          :disabled="noImageProviders || !selectedProvider"
+          @click="handleGenerate"
+        >
+          {{ generatedList.length > 0 ? t('aiCover.generateOneMore') : t('aiCover.generate') }}
         </el-button>
         <el-button
           v-if="generatedList.length > 0"
@@ -153,7 +183,7 @@
           :disabled="!selectedPath"
           @click="handleConfirmUse"
         >
-          确认使用
+          {{ t('aiCover.confirmUse') }}
         </el-button>
       </div>
     </div>
@@ -161,9 +191,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { generateAICover, confirmAICover, discardAICovers } from '@renderer/service/tongyiwanxiang'
+import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -171,6 +203,20 @@ const props = defineProps({
   bookType: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'cover-generated'])
+const { t, locale } = useI18n()
+
+const modelOpen = toRef(props, 'modelValue')
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+  useImageAiProviderSelect(modelOpen)
+
+function labelForImageProvider(id) {
+  const keys = {
+    tongyi: 'imageAi.providerTongyi',
+    gemini: 'imageAi.providerGemini',
+    doubao: 'imageAi.providerDoubao'
+  }
+  return t(keys[id] || id)
+}
 
 const formRef = ref(null)
 const generating = ref(false)
@@ -189,21 +235,21 @@ const form = ref({
 
 const rules = {
   penName: [
-    { required: true, message: '请输入笔名', trigger: 'blur' },
-    { max: 10, message: '笔名不能超过10个字符', trigger: 'blur' }
+    { required: true, message: t('aiCover.rulePenNameRequired'), trigger: 'blur' },
+    { max: 10, message: t('aiCover.rulePenNameMax'), trigger: 'blur' }
   ],
-  coverSize: [{ required: true, message: '请选择封面尺寸', trigger: 'change' }],
+  coverSize: [{ required: true, message: t('aiCover.ruleCoverSizeRequired'), trigger: 'change' }],
   backgroundPrompt: [
-    { required: true, message: '请输入封面背景要求', trigger: 'blur' },
-    { min: 10, message: '封面背景要求至少10个字符', trigger: 'blur' }
+    { required: true, message: t('aiCover.ruleBackgroundRequired'), trigger: 'blur' },
+    { min: 10, message: t('aiCover.ruleBackgroundMin'), trigger: 'blur' }
   ]
 }
 
-const coverSizeOptions = [
+const coverSizeOptions = computed(() => [
   {
     value: '600x800',
-    label: '600×800 像素',
-    platform: '多数主流平台（起点、番茄、创世、云起等）',
+    label: t('aiCover.sizes.s600x800'),
+    platform: t('aiCover.platforms.mainstream'),
     targetWidth: 600,
     targetHeight: 800,
     apiWidth: 1200,
@@ -211,8 +257,8 @@ const coverSizeOptions = [
   },
   {
     value: '200x280',
-    label: '200×280 像素',
-    platform: '晋江文学城作品封面',
+    label: t('aiCover.sizes.s200x280'),
+    platform: t('aiCover.platforms.jjwxc'),
     targetWidth: 200,
     targetHeight: 280,
     apiWidth: 1280,
@@ -220,8 +266,8 @@ const coverSizeOptions = [
   },
   {
     value: '400x560',
-    label: '400×560 像素',
-    platform: '黑岩小说',
+    label: t('aiCover.sizes.s400x560'),
+    platform: t('aiCover.platforms.heiyan'),
     targetWidth: 400,
     targetHeight: 560,
     apiWidth: 1280,
@@ -229,8 +275,8 @@ const coverSizeOptions = [
   },
   {
     value: '300x400',
-    label: '300×400 像素',
-    platform: '逐浪小说',
+    label: t('aiCover.sizes.s300x400'),
+    platform: t('aiCover.platforms.zhulang'),
     targetWidth: 300,
     targetHeight: 400,
     apiWidth: 1200,
@@ -238,16 +284,16 @@ const coverSizeOptions = [
   },
   {
     value: '240x320',
-    label: '240×320 像素',
-    platform: '纵横中文网',
+    label: t('aiCover.sizes.s240x320'),
+    platform: t('aiCover.platforms.zongheng'),
     targetWidth: 240,
     targetHeight: 320,
     apiWidth: 1200,
     apiHeight: 1600
   }
-]
+])
 
-const promptPresets = {
+const promptPresetsZh = {
   style: [
     '古风',
     '现代',
@@ -335,7 +381,97 @@ const promptPresets = {
   ]
 }
 
-const bookTypeRecommendations = {
+const promptPresetsEn = {
+  style: [
+    'Ancient Chinese',
+    'Modern',
+    'Sci-fi',
+    'Aesthetic',
+    'Realistic',
+    'Anime',
+    'Ink Wash',
+    'Oil Painting',
+    'Watercolor',
+    'Illustration',
+    'Minimal',
+    'Luxurious',
+    'Dark',
+    'Fresh',
+    'Retro'
+  ],
+  element: [
+    'Protagonist',
+    'Couple',
+    'Ensemble',
+    'Scene',
+    'Prop',
+    'Weapon',
+    'Architecture',
+    'Landscape',
+    'Sky',
+    'Clouds',
+    'Mountains',
+    'Ocean',
+    'Forest',
+    'City',
+    'Ancient Buildings'
+  ],
+  color: [
+    'Warm Tone',
+    'Cool Tone',
+    'High Contrast',
+    'Low Saturation',
+    'High Saturation',
+    'Black & White',
+    'Gold',
+    'Red',
+    'Blue',
+    'Green',
+    'Purple',
+    'Pink',
+    'Orange',
+    'Gradient',
+    'Monochrome'
+  ],
+  composition: [
+    'Centered Composition',
+    'Symmetrical Composition',
+    'Rule of Thirds',
+    'Long Shot',
+    'Medium Shot',
+    'Close Shot',
+    'Close-up',
+    'Low Angle',
+    'High Angle',
+    'Eye-level',
+    'Negative Space',
+    'Full Composition',
+    'Diagonal Composition',
+    'S-Curve Composition',
+    'Framed Composition'
+  ],
+  atmosphere: [
+    'Mysterious',
+    'Romantic',
+    'Passionate',
+    'Sad',
+    'Warm',
+    'Tense',
+    'Calm',
+    'Intense',
+    'Dreamy',
+    'Epic',
+    'Suspenseful',
+    'Horror',
+    'Healing',
+    'Rousing',
+    'Melancholic'
+  ]
+}
+
+const promptPresets = computed(() => (locale.value === 'en-US' ? promptPresetsEn : promptPresetsZh))
+
+const bookTypeRecommendationsZh = {
   xuanhua: {
     style: ['古风', '玄幻', '神秘'],
     element: ['主角', '武器', '古建筑'],
@@ -464,13 +600,146 @@ const bookTypeRecommendations = {
   }
 }
 
-const promptPresetCategories = [
-  { key: 'style', label: '风格', recommended: true },
-  { key: 'element', label: '元素', recommended: true },
-  { key: 'color', label: '色彩', recommended: true },
-  { key: 'composition', label: '构图', recommended: false },
-  { key: 'atmosphere', label: '氛围', recommended: true }
-]
+const bookTypeRecommendationsEn = {
+  xuanhua: {
+    style: ['Ancient Chinese', 'Fantasy', 'Mysterious'],
+    element: ['Protagonist', 'Weapon', 'Ancient Buildings'],
+    color: ['Gold', 'Purple', 'Gradient'],
+    atmosphere: ['Mysterious', 'Passionate', 'Epic']
+  },
+  xianxia: {
+    style: ['Ancient Chinese', 'Aesthetic', 'Ink Wash'],
+    element: ['Protagonist', 'Mountains', 'Clouds'],
+    color: ['Blue', 'White', 'Gradient'],
+    atmosphere: ['Mysterious', 'Calm', 'Dreamy']
+  },
+  qihuan: {
+    style: ['Fantasy', 'Aesthetic', 'Illustration'],
+    element: ['Protagonist', 'Magic', 'Forest'],
+    color: ['Purple', 'Blue', 'Gradient'],
+    atmosphere: ['Mysterious', 'Dreamy', 'Romantic']
+  },
+  dushi: {
+    style: ['Modern', 'Realistic', 'Minimal'],
+    element: ['Protagonist', 'City', 'Architecture'],
+    color: ['Warm Tone', 'High Contrast'],
+    atmosphere: ['Warm', 'Tense', 'Healing']
+  },
+  kehuan: {
+    style: ['Sci-fi', 'Futuristic', 'Realistic'],
+    element: ['Protagonist', 'Technology', 'City'],
+    color: ['Blue', 'Cool Tone', 'High Contrast'],
+    atmosphere: ['Tense', 'Mysterious', 'Epic']
+  },
+  wuxia: {
+    style: ['Ancient Chinese', 'Realistic', 'Ink Wash'],
+    element: ['Protagonist', 'Weapon', 'Mountains'],
+    color: ['Warm Tone', 'Gradient'],
+    atmosphere: ['Passionate', 'Rousing', 'Mysterious']
+  },
+  yanqing: {
+    style: ['Aesthetic', 'Fresh', 'Illustration'],
+    element: ['Couple', 'Romantic', 'Landscape'],
+    color: ['Pink', 'Warm Tone', 'Gradient'],
+    atmosphere: ['Romantic', 'Warm', 'Healing']
+  },
+  lishi: {
+    style: ['Ancient Chinese', 'Realistic', 'Retro'],
+    element: ['Protagonist', 'Ancient Buildings', 'Scene'],
+    color: ['Warm Tone', 'Low Saturation'],
+    atmosphere: ['Epic', 'Mysterious', 'Calm']
+  },
+  xuanyi: {
+    style: ['Dark', 'Realistic', 'Minimal'],
+    element: ['Protagonist', 'City', 'Architecture'],
+    color: ['Cool Tone', 'Low Saturation', 'Black & White'],
+    atmosphere: ['Suspenseful', 'Tense', 'Mysterious']
+  },
+  junshi: {
+    style: ['Realistic', 'Modern', 'Minimal'],
+    element: ['Protagonist', 'Weapon', 'Scene'],
+    color: ['Cool Tone', 'High Contrast'],
+    atmosphere: ['Tense', 'Intense', 'Passionate']
+  },
+  youxi: {
+    style: ['Anime', 'Illustration', 'Realistic'],
+    element: ['Protagonist', 'Weapon', 'Scene'],
+    color: ['High Contrast', 'Gradient', 'Warm Tone'],
+    atmosphere: ['Passionate', 'Tense', 'Rousing']
+  },
+  tiyu: {
+    style: ['Realistic', 'Modern', 'Minimal'],
+    element: ['Protagonist', 'Scene', 'Sports'],
+    color: ['Warm Tone', 'High Contrast', 'High Saturation'],
+    atmosphere: ['Passionate', 'Rousing', 'Tense']
+  },
+  xianshi: {
+    style: ['Realistic', 'Modern', 'Minimal'],
+    element: ['Protagonist', 'City', 'Architecture'],
+    color: ['Warm Tone', 'Low Saturation', 'High Contrast'],
+    atmosphere: ['Warm', 'Healing', 'Calm']
+  },
+  tongren: {
+    style: ['Anime', 'Illustration', 'Aesthetic'],
+    element: ['Protagonist', 'Couple', 'Scene'],
+    color: ['Warm Tone', 'Gradient', 'High Saturation'],
+    atmosphere: ['Romantic', 'Passionate', 'Dreamy']
+  },
+  qingchun: {
+    style: ['Fresh', 'Aesthetic', 'Illustration'],
+    element: ['Protagonist', 'Couple', 'Campus'],
+    color: ['Warm Tone', 'Pink', 'Fresh'],
+    atmosphere: ['Healing', 'Warm', 'Romantic']
+  },
+  zhichang: {
+    style: ['Modern', 'Realistic', 'Minimal'],
+    element: ['Protagonist', 'City', 'Architecture'],
+    color: ['Warm Tone', 'Cool Tone', 'High Contrast'],
+    atmosphere: ['Tense', 'Healing', 'Warm']
+  },
+  xiaoyuan: {
+    style: ['Fresh', 'Aesthetic', 'Illustration'],
+    element: ['Protagonist', 'Couple', 'Campus'],
+    color: ['Warm Tone', 'Fresh', 'Gradient'],
+    atmosphere: ['Healing', 'Warm', 'Romantic']
+  },
+  erciyuan: {
+    style: ['Anime', 'Illustration', 'Aesthetic'],
+    element: ['Protagonist', 'Couple', 'Scene'],
+    color: ['High Saturation', 'Gradient', 'Warm Tone'],
+    atmosphere: ['Dreamy', 'Healing', 'Romantic']
+  },
+  qingxiaoshuo: {
+    style: ['Anime', 'Illustration', 'Fresh'],
+    element: ['Protagonist', 'Couple', 'Landscape'],
+    color: ['Warm Tone', 'Gradient', 'Fresh'],
+    atmosphere: ['Healing', 'Romantic', 'Warm']
+  },
+  duanpian: {
+    style: ['Minimal', 'Realistic', 'Aesthetic'],
+    element: ['Protagonist', 'Scene', 'Negative Space'],
+    color: ['Warm Tone', 'Low Saturation', 'Gradient'],
+    atmosphere: ['Calm', 'Healing', 'Mysterious']
+  },
+  other: {
+    style: ['Realistic', 'Aesthetic', 'Minimal'],
+    element: ['Protagonist', 'Scene', 'Landscape'],
+    color: ['Warm Tone', 'Gradient', 'High Contrast'],
+    atmosphere: ['Warm', 'Calm', 'Healing']
+  }
+}
+
+const bookTypeRecommendations = computed(() =>
+  locale.value === 'en-US' ? bookTypeRecommendationsEn : bookTypeRecommendationsZh
+)
+
+const promptPresetCategories = computed(() => [
+  { key: 'style', label: t('aiCover.categories.style'), recommended: true },
+  { key: 'element', label: t('aiCover.categories.element'), recommended: true },
+  { key: 'color', label: t('aiCover.categories.color'), recommended: true },
+  { key: 'composition', label: t('aiCover.categories.composition'), recommended: false },
+  { key: 'atmosphere', label: t('aiCover.categories.atmosphere'), recommended: true }
+])
 
 watch(
   () => props.modelValue,
@@ -495,7 +764,7 @@ watch(
 )
 
 function getCategoryTags(key) {
-  return promptPresets[key] || []
+  return promptPresets.value[key] || []
 }
 function isTagSelected(tag) {
   return selectedPromptTags.value.includes(tag)
@@ -523,14 +792,14 @@ function updatePromptFromTags() {
 }
 
 function getRecommendationsForBookType(bookType) {
-  if (bookTypeRecommendations[bookType]) return bookTypeRecommendations[bookType]
+  if (bookTypeRecommendations.value[bookType]) return bookTypeRecommendations.value[bookType]
   const parent = bookType && bookType.includes('_') ? bookType.split('_')[0] : null
-  return parent ? bookTypeRecommendations[parent] : null
+  return parent ? bookTypeRecommendations.value[parent] : null
 }
 
 function applyRecommendedTags(categoryKey) {
   if (!form.value.bookType) {
-    ElMessage.warning('请先选择书籍类型')
+    ElMessage.warning(t('aiCover.selectBookTypeFirst'))
     return
   }
   const recommendations = getRecommendationsForBookType(form.value.bookType)
@@ -539,21 +808,25 @@ function applyRecommendedTags(categoryKey) {
     if (!selectedPromptTags.value.includes(tag)) selectedPromptTags.value.push(tag)
   })
   updatePromptFromTags()
-  ElMessage.success('已应用推荐标签')
+  ElMessage.success(t('aiCover.appliedRecommended'))
 }
 
 async function handleGenerate() {
   try {
     await formRef.value.validate()
-    const selectedSize = coverSizeOptions.find((o) => o.value === form.value.coverSize)
+    const selectedSize = coverSizeOptions.value.find((o) => o.value === form.value.coverSize)
     if (!selectedSize) {
-      ElMessage.error('请选择有效的封面尺寸')
+      ElMessage.error(t('aiCover.invalidCoverSize'))
       return
     }
     const size = `${selectedSize.apiWidth}*${selectedSize.apiHeight}`
     const bookName = (props.bookName || '').trim()
     if (!bookName) {
-      ElMessage.error('请先填写书名')
+      ElMessage.error(t('aiCover.bookNameRequired'))
+      return
+    }
+    if (!selectedProvider.value) {
+      ElMessage.warning(t('imageAi.noProviderHint'))
       return
     }
     // 构建完整提示词：强制要求封面上显示书名和笔名，再拼接用户填写的风格/元素描述
@@ -563,41 +836,42 @@ async function handleGenerate() {
     const authorPrompt = (form.value.authorPrompt || '').trim()
 
     const backgroundPart = backgroundPrompt
-      ? `封面背景/画面要求：${backgroundPrompt}`
-      : '封面背景/画面要求：小说封面风格，美观大气，主体明确，画面干净。'
+      ? t('aiCover.promptBackgroundWithValue', { value: backgroundPrompt })
+      : t('aiCover.promptBackgroundDefault')
 
     // 书名/笔名要求拆分：更明确地指导模型排版与清晰度
-    const titlePartBase = `封面上必须清晰、醒目地显示书名《${bookName}》，书名字形端正、可读性强，不要错别字，不要变形，不要额外添加无关文字。`
-    const titlePart = titlePrompt ? `${titlePartBase} 书名排版要求：${titlePrompt}` : titlePartBase
+    const titlePartBase = t('aiCover.promptTitleBase', { bookName })
+    const titlePart = titlePrompt
+      ? t('aiCover.promptTitleWithLayout', { base: titlePartBase, layout: titlePrompt })
+      : titlePartBase
 
-    const authorPartBase = penName
-      ? `封面上必须清晰显示作者笔名：${penName}，笔名字形端正、可读性强。`
-      : ''
+    const authorPartBase = penName ? t('aiCover.promptAuthorBase', { penName }) : ''
     const authorPart =
       authorPartBase && authorPrompt
-        ? `${authorPartBase} 笔名排版要求：${authorPrompt}`
+        ? t('aiCover.promptAuthorWithLayout', { base: authorPartBase, layout: authorPrompt })
         : authorPartBase
 
     const fullPrompt = [backgroundPart, titlePart, authorPart].filter(Boolean).join('\n')
 
     generating.value = true
-    ElMessage.info('正在努力生图中，不要关闭弹框')
+    ElMessage.info(t('aiCover.generatingInfo'))
     const res = await generateAICover({
       prompt: fullPrompt,
       size,
       bookName,
-      negativePrompt: (form.value.negativePrompt || '').trim() || undefined
+      negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
+      imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
       const previewUrl = `file://${res.localPath}`
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
-      ElMessage.success('已生成，请在上方选择一张确认使用或继续生成')
+      ElMessage.success(t('aiCover.generatedSelectOrContinue'))
     } else {
-      ElMessage.error(res?.message || '生成封面失败')
+      ElMessage.error(res?.message || t('aiCover.generateFailed'))
     }
   } catch (error) {
-    if (error !== false) ElMessage.error(error?.message || '请检查表单输入')
+    if (error !== false) ElMessage.error(error?.message || t('aiCover.checkFormInput'))
   } finally {
     generating.value = false
   }
@@ -619,17 +893,20 @@ async function handleConfirmUse() {
     if (res?.success && res.localPath) {
       emit('cover-generated', { localPath: res.localPath })
       emit('update:modelValue', false)
-      ElMessage.success('已设为书籍封面，保存书籍后将写入书籍目录')
+      ElMessage.success(t('aiCover.confirmSuccess'))
     } else {
-      ElMessage.error(res?.message || '确认失败')
+      ElMessage.error(res?.message || t('aiCover.confirmFailed'))
     }
   } catch (error) {
-    ElMessage.error(error?.message || '确认失败')
+    ElMessage.error(error?.message || t('aiCover.confirmFailed'))
   }
 }
 </script>
 
 <style lang="scss" scoped>
+.ai-drawer-provider-alert {
+  margin-bottom: 12px;
+}
 .ai-cover-drawer-content {
   display: flex;
   flex-direction: column;

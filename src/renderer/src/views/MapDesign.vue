@@ -3,7 +3,7 @@
     <!-- 返回按钮 -->
     <div class="back-button-container">
       <el-button text class="back-button" :icon="ArrowLeftBold" @click="handleBack">
-        返回
+        {{ t('mapDesign.back') }}
       </el-button>
     </div>
 
@@ -45,7 +45,7 @@
           :max="sliderConfig.max"
           :step="sliderConfig.step"
           :dragging-disabled="draggingDisabled"
-          label="大小"
+          :label="t('mapDesign.size')"
         />
         <MapSlider
           v-if="tool === 'pencil' || tool === 'shape'"
@@ -54,7 +54,7 @@
           :max="opacityConfig.max"
           :step="opacityConfig.step"
           :dragging-disabled="draggingDisabled"
-          label="透明度"
+          :label="t('mapDesign.opacity')"
           preview-type="opacity"
         />
       </template>
@@ -100,7 +100,7 @@
             :ref="(el) => (textTool.textInputRef = el)"
             v-model="textInputValue"
             class="text-input"
-            placeholder="输入文字..."
+            :placeholder="t('mapDesign.textPlaceholder')"
             :style="{
               fontSize: (textTool.editingTextElement?.fontSize || 14) + 'px',
               fontFamily: textTool.editingTextElement?.fontFamily || 'Arial',
@@ -145,6 +145,7 @@ import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeftBold } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 // 导入 composables
 import { useCanvasState } from '@renderer/composables/map/useCanvasState'
@@ -165,6 +166,7 @@ import { useBackgroundTool } from '@renderer/composables/map/tools/useBackground
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const bookName = route.query.name
 
 // ==================== 基础数据 ====================
@@ -789,20 +791,20 @@ function onToolChange(newTool) {
 
 function handleUndo() {
   if (history.value && history.value.undo()) {
-    ElMessage.success('已撤销')
+    ElMessage.success(t('mapDesign.undoSuccess'))
   }
 }
 
 function handleRedo() {
   if (history.value && history.value.redo()) {
-    ElMessage.success('已回退')
+    ElMessage.success(t('mapDesign.redoSuccess'))
   }
 }
 
 function handleClearCanvas() {
-  ElMessageBox.confirm('确定要清空画板吗？此操作不可撤销。', '确认清空', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
+  ElMessageBox.confirm(t('mapDesign.clearConfirmContent'), t('mapDesign.clearConfirmTitle'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
     type: 'warning'
   })
     .then(() => {
@@ -811,7 +813,7 @@ function handleClearCanvas() {
       elements.clearAll()
       renderCanvas()
       history.value.saveState()
-      ElMessage.success('画板已清空')
+      ElMessage.success(t('mapDesign.clearedSuccess'))
     })
     .catch(() => {
       // 用户取消
@@ -1019,7 +1021,7 @@ async function generatePreviewImage() {
  */
 async function handleSaveMap() {
   if (!mapName.value) {
-    ElMessage.warning('请输入地图名称')
+    ElMessage.warning(t('mapDesign.inputMapName'))
     return
   }
   if (!canvasRef.value) return
@@ -1031,7 +1033,7 @@ async function handleSaveMap() {
     // 生成预览图（内容居中）
     const imageData = await generatePreviewImage()
     if (!imageData) {
-      ElMessage.error('生成预览图失败')
+      ElMessage.error(t('mapDesign.generatePreviewFailed'))
       return
     }
 
@@ -1046,10 +1048,10 @@ async function handleSaveMap() {
       mapData
     })
 
-    ElMessage.success('保存成功')
+    ElMessage.success(t('mapDesign.saveSuccess'))
   } catch (error) {
     console.error('保存地图失败:', error)
-    ElMessage.error('保存地图失败: ' + (error.message || '未知错误'))
+    ElMessage.error(t('mapDesign.saveFailedWithReason', { reason: error.message || t('common.unknownError') }))
   }
 }
 
@@ -1162,7 +1164,7 @@ async function loadMapData() {
     }
   } catch (error) {
     console.error('加载地图数据失败:', error)
-    ElMessage.error('加载地图数据失败: ' + error.message)
+    ElMessage.error(t('mapDesign.loadFailedWithReason', { reason: error.message }))
   }
 }
 

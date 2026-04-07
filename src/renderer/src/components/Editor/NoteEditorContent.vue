@@ -11,6 +11,7 @@ import { Plugin, PluginKey, NodeSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { Fragment } from 'prosemirror-model'
 import { Extension as PMExtension } from '@tiptap/core'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   editorStore: {
@@ -39,6 +40,7 @@ const props = defineProps({
 const saveTimer = ref(null)
 
 const emit = defineEmits(['editor-created', 'content-updated'])
+const { t } = useI18n()
 
 // Tab 键处理已由 NoteOutlineParagraph 扩展提供（增加/减少缩进级别）
 
@@ -401,7 +403,7 @@ function buildDecorations(doc, schema) {
       handle.className = 'note-outline-drag-handle'
       handle.dataset.pos = String(nodePos)
       handle.setAttribute('draggable', 'true')
-      handle.title = '拖动以移动该段落'
+      handle.title = t('noteEditorContent.dragHandleTitle')
       // 使用 SVG 图标，上下箭头，提示可拖拽移动该段落
       handle.innerHTML = `
         <svg data-v-58697b5c="" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="M384 96a32 32 0 0 1 64 0v786.752a32 32 0 0 1-54.592 22.656L95.936 608a32 32 0 0 1 0-45.312h.128a32 32 0 0 1 45.184 0L384 805.632zm192 45.248a32 32 0 0 1 54.592-22.592L928.064 416a32 32 0 0 1 0 45.312h-.128a32 32 0 0 1-45.184 0L640 218.496V928a32 32 0 1 1-64 0z"></path></svg>

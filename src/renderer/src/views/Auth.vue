@@ -1,13 +1,13 @@
 <template>
   <div class="auth-page">
     <div class="auth-container">
-      <h2 class="auth-title">请输入书架密码</h2>
+      <h2 class="auth-title">{{ t('auth.title') }}</h2>
       <el-form class="auth-form" @submit.prevent="handleAuthSubmit">
         <el-form-item>
           <el-input
             v-model="authPassword"
             type="password"
-            placeholder="请输入密码"
+            :placeholder="t('auth.passwordPlaceholder')"
             size="large"
             clearable
             @keyup.enter="handleAuthSubmit"
@@ -21,14 +21,16 @@
             style="width: 100%"
             @click="handleAuthSubmit"
           >
-            确认
+            {{ t('auth.submit') }}
           </el-button>
         </el-form-item>
         <el-form-item class="password-hint-item">
           <el-button type="text" style="width: 100%" @click="showPasswordHint = !showPasswordHint">
-            {{ showPasswordHint ? '隐藏密码提示' : '显示密码提示' }}
+            {{ showPasswordHint ? t('auth.hideHint') : t('auth.showHint') }}
           </el-button>
-          <div v-if="showPasswordHint" class="password-hint">密码提示：{{ maskedPassword }}</div>
+          <div v-if="showPasswordHint" class="password-hint">
+            {{ t('auth.passwordHint', { password: maskedPassword }) }}
+          </div>
         </el-form-item>
       </el-form>
     </div>
@@ -39,8 +41,10 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 const authPassword = ref('')
 const authLoading = ref(false)
 const showPasswordHint = ref(false)
@@ -72,7 +76,7 @@ onMounted(async () => {
 // 认证提交
 async function handleAuthSubmit() {
   if (!authPassword.value) {
-    ElMessage.warning('请输入密码')
+    ElMessage.warning(t('auth.pleaseInputPassword'))
     return
   }
   authLoading.value = true
@@ -83,7 +87,7 @@ async function handleAuthSubmit() {
       // 跳转到首页
       router.push('/')
     } else {
-      ElMessage.error('密码错误，请重新输入')
+      ElMessage.error(t('auth.wrongPassword'))
       authPassword.value = ''
     }
   } finally {

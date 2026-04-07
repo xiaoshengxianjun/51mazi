@@ -5,7 +5,7 @@
       <el-button
         size="small"
         class="toggle-btn"
-        :title="showReplace ? '收起替换' : '展开替换'"
+        :title="showReplace ? t('searchPanel.collapseReplace') : t('searchPanel.expandReplace')"
         @click="toggleReplace"
       >
         <el-icon class="toggle-icon" :class="{ expanded: showReplace }">
@@ -22,7 +22,7 @@
           <el-input
             ref="searchInputRef"
             v-model="searchText"
-            placeholder="查找"
+            :placeholder="t('searchPanel.find')"
             size="small"
             class="search-input"
             @keydown.enter="handleSearchEnter"
@@ -36,10 +36,10 @@
             size="small"
             class="option-btn"
             :disabled="!hasSearchText"
-            title="手动搜索"
+            :title="t('searchPanel.manualSearch')"
             @click="performSearch"
           >
-            搜索
+            {{ t('searchPanel.search') }}
           </el-button>
         </div>
 
@@ -47,7 +47,7 @@
           <span v-if="totalMatches > 0" class="results-text">
             {{ currentMatchIndex + 1 }}/{{ totalMatches }}
           </span>
-          <span v-else class="results-text no-results">无结果</span>
+          <span v-else class="results-text no-results">{{ t('searchPanel.noResults') }}</span>
         </div>
 
         <div class="search-navigation">
@@ -55,7 +55,7 @@
             size="small"
             class="nav-btn"
             :disabled="totalMatches === 0"
-            title="上一个"
+            :title="t('searchPanel.previous')"
             @click="findPrevious"
           >
             <el-icon><ArrowUp /></el-icon>
@@ -64,12 +64,17 @@
             size="small"
             class="nav-btn"
             :disabled="totalMatches === 0"
-            title="下一个"
+            :title="t('searchPanel.next')"
             @click="findNext"
           >
             <el-icon><ArrowDown /></el-icon>
           </el-button>
-          <el-button size="small" class="nav-btn close-btn" title="关闭" @click="closePanel">
+          <el-button
+            size="small"
+            class="nav-btn close-btn"
+            :title="t('searchPanel.close')"
+            @click="closePanel"
+          >
             <el-icon><Close /></el-icon>
           </el-button>
         </div>
@@ -81,7 +86,7 @@
           <div class="replace-input-wrapper">
             <el-input
               v-model="replaceText"
-              placeholder="替换"
+              :placeholder="t('searchPanel.replace')"
               size="small"
               class="replace-input"
               @keydown.enter="replaceCurrent"
@@ -93,19 +98,19 @@
               size="small"
               class="option-btn"
               :disabled="!hasSearchText || totalMatches === 0"
-              title="替换当前"
+              :title="t('searchPanel.replaceCurrent')"
               @click="replaceCurrent"
             >
-              替换
+              {{ t('searchPanel.replace') }}
             </el-button>
             <el-button
               size="small"
               class="option-btn"
               :disabled="!hasSearchText || totalMatches === 0"
-              title="全部替换"
+              :title="t('searchPanel.replaceAll')"
               @click="replaceAll"
             >
-              全部替换
+              {{ t('searchPanel.replaceAll') }}
             </el-button>
           </div>
         </div>
@@ -118,6 +123,7 @@
 import { ref, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowUp, ArrowDown, Close, ArrowRight } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   visible: {
@@ -131,6 +137,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+const { t } = useI18n()
 
 // 搜索相关
 const searchText = ref('')
@@ -193,7 +200,7 @@ watch(
 // 执行搜索
 function performSearch() {
   if (!props.editor) {
-    ElMessage.error('编辑器未初始化')
+    ElMessage.error(t('searchPanel.editorNotInitialized'))
     return
   }
 
@@ -447,7 +454,7 @@ function replaceCurrent() {
     }
   })
 
-  ElMessage.success('替换成功')
+  ElMessage.success(t('searchPanel.replaceSuccess'))
 }
 
 // 全部替换
@@ -488,7 +495,7 @@ async function replaceAll() {
     })
   }
 
-  ElMessage.success(`已替换 ${replacementCount} 处`)
+  ElMessage.success(t('searchPanel.replaceCount', { count: replacementCount }))
 }
 
 // 清空搜索
