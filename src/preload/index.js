@@ -123,6 +123,11 @@ const customElectronAPI = {
   readOutlines: (bookName) => ipcRenderer.invoke('read-outlines', { bookName }),
   // 保存大纲数据
   writeOutlines: (bookName, data) => ipcRenderer.invoke('write-outlines', { bookName, data }),
+  // 读取 AI 大纲会话数据
+  readOutlineAiSessions: (bookName) => ipcRenderer.invoke('read-outline-ai-sessions', { bookName }),
+  // 保存 AI 大纲会话数据
+  writeOutlineAiSessions: (bookName, data) =>
+    ipcRenderer.invoke('write-outline-ai-sessions', { bookName, data }),
 
   // --------- 地图相关 ---------
   // 读取地图列表
@@ -245,6 +250,8 @@ const customElectronAPI = {
   validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
   // AI 润色段落（编辑器内使用）
   polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
+  // AI 大纲工作台：完善/拆分/继续调整
+  runOutlineAiTask: (payload) => ipcRenderer.invoke('deepseek:outline-task', payload),
   // AI 续写（编辑器内使用）
   continueWriteWithAI: (options) => ipcRenderer.invoke('deepseek:continue-write', options),
   // AI 场景图：节选 → 画面描述（DeepSeek）

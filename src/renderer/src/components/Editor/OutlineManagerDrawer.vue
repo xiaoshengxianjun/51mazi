@@ -19,7 +19,6 @@
           default-expand-all
           highlight-current
           :expand-on-click-node="false"
-          :disabled="aiBusy"
           @node-click="handleNodeClick"
         />
       </div>
@@ -31,14 +30,13 @@
             <el-input
               v-model="selectedNode.title"
               :placeholder="t('outlineManager.outlineTitlePlaceholder')"
-              :disabled="isRootSelected || aiBusy"
+              :disabled="isRootSelected"
             />
           </el-form-item>
           <el-form-item class="content-form-item">
             <el-input
               v-model="selectedNode.content"
               type="textarea"
-              :disabled="aiBusy"
               :placeholder="t('outlineManager.outlineContentPlaceholder')"
             />
           </el-form-item>
@@ -49,46 +47,37 @@
     <template #footer>
       <div class="drawer-footer">
         <div class="footer-left-actions">
-          <el-button type="primary" :disabled="aiBusy" @click="openCreateDialog">
+          <el-button type="primary" @click="openCreateDialog">
             {{ t('outlineManager.addOutline') }}
           </el-button>
-          <el-button
-            type="success"
-            :loading="aiRefineLoading"
-            :disabled="aiBusy || !hasSelectedContent"
-            @click="openAiRefineDialog"
-          >
+          <el-button type="success" :disabled="!hasSelectedContent" @click="openAiWorkbench('refine')">
             {{ t('outlineManager.aiRefine') }}
           </el-button>
           <el-button
             type="success"
             plain
-            :loading="aiSplitLoading"
-            :disabled="aiBusy || !hasSelectedContent"
-            @click="openAiSplitDialog"
+            :disabled="!hasSelectedContent"
+            @click="openAiWorkbench('split')"
           >
             {{ t('outlineManager.aiSplit') }}
           </el-button>
+        </div>
+        <div v-if="autoSaveError" class="footer-save-warning">
+          {{ autoSaveError }}
         </div>
         <div class="footer-right-actions">
           <el-button
             v-if="canDeleteSelectedOutline"
             type="danger"
             plain
-            :disabled="aiBusy"
             @click="handleDeleteSelectedOutline"
           >
             {{ t('common.delete') }}
           </el-button>
-          <el-button :disabled="aiBusy" @click="visible = false">
+          <el-button @click="visible = false">
             {{ t('common.cancel') }}
           </el-button>
-          <el-button
-            type="primary"
-            :loading="isSaving"
-            :disabled="aiBusy"
-            @click="handleConfirmSave"
-          >
+          <el-button type="primary" :loading="isSaving" @click="handleConfirmSave">
             {{ t('common.confirm') }}
           </el-button>
         </div>
@@ -100,9 +89,6 @@
     v-model="createDialogVisible"
     :title="t('outlineManager.addOutline')"
     width="420px"
-    :close-on-click-modal="!aiBusy"
-    :close-on-press-escape="!aiBusy"
-    :show-close="!aiBusy"
   >
     <el-form label-position="top">
       <el-form-item :label="t('outlineManager.outlineName')">
@@ -115,224 +101,23 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button :disabled="aiBusy" @click="createDialogVisible = false">
+      <el-button @click="createDialogVisible = false">
         {{ t('common.cancel') }}
       </el-button>
-      <el-button type="primary" :disabled="aiBusy" @click="handleCreateOutline">
+      <el-button type="primary" @click="handleCreateOutline">
         {{ t('common.confirm') }}
       </el-button>
     </template>
   </el-dialog>
 
-  <el-dialog
-    v-model="aiRefineDialogVisible"
-    :title="t('outlineManager.aiRefine')"
-    width="800px"
-    :close-on-click-modal="!aiBusy"
-    :close-on-press-escape="!aiBusy"
-    :show-close="!aiBusy"
-    @close="resetAiRefineDialog"
-  >
-    <el-form label-position="top">
-      <div class="ai-current-outline">
-        <div class="ai-current-outline-title">
-          {{
-            t('outlineManager.currentSelected', {
-              title: selectedNode.title || t('outlineManager.rootTitle')
-            })
-          }}
-        </div>
-        <el-input
-          :model-value="aiSelectedContentPreview"
-          type="textarea"
-          :rows="4"
-          readonly
-          class="ai-current-outline-preview"
-        />
-      </div>
-      <el-form-item :label="t('outlineManager.refineDirection')">
-        <el-radio-group v-model="aiRefineMode" class="ai-radio-group" :disabled="aiBusy">
-          <el-radio-button label="details">
-            {{ t('outlineManager.refineModes.details') }}
-          </el-radio-button>
-          <el-radio-button label="conflict">
-            {{ t('outlineManager.refineModes.conflict') }}
-          </el-radio-button>
-          <el-radio-button label="pacing">
-            {{ t('outlineManager.refineModes.pacing') }}
-          </el-radio-button>
-          <el-radio-button label="world">
-            {{ t('outlineManager.refineModes.world') }}
-          </el-radio-button>
-          <el-radio-button label="overall">
-            {{ t('outlineManager.refineModes.overall') }}
-          </el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item :label="t('outlineManager.refineRequirement')">
-        <el-input
-          v-model="aiRefineRequirement"
-          type="textarea"
-          :rows="6"
-          :disabled="aiBusy"
-          :placeholder="t('outlineManager.refineRequirementPlaceholder')"
-        />
-      </el-form-item>
-      <div class="ai-suggest-text">
-        {{ t('outlineManager.recommendedRequirement') }}:<span class="ai-suggest-text-content">
-          {{ aiRefineSuggestedRequirement }}
-        </span>
-      </div>
-    </el-form>
-    <template #footer>
-      <el-button :disabled="aiBusy" @click="aiRefineDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button type="primary" :loading="aiRefineLoading" @click="handleAiRefineSubmit">
-        {{ t('common.confirm') }}
-      </el-button>
-    </template>
-  </el-dialog>
-
-  <el-dialog
-    v-model="aiRefineResultDialogVisible"
-    :title="t('outlineManager.aiRefineResult')"
-    width="800px"
-    :close-on-click-modal="!aiBusy"
-    :close-on-press-escape="!aiBusy"
-    :show-close="!aiBusy"
-    @close="resetAiRefineResultDialog"
-  >
-    <el-input v-model="aiRefineResult" type="textarea" :rows="18" readonly />
-    <template #footer>
-      <el-button :disabled="aiBusy" @click="copyAiRefineResult">
-        {{ t('outlineManager.copyContent') }}
-      </el-button>
-      <el-button :disabled="aiBusy" @click="aiRefineResultDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button type="primary" :disabled="aiBusy" @click="confirmAiRefineResult">
-        {{ t('outlineManager.confirmFillBack') }}
-      </el-button>
-    </template>
-  </el-dialog>
-
-  <el-dialog
-    v-model="aiSplitDialogVisible"
-    :title="t('outlineManager.aiSplit')"
-    width="800px"
-    :close-on-click-modal="!aiBusy"
-    :close-on-press-escape="!aiBusy"
-    :show-close="!aiBusy"
-    @close="resetAiSplitDialog"
-  >
-    <el-form label-position="top">
-      <div class="ai-current-outline">
-        <div class="ai-current-outline-title">
-          {{
-            t('outlineManager.currentSelected', {
-              title: selectedNode.title || t('outlineManager.rootTitle')
-            })
-          }}
-        </div>
-        <el-input
-          :model-value="aiSelectedContentPreview"
-          type="textarea"
-          :rows="4"
-          readonly
-          class="ai-current-outline-preview"
-        />
-      </div>
-      <el-form-item :label="t('outlineManager.splitStyle')">
-        <el-radio-group v-model="aiSplitMode" class="ai-radio-group" :disabled="aiBusy">
-          <el-radio-button label="plot">{{ t('outlineManager.splitModes.plot') }}</el-radio-button>
-          <el-radio-button label="conflict">
-            {{ t('outlineManager.splitModes.conflict') }}
-          </el-radio-button>
-          <el-radio-button label="timeline">
-            {{ t('outlineManager.splitModes.timeline') }}
-          </el-radio-button>
-          <el-radio-button label="chapter">
-            {{ t('outlineManager.splitModes.chapter') }}
-          </el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item :label="t('outlineManager.splitCount')">
-        <el-input-number v-model="aiSplitCount" :min="2" :max="12" :disabled="aiBusy" />
-      </el-form-item>
-      <el-form-item :label="t('outlineManager.splitRequirement')">
-        <el-input
-          v-model="aiSplitRequirement"
-          type="textarea"
-          :rows="6"
-          :disabled="aiBusy"
-          :placeholder="t('outlineManager.splitRequirementPlaceholder')"
-        />
-      </el-form-item>
-      <div class="ai-suggest-text">
-        {{ t('outlineManager.recommendedRequirement') }}:<span class="ai-suggest-text-content">
-          {{ aiSplitSuggestedRequirement }}
-        </span>
-      </div>
-    </el-form>
-    <template #footer>
-      <el-button :disabled="aiBusy" @click="aiSplitDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button type="primary" :loading="aiSplitLoading" @click="handleAiSplitSubmit">
-        {{ t('common.confirm') }}
-      </el-button>
-    </template>
-  </el-dialog>
-
-  <el-dialog
-    v-model="aiSplitResultDialogVisible"
-    :title="t('outlineManager.aiSplitResult')"
-    width="800px"
-    :close-on-click-modal="!aiBusy"
-    :close-on-press-escape="!aiBusy"
-    :show-close="!aiBusy"
-    @close="resetAiSplitResultDialog"
-  >
-    <el-alert
-      v-if="aiSplitQualityError"
-      type="warning"
-      :closable="false"
-      show-icon
-      :title="aiSplitQualityError"
-      class="split-quality-alert"
-    />
-    <div v-if="aiSplitItems.length" class="split-result-list">
-      <div v-for="(item, index) in aiSplitItems" :key="`split-${index}`" class="split-result-item">
-        <div class="split-result-title">{{ item.title }}</div>
-        <el-input :model-value="item.content" type="textarea" :rows="4" readonly />
-      </div>
-    </div>
-    <div v-else class="split-result-fallback">
-      <el-alert
-        type="warning"
-        show-icon
-        :closable="false"
-        :title="t('outlineManager.splitParseFailed')"
-      />
-      <el-input v-model="aiSplitRawResult" type="textarea" :rows="12" readonly />
-    </div>
-    <template #footer>
-      <el-button :disabled="aiBusy" @click="copyAiSplitResult">
-        {{ t('outlineManager.copyContent') }}
-      </el-button>
-      <el-button :disabled="aiBusy" @click="aiSplitResultDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button
-        type="primary"
-        :disabled="aiBusy || !aiSplitItems.length || Boolean(aiSplitQualityError)"
-        @click="confirmAiSplitResult"
-      >
-        {{ t('outlineManager.confirmCreate') }}
-      </el-button>
-    </template>
-  </el-dialog>
+  <OutlineAiWorkbenchDialog
+    ref="outlineAiWorkbenchRef"
+    :book-name="props.bookName"
+    :selected-node="selectedNode"
+    :selected-node-id="selectedNodeId"
+    :apply-draft="applyOutlineAiDraft"
+    :undo-draft="undoOutlineAiDraft"
+  />
 </template>
 
 <script setup>
@@ -340,6 +125,7 @@ import { computed, nextTick, ref, toRaw, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
 import { useI18n } from 'vue-i18n'
+import OutlineAiWorkbenchDialog from './OutlineAiWorkbenchDialog.vue'
 
 const props = defineProps({
   bookName: {
@@ -357,23 +143,10 @@ const newOutlineTitle = ref('')
 const selectedNodeId = ref(ROOT_ID)
 const isLoadingOutline = ref(false)
 const isSaving = ref(false)
-const aiRefineDialogVisible = ref(false)
-const aiRefineRequirement = ref('')
-const aiRefineResultDialogVisible = ref(false)
-const aiRefineResult = ref('')
-const aiRefineLoading = ref(false)
-const aiRefineMode = ref('overall')
-const aiSplitDialogVisible = ref(false)
-const aiSplitCount = ref(3)
-const aiSplitRequirement = ref('')
-const aiSplitLoading = ref(false)
-const aiSplitMode = ref('plot')
-const aiSplitResultDialogVisible = ref(false)
-const aiSplitItems = ref([])
-const aiSplitRawResult = ref('')
-const aiSplitQualityError = ref('')
+const autoSaveError = ref('')
 
 const treeRef = ref(null)
+const outlineAiWorkbenchRef = ref(null)
 
 const outlineTree = ref([
   {
@@ -400,54 +173,7 @@ const canDeleteSelectedOutline = computed(
     selectedNodeId.value !== ROOT_ID &&
     Boolean(findNodeById(outlineTree.value, selectedNodeId.value))
 )
-
-const aiRefineSuggestedRequirement = computed(() => {
-  const baseContent = String(selectedNode.value?.content || '').trim()
-  const hasContent = baseContent.length > 0
-  // 根据是否有内容给不同强度的推荐，避免空内容导致提示无意义
-  const strength = hasContent
-    ? t('outlineManager.refineStrengthWithContent')
-    : t('outlineManager.refineStrengthWithoutContent')
-
-  switch (aiRefineMode.value) {
-    case 'details':
-      return t('outlineManager.refineSuggestions.details', { strength })
-    case 'conflict':
-      return t('outlineManager.refineSuggestions.conflict', { strength })
-    case 'pacing':
-      return t('outlineManager.refineSuggestions.pacing', { strength })
-    case 'world':
-      return t('outlineManager.refineSuggestions.world', { strength })
-    case 'overall':
-    default:
-      return t('outlineManager.refineSuggestions.overall', { strength })
-  }
-})
-
-const aiSplitSuggestedRequirement = computed(() => {
-  switch (aiSplitMode.value) {
-    case 'conflict':
-      return t('outlineManager.splitSuggestions.conflict')
-    case 'timeline':
-      return t('outlineManager.splitSuggestions.timeline')
-    case 'chapter':
-      return t('outlineManager.splitSuggestions.chapter')
-    case 'plot':
-    default:
-      return t('outlineManager.splitSuggestions.plot')
-  }
-})
-
-const aiSelectedContentPreview = computed(() => {
-  const txt = String(selectedNode.value?.content || '')
-  const trimmed = txt.trim()
-  if (!trimmed) return t('outlineManager.currentContentEmpty')
-  const max = 280
-  if (trimmed.length <= max) return trimmed
-  return trimmed.slice(0, max) + '...'
-})
 const hasSelectedContent = computed(() => Boolean(String(selectedNode.value?.content || '').trim()))
-const aiBusy = computed(() => aiRefineLoading.value || aiSplitLoading.value)
 
 function normalizeOutlineTree(rawData) {
   const children = Array.isArray(rawData?.children) ? rawData.children : []
@@ -493,6 +219,7 @@ async function saveOutlineData() {
     if (result && result.success === false) {
       throw new Error(result.message || t('outlineManager.saveFailed'))
     }
+    autoSaveError.value = ''
     return true
   } catch (err) {
     console.error('保存大纲失败:', err)
@@ -508,14 +235,14 @@ function scheduleSave() {
     try {
       await saveOutlineData()
     } catch {
-      // 自动保存失败仅记录日志，避免频繁打断输入体验
+      autoSaveError.value = t('outlineManager.autoSaveFailedVisible')
+      ElMessage.error(autoSaveError.value)
     }
   }, 250)
 }
 
 async function handleConfirmSave(options = {}) {
   const { silentSuccess = false } = options
-  if (aiBusy.value) return false
   if (!props.bookName) return
   // 用户显式点击“确定”时，取消防抖并立即落盘
   if (saveTimer) {
@@ -549,41 +276,12 @@ function handleNodeClick(node) {
 }
 
 function openCreateDialog() {
-  if (aiBusy.value) return
   createDialogVisible.value = true
   newOutlineTitle.value = ''
 }
 
-function openAiRefineDialog() {
-  if (aiBusy.value) return
-  aiRefineDialogVisible.value = true
-  aiRefineRequirement.value = ''
-}
-
-function openAiSplitDialog() {
-  if (aiBusy.value) return
-  aiSplitDialogVisible.value = true
-  aiSplitCount.value = 3
-  aiSplitRequirement.value = ''
-}
-
-function resetAiRefineDialog() {
-  aiRefineRequirement.value = ''
-}
-
-function resetAiRefineResultDialog() {
-  aiRefineResult.value = ''
-}
-
-function resetAiSplitDialog() {
-  aiSplitCount.value = 3
-  aiSplitRequirement.value = ''
-}
-
-function resetAiSplitResultDialog() {
-  aiSplitItems.value = []
-  aiSplitRawResult.value = ''
-  aiSplitQualityError.value = ''
+function openAiWorkbench(mode) {
+  outlineAiWorkbenchRef.value?.open(mode)
 }
 
 async function setCurrentNode(nodeId) {
@@ -596,198 +294,117 @@ async function setCurrentNode(nodeId) {
   currentEl?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
 }
 
-async function callAi(text) {
-  if (!window.electron?.polishTextWithAI) {
-    throw new Error(t('outlineManager.aiUnsupported'))
+function cloneNodeSnapshot(node) {
+  return {
+    title: node?.title ?? '',
+    content: node?.content ?? '',
+    children: JSON.parse(JSON.stringify(toRaw(node?.children ?? [])))
   }
-  const result = await window.electron.polishTextWithAI(text)
-  if (!result?.success) {
-    throw new Error(result?.message || t('outlineManager.aiRequestFailed'))
-  }
-  return (result.content || '').trim()
 }
 
-async function handleAiRefineSubmit() {
-  const current = selectedNode.value
-  const originalContent = String(current?.content || '').trim()
-  if (!originalContent) {
-    ElMessage.warning(t('outlineManager.cannotRefineEmpty'))
-    return
+function restoreNodeSnapshot(node, snapshot) {
+  if (!node || !snapshot) return
+  if (node.id !== ROOT_ID) {
+    node.title = snapshot.title ?? node.title
   }
-  aiRefineLoading.value = true
-  try {
-    const additionalRequirement =
-      aiRefineRequirement.value.trim() || aiRefineSuggestedRequirement.value
-    const prompt = [
-      '你是一名中文小说策划编辑，请在保持原意的前提下完善大纲内容。',
-      '要求：',
-      `- ${t('outlineManager.aiPromptOutlineTitle')}: ${current.title || t('outlineManager.unnamedOutline')}`,
-      `- ${t('outlineManager.aiPromptUserRequirement')}: ${additionalRequirement || t('outlineManager.noExtraRequirement')}`,
-      '- 输出仅返回完善后的正文内容，不要解释，不要加标题。',
-      '',
-      '原始大纲内容：',
-      originalContent
-    ].join('\n')
-    const content = await callAi(prompt)
-    if (!content) {
-      throw new Error(t('outlineManager.aiEmptyResult'))
+  node.content = snapshot.content ?? ''
+  node.children = JSON.parse(JSON.stringify(snapshot.children ?? []))
+}
+
+async function applyOutlineAiDraft(payload) {
+  const node = findNodeById(outlineTree.value, payload?.nodeId)
+  if (!node) {
+    return {
+      success: false,
+      message: t('outlineManager.workbenchNodeNotFound')
     }
-    aiRefineResult.value = content
-    aiRefineDialogVisible.value = false
-    aiRefineResultDialogVisible.value = true
-  } catch (err) {
-    ElMessage.error(err?.message || t('outlineManager.aiRefineFailed'))
-  } finally {
-    aiRefineLoading.value = false
   }
-}
 
-async function copyAiRefineResult() {
-  if (!aiRefineResult.value) return
-  try {
-    await navigator.clipboard.writeText(aiRefineResult.value)
-    ElMessage.success(t('outlineManager.copiedToClipboard'))
-  } catch {
-    ElMessage.error(t('outlineManager.copyFailed'))
+  const undoSnapshot = {
+    nodeId: payload.nodeId,
+    snapshot: cloneNodeSnapshot(node)
   }
-}
 
-async function confirmAiRefineResult() {
-  if (!aiRefineResult.value) return
-  selectedNode.value.content = aiRefineResult.value
-  const saved = await handleConfirmSave()
-  if (saved) {
-    aiRefineResultDialogVisible.value = false
-  }
-}
+  if (payload.taskType === 'split') {
+    const items = Array.isArray(payload.items) ? payload.items : []
+    const createdNodes = items.map((item) => ({
+      id: genId(),
+      title: String(item.title || '').trim() || t('outlineManager.unnamedOutline'),
+      content: String(item.content || '').trim(),
+      children: []
+    }))
 
-function parseAiSplitOutput(text) {
-  const source = String(text || '').trim()
-  if (!source) return []
-  const regex = /【段\d+：(.+?)】\s*([\s\S]*?)(?=\n\s*【段\d+：|$)/g
-  const parsed = []
-  let match = regex.exec(source)
-  while (match) {
-    const title = (match[1] || '').trim()
-    const content = (match[2] || '').trim()
-    if (title && content) {
-      parsed.push({ title, content })
+    if (!node.children) {
+      node.children = []
     }
-    match = regex.exec(source)
-  }
-  return parsed
-}
 
-function validateAiSplitItems(items, expectedCount) {
-  if (!Array.isArray(items) || !items.length) {
-    return t('outlineManager.splitValidationEmpty')
-  }
-  if (items.length !== expectedCount) {
-    return t('outlineManager.splitValidationCountMismatch', {
-      actual: items.length,
-      expected: expectedCount
-    })
-  }
-
-  // 每段需具备“可独立写作”的最小信息量，避免只拆分不扩写
-  const MIN_SEGMENT_LENGTH = 120
-  const tooShortIndex = items.findIndex(
-    (item) => String(item.content || '').trim().length < MIN_SEGMENT_LENGTH
-  )
-  if (tooShortIndex !== -1) {
-    return t('outlineManager.splitValidationTooShort', {
-      index: tooShortIndex + 1,
-      min: MIN_SEGMENT_LENGTH
-    })
-  }
-
-  return ''
-}
-
-async function handleAiSplitSubmit() {
-  const current = selectedNode.value
-  const originalContent = String(current?.content || '').trim()
-  if (!originalContent) {
-    ElMessage.warning(t('outlineManager.cannotSplitEmpty'))
-    return
-  }
-  aiSplitLoading.value = true
-  try {
-    const additionalRequirement =
-      aiSplitRequirement.value.trim() || aiSplitSuggestedRequirement.value
-    const count = Number(aiSplitCount.value) || 3
-    const prompt = [
-      '你是一名中文小说策划编辑，请将用户提供的大纲内容拆分并扩写为多个“可独立写作”的子大纲。',
-      '核心要求：',
-      `1) 严格输出 ${count} 段，不能多也不能少。`,
-      '2) 每段都必须是完整大纲单元，至少包含：该段目标、关键冲突、推进过程、阶段结果/悬念。',
-      '3) 不是简单切分原文，要在原意上进行扩写补充，让每段都可直接用于章节策划。',
-      '输出格式必须严格遵守：',
-      '【段1：标题】',
-      '内容',
-      '',
-      '【段2：标题】',
-      '内容',
-      '',
-      `拆分段数：${count}`,
-      `${t('outlineManager.aiPromptOutlineTitle')}：${current.title || t('outlineManager.unnamedOutline')}`,
-      `${t('outlineManager.aiPromptSplitRequirement')}：${additionalRequirement || t('outlineManager.noExtraRequirement')}`,
-      '不要输出格式说明，不要输出 JSON，不要输出其他无关内容。',
-      '',
-      '待拆分大纲内容：',
-      originalContent
-    ].join('\n')
-    const content = await callAi(prompt)
-    if (!content) {
-      throw new Error(t('outlineManager.aiEmptyResult'))
+    if (payload.action === 'replace-with-children') {
+      node.content = ''
+      node.children = createdNodes
+    } else {
+      node.children.push(...createdNodes)
     }
-    aiSplitRawResult.value = content
-    aiSplitItems.value = parseAiSplitOutput(content)
-    aiSplitQualityError.value = validateAiSplitItems(aiSplitItems.value, count)
-    if (aiSplitQualityError.value) {
-      ElMessage.warning(aiSplitQualityError.value)
+
+    if (createdNodes[0]) {
+      await setCurrentNode(createdNodes[0].id)
     }
-    aiSplitDialogVisible.value = false
-    aiSplitResultDialogVisible.value = true
-  } catch (err) {
-    ElMessage.error(err?.message || t('outlineManager.aiSplitFailed'))
-  } finally {
-    aiSplitLoading.value = false
+  } else {
+    const content = String(payload.content || '').trim()
+    if (payload.action === 'append') {
+      node.content = [String(node.content || '').trim(), content].filter(Boolean).join('\n\n')
+    } else if (payload.action === 'create-child') {
+      if (!node.children) {
+        node.children = []
+      }
+      const childNode = {
+        id: genId(),
+        title: `${String(node.title || t('outlineManager.rootTitle')).trim()} - AI`,
+        content,
+        children: []
+      }
+      node.children.push(childNode)
+      await setCurrentNode(childNode.id)
+    } else {
+      node.content = content
+    }
+  }
+
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (!saved) {
+    restoreNodeSnapshot(node, undoSnapshot.snapshot)
+    return {
+      success: false,
+      message: t('outlineManager.workbenchApplyFailed')
+    }
+  }
+
+  return {
+    success: true,
+    undoSnapshot
   }
 }
 
-async function copyAiSplitResult() {
-  const text = aiSplitItems.value.length
-    ? aiSplitItems.value
-        .map((item, idx) => `【段${idx + 1}：${item.title}】\n${item.content}`)
-        .join('\n\n')
-    : aiSplitRawResult.value
-  if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
-    ElMessage.success(t('outlineManager.copiedToClipboard'))
-  } catch {
-    ElMessage.error(t('outlineManager.copyFailed'))
+async function undoOutlineAiDraft(payload) {
+  const node = findNodeById(outlineTree.value, payload?.nodeId)
+  if (!node) {
+    return {
+      success: false,
+      message: t('outlineManager.workbenchNodeNotFound')
+    }
   }
-}
 
-async function confirmAiSplitResult() {
-  if (!aiSplitItems.value.length) return
-  const parentNode = selectedNode.value
-  if (!parentNode.children) {
-    parentNode.children = []
+  restoreNodeSnapshot(node, payload.snapshot)
+  await setCurrentNode(payload.nodeId)
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (!saved) {
+    return {
+      success: false,
+      message: t('outlineManager.undoLastAiApplyFailed')
+    }
   }
-  const createdNodes = aiSplitItems.value.map((item) => ({
-    id: genId(),
-    title: item.title,
-    content: item.content,
-    children: []
-  }))
-  parentNode.children.push(...createdNodes)
-  await setCurrentNode(createdNodes[0].id)
-  const saved = await handleConfirmSave()
-  if (saved) {
-    aiSplitResultDialogVisible.value = false
+
+  return {
+    success: true
   }
 }
 
@@ -821,7 +438,7 @@ function findParentNodeById(nodes, targetId, parent = null) {
 }
 
 async function handleDeleteSelectedOutline() {
-  if (aiBusy.value || !canDeleteSelectedOutline.value) return
+  if (!canDeleteSelectedOutline.value) return
 
   const current = selectedNode.value
   const currentId = selectedNodeId.value
@@ -859,7 +476,6 @@ async function handleDeleteSelectedOutline() {
 }
 
 function handleCreateOutline() {
-  if (aiBusy.value) return
   const title = newOutlineTitle.value.trim()
   if (!title) {
     ElMessage.warning(t('outlineManager.inputOutlineName'))
@@ -969,6 +585,7 @@ watch(
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .footer-left-actions {
@@ -982,6 +599,13 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.footer-save-warning {
+  font-size: 12px;
+  color: var(--el-color-danger);
+  flex: 1;
+  min-width: 240px;
 }
 
 .split-result-list {

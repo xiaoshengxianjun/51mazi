@@ -7,6 +7,7 @@ import Store from 'electron-store'
 import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
+import outlineAiService from './services/outlineAi.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
 import {
   generateImageBuffer as generateImageBufferByProvider,
@@ -337,7 +338,7 @@ function mapUpdaterErrorToUserMessage(error, phase = 'check') {
     return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
   }
 
-  const asciiPrintable = /^[\x09\x0A\x0D\x20-\x7E]+$/.test(msg.slice(0, 200))
+  const asciiPrintable = /^[\t\n\r\x20-\x7E]+$/.test(msg.slice(0, 200))
   if (msg.length > 120 && !asciiPrintable) {
     if (phase === 'install') return mt('updateInstallFailed')
     return phase === 'download' ? mt('updateDownloadFailed') : mt('updateCheckFailed')
@@ -2199,6 +2200,49 @@ ipcMain.handle('write-outlines', async (event, { bookName, data }) => {
   }
 })
 
+function defaultOutlineAiSessionsPayload() {
+  return {
+    version: 1,
+    nodes: {}
+  }
+}
+
+// 读取 AI 大纲会话数据
+ipcMain.handle('read-outline-ai-sessions', async (event, { bookName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const sessionsPath = join(bookPath, 'outline-ai-sessions.json')
+  if (!fs.existsSync(sessionsPath)) {
+    return defaultOutlineAiSessionsPayload()
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(sessionsPath, 'utf-8'))
+    return parsed && typeof parsed === 'object' ? parsed : defaultOutlineAiSessionsPayload()
+  } catch {
+    return defaultOutlineAiSessionsPayload()
+  }
+})
+
+// 保存 AI 大纲会话数据
+ipcMain.handle('write-outline-ai-sessions', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const sessionsPath = join(bookPath, 'outline-ai-sessions.json')
+
+  try {
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
+    const payload = data && typeof data === 'object' ? data : defaultOutlineAiSessionsPayload()
+    fs.writeFileSync(sessionsPath, JSON.stringify(payload, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存 AI 大纲会话失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 人物谱数据读写
 ipcMain.handle('read-characters', async (event, { bookName }) => {
   const booksDir = store.get('booksDir')
@@ -3289,6 +3333,20 @@ ipcMain.handle('deepseek:polish-text', async (_, { text }) => {
   } catch (error) {
     console.error('AI 润色失败:', error)
     return { success: false, message: error.message, content: '' }
+  }
+})
+
+ipcMain.handle('deepseek:outline-task', async (_, payload) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const result = await outlineAiService.runTask(payload || {})
+    return { success: true, ...result }
+  } catch (error) {
+    console.error('AI 大纲任务失败:', error)
+    return {
+      success: false,
+      message: error.message || 'AI 大纲任务失败'
+    }
   }
 })
 
