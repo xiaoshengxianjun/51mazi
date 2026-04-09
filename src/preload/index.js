@@ -98,6 +98,10 @@ const customElectronAPI = {
     ipcRenderer.invoke('read-chapter', { bookName, volumeName, chapterName }),
   // 保存章节内容
   saveChapter: (chapterInfo) => ipcRenderer.invoke('save-chapter', chapterInfo),
+  // 检查章节是否存在（用于 AI 大纲生成章节）
+  checkChapterExists: (payload) => ipcRenderer.invoke('chapter:check-exists', payload),
+  // 新建/覆盖章节内容（用于 AI 大纲生成章节）
+  upsertChapter: (payload) => ipcRenderer.invoke('chapter:upsert', payload),
 
   // --------- 统计相关 ---------
   // 获取书籍字数统计
@@ -252,6 +256,9 @@ const customElectronAPI = {
   polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
   // AI 大纲工作台：完善/拆分/继续调整
   runOutlineAiTask: (payload) => ipcRenderer.invoke('deepseek:outline-task', payload),
+  // AI 章纲 -> 章节正文
+  generateChapterFromOutline: (payload) =>
+    ipcRenderer.invoke('deepseek:generate-chapter-from-outline', payload),
   // AI 续写（编辑器内使用）
   continueWriteWithAI: (options) => ipcRenderer.invoke('deepseek:continue-write', options),
   // AI 场景图：节选 → 画面描述（DeepSeek）

@@ -2,7 +2,7 @@
   <el-drawer
     v-model="visible"
     :title="t('outlineManager.title')"
-    size="70%"
+    size="80%"
     destroy-on-close
     class="outline-manager-drawer"
   >
@@ -61,6 +61,14 @@
           >
             {{ t('outlineManager.aiSplit') }}
           </el-button>
+          <el-button
+            type="warning"
+            plain
+            :disabled="!canGenerateChapterFromOutline"
+            @click="openGenerateChapterDialog"
+          >
+            {{ t('outlineManager.aiGenerateChapter') }}
+          </el-button>
         </div>
         <div v-if="autoSaveError" class="footer-save-warning">
           {{ autoSaveError }}
@@ -118,6 +126,85 @@
     :apply-draft="applyOutlineAiDraft"
     :undo-draft="undoOutlineAiDraft"
   />
+
+  <el-dialog
+    v-model="generateChapterDialogVisible"
+    :title="t('outlineManager.generateChapterDialogTitle')"
+    width="560px"
+    :close-on-click-modal="!generateChapterLoading"
+    :close-on-press-escape="!generateChapterLoading"
+    :show-close="!generateChapterLoading"
+  >
+    <el-form label-position="top">
+      <el-form-item :label="t('outlineManager.targetVolumeLabel')">
+        <el-select
+          v-model="targetVolumeName"
+          :disabled="generateChapterLoading"
+          :placeholder="t('outlineManager.targetVolumePlaceholder')"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="volume in chapterVolumeOptions"
+            :key="volume"
+            :label="volume"
+            :value="volume"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="t('outlineManager.targetChapterNameLabel')">
+        <el-input
+          v-model="targetChapterName"
+          :disabled="generateChapterLoading"
+          :placeholder="t('outlineManager.targetChapterNamePlaceholder')"
+        />
+      </el-form-item>
+      <el-form-item :label="t('outlineManager.generateChapterRequirementLabel')">
+        <el-input
+          v-model="generateChapterRequirement"
+          type="textarea"
+          :rows="4"
+          :disabled="generateChapterLoading"
+          :placeholder="t('outlineManager.generateChapterRequirementPlaceholder')"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button :disabled="generateChapterLoading" @click="generateChapterDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
+      <el-button type="primary" :loading="generateChapterLoading" @click="handleGenerateChapterPreview">
+        {{ t('outlineManager.generateChapterPreview') }}
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="generateChapterResultDialogVisible"
+    :title="t('outlineManager.generateChapterResultTitle')"
+    width="860px"
+    :close-on-click-modal="!chapterUpsertLoading"
+    :close-on-press-escape="!chapterUpsertLoading"
+    :show-close="!chapterUpsertLoading"
+  >
+    <el-input
+      v-model="generatedChapterContent"
+      type="textarea"
+      :rows="18"
+      :disabled="chapterUpsertLoading"
+      :placeholder="t('outlineManager.generateChapterResultPlaceholder')"
+    />
+    <template #footer>
+      <el-button :disabled="chapterUpsertLoading" @click="copyGeneratedChapterContent">
+        {{ t('outlineManager.copyContent') }}
+      </el-button>
+      <el-button :disabled="chapterUpsertLoading" @click="generateChapterResultDialogVisible = false">
+        {{ t('common.cancel') }}
+      </el-button>
+      <el-button type="primary" :loading="chapterUpsertLoading" @click="confirmCreateOrOverwriteChapter">
+        {{ t('outlineManager.confirmCreateChapter') }}
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -144,6 +231,15 @@ const selectedNodeId = ref(ROOT_ID)
 const isLoadingOutline = ref(false)
 const isSaving = ref(false)
 const autoSaveError = ref('')
+const generateChapterDialogVisible = ref(false)
+const generateChapterResultDialogVisible = ref(false)
+const generateChapterLoading = ref(false)
+const chapterUpsertLoading = ref(false)
+const chapterVolumeOptions = ref([])
+const targetVolumeName = ref('')
+const targetChapterName = ref('')
+const generateChapterRequirement = ref('')
+const generatedChapterContent = ref('')
 
 const treeRef = ref(null)
 const outlineAiWorkbenchRef = ref(null)
@@ -174,6 +270,9 @@ const canDeleteSelectedOutline = computed(
     Boolean(findNodeById(outlineTree.value, selectedNodeId.value))
 )
 const hasSelectedContent = computed(() => Boolean(String(selectedNode.value?.content || '').trim()))
+const canGenerateChapterFromOutline = computed(
+  () => hasSelectedContent.value && !isRootSelected.value
+)
 
 function normalizeOutlineTree(rawData) {
   const children = Array.isArray(rawData?.children) ? rawData.children : []
@@ -282,6 +381,166 @@ function openCreateDialog() {
 
 function openAiWorkbench(mode) {
   outlineAiWorkbenchRef.value?.open(mode)
+}
+
+async function loadVolumeOptions() {
+  if (!props.bookName || !window.electron?.loadChapters) {
+    chapterVolumeOptions.value = []
+    return
+  }
+  try {
+    const chaptersTree = await window.electron.loadChapters(props.bookName)
+    const volumes = Array.isArray(chaptersTree)
+      ? chaptersTree
+          .filter((item) => item?.type === 'volume' && item?.name)
+          .map((item) => String(item.name).trim())
+          .filter(Boolean)
+      : []
+    chapterVolumeOptions.value = volumes
+  } catch (error) {
+    console.error('加载卷列表失败:', error)
+    chapterVolumeOptions.value = []
+  }
+}
+
+async function openGenerateChapterDialog() {
+  if (!canGenerateChapterFromOutline.value) return
+  await loadVolumeOptions()
+  if (!chapterVolumeOptions.value.length) {
+    ElMessage.warning(t('outlineManager.targetVolumeEmpty'))
+    return
+  }
+  targetVolumeName.value = chapterVolumeOptions.value[0]
+  targetChapterName.value = String(selectedNode.value?.title || '').trim()
+  generateChapterRequirement.value = ''
+  generatedChapterContent.value = ''
+  generateChapterDialogVisible.value = true
+}
+
+async function handleGenerateChapterPreview() {
+  const outlineContent = String(selectedNode.value?.content || '').trim()
+  if (!outlineContent) {
+    ElMessage.warning(t('outlineManager.cannotGenerateChapterEmpty'))
+    return
+  }
+  if (!targetVolumeName.value) {
+    ElMessage.warning(t('outlineManager.targetVolumeRequired'))
+    return
+  }
+  const chapterName = String(targetChapterName.value || '').trim()
+  if (!chapterName) {
+    ElMessage.warning(t('outlineManager.targetChapterNameRequired'))
+    return
+  }
+  if (!window.electron?.generateChapterFromOutline) {
+    ElMessage.error(t('outlineManager.aiUnsupported'))
+    return
+  }
+
+  generateChapterLoading.value = true
+  try {
+    let targetWords = 2000
+    if (window.electron?.getChapterSettings) {
+      const settingsRes = await window.electron.getChapterSettings(props.bookName)
+      targetWords = Number(settingsRes?.targetWords) || targetWords
+    }
+
+    const result = await window.electron.generateChapterFromOutline({
+      outlineTitle: String(selectedNode.value?.title || '').trim(),
+      outlineContent,
+      userRequirement: String(generateChapterRequirement.value || '').trim(),
+      targetWords
+    })
+    if (!result?.success) {
+      throw new Error(result?.message || t('outlineManager.generateChapterFailed'))
+    }
+    const content = String(result.content || '').trim()
+    if (!content) {
+      throw new Error(t('outlineManager.aiEmptyResult'))
+    }
+    generatedChapterContent.value = content
+    generateChapterDialogVisible.value = false
+    generateChapterResultDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(error?.message || t('outlineManager.generateChapterFailed'))
+  } finally {
+    generateChapterLoading.value = false
+  }
+}
+
+async function copyGeneratedChapterContent() {
+  if (!generatedChapterContent.value) return
+  try {
+    await navigator.clipboard.writeText(generatedChapterContent.value)
+    ElMessage.success(t('outlineManager.copiedToClipboard'))
+  } catch {
+    ElMessage.error(t('outlineManager.copyFailed'))
+  }
+}
+
+async function confirmCreateOrOverwriteChapter() {
+  const chapterName = String(targetChapterName.value || '').trim()
+  const content = String(generatedChapterContent.value || '').trim()
+  if (!targetVolumeName.value || !chapterName || !content) {
+    ElMessage.warning(t('outlineManager.generateChapterParamsInvalid'))
+    return
+  }
+  if (!window.electron?.checkChapterExists || !window.electron?.upsertChapter) {
+    ElMessage.error(t('outlineManager.generateChapterUnsupported'))
+    return
+  }
+
+  chapterUpsertLoading.value = true
+  try {
+    const checkRes = await window.electron.checkChapterExists({
+      bookName: props.bookName,
+      volumeName: targetVolumeName.value,
+      chapterName
+    })
+    if (!checkRes?.success) {
+      throw new Error(checkRes?.message || t('outlineManager.generateChapterCheckFailed'))
+    }
+
+    let overwrite = false
+    if (checkRes.exists) {
+      await ElMessageBox.confirm(
+        t('outlineManager.chapterExistsOverwriteConfirm', { chapter: chapterName }),
+        t('outlineManager.chapterExistsOverwriteTitle'),
+        {
+          confirmButtonText: t('outlineManager.confirmOverwrite'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      )
+      overwrite = true
+    }
+
+    const upsertRes = await window.electron.upsertChapter({
+      bookName: props.bookName,
+      volumeName: targetVolumeName.value,
+      chapterName,
+      content,
+      overwrite
+    })
+    if (!upsertRes?.success) {
+      throw new Error(upsertRes?.message || t('outlineManager.generateChapterWriteFailed'))
+    }
+
+    window.dispatchEvent(new CustomEvent('refresh-chapters-requested'))
+    generateChapterResultDialogVisible.value = false
+    ElMessage.success(
+      overwrite
+        ? t('outlineManager.chapterOverwriteSuccess', { chapter: chapterName })
+        : t('outlineManager.chapterCreateSuccess', { chapter: chapterName })
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    ElMessage.error(error?.message || t('outlineManager.generateChapterWriteFailed'))
+  } finally {
+    chapterUpsertLoading.value = false
+  }
 }
 
 async function setCurrentNode(nodeId) {

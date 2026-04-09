@@ -1387,7 +1387,12 @@ function clearCharacterHighlights() {
 
 // 应用人物高亮（不改变光标位置）
 function applyCharacterHighlights() {
-  if (!editor.value || !characterHighlightEnabled.value || characters.value.length === 0) {
+  if (
+    !editor.value ||
+    editorStore.file?.type !== 'chapter' ||
+    !characterHighlightEnabled.value ||
+    characters.value.length === 0
+  ) {
     return
   }
 
@@ -1555,7 +1560,7 @@ function startCharacterHighlightTimer() {
 
   // 每 2 秒检查一次并更新高亮
   characterHighlightTimer = setInterval(() => {
-    if (characterHighlightEnabled.value && editor.value) {
+    if (characterHighlightEnabled.value && editor.value && editorStore.file?.type === 'chapter') {
       applyCharacterHighlights()
     }
   }, 2000)
@@ -1624,7 +1629,12 @@ function clearBannedWordsStrikes() {
 
 // 应用禁词划线（不改变光标位置）
 function applyBannedWordsStrikes() {
-  if (!editor.value || !bannedWordsHintEnabled.value || bannedWords.value.length === 0) {
+  if (
+    !editor.value ||
+    editorStore.file?.type !== 'chapter' ||
+    !bannedWordsHintEnabled.value ||
+    bannedWords.value.length === 0
+  ) {
     return
   }
 
@@ -1790,7 +1800,7 @@ function startBannedWordsHintTimer() {
 
   // 每 2 秒检查一次并更新划线
   bannedWordsHintTimer = setInterval(() => {
-    if (bannedWordsHintEnabled.value && editor.value) {
+    if (bannedWordsHintEnabled.value && editor.value && editorStore.file?.type === 'chapter') {
       applyBannedWordsStrikes()
     }
   }, 2000)

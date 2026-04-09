@@ -1,10 +1,12 @@
 <template>
-  <el-dialog
+  <el-drawer
     v-model="visible"
+    size="88%"
+    direction="rtl"
     :title="workbenchTitle"
-    width="1180px"
     destroy-on-close
     class="outline-ai-workbench"
+    :class="{ 'is-drawer-workbench': true }"
     :close-on-click-modal="!loading"
     :close-on-press-escape="!loading"
     :show-close="!loading"
@@ -260,7 +262,7 @@
         </div>
       </div>
     </template>
-  </el-dialog>
+  </el-drawer>
 </template>
 
 <script setup>
@@ -1121,6 +1123,15 @@ defineExpose({
   display: flex;
   gap: 16px;
   min-height: 68vh;
+}
+
+.outline-ai-workbench.is-drawer-workbench :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding-bottom: 16px;
+}
+
+.outline-ai-workbench.is-drawer-workbench :deep(.el-drawer__body) {
+  padding-top: 0;
 }
 
 .history-panel {

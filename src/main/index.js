@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
 import outlineAiService from './services/outlineAi.js'
+import outlineChapterAiService from './services/outlineChapterAi.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
 import {
   generateImageBuffer as generateImageBufferByProvider,
@@ -1887,6 +1888,18 @@ ipcMain.handle('read-chapter', async (event, { bookName, volumeName, chapterName
   return { success: true, content }
 })
 
+// 检查章节是否存在（用于 AI 章纲生成前校验）
+ipcMain.handle('chapter:check-exists', async (event, { bookName, volumeName, chapterName }) => {
+  const booksDir = store.get('booksDir')
+  const cleanChapterName = String(chapterName || '').trim()
+  if (!bookName || !volumeName || !cleanChapterName) {
+    return { success: false, exists: false, message: '参数不完整' }
+  }
+
+  const chapterPath = join(booksDir, bookName, '正文', volumeName, `${cleanChapterName}.txt`)
+  return { success: true, exists: fs.existsSync(chapterPath) }
+})
+
 // 计算章节字数（排除空格、换行符、制表符等格式字符）
 function countChapterWords(content) {
   if (!content) return 0
@@ -2073,6 +2086,41 @@ ipcMain.handle(
     await updateBookMetadata(bookName)
 
     return { success: true, name: newName || chapterName }
+  }
+)
+
+// 章节写入（AI 章纲生成使用：支持创建或覆盖）
+ipcMain.handle(
+  'chapter:upsert',
+  async (event, { bookName, volumeName, chapterName, content, overwrite = false }) => {
+    try {
+      const booksDir = store.get('booksDir')
+      const cleanChapterName = String(chapterName || '').trim()
+      if (!bookName || !volumeName || !cleanChapterName) {
+        return { success: false, exists: false, message: '参数不完整' }
+      }
+
+      const volumePath = join(booksDir, bookName, '正文', volumeName)
+      if (!fs.existsSync(volumePath)) {
+        fs.mkdirSync(volumePath, { recursive: true })
+      }
+
+      const chapterPath = join(volumePath, `${cleanChapterName}.txt`)
+      const chapterExists = fs.existsSync(chapterPath)
+      if (chapterExists && !overwrite) {
+        return { success: false, exists: true, message: '章节已存在' }
+      }
+
+      const oldContent = chapterExists ? fs.readFileSync(chapterPath, 'utf-8') : ''
+      fs.writeFileSync(chapterPath, String(content || ''), 'utf-8')
+      updateChapterStats(bookName, volumeName, cleanChapterName, oldContent, String(content || ''))
+      await updateBookMetadata(bookName)
+
+      return { success: true, exists: chapterExists, chapterName: cleanChapterName }
+    } catch (error) {
+      console.error('写入章节失败:', error)
+      return { success: false, exists: false, message: error.message || '写入章节失败' }
+    }
   }
 )
 
@@ -3346,6 +3394,21 @@ ipcMain.handle('deepseek:outline-task', async (_, payload) => {
     return {
       success: false,
       message: error.message || 'AI 大纲任务失败'
+    }
+  }
+})
+
+ipcMain.handle('deepseek:generate-chapter-from-outline', async (_, payload) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const result = await outlineChapterAiService.generateChapterFromOutline(payload || {})
+    return { success: true, ...result }
+  } catch (error) {
+    console.error('AI 章纲生成章节失败:', error)
+    return {
+      success: false,
+      message: error.message || 'AI 章纲生成章节失败',
+      content: ''
     }
   }
 })

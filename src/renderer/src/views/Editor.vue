@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import NoteChapter from '@renderer/components/Editor/NoteChapter.vue'
 import EditorPanel from '@renderer/components/Editor/EditorPanel.vue'
@@ -48,6 +48,7 @@ onMounted(() => {
   if (bookName) {
     document.title = `${bookName} - 51码字`
   }
+  window.addEventListener('refresh-chapters-requested', refreshChapters)
 })
 
 const noteChapterRef = ref(null)
@@ -61,6 +62,10 @@ function refreshChapters() {
     noteChapterRef.value.reloadChapters &&
     noteChapterRef.value.reloadChapters()
 }
+
+onBeforeUnmount(() => {
+  window.removeEventListener('refresh-chapters-requested', refreshChapters)
+})
 
 // function handleSelectFile(file) {
 //   // 预留：可做高亮、聚焦等
