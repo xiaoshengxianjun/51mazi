@@ -377,6 +377,7 @@ async function handleNoteClick(data, node) {
       // 确保内容至少是空字符串，即使文件为空或返回 undefined
       const content = res.content || ''
       editorStore.setContent(content, { isInitialLoad: true })
+      editorStore.applyNoteDraftFromDisk(data.path, content)
       editorStore.setChapterTitle(data.name) // 笔记名作为标题
       currentNoteNodeKey.value = data.path // 保持选中态
     } else {

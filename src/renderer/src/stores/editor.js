@@ -8,6 +8,13 @@ export const useEditorStore = defineStore('editor', () => {
   const chapterTitle = ref('')
   const currentBookName = ref('')
 
+  /**
+   * 笔记正文在磁盘上为 HTML；`content` 仅为纯文本字数统计。
+   * 无 TipTap 实例时保存必须用快照，禁止用 `content` 落盘（否则会覆盖掉格式）。
+   */
+  const noteDraftHtml = ref('')
+  const noteDraftPath = ref('')
+
   // 初始化标记
   const isInitializing = ref(false) // 是否正在初始化（加载已有内容）
 
@@ -113,7 +120,41 @@ export const useEditorStore = defineStore('editor', () => {
     recordWordChange(oldContent, newContent, options)
   }
 
+  function clearNoteDraft() {
+    noteDraftHtml.value = ''
+    noteDraftPath.value = ''
+  }
+
+  /** 从磁盘读入笔记后初始化 HTML 快照（与当前 path 对齐） */
+  function applyNoteDraftFromDisk(notePath, rawContent) {
+    if (!notePath) return
+    noteDraftPath.value = notePath
+    noteDraftHtml.value = rawContent === undefined || rawContent === null ? '' : String(rawContent)
+  }
+
+  /** 编辑器 onUpdate / 保存前同步当前笔记 HTML */
+  function updateNoteDraftHtml(notePath, html) {
+    if (!notePath || typeof html !== 'string') return
+    noteDraftPath.value = notePath
+    noteDraftHtml.value = html
+  }
+
+  /** 与 path 一致时返回快照字符串（含空串）；不匹配返回 null 表示不可用 */
+  function getNoteDraftForPersist(notePath) {
+    if (!notePath || noteDraftPath.value !== notePath) return null
+    return noteDraftHtml.value
+  }
+
   function setFile(newFile) {
+    const prev = file.value
+    if (!newFile) {
+      clearNoteDraft()
+    } else if (newFile.type !== 'note') {
+      clearNoteDraft()
+    } else if (prev && prev.path !== newFile.path) {
+      clearNoteDraft()
+    }
+
     file.value = newFile
     if (newFile?.type === 'chapter') {
       isInitializing.value = true
@@ -196,6 +237,7 @@ export const useEditorStore = defineStore('editor', () => {
     bookWordsLoaded.value = false
     currentBookName.value = ''
     pendingBookWordDelta.value = 0
+    clearNoteDraft()
   }
 
   function setChapterTargetWords(value) {
@@ -252,6 +294,8 @@ export const useEditorStore = defineStore('editor', () => {
   return {
     content,
     file,
+    noteDraftHtml,
+    noteDraftPath,
     chapterTitle,
     contentWordCount, // 内容字数（排除格式字符）
     editorSettings,
@@ -261,6 +305,9 @@ export const useEditorStore = defineStore('editor', () => {
     bookWordsLoaded,
     setContent,
     setFile,
+    applyNoteDraftFromDisk,
+    updateNoteDraftHtml,
+    getNoteDraftForPersist,
     setChapterTitle,
     startEditingSession,
     resetEditingSession,

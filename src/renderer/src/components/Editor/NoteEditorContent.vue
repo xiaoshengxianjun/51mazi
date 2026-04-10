@@ -434,13 +434,16 @@ function createEditor() {
       }
     },
     onUpdate: ({ editor }) => {
-      // 笔记模式：保存 HTML 格式
-      const content = editor.getHTML()
+      // 笔记模式：磁盘与快照均为 HTML；composition 期间也要更新快照，避免无编辑器实例时用纯文本误保存
+      const html = editor.getHTML()
+      const f = props.editorStore.file
+      if (f?.type === 'note' && f?.path) {
+        props.editorStore.updateNoteDraftHtml(f.path, html)
+      }
 
       // 如果正在进行输入法输入（composition），不更新字数统计
       if (!props.isComposing) {
-        // 字数统计始终使用纯文本
-        const textContent = htmlToPlainText(content)
+        const textContent = htmlToPlainText(html)
         props.editorStore.setContent(textContent)
       }
 
@@ -450,7 +453,7 @@ function createEditor() {
         props.autoSaveContent()
       }, 60000)
 
-      emit('content-updated', content)
+      emit('content-updated', html)
     },
     onSelectionUpdate: () => {
       // 按钮状态由 EditorMenubar 组件管理
@@ -505,13 +508,22 @@ function getSaveContent(editor) {
   return editor.getHTML()
 }
 
+/** 销毁编辑器前调用：取消自动保存定时器，避免在 editor 为空窗口触发 saveFile */
+function cancelNoteAutoSaveTimer() {
+  if (saveTimer.value) {
+    clearTimeout(saveTimer.value)
+    saveTimer.value = null
+  }
+}
+
 // 暴露方法给父组件
 defineExpose({
   createEditor,
   setNoteContent,
   getSaveContent,
   htmlToPlainText,
-  isHtmlContent
+  isHtmlContent,
+  cancelNoteAutoSaveTimer
 })
 </script>
 

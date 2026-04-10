@@ -411,6 +411,18 @@ function getEditorContentComponent() {
   return isNote ? noteEditorContentRef.value : chapterEditorContentRef.value
 }
 
+/** 销毁 TipTap 前：取消防抖自动保存，并把当前笔记 HTML 写入 store 快照（消除竞态空窗） */
+function prepareEditorDestroy() {
+  noteEditorContentRef.value?.cancelNoteAutoSaveTimer?.()
+  const f = editorStore.file
+  if (f?.type === 'note' && f.path && editor.value && noteEditorContentRef.value) {
+    const html = noteEditorContentRef.value.getSaveContent(editor.value)
+    if (typeof html === 'string') {
+      editorStore.updateNoteDraftHtml(f.path, html)
+    }
+  }
+}
+
 // 获取完整的字体族配置
 function getFontFamily(fontKey) {
   return fontKey === 'inherit' || !fontKey
@@ -497,6 +509,7 @@ watch(
 
     if (fileTypeChanged && editor.value) {
       try {
+        prepareEditorDestroy()
         // 销毁旧编辑器
         editor.value.destroy()
         editor.value = null
@@ -656,6 +669,7 @@ function handleWindowClose() {
 // 初始化编辑器的函数
 async function initEditor() {
   if (editor.value) {
+    prepareEditorDestroy()
     // 如果编辑器已存在，先销毁
     editor.value.destroy()
     editor.value = null
@@ -919,21 +933,32 @@ async function saveFile(showMessage = false) {
     return false
   }
 
-  // 根据文件类型使用对应的内容获取方法
   const isNote = file.type === 'note'
-  let contentToSave = editorStore.content
+  let contentToSave
 
   if (editor.value) {
     const editorContentComponent = getEditorContentComponent()
     if (editorContentComponent) {
       contentToSave = editorContentComponent.getSaveContent(editor.value)
-      // 更新 store 中的纯文本内容用于字数统计
       if (isNote) {
         const textContent = noteEditorContentRef.value.htmlToPlainText(contentToSave)
         editorStore.setContent(textContent)
+        editorStore.updateNoteDraftHtml(file.path, contentToSave)
       } else {
         editorStore.setContent(contentToSave)
       }
+    }
+  }
+
+  if (contentToSave === undefined) {
+    if (isNote) {
+      const draft = editorStore.getNoteDraftForPersist(file.path)
+      if (draft === null) {
+        return false
+      }
+      contentToSave = draft
+    } else {
+      contentToSave = editorStore.content
     }
   }
 
