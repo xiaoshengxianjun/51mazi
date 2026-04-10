@@ -42,8 +42,13 @@
         <SvgIcon name="gantt" :size="14" />
         <span>{{ t('editorToolbar.eventsSequence') }}</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleInspirationNote">
+        <el-icon><Edit /></el-icon>
+        <span>灵感笔记</span>
+      </el-button>
     </div>
     <RandomName ref="randomNameRef" />
+    <InspirationNote ref="inspirationNoteRef" :book-name="route.query.name" />
     <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
     <OutlineManagerDrawer ref="outlineManagerRef" :book-name="route.query.name" />
   </div>
@@ -51,7 +56,9 @@
 
 <script setup>
 import { ref } from 'vue'
+import { Edit } from '@element-plus/icons-vue'
 import RandomName from '@renderer/components/RandomName.vue'
+import InspirationNote from './InspirationNote.vue'
 import BannedWordsDrawer from './BannedWordsDrawer.vue'
 import OutlineManagerDrawer from './OutlineManagerDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -59,6 +66,7 @@ import SvgIcon from '@renderer/components/SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 
 const randomNameRef = ref(null)
+const inspirationNoteRef = ref(null)
 const bannedWordsRef = ref(null)
 const outlineManagerRef = ref(null)
 const router = useRouter()
@@ -118,6 +126,10 @@ const handleOutlineManager = () => {
 
 const handleBannedWords = () => {
   bannedWordsRef.value.open()
+}
+
+const handleInspirationNote = () => {
+  inspirationNoteRef.value.open()
 }
 </script>
 
