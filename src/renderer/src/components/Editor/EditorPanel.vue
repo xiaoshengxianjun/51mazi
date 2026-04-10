@@ -231,7 +231,16 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
+import {
+  ref,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  onActivated,
+  onDeactivated,
+  computed,
+  nextTick
+} from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { EditorContent } from '@tiptap/vue-3'
@@ -793,8 +802,7 @@ function setupCompositionHandlers() {
 
 onMounted(async () => {
   // 书籍总字数由 EditorStats 组件通过 watch fileType 自动加载
-
-  editorStore.registerExternalSaveHandler(saveFile)
+  // registerExternalSaveHandler / keydown 在 onActivated 中注册，避免 keep-alive 停用后仍响应快捷键
 
   // 延迟初始化编辑器，等待文件加载完成
   // 如果 file 已经存在，立即初始化；否则等待 file 变化后再初始化
@@ -822,11 +830,37 @@ onMounted(async () => {
   }
   // 如果 file 不存在，watch 会在文件加载后触发初始化
 
-  // 添加键盘事件监听器
-  document.addEventListener('keydown', handleKeydown)
-
-  // 监听窗口关闭事件，确保设置被保存
+  // 监听窗口关闭事件，确保设置被保存（组件在 keep-alive 中仍可能收到 beforeunload）
   window.addEventListener('beforeunload', handleWindowClose)
+})
+
+onActivated(async () => {
+  editorStore.registerExternalSaveHandler(saveFile)
+  document.addEventListener('keydown', handleKeydown)
+  await nextTick()
+  resumeChapterDecorationTimers()
+})
+
+onDeactivated(async () => {
+  editorStore.registerExternalSaveHandler(null)
+  document.removeEventListener('keydown', handleKeydown)
+
+  stopCharacterHighlightTimer()
+  stopBannedWordsHintTimer()
+
+  if (saveTimer.value) clearTimeout(saveTimer.value)
+  if (styleUpdateTimer) clearTimeout(styleUpdateTimer)
+
+  await editorStore.saveEditorSettings({
+    fontFamily: menubarState.value.fontFamily,
+    fontSize: menubarState.value.fontSize,
+    lineHeight: menubarState.value.lineHeight,
+    paragraphSpacing: menubarState.value.paragraphSpacing,
+    globalBoldMode: menubarState.value.isBold,
+    globalItalicMode: menubarState.value.isItalic
+  })
+
+  await autoSaveContent()
 })
 
 onBeforeUnmount(async () => {
@@ -1811,6 +1845,19 @@ function stopBannedWordsHintTimer() {
   if (bannedWordsHintTimer) {
     clearInterval(bannedWordsHintTimer)
     bannedWordsHintTimer = null
+  }
+}
+
+/** keep-alive 从子页回到编辑器时恢复人物高亮/禁词定时器（停用阶段已停掉，避免后台空跑） */
+function resumeChapterDecorationTimers() {
+  if (!editor.value || editorStore.file?.type !== 'chapter') return
+  const docSize = editor.value.state.doc.content.size
+  if (docSize <= 0) return
+  if (characterHighlightEnabled.value) {
+    startCharacterHighlightTimer()
+  }
+  if (bannedWordsHintEnabled.value) {
+    startBannedWordsHintTimer()
   }
 }
 

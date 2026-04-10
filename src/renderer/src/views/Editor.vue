@@ -22,8 +22,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onActivated, onDeactivated } from 'vue'
 import { useRoute } from 'vue-router'
+
+defineOptions({ name: 'Editor' })
 import NoteChapter from '@renderer/components/Editor/NoteChapter.vue'
 import EditorPanel from '@renderer/components/Editor/EditorPanel.vue'
 import EditorToolbar from '@renderer/components/Editor/EditorToolbar.vue'
@@ -43,12 +45,16 @@ if (!bookName) {
   bookName = route.query.name
 }
 
-// 动态更新窗口标题
-onMounted(() => {
+// keep-alive 下用 activated/deactivated 绑定窗口事件，避免停用页仍监听刷新
+onActivated(() => {
   if (bookName) {
     document.title = `${bookName} - 51码字`
   }
   window.addEventListener('refresh-chapters-requested', refreshChapters)
+})
+
+onDeactivated(() => {
+  window.removeEventListener('refresh-chapters-requested', refreshChapters)
 })
 
 const noteChapterRef = ref(null)
@@ -62,10 +68,6 @@ function refreshChapters() {
     noteChapterRef.value.reloadChapters &&
     noteChapterRef.value.reloadChapters()
 }
-
-onBeforeUnmount(() => {
-  window.removeEventListener('refresh-chapters-requested', refreshChapters)
-})
 
 // function handleSelectFile(file) {
 //   // 预留：可做高亮、聚焦等

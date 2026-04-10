@@ -278,6 +278,31 @@ function restoreExpandedVolumes({ forceExpandVolumeId } = {}) {
   chapterDefaultExpandedKeys.value = Array.from(new Set(expandedPaths))
 }
 
+/**
+ * 从写作助手等子页面返回编辑器时，Pinia 仍保留当前打开的章节/笔记。
+ * 仅同步左侧树展开与选中态，不调用 readChapter/readNote，避免覆盖编辑区。
+ */
+async function syncSidebarFromPersistedFile() {
+  const f = editorStore.file
+  if (!f?.path) return
+
+  if (f.type === 'note') {
+    notesExpanded.value = true
+    currentNoteNodeKey.value = f.path
+    currentChapterNodeKey.value = null
+  } else if (f.type === 'chapter') {
+    chaptersExpanded.value = true
+    currentNoteNodeKey.value = null
+    currentChapterNodeKey.value = f.path
+    const volId = f.volume
+    if (volId) {
+      expandedVolumeIdSet.add(volId)
+      await nextTick()
+      restoreExpandedVolumes({ forceExpandVolumeId: volId })
+    }
+  }
+}
+
 // 章节设置相关
 const chapterSettingsVisible = ref(false)
 const chapterSettings = ref({
@@ -904,9 +929,21 @@ async function deleteNoteNode(node) {
 onMounted(async () => {
   try {
     sortOrder.value = await window.electron.getSortOrder(props.bookName)
-    // 优先恢复上次关闭时正在查看/编辑的章节，若无记录再选中最新章节
-    await loadChapters({ restoreLastChapter: true, autoSelectLatest: true })
-    notesTree.value = await window.electron.loadNotes(props.bookName)
+    // 从子页面返回时 store 仍持有当前文件：只刷新树并同步侧栏，勿执行「恢复上次章节 / 最新章节」以免覆盖正在编辑的笔记
+    const preserveOpenFile =
+      !!editorStore.file &&
+      !!props.bookName &&
+      editorStore.currentBookName === props.bookName
+
+    if (preserveOpenFile) {
+      await loadChapters(false)
+      notesTree.value = await window.electron.loadNotes(props.bookName)
+      await syncSidebarFromPersistedFile()
+    } else {
+      // 首次进入本书编辑页：优先恢复上次查看的章节，否则选中最新章节
+      await loadChapters({ restoreLastChapter: true, autoSelectLatest: true })
+      notesTree.value = await window.electron.loadNotes(props.bookName)
+    }
     await loadChapterSettings()
   } catch {
     ElMessage.error(t('noteChapter.loadBookDataFailed'))
