@@ -1123,6 +1123,7 @@
     "aiSplit": "AI Split Outline",
     "outlineName": "Outline Name",
     "outlineNamePlaceholder": "Enter outline name",
+    "parentOutlineCategoryLabel": "Parent outline category",
     "rootTitle": "Master Outline",
     "currentSelected": "Current selection: {title}",
     "refineDirection": "Refine direction",

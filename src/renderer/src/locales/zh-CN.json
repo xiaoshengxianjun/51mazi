@@ -1123,6 +1123,7 @@
     "aiSplit": "AI拆分大纲",
     "outlineName": "大纲名称",
     "outlineNamePlaceholder": "请输入大纲名称",
+    "parentOutlineCategoryLabel": "父级大纲类目名称",
     "rootTitle": "总纲",
     "currentSelected": "当前选中：{title}",
     "refineDirection": "完善方向",

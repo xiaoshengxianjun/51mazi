@@ -99,6 +99,10 @@
     width="420px"
   >
     <el-form label-position="top">
+      <!-- 展示当前选中的父级节点（禁用态，仅作提示） -->
+      <el-form-item :label="t('outlineManager.parentOutlineCategoryLabel')">
+        <el-input :model-value="createOutlineParentCategoryDisplay" disabled />
+      </el-form-item>
       <el-form-item :label="t('outlineManager.outlineName')">
         <el-input
           v-model="newOutlineTitle"
@@ -273,6 +277,12 @@ const hasSelectedContent = computed(() => Boolean(String(selectedNode.value?.con
 const canGenerateChapterFromOutline = computed(
   () => hasSelectedContent.value && !isRootSelected.value
 )
+
+/** 新增大纲时的父级类目展示名（与 handleCreateOutline 中 parentNode 一致） */
+const createOutlineParentCategoryDisplay = computed(() => {
+  const raw = String(selectedNode.value?.title || '').trim()
+  return raw || t('outlineManager.unnamedOutline')
+})
 
 function normalizeOutlineTree(rawData) {
   const children = Array.isArray(rawData?.children) ? rawData.children : []
