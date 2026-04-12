@@ -52,9 +52,11 @@ const MAIN_I18N_MESSAGES = {
     updateInstallUnsupportedInDev: 'Update install is not supported in development mode',
     updateInstallFailed: 'Failed to install update',
     updateErrorNetwork: 'Cannot reach the update server. Check your network and try again.',
-    updateErrorCert: 'Update server certificate verification failed. Check your system time and proxy settings.',
+    updateErrorCert:
+      'Update server certificate verification failed. Check your system time and proxy settings.',
     updateErrorNotFound: 'Update metadata was not found (404). Try again later.',
-    updateErrorForbidden: 'Update service is temporarily unavailable (access denied). Try again later.',
+    updateErrorForbidden:
+      'Update service is temporarily unavailable (access denied). Try again later.',
     updateErrorServer: 'Update service error. Please try again later.'
   }
 }
@@ -305,7 +307,11 @@ function mapUpdaterErrorToUserMessage(error, phase = 'check') {
   ) {
     return mt('updateErrorNetwork')
   }
-  if (lower.includes('getaddrinfo') || lower.includes('network error') || lower.includes('socket hang up')) {
+  if (
+    lower.includes('getaddrinfo') ||
+    lower.includes('network error') ||
+    lower.includes('socket hang up')
+  ) {
     return mt('updateErrorNetwork')
   }
   if (
@@ -3266,7 +3272,11 @@ ipcMain.handle('set-update-mode', async (_, mode) => {
 // 手动检查更新
 ipcMain.handle('check-for-update', async () => {
   if (is.dev) {
-    return { success: false, code: 'UPDATE_UNSUPPORTED_IN_DEV', message: mt('updateUnsupportedInDev') }
+    return {
+      success: false,
+      code: 'UPDATE_UNSUPPORTED_IN_DEV',
+      message: mt('updateUnsupportedInDev')
+    }
   }
   updaterErrorPhase = 'check'
   beginManualUpdaterIpcErrorSuppression()
@@ -3432,7 +3442,18 @@ ipcMain.handle('deepseek:outline-task', async (_, payload) => {
 ipcMain.handle('deepseek:generate-chapter-from-outline', async (_, payload) => {
   try {
     await deepseekService.initApiKey((key) => store.get(key))
-    const result = await outlineChapterAiService.generateChapterFromOutline(payload || {})
+    const raw = payload || {}
+    const booksDir = store.get('booksDir')
+    const rawBookName = String(raw.bookName || '').trim()
+    const bookName =
+      rawBookName && !rawBookName.includes('..') && !/[\\/]/.test(rawBookName) ? rawBookName : ''
+    const bookPath =
+      bookName && booksDir && typeof booksDir === 'string' ? join(booksDir, bookName) : ''
+    const safeBookPath = bookPath && fs.existsSync(bookPath) ? bookPath : ''
+    const result = await outlineChapterAiService.generateChapterFromOutline({
+      ...raw,
+      bookPath: safeBookPath
+    })
     return { success: true, ...result }
   } catch (error) {
     console.error('AI 章纲生成章节失败:', error)
@@ -3451,7 +3472,11 @@ ipcMain.handle('deepseek:continue-write', async (_, payload) => {
     const { text = '', prompt = '', maxAddWords = 0 } = payload || {}
     const numericMax = Number(maxAddWords)
     const safeMaxAddWords = Number.isFinite(numericMax) ? Math.max(0, Math.floor(numericMax)) : 0
-    const content = await deepseekService.continueChapter(String(text), String(prompt || ''), safeMaxAddWords)
+    const content = await deepseekService.continueChapter(
+      String(text),
+      String(prompt || ''),
+      safeMaxAddWords
+    )
     return { success: true, content }
   } catch (error) {
     console.error('AI 续写失败:', error)

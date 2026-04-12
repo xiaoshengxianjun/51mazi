@@ -150,7 +150,6 @@ const handleBannedWords = () => {
       align-items: flex-start;
       width: 100%;
       height: auto;
-      min-height: 40px;
       white-space: normal;
       background: var(--bg-primary);
       border: 1px solid var(--border-color);

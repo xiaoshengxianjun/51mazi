@@ -427,6 +427,39 @@ async function openGenerateChapterDialog() {
   generateChapterDialogVisible.value = true
 }
 
+/** 目标章节在卷内已存在且非首章时，读取紧邻上一章正文尾部，供 AI 衔接文风与前情 */
+const PREV_CHAPTER_TAIL_MAX = 2800
+async function loadPreviousChapterExcerptForAi() {
+  const bookName = String(props.bookName || '').trim()
+  const volumeName = String(targetVolumeName.value || '').trim()
+  const targetName = String(targetChapterName.value || '').trim()
+  if (!bookName || !volumeName || !targetName) return ''
+  if (!window.electron?.loadChapters || !window.electron?.readChapter) return ''
+  try {
+    const tree = await window.electron.loadChapters(bookName)
+    const vol = Array.isArray(tree)
+      ? tree.find((v) => v?.type === 'volume' && String(v.name).trim() === volumeName)
+      : null
+    const list = (vol?.children || []).filter((c) => c?.type === 'chapter' && c?.name)
+    if (list.length < 2) return ''
+    const idx = list.findIndex((c) => String(c.name).trim() === targetName)
+    if (idx <= 0) return ''
+    const prev = list[idx - 1]
+    const prevName = prev?.name != null ? String(prev.name).trim() : ''
+    if (!prevName) return ''
+    const res = await window.electron.readChapter(bookName, volumeName, prevName)
+    if (!res?.success || res.content == null) return ''
+    let text = String(res.content).trim().replace(/\r\n/g, '\n')
+    if (!text) return ''
+    if (text.length > PREV_CHAPTER_TAIL_MAX) {
+      text = `…\n${text.slice(-PREV_CHAPTER_TAIL_MAX)}`
+    }
+    return text
+  } catch {
+    return ''
+  }
+}
+
 async function handleGenerateChapterPreview() {
   const outlineContent = String(selectedNode.value?.content || '').trim()
   if (!outlineContent) {
@@ -455,11 +488,14 @@ async function handleGenerateChapterPreview() {
       targetWords = Number(settingsRes?.targetWords) || targetWords
     }
 
+    const previousChapterExcerpt = await loadPreviousChapterExcerptForAi()
     const result = await window.electron.generateChapterFromOutline({
+      bookName: String(props.bookName || '').trim(),
       outlineTitle: String(selectedNode.value?.title || '').trim(),
       outlineContent,
       userRequirement: String(generateChapterRequirement.value || '').trim(),
-      targetWords
+      targetWords,
+      previousChapterExcerpt
     })
     if (!result?.success) {
       throw new Error(result?.message || t('outlineManager.generateChapterFailed'))
