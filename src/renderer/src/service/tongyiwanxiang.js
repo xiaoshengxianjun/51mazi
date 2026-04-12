@@ -33,7 +33,8 @@ export async function validateTongyiwanxiangApiKey() {
  * @param {Object} options
  * @param {string} options.prompt - 封面提示词（正向）
  * @param {string} options.size - API 尺寸，如 "1200*1600"
- * @param {string} options.bookName - 书籍名称（用于落盘路径）
+ * @param {string} options.bookName - 书籍名称（必填；提示词等展示用）
+ * @param {string} [options.bookFolderName] - 磁盘上书籍目录名（可选；未传时按 bookName 做安全化后与 create-book 一致）
  * @param {string} [options.negativePrompt] - 反向提示词，可选
  * @param {string} [options.imageProvider] - tongyi | gemini | doubao
  * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
@@ -45,7 +46,8 @@ export async function generateAICover(options) {
 /**
  * 确认使用某张已生成的封面：复制为书籍 cover 并清理临时文件
  * @param {Object} options
- * @param {string} options.bookName - 书籍名称
+ * @param {string} options.bookName - 书籍名称（与生成时一致）
+ * @param {string} [options.bookFolderName] - 磁盘上书籍目录名（与生成时一致；可选）
  * @param {string} options.chosenPath - 选中的本地图片路径
  * @returns {Promise<{success: boolean, localPath?: string, message?: string}>}
  */

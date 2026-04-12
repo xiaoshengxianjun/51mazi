@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage, screen } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -878,20 +878,33 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
     let coverUrl = bookInfo.coverUrl || existingMeta.coverUrl || null
     if (bookInfo.coverImagePath && fs.existsSync(bookInfo.coverImagePath)) {
       try {
-        // 删除旧的封面图片（如果存在）
-        if (existingMeta.coverUrl) {
-          const oldCoverPath = join(bookPath, existingMeta.coverUrl)
-          if (fs.existsSync(oldCoverPath)) {
-            fs.unlinkSync(oldCoverPath)
-          }
-        }
-        // 获取文件扩展名
         const ext = bookInfo.coverImagePath.split('.').pop()?.toLowerCase() || 'jpg'
         const coverFileName = `cover.${ext}`
         const coverPath = join(bookPath, coverFileName)
-        // 复制图片文件
-        fs.copyFileSync(bookInfo.coverImagePath, coverPath)
-        coverUrl = coverFileName
+        const srcResolved = resolve(bookInfo.coverImagePath)
+        const destResolved = resolve(coverPath)
+
+        // 源已是书籍目录下的目标封面（如 AI 确认后表单仍带该绝对路径）：不能先删旧再拷自己，否则会 unlink 掉源文件导致 ENOENT
+        if (srcResolved === destResolved) {
+          if (existingMeta.coverUrl && existingMeta.coverUrl !== coverFileName) {
+            const oldCoverPath = join(bookPath, existingMeta.coverUrl)
+            const oldResolved = resolve(oldCoverPath)
+            if (oldResolved !== srcResolved && fs.existsSync(oldCoverPath)) {
+              fs.unlinkSync(oldCoverPath)
+            }
+          }
+          coverUrl = coverFileName
+        } else {
+          if (existingMeta.coverUrl) {
+            const oldCoverPath = join(bookPath, existingMeta.coverUrl)
+            const oldResolved = resolve(oldCoverPath)
+            if (oldResolved !== srcResolved && fs.existsSync(oldCoverPath)) {
+              fs.unlinkSync(oldCoverPath)
+            }
+          }
+          fs.copyFileSync(bookInfo.coverImagePath, coverPath)
+          coverUrl = coverFileName
+        }
       } catch (error) {
         console.error('复制封面图片失败:', error)
       }
@@ -904,6 +917,24 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
         }
       }
       coverUrl = null
+    }
+
+    // 仅更新元数据中的封面文件名、且未从 coverImagePath 复制新文件时，删除磁盘上的旧封面（如 cover.jpg → cover.png）
+    if (
+      !bookInfo.coverImagePath &&
+      typeof bookInfo.coverUrl === 'string' &&
+      bookInfo.coverUrl &&
+      existingMeta.coverUrl &&
+      bookInfo.coverUrl !== existingMeta.coverUrl
+    ) {
+      const oldCoverPath = join(bookPath, existingMeta.coverUrl)
+      if (fs.existsSync(oldCoverPath)) {
+        try {
+          fs.unlinkSync(oldCoverPath)
+        } catch (err) {
+          console.error('删除旧封面文件失败:', err)
+        }
+      }
     }
 
     // 如果书名发生变化，需要重命名文件夹
@@ -3585,7 +3616,7 @@ ipcMain.handle('imageAi:validate-doubao-config', async () => {
 ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
   try {
     await tongyiwanxiangService.initApiKey((key) => store.get(key))
-    const { prompt, size, bookName, negativePrompt = '' } = options || {}
+    const { prompt, size, bookName, bookFolderName, negativePrompt = '' } = options || {}
     if (!prompt || !size || !bookName) {
       return {
         success: false,
@@ -3596,7 +3627,9 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
     if (!booksDir || !fs.existsSync(booksDir)) {
       return { success: false, message: '未设置或无效的书籍目录' }
     }
-    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const rawFolder =
+      bookFolderName != null && String(bookFolderName).trim() !== '' ? bookFolderName : bookName
+    const safeName = String(rawFolder).replace(/[\\/:*?"<>|]/g, '_')
     const bookPath = join(booksDir, safeName)
     fs.mkdirSync(bookPath, { recursive: true })
 
@@ -3630,12 +3663,14 @@ ipcMain.handle('tongyiwanxiang:generate-cover', async (_, options) => {
 // 确认使用某张 AI 封面：复制为书籍根目录下的 cover.png
 ipcMain.handle('tongyiwanxiang:confirm-cover', async (_, options) => {
   try {
-    const { bookName, chosenPath } = options || {}
+    const { bookName, bookFolderName, chosenPath } = options || {}
     const booksDir = store.get('booksDir')
     if (!booksDir || !bookName || !chosenPath) {
       return { success: false, message: '参数错误' }
     }
-    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const rawFolder =
+      bookFolderName != null && String(bookFolderName).trim() !== '' ? bookFolderName : bookName
+    const safeName = String(rawFolder).replace(/[\\/:*?"<>|]/g, '_')
     const bookPath = join(booksDir, safeName)
     if (!fs.existsSync(chosenPath) || !chosenPath.startsWith(bookPath)) {
       return { success: false, message: '所选封面文件无效' }

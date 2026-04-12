@@ -70,6 +70,24 @@
             </el-select>
           </el-form-item>
         </template>
+        <el-collapse class="ai-cover-history-collapse">
+          <el-collapse-item :title="t('aiCover.historyTitle')" name="history">
+            <div v-if="historyList.length === 0" class="history-empty">
+              {{ t('aiCover.historyEmpty') }}
+            </div>
+            <ul v-else class="history-list">
+              <li
+                v-for="(item, index) in historyList"
+                :key="String(item.createdAt || '') + index"
+                class="history-item"
+                @click="applyHistoryEntry(item)"
+              >
+                <span class="history-time">{{ formatHistoryTime(item.createdAt) }}</span>
+                <span class="history-summary">{{ historyItemSummary(item) }}</span>
+              </li>
+            </ul>
+          </el-collapse-item>
+        </el-collapse>
         <!-- 封面要求：拆分为三部分，让提示词更明确 -->
         <el-form-item prop="titlePrompt" :label="t('aiCover.titlePrompt')">
           <el-input
@@ -194,20 +212,36 @@
 import { ref, watch, computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import dayjs from 'dayjs'
 import { generateAICover, confirmAICover, discardAICovers } from '@renderer/service/tongyiwanxiang'
+import { setImageAiLastProvider } from '@renderer/service/imageAi'
+import {
+  loadAiCoverFormHistory,
+  pushAiCoverFormHistory,
+  getLatestAiCoverFormSnapshot
+} from '@renderer/composables/useAICoverFormHistory'
 import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   bookName: { type: String, default: '' },
+  /** 磁盘书籍目录名（与 Bookshelf 的 originalName 一致）；未传时按 bookName 安全化落盘 */
+  bookFolderName: { type: String, default: '' },
   bookType: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'cover-generated'])
 const { t, locale } = useI18n()
 
 const modelOpen = toRef(props, 'modelValue')
-const { imageProviders, selectedProvider, noImageProviders, providersLoaded } =
+const { imageProviders, selectedProvider, noImageProviders, providersLoaded, refreshProviders } =
   useImageAiProviderSelect(modelOpen)
+
+/** 生成/确认封面时写入的目录名（与主进程 create-book / edit-book 一致） */
+const bookFolderForDisk = computed(
+  () => (props.bookFolderName || '').trim() || (props.bookName || '').trim()
+)
+
+const historyList = ref([])
 
 function labelForImageProvider(id) {
   const keys = {
@@ -741,26 +775,96 @@ const promptPresetCategories = computed(() => [
   { key: 'atmosphere', label: t('aiCover.categories.atmosphere'), recommended: true }
 ])
 
+function resetGenerationState() {
+  generatedList.value = []
+  selectedPath.value = ''
+}
+
+/** 无历史时的默认空表单（书籍类型仍以当前编辑书为准） */
+function resetAiCoverFormFields() {
+  form.value.penName = ''
+  form.value.coverSize = '600x800'
+  form.value.backgroundPrompt = ''
+  form.value.titlePrompt = ''
+  form.value.authorPrompt = ''
+  form.value.negativePrompt = ''
+  selectedPromptTags.value = []
+}
+
+/** 从历史快照恢复可编辑字段（不覆盖当前书的 bookType） */
+function mergeHistorySnapshot(latest) {
+  form.value.penName = typeof latest.penName === 'string' ? latest.penName : ''
+  const sizes = coverSizeOptions.value.map((o) => o.value)
+  form.value.coverSize =
+    typeof latest.coverSize === 'string' && sizes.includes(latest.coverSize)
+      ? latest.coverSize
+      : '600x800'
+  form.value.backgroundPrompt =
+    typeof latest.backgroundPrompt === 'string' ? latest.backgroundPrompt : ''
+  form.value.titlePrompt = typeof latest.titlePrompt === 'string' ? latest.titlePrompt : ''
+  form.value.authorPrompt = typeof latest.authorPrompt === 'string' ? latest.authorPrompt : ''
+  form.value.negativePrompt = typeof latest.negativePrompt === 'string' ? latest.negativePrompt : ''
+  selectedPromptTags.value = Array.isArray(latest.selectedPromptTags)
+    ? [...latest.selectedPromptTags]
+    : []
+}
+
+async function refreshHistoryList() {
+  historyList.value = await loadAiCoverFormHistory(bookFolderForDisk.value)
+}
+
+function formatHistoryTime(iso) {
+  if (!iso) return ''
+  const d = dayjs(iso)
+  return d.isValid() ? d.format('YYYY-MM-DD HH:mm') : String(iso)
+}
+
+function truncateText(str, max) {
+  const s = String(str || '')
+  if (s.length <= max) return s
+  return s.slice(0, max) + '…'
+}
+
+function historyItemSummary(item) {
+  const pen = (item.penName || '').trim() || t('aiCover.historyNoPenName')
+  const bg = truncateText(item.backgroundPrompt || '', 40)
+  return `${pen} · ${bg}`
+}
+
+/** 点击某条历史：回填表单并同步图像服务商偏好 */
+async function applyHistoryEntry(item) {
+  mergeHistorySnapshot(item)
+  if (item.imageProviderId) {
+    await setImageAiLastProvider(String(item.imageProviderId))
+  }
+  await refreshProviders()
+  ElMessage.success(t('aiCover.historyApplied'))
+}
+
 watch(
   () => props.modelValue,
-  (visible) => {
+  async (visible) => {
     if (visible) {
       form.value.bookType = props.bookType || ''
-      form.value.penName = ''
-      form.value.coverSize = '600x800'
-      form.value.backgroundPrompt = ''
-      form.value.titlePrompt = ''
-      form.value.authorPrompt = ''
-      form.value.negativePrompt = ''
-      selectedPromptTags.value = []
-      generatedList.value = []
-      selectedPath.value = ''
+      resetGenerationState()
+      const latest = await getLatestAiCoverFormSnapshot(bookFolderForDisk.value)
+      if (latest) {
+        mergeHistorySnapshot(latest)
+        if (latest.imageProviderId) {
+          await setImageAiLastProvider(String(latest.imageProviderId))
+        }
+      } else {
+        resetAiCoverFormFields()
+      }
+      await refreshProviders()
+      await refreshHistoryList()
     } else {
       if (generatedList.value.length > 0) {
         discardAICovers({ bookName: props.bookName }).catch(() => {})
       }
     }
-  }
+  },
+  { flush: 'post' }
 )
 
 function getCategoryTags(key) {
@@ -859,6 +963,7 @@ async function handleGenerate() {
       prompt: fullPrompt,
       size,
       bookName,
+      bookFolderName: bookFolderForDisk.value,
       negativePrompt: (form.value.negativePrompt || '').trim() || undefined,
       imageProvider: selectedProvider.value
     })
@@ -866,6 +971,21 @@ async function handleGenerate() {
       const previewUrl = `file://${res.localPath}`
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
+      await pushAiCoverFormHistory(bookFolderForDisk.value, {
+        penName: form.value.penName,
+        coverSize: form.value.coverSize,
+        backgroundPrompt: form.value.backgroundPrompt,
+        titlePrompt: form.value.titlePrompt,
+        authorPrompt: form.value.authorPrompt,
+        negativePrompt: form.value.negativePrompt,
+        selectedPromptTags: [...selectedPromptTags.value],
+        imageProviderId: selectedProvider.value,
+        bookType: props.bookType
+      })
+      if (selectedProvider.value) {
+        await setImageAiLastProvider(String(selectedProvider.value))
+      }
+      await refreshHistoryList()
       ElMessage.success(t('aiCover.generatedSelectOrContinue'))
     } else {
       ElMessage.error(res?.message || t('aiCover.generateFailed'))
@@ -889,7 +1009,11 @@ async function handleConfirmUse() {
   const bookName = (props.bookName || '').trim()
   if (!bookName) return
   try {
-    const res = await confirmAICover({ bookName, chosenPath: selectedPath.value })
+    const res = await confirmAICover({
+      bookName,
+      bookFolderName: bookFolderForDisk.value,
+      chosenPath: selectedPath.value
+    })
     if (res?.success && res.localPath) {
       emit('cover-generated', { localPath: res.localPath })
       emit('update:modelValue', false)
@@ -906,6 +1030,59 @@ async function handleConfirmUse() {
 <style lang="scss" scoped>
 .ai-drawer-provider-alert {
   margin-bottom: 12px;
+}
+.ai-cover-history-collapse {
+  margin: 0 20px 12px;
+  border: none;
+  :deep(.el-collapse-item__header) {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-regular);
+  }
+  :deep(.el-collapse-item__wrap) {
+    border-bottom: none;
+  }
+}
+.history-empty {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding: 4px 0 8px;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.history-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  transition: background 0.15s;
+  &:hover {
+    background: var(--el-fill-color);
+    border-color: var(--el-color-primary-light-5);
+  }
+}
+.history-time {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.history-summary {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
 }
 .ai-cover-drawer-content {
   display: flex;

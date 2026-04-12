@@ -1082,8 +1082,12 @@
     "generatedSelectOrContinue": "已生成，请在上方选择一张确认使用或继续生成",
     "generateFailed": "生成封面失败",
     "checkFormInput": "请检查表单输入",
-    "confirmSuccess": "已设为书籍封面，保存书籍后将写入书籍目录",
+    "confirmSuccess": "已设为书籍封面；已更新书架与书籍信息（编辑中的表单也已同步）",
     "confirmFailed": "确认失败",
+    "historyTitle": "本书历史填写记录",
+    "historyEmpty": "本书暂无记录；每次成功生成封面后会自动保存一条，打开抽屉会优先回填本书最新一条",
+    "historyApplied": "已将该条记录填回表单",
+    "historyNoPenName": "（未填笔名）",
     "sizes": {
       "s600x800": "600×800 像素",
       "s200x280": "200×280 像素",

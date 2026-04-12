@@ -1082,8 +1082,12 @@
     "generatedSelectOrContinue": "Generated. Select one above to confirm use, or continue generating.",
     "generateFailed": "Failed to generate cover",
     "checkFormInput": "Please check form inputs",
-    "confirmSuccess": "Set as book cover. It will be written to the book directory after saving.",
+    "confirmSuccess": "Set as book cover. Bookshelf and book metadata are updated (the open edit form is synced too).",
     "confirmFailed": "Confirm failed",
+    "historyTitle": "This book — saved form history",
+    "historyEmpty": "No history for this book yet. A record is saved after each successful generation; reopening fills the latest for this book only.",
+    "historyApplied": "Form filled from this record",
+    "historyNoPenName": "(no pen name)",
     "sizes": {
       "s600x800": "600×800 px",
       "s200x280": "200×280 px",

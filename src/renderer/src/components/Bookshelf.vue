@@ -48,6 +48,7 @@
     <AICoverDrawer
       v-model="aiCoverDialogVisible"
       :book-name="form.name"
+      :book-folder-name="(form.originalName || form.name || '').trim()"
       :book-type="form.type"
       @cover-generated="handleAICoverGenerated"
     />
@@ -474,10 +475,38 @@ function handleOpenAICoverDialog() {
   aiCoverDialogVisible.value = true
 }
 
-// AI 封面生成成功：回填到书籍表单
-function handleAICoverGenerated({ localPath }) {
+// AI 封面确认成功：回填编辑表单，并对已存在书籍立即同步 mazi.json 与书架封面
+async function handleAICoverGenerated({ localPath }) {
   form.value.coverImagePath = localPath
   form.value.coverImagePreview = `file://${localPath}`
+
+  if (!isEdit.value || !editBookId.value) {
+    await readBooksDir()
+    return
+  }
+
+  const ext = localPath.split('.').pop()?.toLowerCase() || 'png'
+  const coverUrl = `cover.${ext}`
+  const bookData = {
+    id: editBookId.value,
+    name: form.value.name,
+    type: form.value.type,
+    typeName: BOOK_TYPES.find((item) => item.value === form.value.type)?.label,
+    targetCount: form.value.targetCount,
+    intro: form.value.intro,
+    password: form.value.password || null,
+    coverColor: form.value.coverColor || '#22345c',
+    coverUrl
+  }
+  const result = await updateBook({
+    ...bookData,
+    originalName: form.value.originalName
+  })
+  if (!result.success) {
+    ElMessage.error(result.message || t('bookshelf.editFailed'))
+    return
+  }
+  await readBooksDir()
 }
 
 // 刷新图表数据
