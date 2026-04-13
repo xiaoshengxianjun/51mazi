@@ -122,6 +122,7 @@ const bookTypeCascaderOptions = BOOK_TYPE_GROUPS.map((g) => ({
   children: g.options.map((o) => ({ label: o.label, value: o.value }))
 }))
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
+import { joinedPathToFileUrl, pathToLocalFileUrl } from '@renderer/utils/localFileUrl'
 import AICoverDrawer from '@renderer/components/AICoverDrawer.vue'
 import BookFormDrawer from '@renderer/components/BookFormDrawer.vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -433,8 +434,7 @@ async function handleSelectCoverImage() {
     if (result && result.filePath) {
       // 保存原始路径用于后续复制
       form.value.coverImagePath = result.filePath
-      // 创建预览（使用 file:// 协议）
-      form.value.coverImagePreview = `file://${result.filePath}`
+      form.value.coverImagePreview = pathToLocalFileUrl(result.filePath)
     }
   } catch (error) {
     console.error('Failed to select cover image:', error)
@@ -455,8 +455,7 @@ async function loadCoverImagePreview(bookName, coverUrl) {
     // 如果是相对路径，需要构建完整路径
     if (coverUrl && !coverUrl.startsWith('file://') && !coverUrl.startsWith('http')) {
       const booksDir = await window.electronStore.get('booksDir')
-      const coverPath = `${booksDir}/${bookName}/${coverUrl}`
-      form.value.coverImagePreview = `file://${coverPath}`
+      form.value.coverImagePreview = joinedPathToFileUrl(booksDir, bookName, coverUrl)
     } else {
       form.value.coverImagePreview = coverUrl
     }
@@ -478,7 +477,7 @@ function handleOpenAICoverDialog() {
 // AI 封面确认成功：回填编辑表单，并对已存在书籍立即同步 mazi.json 与书架封面
 async function handleAICoverGenerated({ localPath }) {
   form.value.coverImagePath = localPath
-  form.value.coverImagePreview = `file://${localPath}`
+  form.value.coverImagePreview = pathToLocalFileUrl(localPath)
 
   if (!isEdit.value || !editBookId.value) {
     await readBooksDir()

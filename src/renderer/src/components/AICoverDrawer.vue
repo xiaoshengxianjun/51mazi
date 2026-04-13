@@ -221,6 +221,7 @@ import {
   getLatestAiCoverFormSnapshot
 } from '@renderer/composables/useAICoverFormHistory'
 import { useImageAiProviderSelect } from '@renderer/composables/useImageAiProviderSelect'
+import { pathToLocalFileUrl } from '@renderer/utils/localFileUrl'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -968,7 +969,7 @@ async function handleGenerate() {
       imageProvider: selectedProvider.value
     })
     if (res?.success && res.localPath) {
-      const previewUrl = `file://${res.localPath}`
+      const previewUrl = pathToLocalFileUrl(res.localPath)
       generatedList.value.push({ localPath: res.localPath, previewUrl })
       selectedPath.value = res.localPath
       await pushAiCoverFormHistory(bookFolderForDisk.value, {

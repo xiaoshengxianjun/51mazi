@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage, screen } from 'electron'
-import { join, resolve } from 'path'
+import { join, resolve, sep } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -3697,7 +3697,18 @@ ipcMain.handle('tongyiwanxiang:confirm-cover', async (_, options) => {
       bookFolderName != null && String(bookFolderName).trim() !== '' ? bookFolderName : bookName
     const safeName = String(rawFolder).replace(/[\\/:*?"<>|]/g, '_')
     const bookPath = join(booksDir, safeName)
-    if (!fs.existsSync(chosenPath) || !chosenPath.startsWith(bookPath)) {
+    const resolvedBook = resolve(bookPath)
+    const resolvedChosen = resolve(chosenPath)
+    if (!fs.existsSync(resolvedChosen)) {
+      return { success: false, message: '所选封面文件无效' }
+    }
+    // Windows：盘符大小写、路径规范化后与 join 结果比较；勿用裸 startsWith(未 resolve 的路径)
+    const bookRootPrefix = resolvedBook + sep
+    const isUnderBook =
+      process.platform === 'win32'
+        ? resolvedChosen.toLowerCase().startsWith(bookRootPrefix.toLowerCase())
+        : resolvedChosen.startsWith(bookRootPrefix)
+    if (!isUnderBook) {
       return { success: false, message: '所选封面文件无效' }
     }
     const finalPath = join(bookPath, 'cover.png')
