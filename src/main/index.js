@@ -164,6 +164,20 @@ ipcMain.handle('store:delete', async (_, key) => {
   return true
 })
 
+// 书架密码认证状态：仅在当前进程运行期间有效，重启后自动重置
+let bookshelfAuthenticated = false
+
+// 设置书架已认证（由认证页面在密码验证通过后调用）
+ipcMain.handle('auth:set-bookshelf-authenticated', () => {
+  bookshelfAuthenticated = true
+  return true
+})
+
+// 查询书架认证状态（由路由守卫在所有窗口中调用）
+ipcMain.handle('auth:get-bookshelf-authenticated', () => {
+  return bookshelfAuthenticated
+})
+
 // 维护已打开书籍编辑窗口的映射
 const bookEditorWindows = new Map()
 

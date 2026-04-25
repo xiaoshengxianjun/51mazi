@@ -82,8 +82,9 @@ async function handleAuthSubmit() {
   authLoading.value = true
   try {
     if (authPassword.value === storedPassword.value) {
-      // 认证成功，设置认证标记
+      // 认证成功：同时更新本窗口 sessionStorage 和主进程内存状态（供其他窗口共享）
       sessionStorage.setItem('bookshelfAuthenticated', 'true')
+      await window.electron?.setBookshelfAuthenticated?.()
       // 跳转到首页
       router.push('/')
     } else {

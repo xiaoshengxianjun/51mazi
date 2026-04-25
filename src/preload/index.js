@@ -27,6 +27,10 @@ const customElectronAPI = {
   editBook: (bookInfo) => ipcRenderer.invoke('edit-book', bookInfo),
   // 编辑器新窗口打开
   openBookEditorWindow: (id, name) => ipcRenderer.invoke('open-book-editor-window', { id, name }),
+  // 书架密码认证：通知主进程当前会话已通过认证
+  setBookshelfAuthenticated: () => ipcRenderer.invoke('auth:set-bookshelf-authenticated'),
+  // 书架密码认证：查询主进程当前会话是否已认证（跨窗口共享状态）
+  getBookshelfAuthenticated: () => ipcRenderer.invoke('auth:get-bookshelf-authenticated'),
   // 创建卷
   createVolume: (bookName) => ipcRenderer.invoke('create-volume', bookName),
   // 创建章节

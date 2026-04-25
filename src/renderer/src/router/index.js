@@ -96,10 +96,20 @@ router.beforeEach(async (to, from, next) => {
   // 检查是否有书架密码
   const password = await window.electronStore?.get('bookshelfPassword')
   if (password) {
-    // 有密码，检查是否已认证（通过sessionStorage记录）
-    const isAuthenticated = sessionStorage.getItem('bookshelfAuthenticated') === 'true'
-    if (isAuthenticated) {
-      // 已认证，直接通过
+    // 优先检查本窗口 sessionStorage（同窗口内跳转路由时的快速判断）
+    const sessionAuthenticated = sessionStorage.getItem('bookshelfAuthenticated') === 'true'
+    if (sessionAuthenticated) {
+      next()
+      return
+    }
+
+    // sessionStorage 中没有标记时（新窗口场景），向主进程查询当前会话的认证状态。
+    // 主进程的 bookshelfAuthenticated 变量在应用启动时为 false，
+    // 用户在任意窗口完成书架密码验证后即被设为 true，重启应用后自动重置。
+    const mainProcessAuthenticated = await window.electron?.getBookshelfAuthenticated?.()
+    if (mainProcessAuthenticated) {
+      // 同步到本窗口 sessionStorage，避免后续每次路由跳转都发起 IPC 调用
+      sessionStorage.setItem('bookshelfAuthenticated', 'true')
       next()
     } else {
       // 未认证，跳转到认证页面
