@@ -10,7 +10,11 @@
           <span>{{ t('noteChapter.notes') }}</span>
         </div>
         <div class="section-header-right">
-          <el-tooltip :content="t('noteChapter.createNotebook')" placement="bottom" :show-after="2000">
+          <el-tooltip
+            :content="t('noteChapter.createNotebook')"
+            placement="bottom"
+            :show-after="2000"
+          >
             <el-icon @click.stop="createNotebook"><FolderAdd /></el-icon>
           </el-tooltip>
         </div>
@@ -66,13 +70,21 @@
           <span>{{ t('noteChapter.chapters') }}</span>
         </div>
         <div class="section-header-right">
-          <el-tooltip :content="t('noteChapter.createVolume')" placement="bottom" :show-after="2000">
+          <el-tooltip
+            :content="t('noteChapter.createVolume')"
+            placement="bottom"
+            :show-after="2000"
+          >
             <el-icon @click.stop="createVolume"><FolderAdd /></el-icon>
           </el-tooltip>
           <el-tooltip :content="t('noteChapter.sortVolumes')" placement="bottom" :show-after="2000">
             <el-icon @click.stop="sortVolumes"><Sort /></el-icon>
           </el-tooltip>
-          <el-tooltip :content="t('noteChapter.chapterSettings')" placement="bottom" :show-after="2000">
+          <el-tooltip
+            :content="t('noteChapter.chapterSettings')"
+            placement="bottom"
+            :show-after="2000"
+          >
             <el-icon @click.stop="openChapterSettings"><Setting /></el-icon>
           </el-tooltip>
         </div>
@@ -932,9 +944,7 @@ onMounted(async () => {
     sortOrder.value = await window.electron.getSortOrder(props.bookName)
     // 从子页面返回时 store 仍持有当前文件：只刷新树并同步侧栏，勿执行「恢复上次章节 / 最新章节」以免覆盖正在编辑的笔记
     const preserveOpenFile =
-      !!editorStore.file &&
-      !!props.bookName &&
-      editorStore.currentBookName === props.bookName
+      !!editorStore.file && !!props.bookName && editorStore.currentBookName === props.bookName
 
     if (preserveOpenFile) {
       await loadChapters(false)
