@@ -2467,6 +2467,101 @@ ipcMain.handle('write-dictionary', async (event, { bookName, data }) => {
   }
 })
 
+const DEFAULT_SETTINGS_DATA = {
+  categories: [
+    {
+      id: 'default',
+      name: '默认设定',
+      introduction: '',
+      children: [],
+      items: []
+    }
+  ]
+}
+
+function cloneDefaultSettingsData() {
+  return JSON.parse(JSON.stringify(DEFAULT_SETTINGS_DATA))
+}
+
+function normalizeSettingItems(items, categoryIndexPath) {
+  if (!Array.isArray(items)) return []
+
+  return items
+    .filter((item) => item && typeof item === 'object')
+    .map((item, itemIndex) => ({
+      id: String(item.id || `setting-${Date.now()}-${categoryIndexPath}-${itemIndex}`),
+      name: String(item.name || '').trim(),
+      introduction: String(item.introduction || '').trim()
+    }))
+}
+
+function normalizeSettingCategories(categories, parentIndexPath = 'root') {
+  if (!Array.isArray(categories)) return []
+
+  return categories
+    .filter((category) => category && typeof category === 'object')
+    .map((category, categoryIndex) => {
+      const indexPath = `${parentIndexPath}-${categoryIndex}`
+
+      return {
+        id: String(category.id || `category-${Date.now()}-${indexPath}`),
+        name: String(category.name || '').trim() || '未命名分类',
+        introduction: String(category.introduction || '').trim(),
+        children: normalizeSettingCategories(category.children, indexPath),
+        items: normalizeSettingItems(category.items, indexPath)
+      }
+    })
+}
+
+function normalizeSettingsData(data) {
+  const categories = normalizeSettingCategories(data?.categories)
+
+  if (!categories.length) {
+    return cloneDefaultSettingsData()
+  }
+
+  return { categories }
+}
+
+// 设定管理数据读写
+ipcMain.handle('read-settings', async (event, { bookName }) => {
+  if (!bookName) return cloneDefaultSettingsData()
+
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const settingsPath = join(bookPath, 'settings.json')
+  if (!fs.existsSync(settingsPath)) return cloneDefaultSettingsData()
+
+  try {
+    return normalizeSettingsData(JSON.parse(fs.readFileSync(settingsPath, 'utf-8')))
+  } catch {
+    return cloneDefaultSettingsData()
+  }
+})
+
+ipcMain.handle('write-settings', async (event, { bookName, data }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  const settingsPath = join(bookPath, 'settings.json')
+
+  try {
+    if (!bookName) {
+      throw new Error('书籍名称不能为空')
+    }
+
+    // 确保目录存在
+    if (!fs.existsSync(bookPath)) {
+      fs.mkdirSync(bookPath, { recursive: true })
+    }
+
+    fs.writeFileSync(settingsPath, JSON.stringify(normalizeSettingsData(data), null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存设定管理失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // 事序图数据读写
 ipcMain.handle('read-sequence-charts', async (event, { bookName }) => {
   const booksDir = store.get('booksDir')

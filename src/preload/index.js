@@ -172,6 +172,12 @@ const customElectronAPI = {
   // 保存词条字典数据
   writeDictionary: (bookName, data) => ipcRenderer.invoke('write-dictionary', { bookName, data }),
 
+  // --------- 设定管理相关 ---------
+  // 读取设定管理数据
+  readSettings: (bookName) => ipcRenderer.invoke('read-settings', { bookName }),
+  // 保存设定管理数据
+  writeSettings: (bookName, data) => ipcRenderer.invoke('write-settings', { bookName, data }),
+
   // --------- 事序图相关 ---------
   // 读取事序图数据
   readSequenceCharts: (bookName) => ipcRenderer.invoke('read-sequence-charts', { bookName }),

@@ -6,6 +6,10 @@
         <SvgIcon name="resource" :size="14" />
         <span>{{ t('editorToolbar.outline') }}</span>
       </el-button>
+      <el-button class="tool-btn" @click="handleSettingManager">
+        <SvgIcon name="config" :size="14" />
+        <span>{{ t('editorToolbar.settingManager') }}</span>
+      </el-button>
       <el-button class="tool-btn" @click="handleRandomName">
         <SvgIcon name="naming" :size="14" />
         <span>{{ t('editorToolbar.randomName') }}</span>
@@ -86,6 +90,12 @@ const handleEntryDictionary = () => {
   // 跳转到词条字典页面，带上当前书籍名
   const bookName = route.query.name
   router.push({ path: '/dictionary', query: { name: bookName } })
+}
+
+const handleSettingManager = () => {
+  // 跳转到设定管理页面，带上当前书籍名
+  const bookName = route.query.name
+  router.push({ path: '/setting-manager', query: { name: bookName } })
 }
 
 const handleCharacterProfile = () => {

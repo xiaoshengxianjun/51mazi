@@ -32,6 +32,11 @@ const routes = [
     component: () => import('@renderer/views/Dictionary.vue')
   },
   {
+    path: '/setting-manager',
+    name: 'SettingManager',
+    component: () => import('@renderer/views/SettingManager.vue')
+  },
+  {
     path: '/map-list',
     name: 'MapList',
     component: () => import('@renderer/views/MapList.vue')

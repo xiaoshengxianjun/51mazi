@@ -57,6 +57,69 @@ function flattenDictionary(nodes, out = []) {
   return out
 }
 
+function flattenSettings(data) {
+  const categories = Array.isArray(data?.categories) ? data.categories : []
+  const out = []
+
+  function traverse(nodes, path = []) {
+    if (!Array.isArray(nodes)) return
+
+    for (const category of nodes) {
+      const categoryName = String(category?.name || '').trim() || '未分类'
+      const categoryPath = [...path, categoryName]
+      const categoryIntroduction = String(category?.introduction || '').trim()
+
+      if (categoryIntroduction) {
+        out.push({
+          type: 'category',
+          categoryPath,
+          name: categoryName,
+          introduction: categoryIntroduction
+        })
+      }
+
+      traverse(category?.children, categoryPath)
+
+      const items = Array.isArray(category?.items) ? category.items : []
+      for (const item of items) {
+        const name = String(item?.name || '').trim()
+        if (!name) continue
+
+        out.push({
+          type: 'setting',
+          categoryPath,
+          name,
+          introduction: String(item?.introduction || '').trim()
+        })
+      }
+    }
+  }
+
+  traverse(categories)
+  return out
+}
+
+function formatSettingLine(setting) {
+  const categoryPath = Array.isArray(setting.categoryPath)
+    ? setting.categoryPath.filter(Boolean).join(' / ')
+    : '未分类'
+  const intro = truncate(setting.introduction, setting.type === 'category' ? 180 : 220)
+
+  if (setting.type === 'category') {
+    return intro ? `${categoryPath}｜分类说明：${intro}` : `${categoryPath}｜分类说明`
+  }
+
+  return intro
+    ? `${categoryPath}｜「${setting.name}」：${intro}`
+    : `${categoryPath}｜「${setting.name}」`
+}
+
+function settingMentionedInOutline(setting, blob) {
+  if (nameMentionedInOutline(setting?.name, blob)) return true
+  const categoryPath = Array.isArray(setting?.categoryPath) ? setting.categoryPath : []
+  return categoryPath.some((name) => nameMentionedInOutline(name, blob))
+}
+
 function formatCharacterLine(c) {
   const name = String(c?.name || '').trim() || '（未命名）'
   const gender = c?.gender != null ? String(c.gender).trim() : ''
@@ -146,6 +209,16 @@ export function buildBookWritingContextBlock(bookPath, options = {}) {
       return intro ? `「${d.name}」：${intro}` : `「${d.name}」`
     })
     if (lines.length) sections.push(`【词条设定】\n${lines.join('\n')}`)
+  }
+
+  // —— 设定管理 ——
+  const settings = safeReadJson(join(bookPath, 'settings.json'), null)
+  const flatSettings = flattenSettings(settings)
+  if (flatSettings.length) {
+    const matched = flatSettings.filter((s) => settingMentionedInOutline(s, blob))
+    const picked = matched.length > 0 ? matched.slice(0, 26) : flatSettings.slice(0, 14)
+    const lines = picked.map(formatSettingLine)
+    if (lines.length) sections.push(`【设定管理】\n${lines.join('\n')}`)
   }
 
   // —— 时间线 ——
