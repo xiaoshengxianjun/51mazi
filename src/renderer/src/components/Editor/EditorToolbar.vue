@@ -49,7 +49,6 @@
     </div>
     <RandomName ref="randomNameRef" />
     <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
-    <OutlineManagerDrawer ref="outlineManagerRef" :book-name="route.query.name" />
   </div>
 </template>
 
@@ -57,14 +56,12 @@
 import { ref } from 'vue'
 import RandomName from '@renderer/components/RandomName.vue'
 import BannedWordsDrawer from './BannedWordsDrawer.vue'
-import OutlineManagerDrawer from './OutlineManagerDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 
 const randomNameRef = ref(null)
 const bannedWordsRef = ref(null)
-const outlineManagerRef = ref(null)
 const router = useRouter()
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -123,7 +120,8 @@ const handleOrganization = () => {
 }
 
 const handleOutlineManager = () => {
-  outlineManagerRef.value.open()
+  const bookName = route.query.name
+  router.push({ path: '/outline-manager', query: { name: bookName } })
 }
 
 const handleBannedWords = () => {

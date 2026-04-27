@@ -76,6 +76,7 @@ declare module 'vue' {
     NoteEditorContent: typeof import('./src/components/Editor/NoteEditorContent.vue')['default']
     OutlineAiWorkbenchDialog: typeof import('./src/components/Editor/OutlineAiWorkbenchDialog.vue')['default']
     OutlineManagerDrawer: typeof import('./src/components/Editor/OutlineManagerDrawer.vue')['default']
+    OutlineManagerPanel: typeof import('./src/components/Editor/OutlineManagerPanel.vue')['default']
     RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     ResourceToolPanel: typeof import('./src/components/Map/ResourceToolPanel.vue')['default']

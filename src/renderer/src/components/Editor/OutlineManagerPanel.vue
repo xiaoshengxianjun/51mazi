@@ -1,0 +1,975 @@
+<template>
+  <div class="outline-manager-panel">
+    <div class="outline-layout">
+      <div class="outline-tree-panel">
+        <div class="panel-title">{{ t('outlineManager.outlineDirectory') }}</div>
+        <el-tree
+          ref="treeRef"
+          class="outline-tree"
+          :data="outlineTree"
+          node-key="id"
+          :props="treeProps"
+          :current-node-key="selectedNodeId"
+          default-expand-all
+          highlight-current
+          :expand-on-click-node="false"
+          @node-click="handleNodeClick"
+        />
+      </div>
+
+      <div class="outline-content-panel">
+        <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
+        <div class="outline-action-bar">
+          <div class="footer-left-actions">
+            <el-button
+              type="success"
+              :disabled="!hasSelectedContent"
+              @click="openAiWorkbench('refine')"
+            >
+              {{ t('outlineManager.aiRefine') }}
+            </el-button>
+            <el-button
+              type="success"
+              plain
+              :disabled="!hasSelectedContent"
+              @click="openAiWorkbench('split')"
+            >
+              {{ t('outlineManager.aiSplit') }}
+            </el-button>
+            <el-button
+              type="warning"
+              plain
+              :disabled="!canGenerateChapterFromOutline"
+              @click="openGenerateChapterDialog"
+            >
+              {{ t('outlineManager.aiGenerateChapter') }}
+            </el-button>
+          </div>
+          <div class="footer-right-actions">
+            <el-button
+              v-if="canDeleteSelectedOutline"
+              type="danger"
+              plain
+              @click="handleDeleteSelectedOutline"
+            >
+              {{ t('common.delete') }}
+            </el-button>
+            <el-button type="primary" :loading="isSaving" @click="handleConfirmSave">
+              {{ t('common.save') }}
+            </el-button>
+          </div>
+        </div>
+        <div v-if="autoSaveError" class="footer-save-warning">
+          {{ autoSaveError }}
+        </div>
+        <el-form class="outline-form" label-position="top">
+          <el-form-item>
+            <el-input
+              v-model="selectedNode.title"
+              :placeholder="t('outlineManager.outlineTitlePlaceholder')"
+              :disabled="isRootSelected"
+            />
+          </el-form-item>
+          <el-form-item class="content-form-item">
+            <el-input
+              v-model="selectedNode.content"
+              type="textarea"
+              :placeholder="t('outlineManager.outlineContentPlaceholder')"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+    </div>
+
+    <el-dialog v-model="createDialogVisible" :title="t('outlineManager.addOutline')" width="420px">
+      <el-form label-position="top">
+        <el-form-item :label="t('outlineManager.parentOutlineCategoryLabel')">
+          <el-input :model-value="createOutlineParentCategoryDisplay" disabled />
+        </el-form-item>
+        <el-form-item :label="t('outlineManager.outlineName')">
+          <el-input
+            v-model="newOutlineTitle"
+            :placeholder="t('outlineManager.outlineNamePlaceholder')"
+            clearable
+            @keyup.enter="handleCreateOutline"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button type="primary" @click="handleCreateOutline">
+          {{ t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <OutlineAiWorkbenchDialog
+      ref="outlineAiWorkbenchRef"
+      :book-name="props.bookName"
+      :selected-node="selectedNode"
+      :selected-node-id="selectedNodeId"
+      :apply-draft="applyOutlineAiDraft"
+      :undo-draft="undoOutlineAiDraft"
+    />
+
+    <el-dialog
+      v-model="generateChapterDialogVisible"
+      :title="t('outlineManager.generateChapterDialogTitle')"
+      width="560px"
+      :close-on-click-modal="!generateChapterLoading"
+      :close-on-press-escape="!generateChapterLoading"
+      :show-close="!generateChapterLoading"
+    >
+      <el-form label-position="top">
+        <el-form-item :label="t('outlineManager.targetVolumeLabel')">
+          <el-select
+            v-model="targetVolumeName"
+            :disabled="generateChapterLoading"
+            :placeholder="t('outlineManager.targetVolumePlaceholder')"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="volume in chapterVolumeOptions"
+              :key="volume"
+              :label="volume"
+              :value="volume"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('outlineManager.targetChapterNameLabel')">
+          <el-input
+            v-model="targetChapterName"
+            :disabled="generateChapterLoading"
+            :placeholder="t('outlineManager.targetChapterNamePlaceholder')"
+          />
+        </el-form-item>
+        <el-form-item :label="t('outlineManager.generateChapterRequirementLabel')">
+          <el-input
+            v-model="generateChapterRequirement"
+            type="textarea"
+            :rows="4"
+            :disabled="generateChapterLoading"
+            :placeholder="t('outlineManager.generateChapterRequirementPlaceholder')"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="generateChapterLoading" @click="generateChapterDialogVisible = false">
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="generateChapterLoading"
+          @click="handleGenerateChapterPreview"
+        >
+          {{ t('outlineManager.generateChapterPreview') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="generateChapterResultDialogVisible"
+      :title="t('outlineManager.generateChapterResultTitle')"
+      width="860px"
+      :close-on-click-modal="!chapterUpsertLoading"
+      :close-on-press-escape="!chapterUpsertLoading"
+      :show-close="!chapterUpsertLoading"
+    >
+      <el-input
+        v-model="generatedChapterContent"
+        type="textarea"
+        :rows="18"
+        :disabled="chapterUpsertLoading"
+        :placeholder="t('outlineManager.generateChapterResultPlaceholder')"
+      />
+      <template #footer>
+        <el-button :disabled="chapterUpsertLoading" @click="copyGeneratedChapterContent">
+          {{ t('outlineManager.copyContent') }}
+        </el-button>
+        <el-button
+          :disabled="chapterUpsertLoading"
+          @click="generateChapterResultDialogVisible = false"
+        >
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="chapterUpsertLoading"
+          @click="confirmCreateOrOverwriteChapter"
+        >
+          {{ t('outlineManager.confirmCreateChapter') }}
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { computed, nextTick, onMounted, ref, toRaw, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { genId } from '@renderer/utils/utils'
+import { useI18n } from 'vue-i18n'
+import OutlineAiWorkbenchDialog from './OutlineAiWorkbenchDialog.vue'
+
+const props = defineProps({
+  bookName: {
+    type: String,
+    default: ''
+  }
+})
+const { t } = useI18n()
+
+const ROOT_ID = 'outline-root'
+
+const createDialogVisible = ref(false)
+const newOutlineTitle = ref('')
+const selectedNodeId = ref(ROOT_ID)
+const isLoadingOutline = ref(false)
+const isSaving = ref(false)
+const autoSaveError = ref('')
+const generateChapterDialogVisible = ref(false)
+const generateChapterResultDialogVisible = ref(false)
+const generateChapterLoading = ref(false)
+const chapterUpsertLoading = ref(false)
+const chapterVolumeOptions = ref([])
+const targetVolumeName = ref('')
+const targetChapterName = ref('')
+const generateChapterRequirement = ref('')
+const generatedChapterContent = ref('')
+
+const treeRef = ref(null)
+const outlineAiWorkbenchRef = ref(null)
+
+const outlineTree = ref([
+  {
+    id: ROOT_ID,
+    title: t('outlineManager.rootTitle'),
+    content: '',
+    children: []
+  }
+])
+
+const treeProps = {
+  children: 'children',
+  label: 'title'
+}
+
+const selectedNode = computed(() => {
+  const node = findNodeById(outlineTree.value, selectedNodeId.value)
+  return node || outlineTree.value[0]
+})
+
+const isRootSelected = computed(() => selectedNodeId.value === ROOT_ID)
+const canDeleteSelectedOutline = computed(
+  () =>
+    selectedNodeId.value !== ROOT_ID &&
+    Boolean(findNodeById(outlineTree.value, selectedNodeId.value))
+)
+const hasSelectedContent = computed(() => Boolean(String(selectedNode.value?.content || '').trim()))
+const canGenerateChapterFromOutline = computed(
+  () => hasSelectedContent.value && !isRootSelected.value
+)
+
+const createOutlineParentCategoryDisplay = computed(() => {
+  const raw = String(selectedNode.value?.title || '').trim()
+  return raw || t('outlineManager.unnamedOutline')
+})
+
+function normalizeOutlineTree(rawData) {
+  const children = Array.isArray(rawData?.children) ? rawData.children : []
+  return [
+    {
+      id: ROOT_ID,
+      title: t('outlineManager.rootTitle'),
+      content: typeof rawData?.content === 'string' ? rawData.content : '',
+      children
+    }
+  ]
+}
+
+async function loadOutlineData() {
+  if (!props.bookName) return
+  isLoadingOutline.value = true
+  try {
+    const parsed = await window.electron.readOutlines(props.bookName)
+    if (!parsed) {
+      outlineTree.value = normalizeOutlineTree(null)
+      return
+    }
+    outlineTree.value = normalizeOutlineTree(parsed)
+  } catch (err) {
+    console.error('加载大纲失败:', err)
+    outlineTree.value = normalizeOutlineTree(null)
+  } finally {
+    isLoadingOutline.value = false
+  }
+}
+
+async function saveOutlineData() {
+  if (!props.bookName) return
+  try {
+    const root = outlineTree.value[0]
+    const plainChildren = JSON.parse(JSON.stringify(toRaw(root?.children ?? [])))
+    const payload = {
+      content: root?.content ?? '',
+      children: plainChildren
+    }
+    const result = await window.electron.writeOutlines(props.bookName, payload)
+    if (result && result.success === false) {
+      throw new Error(result.message || t('outlineManager.saveFailed'))
+    }
+    autoSaveError.value = ''
+    return true
+  } catch (err) {
+    console.error('保存大纲失败:', err)
+    throw err
+  }
+}
+
+let saveTimer = null
+function scheduleSave() {
+  if (isLoadingOutline.value) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    try {
+      await saveOutlineData()
+    } catch {
+      autoSaveError.value = t('outlineManager.autoSaveFailedVisible')
+      ElMessage.error(autoSaveError.value)
+    }
+  }, 250)
+}
+
+async function handleConfirmSave(options = {}) {
+  const { silentSuccess = false } = options
+  if (!props.bookName) return
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  isSaving.value = true
+  try {
+    await saveOutlineData()
+    if (!silentSuccess) {
+      ElMessage.success(t('outlineManager.saved'))
+    }
+    return true
+  } catch {
+    ElMessage.error(t('outlineManager.saveFailed'))
+    return false
+  } finally {
+    isSaving.value = false
+  }
+}
+
+function handleNodeClick(node) {
+  selectedNodeId.value = node.id
+}
+
+function openCreateDialog() {
+  createDialogVisible.value = true
+  newOutlineTitle.value = ''
+}
+
+function openAiWorkbench(mode) {
+  outlineAiWorkbenchRef.value?.open(mode)
+}
+
+async function loadVolumeOptions() {
+  if (!props.bookName || !window.electron?.loadChapters) {
+    chapterVolumeOptions.value = []
+    return
+  }
+  try {
+    const chaptersTree = await window.electron.loadChapters(props.bookName)
+    const volumes = Array.isArray(chaptersTree)
+      ? chaptersTree
+          .filter((item) => item?.type === 'volume' && item?.name)
+          .map((item) => String(item.name).trim())
+          .filter(Boolean)
+      : []
+    chapterVolumeOptions.value = volumes
+  } catch (error) {
+    console.error('加载卷列表失败:', error)
+    chapterVolumeOptions.value = []
+  }
+}
+
+async function openGenerateChapterDialog() {
+  if (!canGenerateChapterFromOutline.value) return
+  await loadVolumeOptions()
+  if (!chapterVolumeOptions.value.length) {
+    ElMessage.warning(t('outlineManager.targetVolumeEmpty'))
+    return
+  }
+  targetVolumeName.value = chapterVolumeOptions.value[0]
+  targetChapterName.value = String(selectedNode.value?.title || '').trim()
+  generateChapterRequirement.value = ''
+  generatedChapterContent.value = ''
+  generateChapterDialogVisible.value = true
+}
+
+const PREV_CHAPTER_TAIL_MAX = 2800
+async function loadPreviousChapterExcerptForAi() {
+  const bookName = String(props.bookName || '').trim()
+  const volumeName = String(targetVolumeName.value || '').trim()
+  const targetName = String(targetChapterName.value || '').trim()
+  if (!bookName || !volumeName || !targetName) return ''
+  if (!window.electron?.loadChapters || !window.electron?.readChapter) return ''
+  try {
+    const tree = await window.electron.loadChapters(bookName)
+    const vol = Array.isArray(tree)
+      ? tree.find((v) => v?.type === 'volume' && String(v.name).trim() === volumeName)
+      : null
+    const list = (vol?.children || []).filter((c) => c?.type === 'chapter' && c?.name)
+    if (list.length < 2) return ''
+    const idx = list.findIndex((c) => String(c.name).trim() === targetName)
+    if (idx <= 0) return ''
+    const prev = list[idx - 1]
+    const prevName = prev?.name != null ? String(prev.name).trim() : ''
+    if (!prevName) return ''
+    const res = await window.electron.readChapter(bookName, volumeName, prevName)
+    if (!res?.success || res.content == null) return ''
+    let text = String(res.content).trim().replace(/\r\n/g, '\n')
+    if (!text) return ''
+    if (text.length > PREV_CHAPTER_TAIL_MAX) {
+      text = `…\n${text.slice(-PREV_CHAPTER_TAIL_MAX)}`
+    }
+    return text
+  } catch {
+    return ''
+  }
+}
+
+async function handleGenerateChapterPreview() {
+  const outlineContent = String(selectedNode.value?.content || '').trim()
+  if (!outlineContent) {
+    ElMessage.warning(t('outlineManager.cannotGenerateChapterEmpty'))
+    return
+  }
+  if (!targetVolumeName.value) {
+    ElMessage.warning(t('outlineManager.targetVolumeRequired'))
+    return
+  }
+  const chapterName = String(targetChapterName.value || '').trim()
+  if (!chapterName) {
+    ElMessage.warning(t('outlineManager.targetChapterNameRequired'))
+    return
+  }
+  if (!window.electron?.generateChapterFromOutline) {
+    ElMessage.error(t('outlineManager.aiUnsupported'))
+    return
+  }
+
+  generateChapterLoading.value = true
+  try {
+    let targetWords = 2000
+    if (window.electron?.getChapterSettings) {
+      const settingsRes = await window.electron.getChapterSettings(props.bookName)
+      targetWords = Number(settingsRes?.targetWords) || targetWords
+    }
+
+    const previousChapterExcerpt = await loadPreviousChapterExcerptForAi()
+    const result = await window.electron.generateChapterFromOutline({
+      bookName: String(props.bookName || '').trim(),
+      outlineTitle: String(selectedNode.value?.title || '').trim(),
+      outlineContent,
+      userRequirement: String(generateChapterRequirement.value || '').trim(),
+      targetWords,
+      previousChapterExcerpt
+    })
+    if (!result?.success) {
+      throw new Error(result?.message || t('outlineManager.generateChapterFailed'))
+    }
+    const content = String(result.content || '').trim()
+    if (!content) {
+      throw new Error(t('outlineManager.aiEmptyResult'))
+    }
+    generatedChapterContent.value = content
+    generateChapterDialogVisible.value = false
+    generateChapterResultDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(error?.message || t('outlineManager.generateChapterFailed'))
+  } finally {
+    generateChapterLoading.value = false
+  }
+}
+
+async function copyGeneratedChapterContent() {
+  if (!generatedChapterContent.value) return
+  try {
+    await navigator.clipboard.writeText(generatedChapterContent.value)
+    ElMessage.success(t('outlineManager.copiedToClipboard'))
+  } catch {
+    ElMessage.error(t('outlineManager.copyFailed'))
+  }
+}
+
+async function confirmCreateOrOverwriteChapter() {
+  const chapterName = String(targetChapterName.value || '').trim()
+  const content = String(generatedChapterContent.value || '').trim()
+  if (!targetVolumeName.value || !chapterName || !content) {
+    ElMessage.warning(t('outlineManager.generateChapterParamsInvalid'))
+    return
+  }
+  if (!window.electron?.checkChapterExists || !window.electron?.upsertChapter) {
+    ElMessage.error(t('outlineManager.generateChapterUnsupported'))
+    return
+  }
+
+  chapterUpsertLoading.value = true
+  try {
+    const checkRes = await window.electron.checkChapterExists({
+      bookName: props.bookName,
+      volumeName: targetVolumeName.value,
+      chapterName
+    })
+    if (!checkRes?.success) {
+      throw new Error(checkRes?.message || t('outlineManager.generateChapterCheckFailed'))
+    }
+
+    let overwrite = false
+    if (checkRes.exists) {
+      await ElMessageBox.confirm(
+        t('outlineManager.chapterExistsOverwriteConfirm', { chapter: chapterName }),
+        t('outlineManager.chapterExistsOverwriteTitle'),
+        {
+          confirmButtonText: t('outlineManager.confirmOverwrite'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      )
+      overwrite = true
+    }
+
+    const upsertRes = await window.electron.upsertChapter({
+      bookName: props.bookName,
+      volumeName: targetVolumeName.value,
+      chapterName,
+      content,
+      overwrite
+    })
+    if (!upsertRes?.success) {
+      throw new Error(upsertRes?.message || t('outlineManager.generateChapterWriteFailed'))
+    }
+
+    window.dispatchEvent(new CustomEvent('refresh-chapters-requested'))
+    generateChapterResultDialogVisible.value = false
+    ElMessage.success(
+      overwrite
+        ? t('outlineManager.chapterOverwriteSuccess', { chapter: chapterName })
+        : t('outlineManager.chapterCreateSuccess', { chapter: chapterName })
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    ElMessage.error(error?.message || t('outlineManager.generateChapterWriteFailed'))
+  } finally {
+    chapterUpsertLoading.value = false
+  }
+}
+
+async function setCurrentNode(nodeId) {
+  selectedNodeId.value = nodeId
+  await nextTick()
+  treeRef.value?.setCurrentKey?.(nodeId)
+  const treeEl = treeRef.value?.$el
+  const currentEl = treeEl?.querySelector?.('.el-tree-node.is-current > .el-tree-node__content')
+  currentEl?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+}
+
+function cloneNodeSnapshot(node) {
+  return {
+    title: node?.title ?? '',
+    content: node?.content ?? '',
+    children: JSON.parse(JSON.stringify(toRaw(node?.children ?? [])))
+  }
+}
+
+function restoreNodeSnapshot(node, snapshot) {
+  if (!node || !snapshot) return
+  if (node.id !== ROOT_ID) {
+    node.title = snapshot.title ?? node.title
+  }
+  node.content = snapshot.content ?? ''
+  node.children = JSON.parse(JSON.stringify(snapshot.children ?? []))
+}
+
+async function applyOutlineAiDraft(payload) {
+  const node = findNodeById(outlineTree.value, payload?.nodeId)
+  if (!node) {
+    return {
+      success: false,
+      message: t('outlineManager.workbenchNodeNotFound')
+    }
+  }
+
+  const undoSnapshot = {
+    nodeId: payload.nodeId,
+    snapshot: cloneNodeSnapshot(node)
+  }
+
+  if (payload.taskType === 'split') {
+    const items = Array.isArray(payload.items) ? payload.items : []
+    const createdNodes = items.map((item) => ({
+      id: genId(),
+      title: String(item.title || '').trim() || t('outlineManager.unnamedOutline'),
+      content: String(item.content || '').trim(),
+      children: []
+    }))
+
+    if (!node.children) {
+      node.children = []
+    }
+
+    if (payload.action === 'replace-with-children') {
+      node.content = ''
+      node.children = createdNodes
+    } else {
+      node.children.push(...createdNodes)
+    }
+
+    if (createdNodes[0]) {
+      await setCurrentNode(createdNodes[0].id)
+    }
+  } else {
+    const content = String(payload.content || '').trim()
+    if (payload.action === 'append') {
+      node.content = [String(node.content || '').trim(), content].filter(Boolean).join('\n\n')
+    } else if (payload.action === 'create-child') {
+      if (!node.children) {
+        node.children = []
+      }
+      const childNode = {
+        id: genId(),
+        title: `${String(node.title || t('outlineManager.rootTitle')).trim()} - AI`,
+        content,
+        children: []
+      }
+      node.children.push(childNode)
+      await setCurrentNode(childNode.id)
+    } else {
+      node.content = content
+    }
+  }
+
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (!saved) {
+    restoreNodeSnapshot(node, undoSnapshot.snapshot)
+    return {
+      success: false,
+      message: t('outlineManager.workbenchApplyFailed')
+    }
+  }
+
+  return {
+    success: true,
+    undoSnapshot
+  }
+}
+
+async function undoOutlineAiDraft(payload) {
+  const node = findNodeById(outlineTree.value, payload?.nodeId)
+  if (!node) {
+    return {
+      success: false,
+      message: t('outlineManager.workbenchNodeNotFound')
+    }
+  }
+
+  restoreNodeSnapshot(node, payload.snapshot)
+  await setCurrentNode(payload.nodeId)
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (!saved) {
+    return {
+      success: false,
+      message: t('outlineManager.undoLastAiApplyFailed')
+    }
+  }
+
+  return {
+    success: true
+  }
+}
+
+function removeNodeById(nodes, targetId) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]
+    if (node.id === targetId) {
+      nodes.splice(i, 1)
+      return true
+    }
+    if (node.children?.length && removeNodeById(node.children, targetId)) {
+      return true
+    }
+  }
+  return false
+}
+
+function findParentNodeById(nodes, targetId, parent = null) {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return parent
+    }
+    if (node.children?.length) {
+      const found = findParentNodeById(node.children, targetId, node)
+      if (found !== undefined) {
+        return found
+      }
+    }
+  }
+  return undefined
+}
+
+async function handleDeleteSelectedOutline() {
+  if (!canDeleteSelectedOutline.value) return
+
+  const current = selectedNode.value
+  const currentId = selectedNodeId.value
+  const parentNode = findParentNodeById(outlineTree.value, currentId)
+  const nextSelectedId = parentNode?.id || ROOT_ID
+
+  try {
+    await ElMessageBox.confirm(
+      t('outlineManager.deleteConfirmMessage', {
+        title: current.title || t('outlineManager.unnamedOutline')
+      }),
+      t('outlineManager.deleteConfirmTitle'),
+      {
+        confirmButtonText: t('outlineManager.confirmDelete'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+  } catch {
+    return
+  }
+
+  const removed = removeNodeById(outlineTree.value, currentId)
+  if (!removed) {
+    ElMessage.error(t('outlineManager.deleteFailedNotFound'))
+    return
+  }
+
+  await setCurrentNode(nextSelectedId)
+  const saved = await handleConfirmSave({ silentSuccess: true })
+  if (saved) {
+    ElMessage.success(t('outlineManager.deleteSuccess'))
+  }
+}
+
+function handleCreateOutline() {
+  const title = newOutlineTitle.value.trim()
+  if (!title) {
+    ElMessage.warning(t('outlineManager.inputOutlineName'))
+    return
+  }
+
+  const parentNode = selectedNode.value
+  if (!parentNode.children) {
+    parentNode.children = []
+  }
+
+  const childNode = {
+    id: genId(),
+    title,
+    content: '',
+    children: []
+  }
+
+  parentNode.children.push(childNode)
+  setCurrentNode(childNode.id)
+  createDialogVisible.value = false
+  newOutlineTitle.value = ''
+}
+
+function findNodeById(nodes, id) {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node
+    }
+    if (node.children?.length) {
+      const found = findNodeById(node.children, id)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
+
+watch(
+  () => props.bookName,
+  async () => {
+    if (!props.bookName) return
+    await loadOutlineData()
+    await setCurrentNode(ROOT_ID)
+  }
+)
+
+watch(
+  outlineTree,
+  () => {
+    scheduleSave()
+  },
+  { deep: true }
+)
+
+onMounted(async () => {
+  if (!props.bookName) return
+  await loadOutlineData()
+  await setCurrentNode(ROOT_ID)
+})
+
+defineExpose({
+  openCreateDialog
+})
+</script>
+
+<style lang="scss" scoped>
+.outline-manager-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.outline-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 18px;
+  padding: 2px;
+}
+
+.outline-tree-panel {
+  width: 260px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 12px;
+  background: var(--bg-soft);
+  overflow: auto;
+}
+
+.outline-content-panel {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--bg-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-title {
+  font-size: 15px;
+  color: var(--text-base);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.outline-tree {
+  background: transparent;
+}
+
+.outline-action-bar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.footer-left-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.footer-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-save-warning {
+  font-size: 12px;
+  color: var(--el-color-danger);
+  margin-bottom: 12px;
+}
+
+.outline-tree-panel :deep(.el-tree-node__expand-icon) {
+  visibility: hidden;
+  width: 0;
+  margin-right: 0;
+}
+
+.outline-tree-panel :deep(.el-tree-node__content) {
+  height: 34px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.outline-tree-panel :deep(.el-tree-node:focus > .el-tree-node__content),
+.outline-tree-panel :deep(.el-tree-node__content:hover) {
+  background: transparent;
+}
+
+.outline-tree-panel :deep(.el-tree-node__content:hover) {
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+}
+
+.outline-tree-panel :deep(.el-tree-node:focus > .el-tree-node__content) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--el-color-primary) 35%, transparent);
+}
+
+.outline-tree-panel
+  :deep(.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content) {
+  background: color-mix(in srgb, var(--el-color-primary) 14%, transparent);
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
+.outline-content-panel :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.outline-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.content-form-item {
+  flex: 1;
+  margin-bottom: 0 !important;
+}
+
+.content-form-item :deep(.el-form-item__content) {
+  height: 100%;
+}
+
+.content-form-item :deep(.el-textarea) {
+  height: 100%;
+}
+
+.outline-content-panel :deep(.el-form-item__label) {
+  color: var(--text-base);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.outline-content-panel :deep(.el-textarea__inner) {
+  height: 100%;
+  resize: none;
+}
+</style>

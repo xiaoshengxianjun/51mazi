@@ -37,6 +37,11 @@ const routes = [
     component: () => import('@renderer/views/SettingManager.vue')
   },
   {
+    path: '/outline-manager',
+    name: 'OutlineManager',
+    component: () => import('@renderer/views/OutlineManager.vue')
+  },
+  {
     path: '/map-list',
     name: 'MapList',
     component: () => import('@renderer/views/MapList.vue')
