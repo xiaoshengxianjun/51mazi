@@ -9,6 +9,7 @@ import pkg from 'electron-updater'
 import deepseekService from './services/deepseek.js'
 import outlineAiService from './services/outlineAi.js'
 import outlineChapterAiService from './services/outlineChapterAi.js'
+import settingAiService from './services/settingAi.js'
 import tongyiwanxiangService from './services/tongyiwanxiang.js'
 import {
   generateImageBuffer as generateImageBufferByProvider,
@@ -3544,6 +3545,21 @@ ipcMain.handle('deepseek:outline-task', async (_, payload) => {
     return {
       success: false,
       message: error.message || 'AI 大纲任务失败'
+    }
+  }
+})
+
+ipcMain.handle('deepseek:refine-setting', async (_, payload) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const result = await settingAiService.refineSetting(payload || {})
+    return { success: true, ...result }
+  } catch (error) {
+    console.error('AI 完善设定失败:', error)
+    return {
+      success: false,
+      message: error.message || 'AI 完善设定失败',
+      content: ''
     }
   }
 })

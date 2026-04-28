@@ -264,6 +264,8 @@ const customElectronAPI = {
   validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
   // AI 润色段落（编辑器内使用）
   polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
+  // AI 完善设定（设定管理）
+  refineSettingWithAI: (payload) => ipcRenderer.invoke('deepseek:refine-setting', payload),
   // AI 大纲工作台：完善/拆分/继续调整
   runOutlineAiTask: (payload) => ipcRenderer.invoke('deepseek:outline-task', payload),
   // AI 章纲 -> 章节正文
