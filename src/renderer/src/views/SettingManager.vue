@@ -28,12 +28,15 @@
             class="category-tree"
             :data="categories"
             node-key="id"
+            draggable
             default-expand-all
             highlight-current
             :current-node-key="activeCategoryId"
             :expand-on-click-node="false"
             :props="treeProps"
+            :allow-drop="allowCategoryDrop"
             @node-click="handleCategorySelect"
+            @node-drop="handleCategoryDrop"
           >
             <template #default="{ data }">
               <div class="category-tree-node" :class="{ active: data.id === activeCategoryId }">
@@ -72,9 +75,6 @@
               <h3 class="panel-title">
                 {{ currentCategory?.name || t('settingManager.noCategory') }}
               </h3>
-              <p class="panel-description">
-                {{ currentCategoryPath || t('settingManager.pageDescription') }}
-              </p>
             </div>
             <el-tag v-if="currentCategory" :type="isLeafCategory ? 'success' : 'info'">
               {{
@@ -99,32 +99,43 @@
             :closable="false"
           />
 
-          <el-table :data="currentItems" border style="width: 100%" :empty-text="settingEmptyText">
-            <el-table-column prop="name" :label="t('settingManager.settingName')" min-width="140">
-              <template #default="{ row }">
-                <span class="setting-name">{{ row.name }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="introduction"
-              :label="t('settingManager.settingIntroduction')"
-              min-width="300"
+          <div class="setting-table-wrapper">
+            <el-table
+              ref="tableRef"
+              :data="currentItems"
+              row-key="id"
+              border
+              style="width: 100%"
+              :empty-text="settingEmptyText"
             >
-              <template #default="{ row }">
-                <div class="setting-introduction">{{ row.introduction }}</div>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('settingManager.actions')" width="160" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" @click="handleEditItem(row)">
-                  {{ t('common.edit') }}
-                </el-button>
-                <el-button size="small" type="danger" @click="handleDeleteItem(row)">
-                  {{ t('common.delete') }}
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+              <el-table-column prop="name" :label="t('settingManager.settingName')" min-width="90">
+                <template #default="{ row }">
+                  <span class="setting-name">{{ row.name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="introduction"
+                :label="t('settingManager.settingIntroduction')"
+                min-width="300"
+              >
+                <template #default="{ row }">
+                  <div class="setting-introduction">{{ row.introduction }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('settingManager.actions')" width="96" fixed="right">
+                <template #default="{ row }">
+                  <div class="setting-action-column">
+                    <el-button size="small" @click="handleEditItem(row)">
+                      {{ t('common.edit') }}
+                    </el-button>
+                    <el-button size="small" type="danger" @click="handleDeleteItem(row)">
+                      {{ t('common.delete') }}
+                    </el-button>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </section>
       </div>
     </template>
@@ -194,12 +205,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, toRaw } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { genId } from '@renderer/utils/utils'
+import Sortable from 'sortablejs'
 
 const DEFAULT_CATEGORY_ID = 'default'
 
@@ -220,6 +232,8 @@ const isEditingCategory = ref(false)
 const isEditingItem = ref(false)
 const categoryFormRef = ref(null)
 const settingFormRef = ref(null)
+const tableRef = ref(null)
+const itemSortable = ref(null)
 
 const categoryForm = reactive({
   id: '',
@@ -287,11 +301,6 @@ const currentItems = computed(() => {
 const currentCategorySettingCount = computed(() => {
   if (!currentCategory.value) return 0
   return getCategorySettingCount(currentCategory.value)
-})
-
-const currentCategoryPath = computed(() => {
-  if (!currentCategory.value) return ''
-  return getCategoryPath(categories.value, currentCategory.value.id).join(' / ')
 })
 
 const settingEmptyText = computed(() => {
@@ -362,18 +371,6 @@ function findCategoryById(nodes, id) {
   return null
 }
 
-function getCategoryPath(nodes, id, path = []) {
-  for (const node of nodes) {
-    const nextPath = [...path, node.name]
-    if (node.id === id) return nextPath
-
-    const childPath = getCategoryPath(node.children || [], id, nextPath)
-    if (childPath.length) return childPath
-  }
-
-  return []
-}
-
 function isCategoryInSubtree(category, targetId) {
   if (!category) return false
   if (category.id === targetId) return true
@@ -388,6 +385,24 @@ function removeCategoryFromTree(nodes, targetId) {
   }
 
   return nodes.some((node) => removeCategoryFromTree(node.children || [], targetId))
+}
+
+function findParentAndIndexById(nodes, id, parent = null) {
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index]
+    if (node.id === id) {
+      return {
+        parent,
+        list: nodes,
+        index
+      }
+    }
+
+    const childResult = findParentAndIndexById(node.children || [], id, node)
+    if (childResult) return childResult
+  }
+
+  return null
 }
 
 function getCategorySettingCount(category) {
@@ -479,6 +494,41 @@ function handleEditCategory(category) {
 
 function handleCategorySelect(category) {
   activeCategoryId.value = category.id
+}
+
+function allowCategoryDrop(draggingNode, dropNode, type) {
+  if (!draggingNode || !dropNode) return false
+  if (dropNode.data?.id === DEFAULT_CATEGORY_ID && type === 'before') return false
+  if (type !== 'inner') return true
+  return !dropNode.data?.items?.length
+}
+
+async function handleCategoryDrop(draggingNode, dropNode, dropType) {
+  const draggingCategory = draggingNode?.data
+  const targetCategory = dropNode?.data
+  if (!draggingCategory || !targetCategory || draggingCategory.id === targetCategory.id) return
+
+  const source = findParentAndIndexById(categories.value, draggingCategory.id)
+  if (!source) return
+  const [movedCategory] = source.list.splice(source.index, 1)
+  if (!movedCategory) return
+
+  const target = findParentAndIndexById(categories.value, targetCategory.id)
+  if (!target) return
+
+  if (dropType === 'inner') {
+    if (!Array.isArray(targetCategory.children)) targetCategory.children = []
+    targetCategory.children.push(movedCategory)
+  } else {
+    const insertIndex = dropType === 'before' ? target.index : target.index + 1
+    target.list.splice(insertIndex, 0, movedCategory)
+  }
+
+  try {
+    await saveSettings()
+  } catch {
+    await loadSettings()
+  }
 }
 
 async function confirmSaveCategory() {
@@ -635,8 +685,58 @@ async function handleDeleteItem(item) {
   }
 }
 
-onMounted(() => {
-  loadSettings()
+function destroyItemSortable() {
+  if (itemSortable.value && typeof itemSortable.value.destroy === 'function') {
+    itemSortable.value.destroy()
+  }
+  itemSortable.value = null
+}
+
+function initItemSortable() {
+  destroyItemSortable()
+  if (!isLeafCategory.value || !tableRef.value) return
+
+  const tableEl = tableRef.value?.$el
+  const tbody = tableEl?.querySelector('.el-table__body-wrapper tbody')
+  if (!tbody) return
+
+  itemSortable.value = Sortable.create(tbody, {
+    animation: 180,
+    onEnd: async ({ oldIndex, newIndex }) => {
+      if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return
+      const items = currentCategory.value?.items
+      if (!Array.isArray(items)) return
+
+      const movedItem = items.splice(oldIndex, 1)[0]
+      if (!movedItem) return
+      items.splice(newIndex, 0, movedItem)
+
+      try {
+        await saveSettings()
+      } catch {
+        // 保存失败提示在 saveSettings 内处理
+      }
+    }
+  })
+}
+
+watch(
+  () => [activeCategoryId.value, currentItems.value.length, isLeafCategory.value],
+  () => {
+    nextTick(() => {
+      initItemSortable()
+    })
+  }
+)
+
+onMounted(async () => {
+  await loadSettings()
+  await nextTick()
+  initItemSortable()
+})
+
+onBeforeUnmount(() => {
+  destroyItemSortable()
 })
 </script>
 
@@ -780,6 +880,9 @@ onMounted(() => {
 }
 
 .setting-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -789,12 +892,19 @@ onMounted(() => {
   border-radius: 6px;
   background: var(--bg-soft);
   color: var(--text-base);
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.5;
   white-space: pre-wrap;
 }
 
 .leaf-only-alert {
   margin-bottom: 16px;
+}
+
+.setting-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .setting-name {
@@ -806,5 +916,15 @@ onMounted(() => {
   color: var(--text-base);
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.setting-action-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  .el-button {
+    margin-left: 0;
+  }
 }
 </style>
