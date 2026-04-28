@@ -18,9 +18,9 @@
       </div>
 
       <div class="outline-content-panel">
-        <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
-        <div class="outline-action-bar">
-          <div class="footer-left-actions">
+        <div class="content-panel-header">
+          <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
+          <div class="header-right-actions">
             <el-button
               type="success"
               :disabled="!hasSelectedContent"
@@ -44,20 +44,20 @@
             >
               {{ t('outlineManager.aiGenerateChapter') }}
             </el-button>
-          </div>
-          <div class="footer-right-actions">
-            <el-button
-              v-if="canDeleteSelectedOutline"
-              type="danger"
-              plain
-              @click="handleDeleteSelectedOutline"
-            >
-              {{ t('common.delete') }}
-            </el-button>
             <el-button type="primary" :loading="isSaving" @click="handleConfirmSave">
               {{ t('common.save') }}
             </el-button>
           </div>
+        </div>
+        <div class="content-ops-row">
+          <el-button
+            v-if="canDeleteSelectedOutline"
+            type="danger"
+            plain
+            @click="handleDeleteSelectedOutline"
+          >
+            {{ t('common.delete') }}
+          </el-button>
         </div>
         <div v-if="autoSaveError" class="footer-save-warning">
           {{ autoSaveError }}
@@ -858,6 +858,7 @@ defineExpose({
 .outline-content-panel {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 14px 16px;
@@ -870,34 +871,36 @@ defineExpose({
   font-size: 15px;
   color: var(--text-base);
   font-weight: 600;
-  margin-bottom: 14px;
+  margin: 0;
 }
 
 .outline-tree {
   background: transparent;
 }
 
-.outline-action-bar {
+.content-panel-header {
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.footer-left-actions {
+.header-right-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
-.footer-right-actions {
+.content-ops-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  min-height: 8px;
+  margin-bottom: 6px;
 }
 
 .footer-save-warning {

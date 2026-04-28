@@ -30,6 +30,7 @@ function handleCreateOutline() {
 
 <style lang="scss" scoped>
 .outline-manager-page {
-  height: calc(100vh - 140px);
+  height: 100%;
+  min-height: 0;
 }
 </style>
