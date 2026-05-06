@@ -50,7 +50,7 @@
     :title="isAddMode ? t('relationshipDesign.addNodeTitle') : t('relationshipDesign.editNodeTitle')"
     width="500px"
   >
-    <el-form label-width="80px">
+    <el-form label-width="80px" @submit.prevent="saveNodeInfo">
       <el-form-item :label="t('relationshipDesign.nodeText')">
         <el-select
           v-model="infoForm.characterId"
@@ -126,7 +126,7 @@
 
   <!-- 连线编辑弹框 -->
   <el-dialog v-model="edgeDialogVisible" :title="t('relationshipDesign.editEdgeTitle')" width="400px">
-    <el-form label-width="80px">
+    <el-form label-width="80px" @submit.prevent="saveEdgeInfo">
       <el-form-item :label="t('relationshipDesign.edgeDescription')">
         <el-input
           v-model="edgeForm.text"

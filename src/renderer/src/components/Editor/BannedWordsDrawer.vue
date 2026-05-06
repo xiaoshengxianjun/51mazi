@@ -13,7 +13,7 @@
         v-model="newWord"
         :placeholder="t('bannedWords.inputPlaceholder')"
         clearable
-        @keyup.enter="handleAddWord"
+        @keyup.enter.prevent="handleAddWord"
       />
       <el-button type="primary" @click="handleAddWord">{{ t('bannedWords.add') }}</el-button>
     </div>

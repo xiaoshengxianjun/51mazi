@@ -157,7 +157,13 @@
     width="420px"
     @close="resetCategoryForm"
   >
-    <el-form ref="categoryFormRef" :model="categoryForm" :rules="categoryRules" label-width="90px">
+    <el-form
+      ref="categoryFormRef"
+      :model="categoryForm"
+      :rules="categoryRules"
+      label-width="90px"
+      @submit.prevent="confirmSaveCategory"
+    >
       <el-form-item :label="t('settingManager.categoryName')" prop="name">
         <el-input
           v-model="categoryForm.name"
@@ -187,7 +193,13 @@
     width="620px"
     @close="resetSettingForm"
   >
-    <el-form ref="settingFormRef" :model="settingForm" :rules="settingRules" label-width="90px">
+    <el-form
+      ref="settingFormRef"
+      :model="settingForm"
+      :rules="settingRules"
+      label-width="90px"
+      @submit.prevent="confirmSaveItem"
+    >
       <el-form-item :label="t('settingManager.settingName')" prop="name">
         <el-input
           v-model="settingForm.name"
@@ -219,7 +231,7 @@
     :close-on-press-escape="!aiRefining"
     :show-close="!aiRefining"
   >
-    <el-form label-position="top">
+    <el-form label-position="top" @submit.prevent="handleRunAiRefine">
       <el-form-item :label="t('settingManager.aiRefineRequirement')">
         <el-input
           v-model="aiRefineRequirement"

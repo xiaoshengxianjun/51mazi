@@ -62,7 +62,7 @@
         <div v-if="autoSaveError" class="footer-save-warning">
           {{ autoSaveError }}
         </div>
-        <el-form class="outline-form" label-position="top">
+        <el-form class="outline-form" label-position="top" @submit.prevent>
           <el-form-item>
             <el-input
               v-model="selectedNode.title"
@@ -82,7 +82,7 @@
     </div>
 
     <el-dialog v-model="createDialogVisible" :title="t('outlineManager.addOutline')" width="420px">
-      <el-form label-position="top">
+      <el-form label-position="top" @submit.prevent="handleCreateOutline">
         <el-form-item :label="t('outlineManager.parentOutlineCategoryLabel')">
           <el-input :model-value="createOutlineParentCategoryDisplay" disabled />
         </el-form-item>
@@ -91,7 +91,7 @@
             v-model="newOutlineTitle"
             :placeholder="t('outlineManager.outlineNamePlaceholder')"
             clearable
-            @keyup.enter="handleCreateOutline"
+            @keydown.enter.prevent="handleCreateOutline"
           />
         </el-form-item>
       </el-form>
@@ -122,7 +122,7 @@
       :close-on-press-escape="!generateChapterLoading"
       :show-close="!generateChapterLoading"
     >
-      <el-form label-position="top">
+      <el-form label-position="top" @submit.prevent="handleGenerateChapterPreview">
         <el-form-item :label="t('outlineManager.targetVolumeLabel')">
           <el-select
             v-model="targetVolumeName"

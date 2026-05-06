@@ -44,7 +44,7 @@
                 size="small"
                 maxlength="20"
                 @click.stop
-                @keyup.enter="confirmEditNote(node)"
+                @keyup.enter.prevent="confirmEditNote(node)"
                 @blur="confirmEditNote(node)"
               />
               <div class="chapter-actions">
@@ -115,7 +115,7 @@
                 size="small"
                 maxlength="20"
                 @click.stop
-                @keyup.enter="confirmEdit(node)"
+                @keyup.enter.prevent="confirmEdit(node)"
                 @blur="confirmEdit(node)"
               />
               <div class="chapter-actions">

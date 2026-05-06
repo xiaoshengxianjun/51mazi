@@ -13,6 +13,7 @@
         :model="passwordForm"
         :rules="passwordRules"
         label-width="100px"
+        @submit.prevent="handleSetPassword"
       >
         <el-form-item :label="t('bookshelfPassword.inputPassword')" prop="password">
           <el-input
@@ -44,6 +45,7 @@
         :model="modifyPasswordForm"
         :rules="modifyPasswordRules"
         label-width="100px"
+        @submit.prevent="handleModifyPassword"
       >
         <el-form-item :label="t('bookshelfPassword.oldPassword')" prop="oldPassword">
           <el-input

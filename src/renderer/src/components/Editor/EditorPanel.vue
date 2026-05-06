@@ -130,7 +130,7 @@
       :close-on-click-modal="false"
       @close="continuePromptDialogVisible = false"
     >
-      <el-form label-width="80px">
+      <el-form label-width="80px" @submit.prevent="confirmContinuePrompt">
         <el-form-item :label="t('editorPanel.continuePrompt')">
           <el-input
             v-model="continuePromptText"

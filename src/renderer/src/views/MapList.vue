@@ -41,7 +41,13 @@
     width="400px"
     :close-on-click-modal="false"
   >
-    <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
+    <el-form
+      ref="createFormRef"
+      :model="createForm"
+      :rules="rules"
+      label-width="80px"
+      @submit.prevent="handleCreateMap"
+    >
       <el-form-item :label="t('mapList.name')" prop="name">
         <el-input
           v-model="createForm.name"

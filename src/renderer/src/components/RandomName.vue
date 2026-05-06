@@ -15,7 +15,7 @@
       </el-menu>
       <!-- 中间规格 -->
       <div class="spec-panel">
-        <el-form label-width="60px">
+        <el-form label-width="60px" @submit.prevent>
           <template v-if="showChineseOptions || showJapaneseOptions || showWesternOptions">
             <el-form-item :label="t('randomName.surname')">
               <el-input

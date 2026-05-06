@@ -25,7 +25,7 @@
             :placeholder="t('searchPanel.find')"
             size="small"
             class="search-input"
-            @keydown.enter="handleSearchEnter"
+            @keydown.enter.prevent.stop="handleSearchEnter"
             @keydown.esc="closePanel"
             @input="onSearchInput"
           />
@@ -89,7 +89,7 @@
               :placeholder="t('searchPanel.replace')"
               size="small"
               class="replace-input"
-              @keydown.enter="replaceCurrent"
+              @keydown.enter.prevent.stop="replaceCurrent"
             />
           </div>
 

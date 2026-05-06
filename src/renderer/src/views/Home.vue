@@ -91,7 +91,7 @@
       :show-close="false"
       @opened="onSystemSettingsOpened"
     >
-      <el-form label-width="100px">
+      <el-form label-width="100px" @submit.prevent="handleConfirmDir">
         <el-form-item :label="t('home.systemSettings.booksDir')" required>
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="18">

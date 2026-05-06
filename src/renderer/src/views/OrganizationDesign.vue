@@ -46,7 +46,7 @@
     width="500px"
     :close-on-click-modal="false"
   >
-    <el-form label-width="80px">
+    <el-form label-width="80px" @submit.prevent="confirmNodeAction">
       <el-form-item :label="t('organizationDesign.nodeName')">
         <el-input v-model="currentForm.text" :placeholder="dialogConfig.namePlaceholder" />
       </el-form-item>

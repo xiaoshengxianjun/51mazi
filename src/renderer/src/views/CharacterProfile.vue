@@ -285,7 +285,13 @@
     footer-class="character-form-drawer__footer"
     @close="resetForm"
   >
-    <el-form ref="formRef" :model="characterForm" :rules="formRules" label-width="100px">
+    <el-form
+      ref="formRef"
+      :model="characterForm"
+      :rules="formRules"
+      label-width="100px"
+      @submit.prevent="confirmSave"
+    >
       <!-- 头像：用于列表/卡片小图 -->
       <el-form-item :label="t('characterProfile.avatar')" class="avatar-form-item">
         <div class="avatar-form-section">

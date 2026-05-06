@@ -60,6 +60,7 @@
         :model="passwordForm"
         :rules="passwordRules"
         label-width="80px"
+        @submit.prevent="handlePasswordConfirm"
       >
         <el-form-item prop="password" :label="t('bookForm.password')">
           <el-input
@@ -68,7 +69,7 @@
             :placeholder="t('bookshelf.passwordPlaceholder')"
             maxlength="8"
             show-password
-            @keyup.enter="handlePasswordConfirm"
+            @keydown.enter.prevent="handlePasswordConfirm"
           />
         </el-form-item>
       </el-form>

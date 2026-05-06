@@ -45,7 +45,13 @@
     width="500px"
     :close-on-click-modal="false"
   >
-    <el-form ref="createFormRef" :model="createForm" :rules="rules" label-width="80px">
+    <el-form
+      ref="createFormRef"
+      :model="createForm"
+      :rules="rules"
+      label-width="80px"
+      @submit.prevent="handleCreateOrganization"
+    >
       <el-form-item :label="t('organizationList.name')" prop="name">
         <el-input
           v-model="createForm.name"

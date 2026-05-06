@@ -14,6 +14,7 @@
         :rules="rules"
         label-width="80px"
         class="drawer-form"
+        @submit.prevent="handleConfirm"
       >
         <el-form-item prop="name" :label="t('bookForm.name')">
           <el-input

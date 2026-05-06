@@ -36,7 +36,7 @@
                 :maxlength="20"
                 :autofocus="true"
                 input-style="text-align: center"
-                @keyup.enter="confirmEditTitle(idx)"
+                @keyup.enter.prevent="confirmEditTitle(idx)"
                 @blur="cancelEditTitle"
               />
             </div>
@@ -73,7 +73,7 @@
     width="500px"
     @close="dialogVisible = false"
   >
-    <el-form :model="nodeInfo" label-width="80px">
+    <el-form :model="nodeInfo" label-width="80px" @submit.prevent="confirmAddNode">
       <el-form-item :label="t('timeline.nodeTitle')">
         <el-input v-model="nodeInfo.title" :placeholder="t('timeline.nodeTitlePlaceholder')" clearable />
       </el-form-item>

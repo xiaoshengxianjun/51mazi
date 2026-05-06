@@ -47,7 +47,13 @@
     width="600px"
     @close="resetForm"
   >
-    <el-form ref="formRef" :model="entryForm" :rules="formRules" label-width="80px">
+    <el-form
+      ref="formRef"
+      :model="entryForm"
+      :rules="formRules"
+      label-width="80px"
+      @submit.prevent="confirmSave"
+    >
       <el-form-item :label="t('dictionary.name')" prop="name">
         <el-input
           v-model="entryForm.name"

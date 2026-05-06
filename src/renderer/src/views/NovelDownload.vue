@@ -47,7 +47,7 @@
           clearable
           size="large"
           class="keyword-input"
-          @keyup.enter="handleSearch"
+          @keyup.enter.prevent="handleSearch"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>

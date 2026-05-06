@@ -10,7 +10,7 @@
             :placeholder="t('auth.passwordPlaceholder')"
             size="large"
             clearable
-            @keyup.enter="handleAuthSubmit"
+            @keydown.enter.prevent="handleAuthSubmit"
           />
         </el-form-item>
         <el-form-item>

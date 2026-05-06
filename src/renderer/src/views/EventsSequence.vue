@@ -147,7 +147,13 @@
     width="500px"
     @close="resetForm"
   >
-    <el-form ref="chartFormRef" :model="chartForm" :rules="chartRules" label-width="100px">
+    <el-form
+      ref="chartFormRef"
+      :model="chartForm"
+      :rules="chartRules"
+      label-width="100px"
+      @submit.prevent="createSequenceChart"
+    >
       <el-form-item :label="t('eventsSequence.themeName')" prop="title">
         <el-input
           v-model="chartForm.title"
@@ -172,7 +178,13 @@
     width="500px"
     @close="resetExpandForm"
   >
-    <el-form ref="expandFormRef" :model="expandForm" :rules="expandRules" label-width="120px">
+    <el-form
+      ref="expandFormRef"
+      :model="expandForm"
+      :rules="expandRules"
+      label-width="120px"
+      @submit.prevent="expandCells"
+    >
       <el-form-item :label="t('eventsSequence.expandCount')" prop="cellCount">
         <el-input-number
           v-model="expandForm.cellCount"
@@ -210,7 +222,13 @@
     width="560px"
     @close="resetEventForm"
   >
-    <el-form ref="eventFormRef" :model="eventForm" :rules="eventRules" label-width="100px">
+    <el-form
+      ref="eventFormRef"
+      :model="eventForm"
+      :rules="eventRules"
+      label-width="100px"
+      @submit.prevent="submitEventForm"
+    >
       <el-form-item :label="t('eventsSequence.introduction')" prop="introduction">
         <el-input
           v-model="eventForm.introduction"

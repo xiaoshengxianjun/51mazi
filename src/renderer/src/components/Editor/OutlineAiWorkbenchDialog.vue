@@ -67,7 +67,7 @@
             <el-input :model-value="currentOutlinePreview" type="textarea" :rows="4" readonly />
           </div>
 
-          <el-form label-position="top">
+          <el-form label-position="top" @submit.prevent="handleGenerate">
             <el-form-item :label="t('outlineManager.workbenchBaseSource')">
               <el-radio-group v-model="baseStrategy" :disabled="loading">
                 <el-radio-button label="original">

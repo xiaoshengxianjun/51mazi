@@ -15,6 +15,7 @@
         :rules="rules"
         label-width="100px"
         class="ai-cover-drawer-form"
+        @submit.prevent="handleGenerate"
       >
         <el-row :gutter="16">
           <el-col :span="10">

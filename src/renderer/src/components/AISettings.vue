@@ -10,7 +10,7 @@
   >
     <div class="ai-settings-drawer-inner">
       <div class="ai-settings-drawer-body">
-        <el-form label-width="120px">
+        <el-form label-width="120px" @submit.prevent="handleSave">
           <!-- 文本 AI -->
           <div class="section-heading">{{ t('aiSettings.sectionTextAi') }}</div>
           <div class="config-block">

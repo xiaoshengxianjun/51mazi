@@ -17,6 +17,7 @@
         :rules="formRules"
         label-width="100px"
         class="ai-character-drawer-form"
+        @submit.prevent="handleGenerate"
       >
         <el-form-item v-if="characterName" :label="resolvedSubjectLabel">
           <span class="character-name-tip">{{ characterName }}</span>

@@ -21,6 +21,7 @@
           :rules="formRules"
           label-width="100px"
           class="ai-scene-form"
+          @submit.prevent="handleGenerate"
         >
           <template v-if="providersLoaded">
             <el-form-item v-if="noImageProviders">
