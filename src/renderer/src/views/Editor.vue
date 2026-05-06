@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, onActivated, onDeactivated } from 'vue'
+import { ref, nextTick, onActivated, onDeactivated } from 'vue'
 import { useRoute } from 'vue-router'
 
 defineOptions({ name: 'Editor' })
@@ -51,6 +51,9 @@ onActivated(() => {
     document.title = `${bookName} - 51码字`
   }
   window.addEventListener('refresh-chapters-requested', refreshChapters)
+  void nextTick(() => {
+    refreshNotes()
+  })
 })
 
 onDeactivated(() => {

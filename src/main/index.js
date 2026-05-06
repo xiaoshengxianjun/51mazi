@@ -1864,6 +1864,46 @@ ipcMain.handle('create-note', async (event, { bookName, notebookName, noteName }
   return { success: true }
 })
 
+// 导出组织架构为笔记内容（覆盖同名笔记，作为当前组织架构的文本快照）
+ipcMain.handle(
+  'export-organization-to-note',
+  async (event, { bookName, organizationName, content }) => {
+    try {
+      const booksDir = store.get('booksDir')
+      if (!booksDir || !bookName || !organizationName) {
+        return { success: false, message: '参数不完整' }
+      }
+
+      const bookPath = join(booksDir, bookName)
+      if (!fs.existsSync(bookPath)) {
+        return { success: false, message: '书籍不存在' }
+      }
+
+      const notebookName = '组织架构'
+      const notebookPath = join(bookPath, '笔记', notebookName)
+      fs.mkdirSync(notebookPath, { recursive: true })
+
+      const safeNoteName = String(organizationName).trim().replace(/[\\/:*?"<>|]/g, '_')
+      if (!safeNoteName) {
+        return { success: false, message: '组织架构名称无效' }
+      }
+
+      const notePath = join(notebookPath, `${safeNoteName}.txt`)
+      fs.writeFileSync(notePath, String(content || ''), 'utf-8')
+      await updateBookMetadata(bookName)
+
+      return {
+        success: true,
+        notebookName,
+        noteName: safeNoteName
+      }
+    } catch (error) {
+      console.error('导出组织架构到笔记失败:', error)
+      return { success: false, message: error.message || '导出组织架构到笔记失败' }
+    }
+  }
+)
+
 // 删除笔记
 ipcMain.handle('delete-note', async (event, { bookName, notebookName, noteName }) => {
   const booksDir = store.get('booksDir')

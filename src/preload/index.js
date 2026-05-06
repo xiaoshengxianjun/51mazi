@@ -95,6 +95,8 @@ const customElectronAPI = {
     ipcRenderer.invoke('read-note', { bookName, notebookName, noteName }),
   // 编辑笔记内容
   editNote: (noteInfo) => ipcRenderer.invoke('edit-note', noteInfo),
+  // 导出组织架构到固定笔记本
+  exportOrganizationToNote: (payload) => ipcRenderer.invoke('export-organization-to-note', payload),
 
   // --------- 章节相关 ---------
   // 读取章节内容

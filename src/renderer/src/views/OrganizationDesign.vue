@@ -1,6 +1,10 @@
 <template>
   <LayoutTool :title="organizationName || t('organizationDesign.titleFallback')">
     <template #headrAction>
+      <el-button :loading="exporting" @click="handleExportToNote">
+        <el-icon><Download /></el-icon>
+        <span>{{ t('organizationDesign.exportToNote') }}</span>
+      </el-button>
       <el-button type="primary" :loading="saving" @click="handleSave">
         <el-icon><Check /></el-icon>
         <span>{{ t('common.save') }}</span>
@@ -143,7 +147,7 @@ import LayoutTool from '@renderer/components/LayoutTool.vue'
 import RelationGraph from 'relation-graph-vue3'
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Check, Warning } from '@element-plus/icons-vue'
+import { Check, Download, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { genId } from '@renderer/utils/utils'
 import { useI18n } from 'vue-i18n'
@@ -156,6 +160,7 @@ const organizationId = route.query.id
 const graphRef = ref(null)
 const canvasRef = ref(null)
 const saving = ref(false)
+const exporting = ref(false)
 const organizationName = ref('')
 const organizationData = ref({ nodes: [], lines: [] })
 
@@ -670,6 +675,105 @@ const getNodeAndChildrenIds = (nodeId) => {
 
   findChildren(nodeId)
   return ids
+}
+
+const escapeHtml = (content) => {
+  return String(content ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const buildOrganizationNoteContent = () => {
+  const nodes = organizationData.value.nodes || []
+  const lines = organizationData.value.lines || []
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const childrenMap = new Map()
+  const childNodeIds = new Set()
+
+  lines.forEach((line) => {
+    if (!nodeMap.has(line.from) || !nodeMap.has(line.to)) return
+    childNodeIds.add(line.to)
+    if (!childrenMap.has(line.from)) {
+      childrenMap.set(line.from, [])
+    }
+    childrenMap.get(line.from).push(line.to)
+  })
+
+  const rootNode = nodes.find((node) => node.type === 'root') || nodes.find((node) => !childNodeIds.has(node.id))
+  const visitedNodeIds = new Set()
+  const paragraphs = [
+    `<p data-note-outline data-level="0"><strong>${escapeHtml(organizationName.value || organizationId || t('organizationDesign.titleFallback'))}</strong></p>`,
+    `<p data-note-outline data-level="0">${escapeHtml(t('organizationDesign.exportedAt'))}: ${escapeHtml(new Date().toLocaleString())}</p>`,
+    '<p data-note-outline data-level="0"></p>'
+  ]
+
+  const appendNode = (node, level = 0) => {
+    if (!node || visitedNodeIds.has(node.id)) return
+
+    visitedNodeIds.add(node.id)
+    const safeLevel = Math.min(level, 10)
+    paragraphs.push(
+      `<p data-note-outline data-level="${safeLevel}"><strong>${escapeHtml(node.text || t('organizationDesign.unnamedNode'))}</strong></p>`
+    )
+
+    const description = String(node.data?.description || '').trim()
+    if (description) {
+      description.split(/\r?\n/).forEach((line) => {
+        paragraphs.push(
+          `<p data-note-outline data-level="${Math.min(safeLevel + 1, 10)}">${escapeHtml(t('organizationDesign.nodeDescription'))}: ${escapeHtml(line)}</p>`
+        )
+      })
+    }
+
+    ;(childrenMap.get(node.id) || []).forEach((childId) => {
+      appendNode(nodeMap.get(childId), level + 1)
+    })
+  }
+
+  appendNode(rootNode)
+
+  nodes.forEach((node) => {
+    appendNode(node)
+  })
+
+  return paragraphs.join('')
+}
+
+const handleExportToNote = async () => {
+  if (!organizationData.value.nodes?.length) {
+    ElMessage.warning(t('organizationDesign.exportEmpty'))
+    return
+  }
+
+  try {
+    exporting.value = true
+    syncGraphNodePositions()
+
+    const result = await window.electron.exportOrganizationToNote({
+      bookName,
+      organizationName: organizationName.value || organizationId,
+      content: buildOrganizationNoteContent()
+    })
+
+    if (!result?.success) {
+      throw new Error(result?.message || t('organizationDesign.exportToNoteFailed'))
+    }
+
+    ElMessage.success(
+      t('organizationDesign.exportToNoteSuccess', {
+        notebook: result.notebookName,
+        note: result.noteName
+      })
+    )
+  } catch (error) {
+    console.error('导出组织架构到笔记失败:', error)
+    ElMessage.error(error?.message || t('organizationDesign.exportToNoteFailed'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 // 加载组织架构数据
