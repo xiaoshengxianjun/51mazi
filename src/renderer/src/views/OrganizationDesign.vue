@@ -50,6 +50,24 @@
       <el-form-item :label="t('organizationDesign.nodeName')">
         <el-input v-model="currentForm.text" :placeholder="dialogConfig.namePlaceholder" />
       </el-form-item>
+      <el-form-item
+        v-if="dialogMode === 'edit' && selectedNode?.type !== 'root'"
+        :label="t('organizationDesign.parentNode')"
+      >
+        <el-select
+          v-model="currentForm.parentId"
+          :placeholder="t('organizationDesign.parentNodePlaceholder')"
+          filterable
+          style="width: 100%"
+        >
+          <el-option
+            v-for="node in parentNodeOptions"
+            :key="node.id"
+            :label="node.text"
+            :value="node.id"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item :label="t('organizationDesign.nodeDescription')">
         <el-input
           v-model="currentForm.description"
@@ -196,7 +214,8 @@ const dialogMode = ref('edit') // 'edit', 'add', 'addChild'
 const currentForm = ref({
   text: '',
   description: '',
-  color: '#409eff'
+  color: '#409eff',
+  parentId: ''
 })
 
 // 弹框配置
@@ -251,6 +270,14 @@ const colorPresets = ref([
   '#8E44AD' // 紫罗兰 - 创意灵感
 ])
 
+const parentNodeOptions = computed(() => {
+  if (!selectedNode.value || selectedNode.value.type === 'root') return []
+
+  const excludedNodeIds = getNodeAndChildrenIds(selectedNode.value.id)
+
+  return organizationData.value.nodes.filter((node) => !excludedNodeIds.includes(node.id))
+})
+
 // 画布点击事件
 const onCanvasClick = () => {
   // 可以在这里添加画布点击逻辑
@@ -267,7 +294,8 @@ const switchToAddChildMode = () => {
   currentForm.value = {
     text: '',
     description: '',
-    color: '#409eff'
+    color: '#409eff',
+    parentId: ''
   }
 }
 
@@ -303,7 +331,8 @@ const handleNodeInfo = () => {
     currentForm.value = {
       text: selectedNode.value.text || '',
       description: selectedNode.value.data?.description || '',
-      color: selectedNode.value.color || '#409eff'
+      color: selectedNode.value.color || '#409eff',
+      parentId: getCurrentParentId(selectedNode.value.id)
     }
   }
   nodeDialogVisible.value = true
@@ -316,9 +345,10 @@ const confirmNodeAction = () => {
     return
   }
 
+  let shouldCloseDialog = true
   switch (dialogMode.value) {
     case 'edit':
-      updateNode()
+      shouldCloseDialog = updateNode()
       break
     case 'add':
       addNode()
@@ -328,7 +358,9 @@ const confirmNodeAction = () => {
       break
   }
 
-  closeNodeDialog()
+  if (shouldCloseDialog) {
+    closeNodeDialog()
+  }
 }
 
 const getGraphInstance = () => graphRef.value?.getInstance?.()
@@ -406,11 +438,74 @@ const getNewChildPosition = (parentNodeId) => {
   }
 }
 
+const getCurrentParentLine = (nodeId) => {
+  return organizationData.value.lines.find((line) => line.to === nodeId) || null
+}
+
+const getCurrentParentId = (nodeId) => {
+  return getCurrentParentLine(nodeId)?.from || ''
+}
+
+const updateNodeParent = () => {
+  if (!selectedNode.value || selectedNode.value.type === 'root') return true
+
+  const nextParentId = currentForm.value.parentId
+  const previousParentLine = getCurrentParentLine(selectedNode.value.id)
+  const previousParentId = previousParentLine?.from || ''
+
+  if (!nextParentId || nextParentId === previousParentId) return true
+  if (nextParentId === selectedNode.value.id) {
+    ElMessage.warning(t('organizationDesign.parentNodeInvalidSelf'))
+    return false
+  }
+
+  const descendantIds = getNodeAndChildrenIds(selectedNode.value.id)
+  if (descendantIds.includes(nextParentId)) {
+    ElMessage.warning(t('organizationDesign.parentNodeInvalidChild'))
+    return false
+  }
+
+  const nextParentNode = organizationData.value.nodes.find((node) => node.id === nextParentId)
+  if (!nextParentNode) {
+    ElMessage.warning(t('organizationDesign.parentNodeRequired'))
+    return false
+  }
+
+  const nextLine = {
+    id: genId(),
+    from: nextParentId,
+    to: selectedNode.value.id,
+    text: '',
+    color: nextParentNode.color || '#409eff',
+    lineWidth: 2,
+    lineShape: 44,
+    showEndArrow: true
+  }
+
+  organizationData.value.lines = organizationData.value.lines.filter(
+    (line) => line.id !== previousParentLine?.id
+  )
+  organizationData.value.lines.push(nextLine)
+
+  const graphInstance = getGraphInstance()
+  let didRemovePreviousLine = !previousParentLine
+  if (previousParentLine && graphInstance?.removeLineById) {
+    graphInstance.removeLineById(previousParentLine.id)
+    didRemovePreviousLine = true
+  }
+  if (didRemovePreviousLine && graphInstance?.addLines) {
+    graphInstance.addLines([JSON.parse(JSON.stringify(nextLine))])
+  }
+
+  return true
+}
+
 // 更新节点
 const updateNode = () => {
-  if (!selectedNode.value) return
+  if (!selectedNode.value) return false
 
   syncGraphNodePositions()
+  if (!updateNodeParent()) return false
 
   const newColor = currentForm.value.color
 
@@ -445,6 +540,7 @@ const updateNode = () => {
 
   updateGraphView()
   ElMessage.success(t('organizationDesign.nodeUpdateSuccess'))
+  return true
 }
 
 // 添加节点
