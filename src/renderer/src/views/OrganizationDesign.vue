@@ -331,9 +331,86 @@ const confirmNodeAction = () => {
   closeNodeDialog()
 }
 
+const getGraphInstance = () => graphRef.value?.getInstance?.()
+
+// 手动拖拽后的坐标只存在于图实例里；执行增删改或保存前先同步，避免重跑布局覆盖用户排版。
+const syncGraphNodePositions = () => {
+  const graphInstance = getGraphInstance()
+  if (!graphInstance?.getNodeById) return
+
+  organizationData.value.nodes = organizationData.value.nodes.map((node) => {
+    const graphNode = graphInstance.getNodeById(node.id)
+    if (!graphNode) return node
+
+    return {
+      ...node,
+      x: graphNode.x,
+      y: graphNode.y
+    }
+  })
+}
+
+const updateGraphView = () => {
+  const graphInstance = getGraphInstance()
+  if (graphInstance?.dataUpdated) {
+    graphInstance.dataUpdated()
+  } else {
+    refreshGraph()
+  }
+}
+
+const addGraphItems = (node, line = null) => {
+  const graphInstance = getGraphInstance()
+  if (graphInstance?.addNodes) {
+    graphInstance.addNodes([JSON.parse(JSON.stringify(node))])
+    if (line && graphInstance.addLines) {
+      graphInstance.addLines([JSON.parse(JSON.stringify(line))])
+    }
+    graphInstance.dataUpdated?.()
+  } else {
+    refreshGraph()
+  }
+}
+
+const removeGraphNodes = (nodeIds) => {
+  const graphInstance = getGraphInstance()
+  if (graphInstance?.removeNodeById) {
+    nodeIds.forEach((nodeId) => {
+      graphInstance.removeNodeById(nodeId)
+    })
+    graphInstance.dataUpdated?.()
+  } else {
+    refreshGraph()
+  }
+}
+
+const getNodePosition = (nodeId) => {
+  const graphNode = getGraphInstance()?.getNodeById?.(nodeId)
+  const dataNode = organizationData.value.nodes.find((node) => node.id === nodeId)
+
+  return {
+    x: graphNode?.x ?? dataNode?.x ?? 0,
+    y: graphNode?.y ?? dataNode?.y ?? 0
+  }
+}
+
+const getNewChildPosition = (parentNodeId) => {
+  const childCount = organizationData.value.lines.filter((line) => line.from === parentNodeId).length
+  const parentPosition = getNodePosition(parentNodeId)
+  const direction = childCount % 2 === 0 ? 1 : -1
+  const horizontalOffset = Math.ceil(childCount / 2) * 140 * direction
+
+  return {
+    x: parentPosition.x + horizontalOffset,
+    y: parentPosition.y + 120
+  }
+}
+
 // 更新节点
 const updateNode = () => {
   if (!selectedNode.value) return
+
+  syncGraphNodePositions()
 
   const newColor = currentForm.value.color
 
@@ -360,21 +437,28 @@ const updateNode = () => {
       text: selectedNode.value.text,
       color: selectedNode.value.color,
       type: selectedNode.value.type,
+      x: selectedNode.value.x,
+      y: selectedNode.value.y,
       data: selectedNode.value.data
     }
   }
 
-  refreshGraph()
+  updateGraphView()
   ElMessage.success(t('organizationDesign.nodeUpdateSuccess'))
 }
 
 // 添加节点
 const addNode = () => {
+  syncGraphNodePositions()
+
+  const position = selectedNode.value ? getNewChildPosition(selectedNode.value.id) : { x: 0, y: 0 }
   const newNode = {
     id: genId(),
     text: currentForm.value.text,
     color: currentForm.value.color,
     type: 'normal',
+    x: position.x,
+    y: position.y,
     data: {
       description: currentForm.value.description,
       fontSize: 14
@@ -383,8 +467,9 @@ const addNode = () => {
 
   organizationData.value.nodes.push(newNode)
 
+  let newLine = null
   if (selectedNode.value) {
-    const newLine = {
+    newLine = {
       id: genId(),
       from: selectedNode.value.id,
       to: newNode.id,
@@ -397,7 +482,7 @@ const addNode = () => {
     organizationData.value.lines.push(newLine)
   }
 
-  refreshGraph()
+  addGraphItems(newNode, newLine)
   ElMessage.success(t('organizationDesign.nodeAddSuccess'))
 }
 
@@ -405,11 +490,16 @@ const addNode = () => {
 const addChildNode = () => {
   if (!selectedNode.value) return
 
+  syncGraphNodePositions()
+
+  const position = getNewChildPosition(selectedNode.value.id)
   const newChildNode = {
     id: genId(),
     text: currentForm.value.text,
     color: currentForm.value.color,
     type: 'normal',
+    x: position.x,
+    y: position.y,
     data: {
       description: currentForm.value.description,
       fontSize: 14
@@ -430,7 +520,7 @@ const addChildNode = () => {
   }
   organizationData.value.lines.push(newLine)
 
-  refreshGraph()
+  addGraphItems(newChildNode, newLine)
   ElMessage.success(t('organizationDesign.childNodeAddSuccess'))
 }
 
@@ -447,6 +537,8 @@ const refreshGraph = () => {
 const confirmDeleteNode = () => {
   if (!selectedNode.value) return
 
+  syncGraphNodePositions()
+
   // 获取要删除的节点ID列表（包括当前节点及其所有子节点）
   const nodesToDelete = getNodeAndChildrenIds(selectedNode.value.id)
 
@@ -460,7 +552,7 @@ const confirmDeleteNode = () => {
     (line) => !nodesToDelete.includes(line.from) && !nodesToDelete.includes(line.to)
   )
 
-  refreshGraph()
+  removeGraphNodes(nodesToDelete)
   deleteConfirmVisible.value = false
   closeNodeDialog()
   ElMessage.success(t('organizationDesign.nodeDeleteSuccess'))
@@ -506,6 +598,8 @@ const loadOrganizationData = async () => {
 const handleSave = async () => {
   try {
     saving.value = true
+
+    syncGraphNodePositions()
 
     // 更新修改时间
     organizationData.value.updatedAt = new Date().toISOString()

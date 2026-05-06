@@ -306,6 +306,8 @@ const handleSave = async () => {
   try {
     saving.value = true
 
+    syncGraphNodePositions()
+
     // 更新修改时间
     relationshipData.updatedAt = new Date().toISOString()
 
@@ -333,6 +335,51 @@ const handleSave = async () => {
     ElMessage.error(t('relationshipDesign.saveFailed'))
   } finally {
     saving.value = false
+  }
+}
+
+function getGraphInstance() {
+  return graphRef.value?.getInstance?.()
+}
+
+// 手动拖拽后的坐标保存在图实例里；持久化和增量更新前先同步，避免下次加载或局部更新丢布局。
+function syncGraphNodePositions() {
+  const graphInstance = getGraphInstance()
+  if (!graphInstance?.getNodeById) return
+
+  relationshipData.nodes = relationshipData.nodes.map((node) => {
+    const graphNode = graphInstance.getNodeById(node.id)
+    if (!graphNode) return node
+
+    return {
+      ...node,
+      x: graphNode.x,
+      y: graphNode.y
+    }
+  })
+}
+
+function getNodePosition(nodeId) {
+  const graphNode = getGraphInstance()?.getNodeById?.(nodeId)
+  const dataNode = relationshipData.nodes.find((node) => node.id === nodeId)
+
+  return {
+    x: graphNode?.x ?? dataNode?.x ?? 0,
+    y: graphNode?.y ?? dataNode?.y ?? 0
+  }
+}
+
+function getNewNodePosition(parentNodeId) {
+  if (!parentNodeId) return { x: 0, y: 0 }
+
+  const siblingCount = relationshipData.lines.filter((line) => line.from === parentNodeId).length
+  const parentPosition = getNodePosition(parentNodeId)
+  const direction = siblingCount % 2 === 0 ? 1 : -1
+  const horizontalOffset = Math.ceil(siblingCount / 2) * 120 * direction
+
+  return {
+    x: parentPosition.x + horizontalOffset,
+    y: parentPosition.y + 130
   }
 }
 
@@ -488,6 +535,8 @@ function handleNodeLink() {
         onCreateLine: (fromNode, toNode) => {
           console.log('Line created from', fromNode.id, 'to', toNode.id)
 
+          syncGraphNodePositions()
+
           // 创建新连线数据
           const newLine = {
             id: genId(),
@@ -502,7 +551,7 @@ function handleNodeLink() {
           relationshipData.lines.push(newLine)
 
           // 使用增量更新而不是重新设置整个数据
-          const graphInstance = graphRef.value?.getInstance()
+          const graphInstance = getGraphInstance()
           if (graphInstance) {
             // 添加新连线
             graphInstance.addLines([newLine])
@@ -567,6 +616,8 @@ function handleNodeDelete() {
     dangerouslyUseHTMLString: false
   })
     .then(() => {
+      syncGraphNodePositions()
+
       // 用户确认删除
       const nodeId = selectedNode.value.id
 
@@ -593,16 +644,12 @@ function handleNodeDelete() {
         )
 
         // 使用增量更新而不是重新设置整个数据
-        const graphInstance = graphRef.value?.getInstance()
+        const graphInstance = getGraphInstance()
         if (graphInstance) {
           // 删除节点和连线
           toDeleteIds.forEach((nodeId) => {
             graphInstance.removeNodeById(nodeId)
           })
-
-          // 重新布局并居中
-          // graphInstance.doLayout()
-          graphInstance.moveToCenter()
 
           // 重新计算并应用节点大小（因为删除节点可能改变了层级关系）
           applyNodeSizes()
@@ -763,6 +810,8 @@ function saveNodeInfo() {
       ElMessage.warning(t('relationshipDesign.inputNodeName'))
       return
     }
+    syncGraphNodePositions()
+
     const newNodeId = genId()
 
     // 计算新节点的层级
@@ -795,6 +844,7 @@ function saveNodeInfo() {
       nodeCharacterId = matchedCharacter.id
     }
 
+    const position = getNewNodePosition(selectedNode.value?.id)
     const newNode = {
       id: newNodeId,
       text: nodeText,
@@ -802,6 +852,8 @@ function saveNodeInfo() {
       color: infoForm.color || customColor.value || '#409eff',
       width: nodeSize.width,
       height: nodeSize.height,
+      x: position.x,
+      y: position.y,
       data: {
         description: infoForm.description || '',
         gender: infoForm.gender || 'male',
@@ -823,7 +875,7 @@ function saveNodeInfo() {
     }
 
     // 使用增量更新而不是重新设置整个数据
-    const graphInstance = graphRef.value?.getInstance()
+    const graphInstance = getGraphInstance()
     if (graphInstance) {
       // 添加新节点
       graphInstance.addNodes([newNode])
@@ -834,9 +886,7 @@ function saveNodeInfo() {
         graphInstance.addLines([newLine])
       }
 
-      // 重新布局并居中
-      graphInstance.doLayout()
-      graphInstance.moveToCenter()
+      graphInstance.dataUpdated?.()
     }
 
     infoDialogVisible.value = false
@@ -848,6 +898,7 @@ function saveNodeInfo() {
       ElMessage.warning(t('relationshipDesign.inputNodeName'))
       return
     }
+    syncGraphNodePositions()
 
     // 检查是否是已存在的人物ID
     const existingCharacter = characters.value.find((c) => c.id === infoForm.characterId)
@@ -897,6 +948,8 @@ function saveNodeInfo() {
     if (node) {
       node.text = selectedNode.value.text
       node.color = selectedNode.value.color
+      node.x = selectedNode.value.x
+      node.y = selectedNode.value.y
       // 确保目标节点的 data 对象存在
       if (!node.data) {
         node.data = {}
@@ -908,7 +961,7 @@ function saveNodeInfo() {
     }
 
     // 使用增量更新而不是重新设置整个数据
-    const graphInstance = graphRef.value?.getInstance()
+    const graphInstance = getGraphInstance()
     if (graphInstance) {
       // 通知数据已更新，让RelationGraph重新渲染
       graphInstance.dataUpdated()
@@ -932,6 +985,8 @@ function saveEdgeInfo() {
   }
 
   try {
+    syncGraphNodePositions()
+
     // 更新连线文本
     selectedEdge.value.text = edgeForm.text.trim()
 
@@ -944,7 +999,7 @@ function saveEdgeInfo() {
     }
 
     // 使用增量更新而不是重新设置整个数据
-    const graphInstance = graphRef.value?.getInstance()
+    const graphInstance = getGraphInstance()
     if (graphInstance) {
       // 通知数据已更新，让RelationGraph重新渲染
       graphInstance.dataUpdated()
