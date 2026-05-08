@@ -1404,6 +1404,8 @@
     "createNotebook": "Create notebook",
     "createVolume": "Create volume",
     "sortVolumes": "Sort volumes",
+    "dragReorderHint": "Drag volumes or chapters within a volume to reorder. Chapters are renumbered to match the new order (titles kept after the number).",
+    "reorderFailed": "Failed to reorder",
     "chapterSettings": "Chapter settings",
     "noNotes": "No notes",
     "noChapters": "No chapters",

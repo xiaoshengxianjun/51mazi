@@ -67,7 +67,13 @@
           <el-icon class="toggle-icon" :class="{ 'is-active': chaptersExpanded }">
             <ArrowRight />
           </el-icon>
-          <span>{{ t('noteChapter.chapters') }}</span>
+          <el-tooltip
+            :content="t('noteChapter.dragReorderHint')"
+            placement="bottom"
+            :show-after="600"
+          >
+            <span class="chapters-title">{{ t('noteChapter.chapters') }}</span>
+          </el-tooltip>
         </div>
         <div class="section-header-right">
           <el-tooltip
@@ -89,7 +95,11 @@
           </el-tooltip>
         </div>
       </div>
-      <div v-show="chaptersExpanded" class="section-content">
+      <div
+        v-show="chaptersExpanded"
+        class="section-content chapter-tree-wrap"
+        :class="{ 'is-persisting': chapterTreePersisting }"
+      >
         <el-tree
           ref="chapterTreeRef"
           :data="chaptersTree"
@@ -100,6 +110,10 @@
           :current-node-key="currentChapterNodeKey"
           :default-expanded-keys="chapterDefaultExpandedKeys"
           :expand-on-click-node="false"
+          draggable
+          :allow-drag="allowChapterTreeDrag"
+          :allow-drop="allowChapterTreeDrop"
+          @node-drop="handleChapterTreeDrop"
           @node-click="handleChapterClick"
           @node-expand="handleNodeExpand"
           @node-collapse="handleNodeCollapse"
@@ -205,6 +219,8 @@ const currentChapterNodeKey = ref(null)
 // 新增的 ref 和 keys
 const chapterTreeRef = ref(null)
 const chapterDefaultExpandedKeys = ref([])
+/** 拖拽排序写入磁盘期间禁用再次拖拽，避免并发 */
+const chapterTreePersisting = ref(false)
 
 /**
  * 章节树（卷）展开状态管理
@@ -368,6 +384,126 @@ function handleNodeCollapse(data) {
     if (!nextChar || nextChar === '/' || nextChar === '\\') {
       currentChapterNodeKey.value = volumePath
     }
+  }
+}
+
+/** 将界面上的卷顺序转换为 load-chapters 使用的 volumeOrder（与「卷排序」正/倒序展示一致） */
+function displayedVolumesToCanonicalOrder(displayedVolumes) {
+  const names = displayedVolumes.filter((n) => n?.type === 'volume').map((v) => v.name)
+  return sortOrder.value === 'desc' ? [...names].reverse() : names
+}
+
+function allowChapterTreeDrag(node) {
+  if (chapterTreePersisting.value) return false
+  const nodeType = node?.data?.type
+  return nodeType === 'volume' || nodeType === 'chapter'
+}
+
+function allowChapterTreeDrop(draggingNode, dropNode, type) {
+  if (chapterTreePersisting.value) return false
+  const drag = draggingNode?.data
+  const drop = dropNode?.data
+  if (!drag || !drop) return false
+  if (drag.type === 'volume') {
+    if (drop.type !== 'volume' || type === 'inner') return false
+    return true
+  }
+  if (drag.type === 'chapter') {
+    if (drop.type !== 'chapter' || type === 'inner') return false
+    const vp = draggingNode.parent?.data
+    const tp = dropNode.parent?.data
+    return vp?.type === 'volume' && tp?.type === 'volume' && vp.name === tp.name
+  }
+  return false
+}
+
+/** 章节文件随拖拽重命名后同步编辑器当前打开文件路径 */
+function applyRenamedChaptersToEditorStore(volumeName, renamed) {
+  const f = editorStore.file
+  if (!f || f.type !== 'chapter' || f.volume !== volumeName || !Array.isArray(renamed)) return
+  const pair = renamed.find((r) => r.oldName === f.name)
+  if (!pair || pair.oldName === pair.newName) return
+  const suffix = `${pair.oldName}.txt`
+  const curPath = f.path
+  let newPath = curPath
+  if (typeof curPath === 'string') {
+    if (curPath.endsWith(suffix)) {
+      newPath = curPath.slice(0, -suffix.length) + `${pair.newName}.txt`
+    } else {
+      const i = Math.max(curPath.lastIndexOf('/'), curPath.lastIndexOf('\\'))
+      if (i >= 0) {
+        newPath = curPath.slice(0, i + 1) + `${pair.newName}.txt`
+      }
+    }
+  }
+  editorStore.setFile({
+    ...f,
+    name: pair.newName,
+    path: newPath
+  })
+  editorStore.setChapterTitle(pair.newName)
+  window.electronStore
+    ?.set(`lastChapter:${props.bookName}`, {
+      volumeId: volumeName,
+      chapterName: pair.newName
+    })
+    .catch(() => {})
+}
+
+async function handleChapterTreeDrop(draggingNode, dropNode, _dropType, ev) {
+  ev?.preventDefault?.()
+  if (chapterTreePersisting.value) return
+  chapterTreePersisting.value = true
+  try {
+    const dragData = draggingNode?.data
+    if (!dragData) return
+
+    if (dragData.type === 'volume') {
+      const canonical = displayedVolumesToCanonicalOrder(chaptersTree.value)
+      const res = await window.electron.reorderVolumes(props.bookName, canonical)
+      if (!res?.success) {
+        ElMessage.error(res?.message || t('noteChapter.reorderFailed'))
+        await loadChapters(false)
+        return
+      }
+      await loadChapters(false)
+      return
+    }
+
+    if (dragData.type === 'chapter') {
+      // EP 拖拽结束时先 remove 旧节点再插入副本，emit 的 draggingNode 仍是旧引用且 parent 已为 null，
+      // 必须用 dropNode.parent（目标节点仍为树上的节点）定位所属卷。
+      const volumeData = dropNode?.parent?.data
+      if (!volumeData || volumeData.type !== 'volume') {
+        await loadChapters(false)
+        return
+      }
+      const orderedNames = (volumeData.children || []).map((c) => c.name)
+      const res = await window.electron.reorderChaptersInVolume(
+        props.bookName,
+        volumeData.name,
+        orderedNames
+      )
+      if (!res?.success) {
+        ElMessage.error(res?.message || t('noteChapter.reorderFailed'))
+        await loadChapters(false)
+        return
+      }
+      if (res.renamed) {
+        applyRenamedChaptersToEditorStore(volumeData.name, res.renamed)
+      }
+      await loadChapters(false)
+      const open = editorStore.file
+      if (open?.type === 'chapter' && open.path) {
+        currentChapterNodeKey.value = open.path
+      }
+    }
+  } catch (e) {
+    console.error('chapter tree drop failed:', e)
+    ElMessage.error(t('noteChapter.reorderFailed'))
+    await loadChapters(false)
+  } finally {
+    chapterTreePersisting.value = false
   }
 }
 
@@ -1158,6 +1294,11 @@ async function handleSettingsChanged(newSettings) {
   ::v-deep(.el-tree) {
     background-color: var(--bg-soft);
   }
+}
+
+.chapter-tree-wrap.is-persisting {
+  pointer-events: none;
+  opacity: 0.72;
 }
 
 .custom-tree-node {
