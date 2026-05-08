@@ -25,6 +25,7 @@
           :data="outlineTree"
           node-key="id"
           :props="treeProps"
+          :indent="props.compact ? 12 : 18"
           :current-node-key="selectedNodeId"
           default-expand-all
           highlight-current
@@ -1067,11 +1068,23 @@ defineExpose({
     height: 26px;
     font-size: 12px;
     padding-right: 4px;
+    padding-left: 4px;
+    gap: 0;
+  }
+
+  /* 小屏：去掉展开箭头占位（仍保留层级缩进，由 indent 控制） */
+  .outline-tree-panel :deep(.el-tree-node__expand-icon) {
+    display: none !important;
   }
 
   .outline-tree-panel :deep(.el-tree-node__label) {
     font-size: 12px;
     line-height: 1.25;
+    padding-left: 0;
+  }
+
+  .outline-tree-panel :deep(.el-tree-node__label-wrapper) {
+    padding-left: 0;
   }
 }
 
