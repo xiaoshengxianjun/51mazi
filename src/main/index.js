@@ -1018,7 +1018,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   const macIcon = getMacIcon()
 
   const editorWindowState = loadWindowState('editor', {
-    width: 1100,
+    width: 1400,
     height: 800
   })
 
@@ -1026,7 +1026,7 @@ ipcMain.handle('open-book-editor-window', async (event, { id, name }) => {
   const editorWindow = new BrowserWindow({
     title: `${name} - ${mt('appTitle')}`,
     ...editorWindowState.bounds,
-    minWidth: 1100,
+    minWidth: 1400,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
@@ -1883,7 +1883,9 @@ ipcMain.handle(
       const notebookPath = join(bookPath, '笔记', notebookName)
       fs.mkdirSync(notebookPath, { recursive: true })
 
-      const safeNoteName = String(organizationName).trim().replace(/[\\/:*?"<>|]/g, '_')
+      const safeNoteName = String(organizationName)
+        .trim()
+        .replace(/[\\/:*?"<>|]/g, '_')
       if (!safeNoteName) {
         return { success: false, message: '组织架构名称无效' }
       }

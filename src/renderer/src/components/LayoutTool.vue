@@ -6,7 +6,13 @@
       </el-button>
       <h2 class="header-title">{{ title }}</h2>
       <div class="header-action">
-        <el-button class="refresh-btn" :icon="Refresh" circle @click="handleRefresh" />
+        <el-button
+          v-if="showRefresh"
+          class="refresh-btn"
+          :icon="Refresh"
+          circle
+          @click="handleRefresh"
+        />
         <slot name="headrAction"></slot>
       </div>
     </div>
@@ -36,6 +42,11 @@ const props = defineProps({
   headerFixed: {
     type: Boolean,
     default: false
+  },
+  /** 为 false 时隐藏头部刷新按钮（如大纲管理页由专用操作占据） */
+  showRefresh: {
+    type: Boolean,
+    default: true
   }
 })
 

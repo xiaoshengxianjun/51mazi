@@ -1,51 +1,26 @@
 <template>
-  <div class="editor-toolbar" :class="{ 'is-en': locale === 'en-US' }">
-    <div class="toolbar-title">{{ t('editorToolbar.title') }}</div>
+  <div class="editor-toolbar" :class="{ 'is-en': locale === 'en-US', 'is-compact': props.compact }">
+    <div v-if="!props.compact" class="toolbar-title">{{ t('editorToolbar.title') }}</div>
     <div class="toolbar-buttons">
-      <el-button class="tool-btn" @click="handleOutlineManager">
-        <SvgIcon name="resource" :size="14" />
-        <span>{{ t('editorToolbar.outline') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleSettingManager">
-        <SvgIcon name="config" :size="14" />
-        <span>{{ t('editorToolbar.settingManager') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleRandomName">
-        <SvgIcon name="naming" :size="14" />
-        <span>{{ t('editorToolbar.randomName') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleWorldMap">
-        <SvgIcon name="map" :size="14" />
-        <span>{{ t('editorToolbar.worldMap') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleEntryDictionary">
-        <SvgIcon name="dictionary" :size="14" />
-        <span>{{ t('editorToolbar.dictionary') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleOrganization">
-        <SvgIcon name="organization" :size="14" />
-        <span>{{ t('editorToolbar.organization') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleBannedWords">
-        <SvgIcon name="banned-words" :size="14" />
-        <span>{{ t('editorToolbar.bannedWords') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleCharacterProfile">
-        <SvgIcon name="character" :size="14" />
-        <span>{{ t('editorToolbar.characterProfile') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleRelationshipMap">
-        <SvgIcon name="relationship" :size="14" />
-        <span>{{ t('editorToolbar.relationship') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleTimeline">
-        <SvgIcon name="timeline" :size="14" />
-        <span>{{ t('editorToolbar.timeline') }}</span>
-      </el-button>
-      <el-button class="tool-btn" @click="handleEventsSequence">
-        <SvgIcon name="gantt" :size="14" />
-        <span>{{ t('editorToolbar.eventsSequence') }}</span>
-      </el-button>
+      <el-tooltip
+        v-for="item in toolbarItems"
+        :key="item.key"
+        :content="item.label"
+        placement="left"
+        :disabled="!props.compact"
+      >
+        <el-button
+          class="tool-btn"
+          :class="{
+            'tool-btn--outline-active':
+              props.compact && props.outlineEmbedActive && item.key === 'outline'
+          }"
+          @click="item.onClick"
+        >
+          <SvgIcon :name="item.icon" :size="props.compact ? 12 : 14" />
+          <span v-if="!props.compact">{{ item.label }}</span>
+        </el-button>
+      </el-tooltip>
     </div>
     <RandomName ref="randomNameRef" />
     <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
@@ -53,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import RandomName from '@renderer/components/RandomName.vue'
 import BannedWordsDrawer from './BannedWordsDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -65,6 +40,17 @@ const bannedWordsRef = ref(null)
 const router = useRouter()
 const route = useRoute()
 const { t, locale } = useI18n()
+const props = defineProps({
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  /** 小屏嵌入大纲时：大纲管理图标显示选中态 */
+  outlineEmbedActive: {
+    type: Boolean,
+    default: false
+  }
+})
 
 // 工具栏功能处理函数
 const handleRandomName = () => {
@@ -120,6 +106,10 @@ const handleOrganization = () => {
 }
 
 const handleOutlineManager = () => {
+  // 小屏嵌入大纲已展开且图标为选中态时，不再跳转独立大纲页（大屏请用大纲内容区全屏按钮）
+  if (props.compact && props.outlineEmbedActive) {
+    return
+  }
   const bookName = route.query.name
   router.push({ path: '/outline-manager', query: { name: bookName } })
 }
@@ -127,6 +117,60 @@ const handleOutlineManager = () => {
 const handleBannedWords = () => {
   bannedWordsRef.value.open()
 }
+
+const toolbarItems = computed(() => [
+  { key: 'outline', icon: 'resource', label: t('editorToolbar.outline'), onClick: handleOutlineManager },
+  {
+    key: 'setting',
+    icon: 'config',
+    label: t('editorToolbar.settingManager'),
+    onClick: handleSettingManager
+  },
+  {
+    key: 'random-name',
+    icon: 'naming',
+    label: t('editorToolbar.randomName'),
+    onClick: handleRandomName
+  },
+  { key: 'map', icon: 'map', label: t('editorToolbar.worldMap'), onClick: handleWorldMap },
+  {
+    key: 'dictionary',
+    icon: 'dictionary',
+    label: t('editorToolbar.dictionary'),
+    onClick: handleEntryDictionary
+  },
+  {
+    key: 'organization',
+    icon: 'organization',
+    label: t('editorToolbar.organization'),
+    onClick: handleOrganization
+  },
+  {
+    key: 'banned-words',
+    icon: 'banned-words',
+    label: t('editorToolbar.bannedWords'),
+    onClick: handleBannedWords
+  },
+  {
+    key: 'character',
+    icon: 'character',
+    label: t('editorToolbar.characterProfile'),
+    onClick: handleCharacterProfile
+  },
+  {
+    key: 'relationship',
+    icon: 'relationship',
+    label: t('editorToolbar.relationship'),
+    onClick: handleRelationshipMap
+  },
+  { key: 'timeline', icon: 'timeline', label: t('editorToolbar.timeline'), onClick: handleTimeline },
+  {
+    key: 'events-sequence',
+    icon: 'gantt',
+    label: t('editorToolbar.eventsSequence'),
+    onClick: handleEventsSequence
+  }
+])
 </script>
 
 <style lang="scss" scoped>
@@ -135,10 +179,10 @@ const handleBannedWords = () => {
   height: 100%;
   box-sizing: border-box;
   background: var(--bg-soft);
-  padding: 16px;
+  padding: 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 
   .toolbar-title {
     font-size: 16px;
@@ -173,6 +217,37 @@ const handleBannedWords = () => {
         word-break: break-word;
         white-space: normal;
         flex: 1;
+      }
+    }
+  }
+
+  &.is-compact {
+    padding: 8px 2px;
+    gap: 8px;
+
+    .toolbar-buttons {
+      align-items: center;
+      gap: 8px;
+
+      .tool-btn {
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
+        padding: 0;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .tool-btn.tool-btn--outline-active {
+        border-color: var(--el-color-primary);
+        background: color-mix(in srgb, var(--el-color-primary) 18%, var(--bg-primary));
+        color: var(--el-color-primary);
+      }
+
+      .tool-btn.tool-btn--outline-active:hover {
+        border-color: var(--el-color-primary);
+        background: color-mix(in srgb, var(--el-color-primary) 26%, var(--bg-primary));
+        color: var(--el-color-primary);
       }
     }
   }

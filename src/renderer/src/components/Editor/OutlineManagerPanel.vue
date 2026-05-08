@@ -1,8 +1,24 @@
 <template>
-  <div class="outline-manager-panel">
+  <div class="outline-manager-panel" :class="{ 'is-compact': props.compact }">
     <div class="outline-layout">
       <div class="outline-tree-panel">
-        <div class="panel-title">{{ t('outlineManager.outlineDirectory') }}</div>
+        <template v-if="props.compact">
+          <div class="outline-tree-panel-header">
+            <div class="panel-title">{{ t('outlineManager.outlineDirectory') }}</div>
+            <el-tooltip :content="t('outlineManager.addOutline')" placement="bottom">
+              <el-button
+                class="outline-tree-add-btn"
+                type="primary"
+                text
+                circle
+                size="small"
+                :icon="Plus"
+                @click="openCreateDialog"
+              />
+            </el-tooltip>
+          </div>
+        </template>
+        <div v-else class="panel-title">{{ t('outlineManager.outlineDirectory') }}</div>
         <el-tree
           ref="treeRef"
           class="outline-tree"
@@ -19,45 +35,94 @@
 
       <div class="outline-content-panel">
         <div class="content-panel-header">
-          <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
+          <template v-if="props.compact">
+            <div class="content-panel-title-row">
+              <div class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
+              <el-tooltip :content="t('outlineManager.switchToLarge')" placement="bottom">
+                <el-button
+                  class="outline-fullscreen-btn"
+                  type="primary"
+                  text
+                  circle
+                  size="small"
+                  :icon="FullScreen"
+                  @click="handleOpenOutlineFullPage"
+                />
+              </el-tooltip>
+            </div>
+          </template>
+          <div v-else class="panel-title">{{ t('outlineManager.outlineContent') }}</div>
           <div class="header-right-actions">
+            <!-- 大屏：三个 AI 操作平铺；小屏嵌入：合并为下拉节省宽度 -->
+            <template v-if="props.compact">
+              <el-dropdown trigger="click" class="outline-ai-dropdown" @command="handleAiMenuCommand">
+                <el-button size="small" type="success">
+                  {{ t('outlineManager.aiActionsMenu') }}
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="refine" :disabled="!hasSelectedContent">
+                      {{ t('outlineManager.aiRefine') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item command="split" :disabled="!hasSelectedContent">
+                      {{ t('outlineManager.aiSplit') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item command="generate-chapter" divided :disabled="!canGenerateChapterFromOutline">
+                      {{ t('outlineManager.aiGenerateChapter') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+            <template v-else>
+              <el-button
+                size="small"
+                type="success"
+                :disabled="!hasSelectedContent"
+                @click="openAiWorkbench('refine')"
+              >
+                {{ t('outlineManager.aiRefine') }}
+              </el-button>
+              <el-button
+                size="small"
+                type="success"
+                plain
+                :disabled="!hasSelectedContent"
+                @click="openAiWorkbench('split')"
+              >
+                {{ t('outlineManager.aiSplit') }}
+              </el-button>
+              <el-button
+                size="small"
+                type="warning"
+                plain
+                :disabled="!canGenerateChapterFromOutline"
+                @click="openGenerateChapterDialog"
+              >
+                {{ t('outlineManager.aiGenerateChapter') }}
+              </el-button>
+            </template>
             <el-button
-              type="success"
-              :disabled="!hasSelectedContent"
-              @click="openAiWorkbench('refine')"
+              class="toolbar-save-btn"
+              size="small"
+              type="primary"
+              :loading="isSaving"
+              @click="handleConfirmSave"
             >
-              {{ t('outlineManager.aiRefine') }}
-            </el-button>
-            <el-button
-              type="success"
-              plain
-              :disabled="!hasSelectedContent"
-              @click="openAiWorkbench('split')"
-            >
-              {{ t('outlineManager.aiSplit') }}
-            </el-button>
-            <el-button
-              type="warning"
-              plain
-              :disabled="!canGenerateChapterFromOutline"
-              @click="openGenerateChapterDialog"
-            >
-              {{ t('outlineManager.aiGenerateChapter') }}
-            </el-button>
-            <el-button type="primary" :loading="isSaving" @click="handleConfirmSave">
               {{ t('common.save') }}
             </el-button>
+            <el-button
+              v-if="canDeleteSelectedOutline"
+              class="toolbar-delete-btn"
+              size="small"
+              type="danger"
+              plain
+              @click="handleDeleteSelectedOutline"
+            >
+              {{ t('common.delete') }}
+            </el-button>
           </div>
-        </div>
-        <div class="content-ops-row">
-          <el-button
-            v-if="canDeleteSelectedOutline"
-            type="danger"
-            plain
-            @click="handleDeleteSelectedOutline"
-          >
-            {{ t('common.delete') }}
-          </el-button>
         </div>
         <div v-if="autoSaveError" class="footer-save-warning">
           {{ autoSaveError }}
@@ -209,17 +274,29 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, toRaw, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown, FullScreen, Plus } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import {
+  setOutlineDisplayMode,
+  OUTLINE_DISPLAY_MODE_LARGE
+} from '@renderer/composables/useOutlineDisplayMode'
 import OutlineAiWorkbenchDialog from './OutlineAiWorkbenchDialog.vue'
 
 const props = defineProps({
   bookName: {
     type: String,
     default: ''
+  },
+  /** 编辑器小屏嵌入：收窄大纲目录与整体留白 */
+  compact: {
+    type: Boolean,
+    default: false
   }
 })
 const { t } = useI18n()
+const router = useRouter()
 
 const ROOT_ID = 'outline-root'
 
@@ -375,6 +452,28 @@ function openCreateDialog() {
 
 function openAiWorkbench(mode) {
   outlineAiWorkbenchRef.value?.open(mode)
+}
+
+/** 大纲内容区：合并后的 AI 下拉菜单 */
+function handleAiMenuCommand(command) {
+  if (command === 'refine') {
+    openAiWorkbench('refine')
+  } else if (command === 'split') {
+    openAiWorkbench('split')
+  } else if (command === 'generate-chapter') {
+    void openGenerateChapterDialog()
+  }
+}
+
+/** 小屏：全屏按钮 — 切换为大屏大纲页并持久化模式 */
+async function handleOpenOutlineFullPage() {
+  const name = String(props.bookName || '').trim()
+  if (!name) return
+  await setOutlineDisplayMode(name, OUTLINE_DISPLAY_MODE_LARGE)
+  router.push({
+    path: '/outline-manager',
+    query: { name }
+  })
 }
 
 async function loadVolumeOptions() {
@@ -848,11 +947,132 @@ defineExpose({
 
 .outline-tree-panel {
   width: 260px;
+  flex-shrink: 0;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 14px 12px;
   background: var(--bg-soft);
   overflow: auto;
+}
+
+.outline-manager-panel.is-compact {
+  .outline-layout {
+    gap: 0;
+    padding: 0;
+  }
+
+  .outline-tree-panel {
+    width: 156px;
+    padding: 8px 6px;
+    border-radius: 0;
+    border-right: none;
+  }
+
+  .outline-tree-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 8px;
+    min-width: 0;
+
+    .panel-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .outline-tree-add-btn {
+    flex-shrink: 0;
+  }
+
+  .outline-content-panel {
+    padding: 8px 10px;
+    border-radius: 0;
+    border-left: none;
+  }
+
+  /* 小屏：标题行（含全屏）+ 下一行操作按钮 */
+  .content-panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .content-panel-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .outline-fullscreen-btn {
+    flex-shrink: 0;
+  }
+
+  .header-right-actions {
+    margin-left: 0;
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 6px;
+
+    .outline-ai-dropdown {
+      flex: 1;
+      min-width: 0;
+    }
+
+    :deep(.outline-ai-dropdown .el-button) {
+      width: 100%;
+      margin: 0;
+      justify-content: center;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    :deep(.outline-ai-dropdown .el-button span) {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    > .toolbar-save-btn,
+    > .toolbar-delete-btn {
+      flex: 0 0 auto;
+      margin: 0;
+    }
+
+    > .toolbar-save-btn {
+      min-width: 52px;
+    }
+  }
+
+  .panel-title {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .outline-tree {
+    font-size: 12px;
+  }
+
+  .outline-tree-panel :deep(.el-tree-node__content) {
+    height: 26px;
+    font-size: 12px;
+    padding-right: 4px;
+  }
+
+  .outline-tree-panel :deep(.el-tree-node__label) {
+    font-size: 12px;
+    line-height: 1.25;
+  }
 }
 
 .outline-content-panel {
@@ -891,16 +1111,20 @@ defineExpose({
 .header-right-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   margin-left: auto;
 }
 
-.content-ops-row {
-  display: flex;
-  align-items: center;
-  min-height: 8px;
-  margin-bottom: 6px;
+.header-right-actions .toolbar-save-btn,
+.header-right-actions .toolbar-delete-btn {
+  flex-shrink: 0;
+}
+
+/* 独立大纲页：同样使用 small 按钮后略收紧行高 */
+.header-right-actions :deep(.el-button--small) {
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .footer-save-warning {
