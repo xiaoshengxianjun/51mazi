@@ -108,7 +108,7 @@
               style="width: 100%"
               :empty-text="settingEmptyText"
             >
-              <el-table-column prop="name" :label="t('settingManager.settingName')" min-width="90">
+              <el-table-column prop="name" :label="t('settingManager.settingName')" min-width="70">
                 <template #default="{ row }">
                   <span class="setting-name">{{ row.name }}</span>
                 </template>
@@ -938,7 +938,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .setting-manager {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: 16px;
   height: 100%;
   min-height: 0;

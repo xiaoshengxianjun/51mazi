@@ -1404,6 +1404,8 @@
     "createNotebook": "创建笔记本",
     "createVolume": "创建卷",
     "sortVolumes": "卷排序",
+    "dragReorderHint": "拖拽卷或同卷内的章节可调整顺序；章节将按新顺序重新编号（保留标题后缀）",
+    "reorderFailed": "调整顺序失败",
     "chapterSettings": "正文设置",
     "noNotes": "暂无笔记",
     "noChapters": "暂无章节",

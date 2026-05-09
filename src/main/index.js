@@ -1275,6 +1275,121 @@ ipcMain.handle('load-chapters', async (event, bookName) => {
   return chapters
 })
 
+/**
+ * 持久化卷的展示顺序（与 load-chapters 中 ensureVolumeOrder 读取的 volumeOrder 一致）
+ */
+ipcMain.handle('reorder-volumes', async (event, { bookName, orderedVolumeNames }) => {
+  try {
+    const booksDir = store.get('booksDir')
+    const bookPath = join(booksDir, bookName)
+    const mainDir = join(bookPath, '正文')
+    if (!fs.existsSync(mainDir)) {
+      return { success: false, message: '正文目录不存在' }
+    }
+    const onDisk = fs
+      .readdirSync(mainDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+    if (!Array.isArray(orderedVolumeNames) || orderedVolumeNames.length !== onDisk.length) {
+      return { success: false, message: '卷数量与磁盘不一致' }
+    }
+    const setDisk = new Set(onDisk)
+    const setArg = new Set(orderedVolumeNames)
+    if (setDisk.size !== setArg.size || onDisk.some((n) => !setArg.has(n))) {
+      return { success: false, message: '卷列表与磁盘不一致' }
+    }
+    store.set(getVolumeOrderKey(bookName), [...orderedVolumeNames])
+    return { success: true }
+  } catch (error) {
+    console.error('reorder-volumes failed:', error)
+    return { success: false, message: error.message || '调整卷顺序失败' }
+  }
+})
+
+/**
+ * 按拖拽后的顺序重排章节文件，并按书籍章节设置重新编号（保留章节标题/描述后缀）
+ */
+ipcMain.handle(
+  'reorder-chapters-in-volume',
+  async (event, { bookName, volumeName, orderedChapterNames }) => {
+    try {
+      const booksDir = store.get('booksDir')
+      const bookPath = join(booksDir, bookName)
+      const volumePath = join(bookPath, '正文', volumeName)
+
+      if (!fs.existsSync(volumePath)) {
+        return { success: false, message: '卷目录不存在' }
+      }
+
+      const onDisk = fs
+        .readdirSync(volumePath, { withFileTypes: true })
+        .filter((f) => f.isFile() && f.name.endsWith('.txt'))
+        .map((f) => f.name.replace(/\.txt$/, ''))
+
+      if (!Array.isArray(orderedChapterNames) || orderedChapterNames.length !== onDisk.length) {
+        return { success: false, message: '章节数量与磁盘不一致' }
+      }
+      const setDisk = new Set(onDisk)
+      const setArg = new Set(orderedChapterNames)
+      if (setDisk.size !== setArg.size || onDisk.some((n) => !setArg.has(n))) {
+        return { success: false, message: '章节列表与磁盘不一致' }
+      }
+
+      const stored = store.get(`chapterSettings:${bookName}`) || {
+        chapterFormat: 'number',
+        suffixType: '章',
+        targetWords: 2000
+      }
+      const settings = {
+        chapterFormat: stored.chapterFormat === 'hanzi' ? 'hanzi' : 'number',
+        suffixType: stored.suffixType || '章'
+      }
+
+      /** @type {{ oldName: string, newName: string }[]} */
+      const renamed = orderedChapterNames.map((oldName, i) => {
+        const parsed = parseChapterName(oldName)
+        const description = parsed?.description || ''
+        const newPrefix = generateChapterName(i + 1, settings)
+        const newName = description ? `${newPrefix} ${description}` : newPrefix
+        return { oldName, newName }
+      })
+
+      const noop = renamed.every((r) => r.oldName === r.newName)
+      if (noop) {
+        return { success: true, renamed }
+      }
+
+      const finalNames = renamed.map((r) => r.newName)
+      if (new Set(finalNames).size !== finalNames.length) {
+        return { success: false, message: '重新编号后文件名重复，请修改章节标题后再试' }
+      }
+
+      const session = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+      for (let i = 0; i < orderedChapterNames.length; i++) {
+        const oldName = orderedChapterNames[i]
+        const oldPath = join(volumePath, `${oldName}.txt`)
+        const tmpPath = join(volumePath, `.51mazi-order-${session}-${i}.txt`)
+        fs.renameSync(oldPath, tmpPath)
+      }
+
+      for (let i = 0; i < renamed.length; i++) {
+        const { newName } = renamed[i]
+        const tmpPath = join(volumePath, `.51mazi-order-${session}-${i}.txt`)
+        const newPath = join(volumePath, `${newName}.txt`)
+        if (fs.existsSync(newPath)) {
+          return { success: false, message: `无法写入：文件名已存在「${newName}」` }
+        }
+        fs.renameSync(tmpPath, newPath)
+      }
+
+      return { success: true, renamed }
+    } catch (error) {
+      console.error('reorder-chapters-in-volume failed:', error)
+      return { success: false, message: error.message || '调整章节顺序失败' }
+    }
+  }
+)
+
 // 重新格式化章节编号
 ipcMain.handle('reformat-chapter-numbers', async (event, { bookName, volumeName, settings }) => {
   try {

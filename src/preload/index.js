@@ -38,6 +38,12 @@ const customElectronAPI = {
     ipcRenderer.invoke('create-chapter', { bookName, volumeId }),
   // 加载章节数据
   loadChapters: (bookName) => ipcRenderer.invoke('load-chapters', bookName),
+  // 拖拽调整卷顺序（持久化 volumeOrder）
+  reorderVolumes: (bookName, orderedVolumeNames) =>
+    ipcRenderer.invoke('reorder-volumes', { bookName, orderedVolumeNames }),
+  // 拖拽调整某卷内章节顺序并按章节设置重新编号
+  reorderChaptersInVolume: (bookName, volumeName, orderedChapterNames) =>
+    ipcRenderer.invoke('reorder-chapters-in-volume', { bookName, volumeName, orderedChapterNames }),
 
   // --------- 小说下载相关 ---------
   novelGetSources: () => ipcRenderer.invoke('novel:get-sources'),

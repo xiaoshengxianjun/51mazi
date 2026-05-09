@@ -18,9 +18,12 @@
         <OutlineManagerPanel :book-name="bookName" compact />
       </el-splitter-panel>
       <!-- 小屏：写作助手仅图标；正常：带文字 118px -->
-      <el-splitter-panel :size="isOutlineCompactMode ? 52 : 118" :resizable="false">
+      <el-splitter-panel :size="isOutlineCompactMode ? 52 : 150" :resizable="false">
         <!-- 右侧工具栏 -->
-        <EditorToolbar :compact="isOutlineCompactMode" :outline-embed-active="isOutlineCompactMode" />
+        <EditorToolbar
+          :compact="isOutlineCompactMode"
+          :outline-embed-active="isOutlineCompactMode"
+        />
       </el-splitter-panel>
     </el-splitter>
   </div>
