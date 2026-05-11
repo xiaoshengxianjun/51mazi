@@ -272,27 +272,28 @@
       :title="t('outlineManager.legacyVersionDrawerTitle')"
       size="440px"
       append-to-body
+      class="legacy-versions-drawer"
     >
       <template v-if="!currentNodeLegacyVersions.length">
         <el-empty :description="t('outlineManager.legacyVersionEmpty')" />
       </template>
       <div v-else class="legacy-version-list">
         <div v-for="row in currentNodeLegacyVersions" :key="row.id" class="legacy-version-item">
-          <div class="legacy-version-meta">
+          <header class="legacy-version-header">
             <span class="legacy-version-title-text">{{
               row.title?.trim() ? row.title : t('outlineManager.unnamedOutline')
             }}</span>
             <span class="legacy-version-time">{{ formatLegacySavedAt(row.savedAt) }}</span>
-          </div>
-          <div class="legacy-version-body">
+          </header>
+          <main class="legacy-version-main">
             <div v-if="!legacyBodyHasContent(row.content)" class="legacy-version-empty-hint">
               {{ t('outlineManager.currentContentEmpty') }}
             </div>
-            <div v-else class="legacy-version-scroll">
+            <div v-else class="legacy-version-main-text">
               {{ formatLegacyBodyDisplay(row.content) }}
             </div>
-          </div>
-          <div class="legacy-version-actions">
+          </main>
+          <footer class="legacy-version-footer">
             <el-button size="small" type="primary" link @click="applyLegacyVersionRecord(row)">
               {{ t('outlineManager.applyLegacyVersion') }}
             </el-button>
@@ -305,7 +306,7 @@
             >
               {{ t('outlineManager.deleteLegacyVersion') }}
             </el-button>
-          </div>
+          </footer>
         </div>
       </div>
     </el-drawer>
@@ -1509,31 +1510,43 @@ defineExpose({
   align-self: center;
 }
 
+.legacy-versions-drawer :deep(.el-drawer__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .legacy-version-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding-bottom: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
+/* 上：标题 + 时间 | 中：正文滚动（撑满宽） | 下：操作 */
 .legacy-version-item {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  max-height: min(300px, 40vh);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 12px 14px;
   background: var(--bg-soft, var(--el-fill-color-lighter));
+  overflow: hidden;
 }
 
-.legacy-version-meta {
+.legacy-version-header {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
   flex-shrink: 0;
   min-width: 0;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
 .legacy-version-title-text {
@@ -1556,20 +1569,20 @@ defineExpose({
   text-align: right;
 }
 
-.legacy-version-body {
-  flex: 1;
+.legacy-version-main {
+  flex: 1 1 auto;
   min-height: 0;
-  margin-bottom: 10px;
-}
-
-.legacy-version-scroll {
-  max-height: min(280px, 42vh);
+  width: 100%;
+  box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--el-fill-color-blank);
-  border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  padding: 12px 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.legacy-version-main-text {
+  width: 100%;
+  margin: 0;
   font-size: 13px;
   line-height: 1.65;
   color: var(--el-text-color-regular);
@@ -1578,6 +1591,8 @@ defineExpose({
 }
 
 .legacy-version-empty-hint {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px 14px;
   border-radius: 8px;
   font-size: 13px;
@@ -1588,14 +1603,16 @@ defineExpose({
   border: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
-.legacy-version-actions {
+.legacy-version-footer {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   width: 100%;
   flex-shrink: 0;
-  padding-top: 10px;
+  box-sizing: border-box;
+  padding: 10px 14px 12px;
   border-top: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+  background: color-mix(in srgb, var(--el-fill-color-lighter) 40%, transparent);
 }
 </style>
