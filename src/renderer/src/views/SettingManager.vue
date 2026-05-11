@@ -516,12 +516,17 @@ function getCategorySettingCount(category) {
   return selfCount + childCount
 }
 
+const LAST_CATEGORY_STORE_KEY = `lastSelectedSettingCategory:${bookName}`
+
 async function loadSettings() {
   try {
     const data = await window.electron.readSettings(bookName)
     const normalized = normalizeSettingsData(data)
     categories.value = normalized.categories
-    activeCategoryId.value = categories.value[0]?.id || DEFAULT_CATEGORY_ID
+
+    const savedId = await window.electronStore?.get(LAST_CATEGORY_STORE_KEY)
+    const isValid = savedId && findCategoryById(categories.value, savedId)
+    activeCategoryId.value = isValid ? savedId : categories.value[0]?.id || DEFAULT_CATEGORY_ID
   } catch (error) {
     console.error('加载设定管理数据失败:', error)
     const fallback = getDefaultSettingsData()
@@ -596,6 +601,7 @@ function handleEditCategory(category) {
 
 function handleCategorySelect(category) {
   activeCategoryId.value = category.id
+  window.electronStore?.set(LAST_CATEGORY_STORE_KEY, category.id).catch(() => {})
 }
 
 function allowCategoryDrop(draggingNode, dropNode, type) {
