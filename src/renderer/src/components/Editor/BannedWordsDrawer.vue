@@ -18,7 +18,11 @@
       <el-button type="primary" @click="handleAddWord">{{ t('bannedWords.add') }}</el-button>
     </div>
 
-    <el-empty v-if="bannedWords.length === 0" :image-size="200" :description="t('bannedWords.empty')" />
+    <el-empty
+      v-if="bannedWords.length === 0"
+      :image-size="200"
+      :description="t('bannedWords.empty')"
+    />
     <!-- 禁词标签列表 -->
     <div v-else class="words-list">
       <el-tag
