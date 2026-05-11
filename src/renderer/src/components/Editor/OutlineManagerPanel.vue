@@ -56,7 +56,11 @@
           <div class="header-right-actions">
             <!-- 大屏：三个 AI 操作平铺；小屏嵌入：合并为下拉节省宽度 -->
             <template v-if="props.compact">
-              <el-dropdown trigger="click" class="outline-ai-dropdown" @command="handleAiMenuCommand">
+              <el-dropdown
+                trigger="click"
+                class="outline-ai-dropdown"
+                @command="handleAiMenuCommand"
+              >
                 <el-button size="small" type="success">
                   {{ t('outlineManager.aiActionsMenu') }}
                   <el-icon class="el-icon--right"><ArrowDown /></el-icon>
@@ -69,7 +73,11 @@
                     <el-dropdown-item command="split" :disabled="!hasSelectedContent">
                       {{ t('outlineManager.aiSplit') }}
                     </el-dropdown-item>
-                    <el-dropdown-item command="generate-chapter" divided :disabled="!canGenerateChapterFromOutline">
+                    <el-dropdown-item
+                      command="generate-chapter"
+                      divided
+                      :disabled="!canGenerateChapterFromOutline"
+                    >
                       {{ t('outlineManager.aiGenerateChapter') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
@@ -104,25 +112,49 @@
                 {{ t('outlineManager.aiGenerateChapter') }}
               </el-button>
             </template>
-            <el-button
-              class="toolbar-save-btn"
-              size="small"
-              type="primary"
-              :loading="isSaving"
-              @click="handleConfirmSave"
-            >
-              {{ t('common.save') }}
-            </el-button>
-            <el-button
-              v-if="canDeleteSelectedOutline"
-              class="toolbar-delete-btn"
-              size="small"
-              type="danger"
-              plain
-              @click="handleDeleteSelectedOutline"
-            >
-              {{ t('common.delete') }}
-            </el-button>
+            <span class="outline-toolbar-group outline-toolbar-save-delete">
+              <el-button
+                class="toolbar-save-btn"
+                size="small"
+                type="primary"
+                :loading="isSaving"
+                @click="handleConfirmSave"
+              >
+                {{ t('common.save') }}
+              </el-button>
+              <el-button
+                v-if="canDeleteSelectedOutline"
+                class="toolbar-delete-btn"
+                size="small"
+                type="danger"
+                plain
+                @click="handleDeleteSelectedOutline"
+              >
+                {{ t('common.delete') }}
+              </el-button>
+            </span>
+            <template v-if="!props.compact">
+              <span class="outline-toolbar-group outline-toolbar-legacy">
+                <el-divider direction="vertical" class="outline-toolbar-divider" />
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="isLegacyPersisting"
+                  :disabled="!props.bookName"
+                  @click="handleSaveAsLegacyVersion"
+                >
+                  {{ t('outlineManager.saveAsLegacyVersion') }}
+                </el-button>
+                <el-button
+                  size="small"
+                  :disabled="!props.bookName"
+                  @click="legacyDrawerVisible = true"
+                >
+                  {{ t('outlineManager.legacyVersions') }}
+                </el-button>
+              </span>
+            </template>
           </div>
         </div>
         <div v-if="autoSaveError" class="footer-save-warning">
@@ -235,6 +267,49 @@
       </template>
     </el-dialog>
 
+    <el-drawer
+      v-model="legacyDrawerVisible"
+      :title="t('outlineManager.legacyVersionDrawerTitle')"
+      size="440px"
+      append-to-body
+    >
+      <template v-if="!currentNodeLegacyVersions.length">
+        <el-empty :description="t('outlineManager.legacyVersionEmpty')" />
+      </template>
+      <div v-else class="legacy-version-list">
+        <div v-for="row in currentNodeLegacyVersions" :key="row.id" class="legacy-version-item">
+          <div class="legacy-version-meta">
+            <span class="legacy-version-title-text">{{
+              row.title?.trim() ? row.title : t('outlineManager.unnamedOutline')
+            }}</span>
+            <span class="legacy-version-time">{{ formatLegacySavedAt(row.savedAt) }}</span>
+          </div>
+          <div class="legacy-version-body">
+            <div v-if="!legacyBodyHasContent(row.content)" class="legacy-version-empty-hint">
+              {{ t('outlineManager.currentContentEmpty') }}
+            </div>
+            <div v-else class="legacy-version-scroll">
+              {{ formatLegacyBodyDisplay(row.content) }}
+            </div>
+          </div>
+          <div class="legacy-version-actions">
+            <el-button size="small" type="primary" link @click="applyLegacyVersionRecord(row)">
+              {{ t('outlineManager.applyLegacyVersion') }}
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              link
+              :loading="deletingLegacyVersionId === row.id"
+              @click="confirmDeleteLegacyVersionRecord(row)"
+            >
+              {{ t('outlineManager.deleteLegacyVersion') }}
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
+
     <el-dialog
       v-model="generateChapterResultDialogVisible"
       :title="t('outlineManager.generateChapterResultTitle')"
@@ -301,6 +376,9 @@ const router = useRouter()
 
 const ROOT_ID = 'outline-root'
 
+/** 每个大纲节点最多保留的旧版条数（超出则丢弃更早的快照） */
+const MAX_OUTLINE_LEGACY_VERSIONS = 50
+
 const createDialogVisible = ref(false)
 const newOutlineTitle = ref('')
 const selectedNodeId = ref(ROOT_ID)
@@ -316,6 +394,12 @@ const targetVolumeName = ref('')
 const targetChapterName = ref('')
 const generateChapterRequirement = ref('')
 const generatedChapterContent = ref('')
+
+/** 与磁盘 outlines.json 中 `nodeVersions` 字段对应：nodeId -> 旧版列表 */
+const outlineNodeVersions = ref({})
+const legacyDrawerVisible = ref(false)
+const isLegacyPersisting = ref(false)
+const deletingLegacyVersionId = ref('')
 
 const treeRef = ref(null)
 const outlineAiWorkbenchRef = ref(null)
@@ -355,6 +439,15 @@ const createOutlineParentCategoryDisplay = computed(() => {
   return raw || t('outlineManager.unnamedOutline')
 })
 
+/** 当前选中节点对应的旧版列表（按保存时间降序） */
+const currentNodeLegacyVersions = computed(() => {
+  const list = outlineNodeVersions.value[selectedNodeId.value]
+  if (!Array.isArray(list) || !list.length) {
+    return []
+  }
+  return [...list].sort((a, b) => String(b.savedAt || '').localeCompare(String(a.savedAt || '')))
+})
+
 function normalizeOutlineTree(rawData) {
   const children = Array.isArray(rawData?.children) ? rawData.children : []
   return [
@@ -367,6 +460,91 @@ function normalizeOutlineTree(rawData) {
   ]
 }
 
+/**
+ * 将磁盘上的 nodeVersions 规范为安全结构（忽略非法项）
+ * @param {unknown} raw
+ * @returns {Record<string, Array<{ id: string, savedAt: string, title: string, content: string }>>}
+ */
+function normalizeNodeVersionsFromFile(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {}
+  }
+  /** @type {Record<string, Array<{ id: string, savedAt: string, title: string, content: string }>>} */
+  const out = {}
+  for (const [nodeId, arr] of Object.entries(raw)) {
+    if (typeof nodeId !== 'string' || !nodeId || !Array.isArray(arr)) {
+      continue
+    }
+    const normalized = arr
+      .filter((item) => item && typeof item.id === 'string' && item.id && item.savedAt)
+      .map((item) => ({
+        id: item.id,
+        savedAt: String(item.savedAt),
+        title: typeof item.title === 'string' ? item.title : '',
+        content: typeof item.content === 'string' ? item.content : ''
+      }))
+    if (normalized.length) {
+      out[nodeId] = normalized
+    }
+  }
+  return out
+}
+
+/**
+ * 收集当前大纲树中所有节点 id，用于保存前剔除已删除节点残留的旧版桶
+ * @param {unknown[]} nodes
+ * @param {Set<string>} acc
+ */
+function collectOutlineNodeIds(nodes, acc = new Set()) {
+  for (const node of nodes) {
+    if (node?.id) {
+      acc.add(node.id)
+    }
+    if (Array.isArray(node?.children) && node.children.length) {
+      collectOutlineNodeIds(node.children, acc)
+    }
+  }
+  return acc
+}
+
+/**
+ * 仅保留仍存在于大纲树中的 nodeId，避免 outlines.json 无限堆积
+ * @param {Record<string, unknown[]>} versions
+ * @param {unknown[]} tree
+ */
+function trimOrphanNodeVersions(versions, tree) {
+  const validIds = collectOutlineNodeIds(tree)
+  /** @type {typeof versions} */
+  const out = {}
+  for (const [k, v] of Object.entries(versions)) {
+    if (validIds.has(k) && Array.isArray(v)) {
+      out[k] = v
+    }
+  }
+  return out
+}
+
+function formatLegacySavedAt(iso) {
+  const d = new Date(String(iso || ''))
+  if (Number.isNaN(d.getTime())) {
+    return String(iso || '')
+  }
+  return d.toLocaleString()
+}
+
+/** 旧版抽屉：正文完整展示（换行保留），由外层容器滚动 */
+function normalizeLegacyNewlines(text) {
+  return String(text ?? '').replace(/\r\n/g, '\n')
+}
+
+function legacyBodyHasContent(text) {
+  return Boolean(normalizeLegacyNewlines(text).trim())
+}
+
+function formatLegacyBodyDisplay(text) {
+  return normalizeLegacyNewlines(text)
+}
+
 async function loadOutlineData() {
   if (!props.bookName) return
   isLoadingOutline.value = true
@@ -374,12 +552,15 @@ async function loadOutlineData() {
     const parsed = await window.electron.readOutlines(props.bookName)
     if (!parsed) {
       outlineTree.value = normalizeOutlineTree(null)
+      outlineNodeVersions.value = {}
       return
     }
     outlineTree.value = normalizeOutlineTree(parsed)
+    outlineNodeVersions.value = normalizeNodeVersionsFromFile(parsed.nodeVersions)
   } catch (err) {
     console.error('加载大纲失败:', err)
     outlineTree.value = normalizeOutlineTree(null)
+    outlineNodeVersions.value = {}
   } finally {
     isLoadingOutline.value = false
   }
@@ -390,11 +571,20 @@ async function saveOutlineData() {
   try {
     const root = outlineTree.value[0]
     const plainChildren = JSON.parse(JSON.stringify(toRaw(root?.children ?? [])))
+    const trimmed = trimOrphanNodeVersions(outlineNodeVersions.value, outlineTree.value)
+    /** 脱离 Vue Proxy，否则 IPC structuredClone 会报 DataCloneError */
+    const plainVersions = JSON.parse(JSON.stringify(trimmed))
+    outlineNodeVersions.value = plainVersions
+
     const payload = {
-      content: root?.content ?? '',
-      children: plainChildren
+      content: String(root?.content ?? ''),
+      children: plainChildren,
+      nodeVersions: plainVersions
     }
-    const result = await window.electron.writeOutlines(props.bookName, payload)
+    const result = await window.electron.writeOutlines(
+      props.bookName,
+      JSON.parse(JSON.stringify(payload))
+    )
     if (result && result.success === false) {
       throw new Error(result.message || t('outlineManager.saveFailed'))
     }
@@ -439,6 +629,89 @@ async function handleConfirmSave(options = {}) {
     return false
   } finally {
     isSaving.value = false
+  }
+}
+
+/**
+ * 仅在此处追加旧版快照；编辑大纲时的自动保存不会新增旧版条目，只会把已有 nodeVersions 一并写盘。
+ */
+async function handleSaveAsLegacyVersion() {
+  if (!props.bookName) return
+  const node = selectedNode.value
+  const nodeId = selectedNodeId.value
+  if (!node || !nodeId) {
+    return
+  }
+
+  isLegacyPersisting.value = true
+  try {
+    const newRecord = {
+      id: genId(),
+      savedAt: new Date().toISOString(),
+      title: String(node.title ?? ''),
+      content: String(node.content ?? '')
+    }
+    const prev = outlineNodeVersions.value[nodeId] ?? []
+    const merged = [newRecord, ...prev]
+    merged.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)))
+    outlineNodeVersions.value = {
+      ...outlineNodeVersions.value,
+      [nodeId]: merged.slice(0, MAX_OUTLINE_LEGACY_VERSIONS)
+    }
+    await saveOutlineData()
+    ElMessage.success(t('outlineManager.saveAsLegacyVersionSuccess'))
+  } catch {
+    ElMessage.error(t('outlineManager.saveAsLegacyVersionFailed'))
+  } finally {
+    isLegacyPersisting.value = false
+  }
+}
+
+function applyLegacyVersionRecord(record) {
+  const node = findNodeById(outlineTree.value, selectedNodeId.value)
+  if (!node || !record) {
+    return
+  }
+  if (node.id !== ROOT_ID) {
+    node.title = String(record.title ?? '')
+  }
+  node.content = String(record.content ?? '')
+  ElMessage.success(t('outlineManager.applyLegacyVersionSuccess'))
+}
+
+async function confirmDeleteLegacyVersionRecord(record) {
+  if (!record?.id || !props.bookName) return
+  const nodeId = selectedNodeId.value
+  try {
+    await ElMessageBox.confirm(
+      t('outlineManager.legacyVersionDeleteConfirm'),
+      t('outlineManager.deleteConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  deletingLegacyVersionId.value = record.id
+  try {
+    const list = (outlineNodeVersions.value[nodeId] ?? []).filter((v) => v.id !== record.id)
+    const next = { ...outlineNodeVersions.value }
+    if (list.length) {
+      next[nodeId] = list
+    } else {
+      delete next[nodeId]
+    }
+    outlineNodeVersions.value = next
+    await saveOutlineData()
+    ElMessage.success(t('outlineManager.deleteLegacyVersionSuccess'))
+  } catch {
+    ElMessage.error(t('outlineManager.saveFailed'))
+  } finally {
+    deletingLegacyVersionId.value = ''
   }
 }
 
@@ -855,6 +1128,12 @@ async function handleDeleteSelectedOutline() {
     return
   }
 
+  if (outlineNodeVersions.value[currentId]) {
+    const nextVersions = { ...outlineNodeVersions.value }
+    delete nextVersions[currentId]
+    outlineNodeVersions.value = nextVersions
+  }
+
   await setCurrentNode(nextSelectedId)
   const saved = await handleConfirmSave({ silentSuccess: true })
   if (saved) {
@@ -1044,13 +1323,13 @@ defineExpose({
       text-overflow: ellipsis;
     }
 
-    > .toolbar-save-btn,
-    > .toolbar-delete-btn {
+    .outline-toolbar-save-delete .toolbar-save-btn,
+    .outline-toolbar-save-delete .toolbar-delete-btn {
       flex: 0 0 auto;
       margin: 0;
     }
 
-    > .toolbar-save-btn {
+    .outline-toolbar-save-delete .toolbar-save-btn {
       min-width: 52px;
     }
   }
@@ -1134,6 +1413,17 @@ defineExpose({
   flex-shrink: 0;
 }
 
+.outline-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.outline-toolbar-legacy {
+  flex-shrink: 0;
+}
+
 /* 独立大纲页：同样使用 small 按钮后略收紧行高 */
 .header-right-actions :deep(.el-button--small) {
   padding-top: 5px;
@@ -1211,5 +1501,101 @@ defineExpose({
 .outline-content-panel :deep(.el-textarea__inner) {
   height: 100%;
   resize: none;
+}
+
+.outline-toolbar-divider {
+  margin: 0 4px;
+  height: 20px;
+  align-self: center;
+}
+
+.legacy-version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.legacy-version-item {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--bg-soft, var(--el-fill-color-lighter));
+}
+
+.legacy-version-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.legacy-version-title-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-base);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legacy-version-time {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  letter-spacing: 0.02em;
+  text-align: right;
+}
+
+.legacy-version-body {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 10px;
+}
+
+.legacy-version-scroll {
+  max-height: min(280px, 42vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--el-text-color-regular);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.legacy-version-empty-hint {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+  font-style: italic;
+  background: color-mix(in srgb, var(--el-fill-color) 65%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.legacy-version-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
 }
 </style>

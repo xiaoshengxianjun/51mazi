@@ -34,13 +34,25 @@
               />
             </template>
             <template #node="{ node }">
-              <div class="custom-node" :style="getNodeStyle(node)">
+              <div
+                class="custom-node"
+                :style="getNodeStyle(node)"
+                @mouseenter="showNodeIntroduction(node)"
+                @mouseleave="hideNodeIntroduction"
+              >
                 <div class="node-text">
                   {{ node.text }}
                 </div>
               </div>
             </template>
           </RelationGraph>
+
+          <div v-if="hoveredNode" class="node-introduction-card">
+            <div class="node-introduction-title">{{ hoveredNode.text }}</div>
+            <div class="node-introduction-content">
+              {{ hoveredNodeIntroduction }}
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -161,6 +173,7 @@ const relationshipName = route.query.id
 const saving = ref(false)
 const graphRef = ref(null)
 const selectedNode = ref(null)
+const hoveredNode = ref(null)
 
 // 人物数据
 const characters = ref([])
@@ -400,6 +413,33 @@ const isSelectedNodeRoot = computed(() => {
   return !hasParent
 })
 
+const hoveredNodeIntroduction = computed(() => {
+  if (!hoveredNode.value) return ''
+
+  const nodeDescription = String(hoveredNode.value.data?.description || '').trim()
+  if (nodeDescription) return nodeDescription
+
+  const matchedCharacter = characters.value.find((character) => {
+    return (
+      character.id === hoveredNode.value.data?.characterId ||
+      character.name === hoveredNode.value.text
+    )
+  })
+  const characterIntroduction = String(
+    matchedCharacter?.introduction || matchedCharacter?.biography || ''
+  ).trim()
+
+  return characterIntroduction || t('relationshipDesign.noDescription')
+})
+
+function showNodeIntroduction(node) {
+  hoveredNode.value = node
+}
+
+function hideNodeIntroduction() {
+  hoveredNode.value = null
+}
+
 // 节点点击事件，显示环绕菜单
 const onNodeClick = (nodeObject) => {
   // 如果在连线模式下，不显示环绕菜单
@@ -440,6 +480,7 @@ const onLineClick = (line) => {
 // 画布点击时隐藏菜单
 const onCanvasClick = () => {
   showRadialMenu.value = false
+  hideNodeIntroduction()
 }
 
 // 环绕菜单事件处理函数（预留实现）
@@ -1266,5 +1307,47 @@ onMounted(async () => {
   line-height: 1.2;
   word-break: break-word;
   padding: 4px;
+}
+
+.node-introduction-card {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  animation: nodeIntroductionFadeIn 0.2s ease-out;
+}
+
+.node-introduction-title {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.node-introduction-content {
+  color: var(--text-base);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes nodeIntroductionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
