@@ -1024,6 +1024,33 @@ function closeSearchPanel() {
 }
 
 /**
+ * 搜索与人物高亮、禁词提示共用/争抢同一类文档装饰（highlight、strike），
+ * 定时刷新会与 SearchPanel 的 setHighlight/unsetHighlight 交错，导致命中坐标或滚动错位。
+ * 搜索面板打开期间暂停上述装饰；关闭后在 nextTick 中恢复，以便先完成搜索面板的清理。
+ */
+watch(searchPanelVisible, (visible) => {
+  if (editorStore.file?.type !== 'chapter' || !editor.value) return
+
+  if (visible) {
+    stopCharacterHighlightTimer()
+    stopBannedWordsHintTimer()
+    clearCharacterHighlights()
+    clearBannedWordsStrikes()
+  } else {
+    nextTick(() => {
+      if (!editor.value || editorStore.file?.type !== 'chapter') return
+      resumeChapterDecorationTimers()
+      if (characterHighlightEnabled.value) {
+        applyCharacterHighlights()
+      }
+      if (bannedWordsHintEnabled.value) {
+        applyBannedWordsStrikes()
+      }
+    })
+  }
+})
+
+/**
  * 将润色后的纯文本转为编辑器 HTML（按双换行分段为 <p>，段内 \n 转 <br>）
  * @param {string} text - 纯文本
  * @returns {string} HTML
@@ -1449,6 +1476,7 @@ function applyCharacterHighlights() {
   if (
     !editor.value ||
     editorStore.file?.type !== 'chapter' ||
+    searchPanelVisible.value ||
     !characterHighlightEnabled.value ||
     characters.value.length === 0
   ) {
@@ -1615,11 +1643,17 @@ async function handleCharacterHighlightChange(enabled) {
 
 // 启动人物高亮定时器
 function startCharacterHighlightTimer() {
+  if (searchPanelVisible.value) return
   stopCharacterHighlightTimer() // 先清除旧的定时器
 
   // 每 2 秒检查一次并更新高亮
   characterHighlightTimer = setInterval(() => {
-    if (characterHighlightEnabled.value && editor.value && editorStore.file?.type === 'chapter') {
+    if (
+      !searchPanelVisible.value &&
+      characterHighlightEnabled.value &&
+      editor.value &&
+      editorStore.file?.type === 'chapter'
+    ) {
       applyCharacterHighlights()
     }
   }, 2000)
@@ -1691,6 +1725,7 @@ function applyBannedWordsStrikes() {
   if (
     !editor.value ||
     editorStore.file?.type !== 'chapter' ||
+    searchPanelVisible.value ||
     !bannedWordsHintEnabled.value ||
     bannedWords.value.length === 0
   ) {
@@ -1855,11 +1890,17 @@ async function handleBannedWordsHintChange(enabled) {
 
 // 启动禁词提示定时器
 function startBannedWordsHintTimer() {
+  if (searchPanelVisible.value) return
   stopBannedWordsHintTimer() // 先清除旧的定时器
 
   // 每 2 秒检查一次并更新划线
   bannedWordsHintTimer = setInterval(() => {
-    if (bannedWordsHintEnabled.value && editor.value && editorStore.file?.type === 'chapter') {
+    if (
+      !searchPanelVisible.value &&
+      bannedWordsHintEnabled.value &&
+      editor.value &&
+      editorStore.file?.type === 'chapter'
+    ) {
       applyBannedWordsStrikes()
     }
   }, 2000)
@@ -1876,6 +1917,8 @@ function stopBannedWordsHintTimer() {
 /** keep-alive 从子页回到编辑器时恢复人物高亮/禁词定时器（停用阶段已停掉，避免后台空跑） */
 function resumeChapterDecorationTimers() {
   if (!editor.value || editorStore.file?.type !== 'chapter') return
+  // 搜索打开时不启动装饰定时器，避免与 SearchPanel 的高亮事务互相覆盖
+  if (searchPanelVisible.value) return
   const docSize = editor.value.state.doc.content.size
   if (docSize <= 0) return
   if (characterHighlightEnabled.value) {
