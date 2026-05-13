@@ -271,7 +271,6 @@
       v-model="legacyDrawerVisible"
       :title="t('outlineManager.legacyVersionDrawerTitle')"
       size="440px"
-      append-to-body
       class="legacy-versions-drawer"
     >
       <template v-if="!currentNodeLegacyVersions.length">
@@ -1614,5 +1613,12 @@ defineExpose({
   padding: 10px 14px 12px;
   border-top: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
   background: color-mix(in srgb, var(--el-fill-color-lighter) 40%, transparent);
+}
+:deep(.el-drawer__header) {
+  margin-bottom: 0px;
+  padding-bottom: 20px;
+}
+:deep(.el-drawer__body) {
+  padding: 0px 20px;
 }
 </style>
