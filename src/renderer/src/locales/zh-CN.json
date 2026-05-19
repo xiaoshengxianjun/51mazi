@@ -490,6 +490,8 @@
     },
     "cardMode": "卡片模式",
     "tableMode": "表格模式",
+    "miniMode": "迷你模式",
+    "miniNoIntro": "暂无形象介绍与生平介绍",
     "avatar": "头像",
     "none": "无",
     "age": "年龄",

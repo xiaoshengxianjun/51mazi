@@ -490,6 +490,8 @@
     },
     "cardMode": "Card mode",
     "tableMode": "Table mode",
+    "miniMode": "Mini mode",
+    "miniNoIntro": "No appearance or biography yet",
     "avatar": "Avatar",
     "none": "None",
     "age": "Age",

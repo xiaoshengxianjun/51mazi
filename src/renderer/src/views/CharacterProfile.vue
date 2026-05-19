@@ -28,6 +28,10 @@
             <el-icon><Grid /></el-icon>
             {{ t('characterProfile.cardMode') }}
           </el-radio-button>
+          <el-radio-button value="mini">
+            <el-icon><Memo /></el-icon>
+            {{ t('characterProfile.miniMode') }}
+          </el-radio-button>
           <el-radio-button value="table">
             <el-icon><List /></el-icon>
             {{ t('characterProfile.tableMode') }}
@@ -120,6 +124,82 @@
           <div class="character-actions">
             <el-icon @click.stop="handleDeleteEntity(character)"><Delete /></el-icon>
           </div>
+        </div>
+      </div>
+
+      <!-- 迷你模式 -->
+      <div v-else-if="viewMode === 'mini'" class="character-mini-grid">
+        <div v-for="character in displayEntities" :key="character.id" class="mini-grid-item">
+          <el-popover
+            placement="top"
+            :width="380"
+            trigger="hover"
+            :show-after="250"
+            popper-class="character-mini-popper"
+          >
+          <template #reference>
+            <div
+              class="character-mini-card"
+              :class="[
+                cardGenderClass(character),
+                { 'has-tags': character.tags && character.tags.length > 0 }
+              ]"
+              @click="handleEditEntity(character)"
+            >
+              <div class="mini-card-top">
+                <div class="mini-card-avatar" @click.stop="previewCharacterAvatar(character)">
+                  <el-image
+                    v-if="character.avatar"
+                    :src="getAvatarSrc(character.avatar)"
+                    alt="头像"
+                    class="mini-avatar-image"
+                    fit="cover"
+                  />
+                  <div v-else class="mini-avatar-placeholder">
+                    {{ character.name.charAt(0) }}
+                  </div>
+                </div>
+              <div class="mini-card-body">
+                <div class="mini-card-name-row">
+                  <span
+                    v-if="character.markerColor"
+                    class="character-marker"
+                    :style="{ backgroundColor: character.markerColor }"
+                  ></span>
+                  <span class="mini-card-name">{{ character.name }}</span>
+                </div>
+                <div v-if="kindUi.showHumanFields" class="mini-card-meta">
+                  <span class="mini-card-age">
+                    {{ t('characterProfile.ageValue', { age: character.age }) }}
+                  </span>
+                  <span class="mini-card-height">{{ character.height }}cm</span>
+                </div>
+              </div>
+              </div>
+              <div v-if="character.tags && character.tags.length > 0" class="mini-card-tags">
+                <el-tag v-for="tag in character.tags" :key="tag" size="small" class="tag-item">
+                  {{ tag }}
+                </el-tag>
+              </div>
+              <div class="mini-card-actions">
+                <el-icon @click.stop="handleDeleteEntity(character)"><Delete /></el-icon>
+              </div>
+            </div>
+          </template>
+          <div class="mini-popover-content">
+            <template v-if="character.appearance || character.biography">
+              <div v-if="character.appearance" class="mini-popover-section">
+                <div class="mini-popover-title">{{ kindUi.appearanceLabel }}</div>
+                <p class="mini-popover-text">{{ character.appearance }}</p>
+              </div>
+              <div v-if="character.biography" class="mini-popover-section">
+                <div class="mini-popover-title">{{ kindUi.biographyLabel }}</div>
+                <p class="mini-popover-text">{{ character.biography }}</p>
+              </div>
+            </template>
+            <p v-else class="mini-popover-empty">{{ t('characterProfile.miniNoIntro') }}</p>
+          </div>
+          </el-popover>
         </div>
       </div>
 
@@ -504,7 +584,7 @@ import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Grid, List, Edit, MagicStick } from '@element-plus/icons-vue'
+import { Plus, Delete, Grid, List, Edit, MagicStick, Memo } from '@element-plus/icons-vue'
 import AICharacterDrawer from '@renderer/components/AICharacterDrawer.vue'
 import { genId } from '@renderer/utils/utils'
 import Sortable from 'sortablejs'
@@ -535,9 +615,13 @@ const VIEW_MODE_STORAGE_KEY_PREFIX = 'characterProfileViewMode_'
 function getViewModeStorageKey() {
   return VIEW_MODE_STORAGE_KEY_PREFIX + (bookName || '_default')
 }
-const viewMode = ref(
-  (typeof localStorage !== 'undefined' && localStorage.getItem(getViewModeStorageKey())) || 'table'
-)
+function loadStoredViewMode() {
+  if (typeof localStorage === 'undefined') return 'table'
+  const v = localStorage.getItem(getViewModeStorageKey())
+  if (v === 'card' || v === 'table' || v === 'mini') return v
+  return 'table'
+}
+const viewMode = ref(loadStoredViewMode())
 const characters = ref([])
 const mounts = ref([])
 const monsters = ref([])
@@ -821,7 +905,7 @@ let sortableInstance = null // 存储 SortableJS 实例
 watch(viewMode, (val) => {
   if (typeof localStorage === 'undefined') return
   const key = getViewModeStorageKey()
-  if (val === 'card' || val === 'table') {
+  if (val === 'card' || val === 'table' || val === 'mini') {
     localStorage.setItem(key, val)
   }
 })
@@ -1503,6 +1587,185 @@ onBeforeUnmount(() => {
   }
 }
 
+.character-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 220px));
+  gap: 8px;
+  padding: 12px 0;
+
+  .mini-grid-item {
+    min-width: 0;
+
+    :deep(.el-popover__reference) {
+      display: block;
+      width: 100%;
+    }
+  }
+}
+
+.character-mini-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 28px 8px 8px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+
+  &.has-tags {
+    padding-bottom: 6px;
+  }
+
+  .mini-card-top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+    border-color: var(--border-color);
+
+    .mini-card-actions {
+      opacity: 1;
+    }
+  }
+
+  &.male {
+    background: linear-gradient(135deg, #f5f8ff 0%, #f0f5ff 100%);
+    border-color: #e0e8f5;
+  }
+
+  &.female {
+    background: linear-gradient(135deg, #fff9fb 0%, #fff5f8 100%);
+    border-color: #f5e0e8;
+  }
+
+  .mini-card-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 2px solid var(--bg-soft);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+
+    .mini-avatar-image {
+      width: 100%;
+      height: 100%;
+    }
+
+    .mini-avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--success-green) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-gray-lightest);
+      font-size: 15px;
+      font-weight: bold;
+    }
+  }
+
+  .mini-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .mini-card-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+
+    .character-marker {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  }
+
+  .mini-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #121212;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mini-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.2;
+  }
+
+  .mini-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-color-soft);
+
+    .tag-item {
+      margin: 0;
+      font-size: 10px;
+    }
+  }
+
+  .mini-card-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 2;
+
+    .el-icon {
+      font-size: 18px;
+      color: var(--text-base);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+
+      &:hover {
+        color: var(--danger-color);
+      }
+    }
+  }
+}
+
 .character-card {
   background: var(--bg-soft);
   border: 1px solid var(--border-color-soft);
@@ -2062,5 +2325,41 @@ onBeforeUnmount(() => {
 }
 .character-form-drawer__footer.el-drawer__footer {
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.character-mini-popper {
+  .mini-popover-content {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .mini-popover-section + .mini-popover-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  .mini-popover-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--el-text-color-primary);
+    margin-bottom: 6px;
+  }
+
+  .mini-popover-text {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--el-text-color-regular);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .mini-popover-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    text-align: center;
+  }
 }
 </style>
