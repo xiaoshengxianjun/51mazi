@@ -93,6 +93,13 @@ const customElectronAPI = {
   // 删除笔记
   deleteNote: (bookName, notebookName, noteName) =>
     ipcRenderer.invoke('delete-note', { bookName, notebookName, noteName }),
+
+  // --------- 回收站相关 ---------
+  loadTrash: (bookName) => ipcRenderer.invoke('load-trash', bookName),
+  restoreTrashItem: (bookName, id, options = {}) =>
+    ipcRenderer.invoke('restore-trash-item', { bookName, id, ...options }),
+  deleteTrashItem: (bookName, id) => ipcRenderer.invoke('delete-trash-item', { bookName, id }),
+  clearTrash: (bookName) => ipcRenderer.invoke('clear-trash', bookName),
   // 重命名笔记
   renameNote: (bookName, notebookName, oldName, newName) =>
     ipcRenderer.invoke('rename-note', { bookName, notebookName, oldName, newName }),

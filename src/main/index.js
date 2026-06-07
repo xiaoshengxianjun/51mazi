@@ -18,6 +18,16 @@ import {
 import * as geminiImagenService from './services/geminiImagen.js'
 import { validateConfigNonEmpty as validateDoubaoConfigNonEmpty } from './services/doubaoImage.js'
 import novelDownloader from './services/novelDownloader.js'
+import {
+  loadTrashItems,
+  moveChapterToTrash,
+  moveVolumeToTrash,
+  moveNotebookToTrash,
+  moveNoteToTrash,
+  restoreTrashItem,
+  permanentlyDeleteTrashItem,
+  clearTrash
+} from './trash.js'
 const { autoUpdater } = pkg
 const MAIN_I18N_MESSAGES = {
   'zh-CN': {
@@ -1576,26 +1586,25 @@ ipcMain.handle('edit-node', async (event, { bookName, type, volume, chapter, new
   }
 })
 
-// 删除节点
+// 删除节点（移入回收站）
 ipcMain.handle('delete-node', async (event, { bookName, type, volume, chapter }) => {
   const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
   if (type === 'volume') {
-    const volumePath = join(booksDir, bookName, '正文', volume)
-    // 删除整个卷文件夹
+    const volumePath = join(bookPath, '正文', volume)
     if (!fs.existsSync(volumePath)) return { success: false, message: '卷不存在' }
-    fs.rmSync(volumePath, { recursive: true, force: true })
+    const result = moveVolumeToTrash(bookPath, volume)
+    if (!result.success) return result
 
-    // 同步更新卷创建顺序元数据
     const key = getVolumeOrderKey(bookName)
     const order = asArray(store.get(key)).filter((name) => name !== volume)
     store.set(key, order)
 
     return { success: true }
   } else if (type === 'chapter') {
-    const chapterPath = join(booksDir, bookName, '正文', volume, `${chapter}.txt`)
+    const chapterPath = join(bookPath, '正文', volume, `${chapter}.txt`)
     if (!fs.existsSync(chapterPath)) return { success: false, message: '章节不存在' }
-    fs.rmSync(chapterPath)
-    return { success: true }
+    return moveChapterToTrash(bookPath, volume, chapter)
   }
   return { success: false, message: '类型错误' }
 })
@@ -1934,15 +1943,15 @@ ipcMain.handle('create-notebook', async (event, { bookName }) => {
   return { success: true, notebookName }
 })
 
-// 删除笔记本
+// 删除笔记本（移入回收站）
 ipcMain.handle('delete-notebook', async (event, { bookName, notebookName }) => {
   const booksDir = store.get('booksDir')
-  const notebookPath = join(booksDir, bookName, '笔记', notebookName)
+  const bookPath = join(booksDir, bookName)
+  const notebookPath = join(bookPath, '笔记', notebookName)
   if (!fs.existsSync(notebookPath)) {
     return { success: false, message: '笔记本不存在' }
   }
-  fs.rmSync(notebookPath, { recursive: true, force: true })
-  return { success: true }
+  return moveNotebookToTrash(bookPath, notebookName)
 })
 
 // 重命名笔记本
@@ -2021,15 +2030,44 @@ ipcMain.handle(
   }
 )
 
-// 删除笔记
+// 删除笔记（移入回收站）
 ipcMain.handle('delete-note', async (event, { bookName, notebookName, noteName }) => {
   const booksDir = store.get('booksDir')
-  const notePath = join(booksDir, bookName, '笔记', notebookName, `${noteName}.txt`)
+  const bookPath = join(booksDir, bookName)
+  const notePath = join(bookPath, '笔记', notebookName, `${noteName}.txt`)
   if (!fs.existsSync(notePath)) {
     return { success: false, message: '笔记不存在' }
   }
-  fs.rmSync(notePath)
-  return { success: true }
+  return moveNoteToTrash(bookPath, notebookName, noteName)
+})
+
+// 回收站：加载列表
+ipcMain.handle('load-trash', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  if (!fs.existsSync(bookPath)) return []
+  return loadTrashItems(bookPath)
+})
+
+// 回收站：恢复项目
+ipcMain.handle('restore-trash-item', async (event, { bookName, id, conflictStrategy, newName }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  return restoreTrashItem(bookPath, id, { conflictStrategy, newName })
+})
+
+// 回收站：永久删除单条
+ipcMain.handle('delete-trash-item', async (event, { bookName, id }) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  return permanentlyDeleteTrashItem(bookPath, id)
+})
+
+// 回收站：清空
+ipcMain.handle('clear-trash', async (event, bookName) => {
+  const booksDir = store.get('booksDir')
+  const bookPath = join(booksDir, bookName)
+  return clearTrash(bookPath)
 })
 
 // 重命名笔记
