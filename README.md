@@ -530,4 +530,14 @@ npm run build:linux
 
 *本文介绍的 51mazi 软件目前为开源项目，欢迎感兴趣的开发者参与贡献。更多技术细节和开发信息，请参考项目的 GitHub 仓库。* 
 
-> 💡 **如果这篇文章对你有帮助，请给个 ⭐️ 支持一下！** 
+> 💡 **如果这篇文章对你有帮助，请给个 ⭐️ 支持一下！**
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=xiaoshengxianjun%2F51mazi&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left" />
+ </picture>
+</a>
