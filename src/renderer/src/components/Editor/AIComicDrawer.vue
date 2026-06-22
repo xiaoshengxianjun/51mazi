@@ -482,12 +482,17 @@ async function ensureBatchDir() {
   if (!bookName) throw new Error(t('aiComic.bookNameEmpty'))
 
   const storyboard = {
-    chapterTitle: props.chapterTitle || '',
-    inputMode: props.inputMode,
+    chapterTitle: String(props.chapterTitle || ''),
+    inputMode: String(props.inputMode || 'chapter'),
     comicStyle: form.value.comicStyle,
     panelCount: form.value.panelCount,
     outputSize: form.value.outputSize,
-    panels: panels.value,
+    panels: panels.value.map((p) => ({
+      index: Number(p.index),
+      caption: String(p.caption || ''),
+      visualPrompt: String(p.visualPrompt || ''),
+      characters: Array.isArray(p.characters) ? p.characters.map((c) => String(c)) : []
+    })),
     createdAt: new Date().toISOString()
   }
 

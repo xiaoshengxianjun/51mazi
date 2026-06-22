@@ -2,6 +2,11 @@
  * AI 漫画 - 前端服务封装
  */
 
+/** IPC 仅接受可 structured clone 的纯数据，剥离 Vue Proxy 等 */
+function toIpcPlain(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
 /**
  * 生成分镜脚本
  * @param {Object} payload
@@ -11,7 +16,7 @@
  * @param {string} [payload.bookName]
  */
 export async function generateComicStoryboardWithAI(payload) {
-  return await window.electron.generateComicStoryboardWithAI(payload)
+  return await window.electron.generateComicStoryboardWithAI(toIpcPlain(payload))
 }
 
 /**
@@ -22,7 +27,7 @@ export async function generateComicStoryboardWithAI(payload) {
  * @param {unknown} options.storyboard
  */
 export async function initComicBatch(options) {
-  return await window.electron.initComicBatch(options)
+  return await window.electron.initComicBatch(toIpcPlain(options))
 }
 
 /**
@@ -36,7 +41,11 @@ export async function initComicBatch(options) {
  * @param {string} [options.imageProvider]
  */
 export async function generateAIComicPanelImage(options) {
-  return await window.electron.generateAIComicPanelImage(options)
+  const plain = toIpcPlain(options)
+  if (plain.negativePrompt === undefined || plain.negativePrompt === null) {
+    delete plain.negativePrompt
+  }
+  return await window.electron.generateAIComicPanelImage(plain)
 }
 
 /**
