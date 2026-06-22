@@ -80,6 +80,14 @@
         >
           {{ t('editorPanel.aiSceneImage') }}
         </el-button>
+        <el-button
+          type="info"
+          size="small"
+          class="ai-comic-btn"
+          @click="handleAIComicClick"
+        >
+          {{ t('editorPanel.aiComic') }}
+        </el-button>
       </div>
     </div>
     <!-- AI 润色结果确认弹框（段落 / 整章共用） -->
@@ -225,6 +233,14 @@
       :excerpt="sceneExcerpt"
     />
 
+    <AIComicDrawer
+      v-model="comicDialogVisible"
+      :book-name="bookName"
+      :chapter-title="chapterTitle"
+      :excerpt="comicExcerpt"
+      :input-mode="comicInputMode"
+    />
+
     <!-- 搜索面板 -->
     <SearchPanel :visible="searchPanelVisible" :editor="editor" @close="closeSearchPanel" />
   </div>
@@ -254,6 +270,7 @@ import EditorProgress from '@renderer/components/Editor/EditorProgress.vue'
 import ChapterEditorContent from '@renderer/components/Editor/ChapterEditorContent.vue'
 import NoteEditorContent from '@renderer/components/Editor/NoteEditorContent.vue'
 import AISceneImageDialog from '@renderer/components/Editor/AISceneImageDialog.vue'
+import AIComicDrawer from '@renderer/components/Editor/AIComicDrawer.vue'
 
 const editorStore = useEditorStore()
 const { t } = useI18n()
@@ -283,6 +300,8 @@ const PREVIOUS_CHAPTER_CONTEXT_LENGTH = 1200
 /** AI 场景图：选区有效字数（与全书统计一致，不含空白） */
 const SCENE_SELECTION_MIN_WORDS = 100
 const SCENE_SELECTION_MAX_WORDS = 1000
+const COMIC_CHAPTER_MIN_WORDS = 200
+const COMIC_CHAPTER_MAX_WORDS = 5000
 
 function getPlainTextWordCount(text) {
   if (!text) return 0
@@ -404,6 +423,11 @@ const polishReplaceTo = ref(0)
 // AI 场景图（选中文本）
 const sceneDialogVisible = ref(false)
 const sceneExcerpt = ref('')
+
+// AI 漫画（选段或整章）
+const comicDialogVisible = ref(false)
+const comicExcerpt = ref('')
+const comicInputMode = ref('chapter')
 
 // 获取当前编辑器内容组件
 function getEditorContentComponent() {
@@ -1349,6 +1373,71 @@ function handleAISceneImageClick() {
   sceneDialogVisible.value = true
 }
 
+/** AI 漫画：有选区走选段模式，否则整章模式 */
+function handleAIComicClick() {
+  const ed = editor.value
+  if (!ed) {
+    ElMessage.warning(t('editorPanel.editorNotReady'))
+    return
+  }
+
+  const name = (props.bookName || '').trim()
+  if (!name) {
+    ElMessage.error(t('editorPanel.invalidBookName'))
+    return
+  }
+
+  const { state } = ed
+  const { from, to } = state.selection
+
+  if (from !== to) {
+    const text = state.doc.textBetween(from, to, '\n')
+    if (!text.trim()) {
+      ElMessage.warning(t('editorPanel.selectedTextEmptySimple'))
+      return
+    }
+    const words = getPlainTextWordCount(text)
+    if (words < SCENE_SELECTION_MIN_WORDS) {
+      ElMessage.warning(
+        t('editorPanel.sceneSelectionTooShort', { current: words, min: SCENE_SELECTION_MIN_WORDS })
+      )
+      return
+    }
+    if (words > SCENE_SELECTION_MAX_WORDS) {
+      ElMessage.warning(
+        t('editorPanel.sceneSelectionTooLong', { current: words, max: SCENE_SELECTION_MAX_WORDS })
+      )
+      return
+    }
+    comicExcerpt.value = text
+    comicInputMode.value = 'selection'
+    comicDialogVisible.value = true
+    return
+  }
+
+  const fullText = ed.getText()
+  if (!fullText || !fullText.trim()) {
+    ElMessage.warning(t('editorPanel.chapterContentEmptyForComic'))
+    return
+  }
+  const words = getPlainTextWordCount(fullText)
+  if (words < COMIC_CHAPTER_MIN_WORDS) {
+    ElMessage.warning(
+      t('editorPanel.chapterTooShortForComic', { current: words, min: COMIC_CHAPTER_MIN_WORDS })
+    )
+    return
+  }
+  if (words > COMIC_CHAPTER_MAX_WORDS) {
+    ElMessage.warning(
+      t('editorPanel.chapterTooLongForComic', { current: words, max: COMIC_CHAPTER_MAX_WORDS })
+    )
+    return
+  }
+  comicExcerpt.value = fullText
+  comicInputMode.value = 'chapter'
+  comicDialogVisible.value = true
+}
+
 /** 润色整章 */
 async function handlePolishChapter() {
   const ed = editor.value
@@ -2040,6 +2129,20 @@ watch(
 }
 
 .ai-scene-btn {
+  min-width: 100px;
+  max-width: 152px;
+  height: auto;
+  justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.ai-comic-btn {
   min-width: 100px;
   max-width: 152px;
   height: auto;

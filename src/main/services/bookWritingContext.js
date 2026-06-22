@@ -246,3 +246,67 @@ export function buildBookWritingContextBlock(bookPath, options = {}) {
   }
   return block
 }
+
+/**
+ * 按正文出现的人物名筛选外貌摘要，供 AI 漫画分镜生成注入上下文
+ * @param {string} bookPath 书籍绝对路径
+ * @param {string} text 章节或选段正文
+ * @param {number} [maxChars=2000]
+ * @returns {string}
+ */
+export function buildCharacterAppearanceBlockForText(bookPath, text, maxChars = 2000) {
+  if (!bookPath || !fs.existsSync(bookPath)) return ''
+
+  const blob = String(text || '').trim()
+  if (!blob) return ''
+
+  const characters = safeReadJson(join(bookPath, 'characters.json'), [])
+  if (!Array.isArray(characters) || !characters.length) return ''
+
+  const matched = characters.filter((c) => nameMentionedInOutline(c?.name, blob))
+  const picked = matched.length > 0 ? matched.slice(0, 12) : characters.slice(0, 6)
+
+  const lines = picked
+    .map((c) => {
+      const name = String(c?.name || '').trim()
+      const appear = truncate(String(c?.appearance || '').trim(), 150)
+      if (!name) return ''
+      return appear ? `${name}：${appear}` : name
+    })
+    .filter(Boolean)
+
+  if (!lines.length) return ''
+
+  let block = lines.join('\n')
+  if (block.length > maxChars) {
+    block = truncate(block, maxChars)
+  }
+  return block
+}
+
+/**
+ * @param {string} bookPath
+ * @param {string[]} characterNames
+ * @returns {Record<string, string>} 角色名 -> 外貌描述
+ */
+export function getCharacterAppearanceMap(bookPath, characterNames = []) {
+  const out = {}
+  if (!bookPath || !fs.existsSync(bookPath)) return out
+
+  const names = (Array.isArray(characterNames) ? characterNames : [])
+    .map((n) => String(n || '').trim())
+    .filter((n) => n.length >= 1)
+
+  if (!names.length) return out
+
+  const characters = safeReadJson(join(bookPath, 'characters.json'), [])
+  if (!Array.isArray(characters)) return out
+
+  for (const name of names) {
+    const found = characters.find((c) => String(c?.name || '').trim() === name)
+    if (found?.appearance) {
+      out[name] = truncate(String(found.appearance).trim(), 150)
+    }
+  }
+  return out
+}

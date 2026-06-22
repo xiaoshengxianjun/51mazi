@@ -15,6 +15,8 @@ import {
   generateImageBuffer as generateImageBufferByProvider,
   listConfiguredImageProviders
 } from './services/imageGenerationRouter.js'
+import { buildCharacterAppearanceBlockForText } from './services/bookWritingContext.js'
+import { initComicBatch, writeComicPanelImage } from './services/comicAi.js'
 import * as geminiImagenService from './services/geminiImagen.js'
 import { validateConfigNonEmpty as validateDoubaoConfigNonEmpty } from './services/doubaoImage.js'
 import novelDownloader from './services/novelDownloader.js'
@@ -3816,6 +3818,45 @@ ipcMain.handle('deepseek:scene-visual-prompt', async (_, { text }) => {
   }
 })
 
+// AI 漫画：正文 → 分镜脚本（DeepSeek）
+ipcMain.handle('deepseek:comic-storyboard', async (_, payload) => {
+  try {
+    await deepseekService.initApiKey((key) => store.get(key))
+    const {
+      text = '',
+      panelCount = 6,
+      comicStyleLabel = '',
+      bookName = ''
+    } = payload || {}
+
+    const excerpt = String(text || '').trim()
+    if (!excerpt) {
+      return { success: false, message: '正文内容为空，无法生成分镜', panels: [] }
+    }
+
+    let characterBlock = ''
+    const booksDir = store.get('booksDir')
+    if (booksDir && bookName) {
+      const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+      const bookPath = join(booksDir, safeName)
+      if (fs.existsSync(bookPath)) {
+        characterBlock = buildCharacterAppearanceBlockForText(bookPath, excerpt)
+      }
+    }
+
+    const panels = await deepseekService.comicStoryboardFromText(excerpt, {
+      panelCount,
+      comicStyleLabel,
+      characterBlock
+    })
+
+    return { success: true, panels, characterBlock }
+  } catch (error) {
+    console.error('AI 漫画分镜生成失败:', error)
+    return { success: false, message: error.message, panels: [] }
+  }
+})
+
 // --------- 通义万相 AI 封面 ---------
 
 tongyiwanxiangService.initApiKey((key) => store.get(key))
@@ -4182,6 +4223,67 @@ ipcMain.handle('tongyiwanxiang:generate-scene-image', async (_, options) => {
     return {
       success: false,
       message: error?.message || '生成场景图失败'
+    }
+  }
+})
+
+// --------- AI 漫画分镜图 ---------
+ipcMain.handle('comic:init-batch', async (_, options) => {
+  try {
+    const { bookName, chapterTitle, storyboard } = options || {}
+    if (!bookName || !storyboard) {
+      return { success: false, message: '缺少参数：bookName、storyboard 为必填' }
+    }
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !fs.existsSync(booksDir)) {
+      return { success: false, message: '未设置或无效的书籍目录' }
+    }
+    const safeName = String(bookName).replace(/[\\/:*?"<>|]/g, '_')
+    const bookPath = join(booksDir, safeName)
+    const batchDir = initComicBatch(bookPath, chapterTitle || '章节', storyboard)
+    return { success: true, batchDir }
+  } catch (error) {
+    console.error('初始化漫画批次失败:', error)
+    return { success: false, message: error?.message || '初始化失败' }
+  }
+})
+
+ipcMain.handle('comic:generate-panel-image', async (_, options) => {
+  try {
+    const {
+      prompt,
+      size,
+      batchDir,
+      panelIndex,
+      negativePrompt = '',
+      imageProvider
+    } = options || {}
+
+    if (!prompt || !size || !batchDir || panelIndex == null) {
+      return {
+        success: false,
+        message: '缺少参数：prompt、size、batchDir、panelIndex 为必填'
+      }
+    }
+
+    const resolvedBatch = resolve(batchDir)
+    if (!fs.existsSync(resolvedBatch)) {
+      return { success: false, message: '漫画批次目录无效' }
+    }
+
+    const buf = await generateImageBufferByProvider(store, {
+      imageProvider,
+      prompt,
+      size,
+      negativePrompt
+    })
+    const localPath = writeComicPanelImage(resolvedBatch, panelIndex, buf)
+    return { success: true, localPath }
+  } catch (error) {
+    console.error('生成漫画分镜图失败:', error)
+    return {
+      success: false,
+      message: error?.message || '生成分镜图失败'
     }
   }
 })

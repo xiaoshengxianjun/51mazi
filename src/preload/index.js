@@ -291,6 +291,14 @@ const customElectronAPI = {
   // AI 场景图：节选 → 画面描述（DeepSeek）
   refineSceneVisualPromptWithAI: (text) =>
     ipcRenderer.invoke('deepseek:scene-visual-prompt', { text }),
+  // AI 漫画：正文 → 分镜脚本（DeepSeek）
+  generateComicStoryboardWithAI: (payload) =>
+    ipcRenderer.invoke('deepseek:comic-storyboard', payload),
+  // AI 漫画：初始化批次目录
+  initComicBatch: (options) => ipcRenderer.invoke('comic:init-batch', options),
+  // AI 漫画：生成单格分镜图
+  generateAIComicPanelImage: (options) =>
+    ipcRenderer.invoke('comic:generate-panel-image', options),
 
   // --------- 通义万相 AI 封面 ---------
   setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),

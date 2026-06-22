@@ -9,6 +9,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AICharacterDrawer: typeof import('./src/components/AICharacterDrawer.vue')['default']
+    AIComicDrawer: typeof import('./src/components/Editor/AIComicDrawer.vue')['default']
     AICoverDrawer: typeof import('./src/components/AICoverDrawer.vue')['default']
     AISceneImageDialog: typeof import('./src/components/Editor/AISceneImageDialog.vue')['default']
     AISettings: typeof import('./src/components/AISettings.vue')['default']
@@ -60,6 +61,8 @@ declare module 'vue' {
     ElSplitter: typeof import('element-plus/es')['ElSplitter']
     ElSplitterPanel: typeof import('element-plus/es')['ElSplitterPanel']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
+    ElTable: typeof import('element-plus/es')['ElTable']
+    ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTag: typeof import('element-plus/es')['ElTag']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTree: typeof import('element-plus/es')['ElTree']

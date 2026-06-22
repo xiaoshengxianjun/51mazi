@@ -481,6 +481,119 @@ class DeepSeekService {
   }
 
   /**
+   * 从 JSON 字符串中提取并解析漫画分镜对象
+   * @param {string} raw
+   * @returns {{ panels: Array }}
+   */
+  _parseComicStoryboardJson(raw) {
+    let text = String(raw || '').trim()
+    if (!text) {
+      throw new Error('分镜结果为空，请重试')
+    }
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+    if (fence?.[1]) {
+      text = fence[1].trim()
+    }
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      text = text.slice(start, end + 1)
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      throw new Error('分镜 JSON 解析失败，请重试')
+    }
+    if (!parsed || !Array.isArray(parsed.panels) || !parsed.panels.length) {
+      throw new Error('分镜结果格式异常，请重试')
+    }
+    return parsed
+  }
+
+  /**
+   * 根据小说正文生成漫画分镜脚本
+   * @param {string} text - 章节或选段正文
+   * @param {Object} options
+   * @param {number} [options.panelCount=6]
+   * @param {string} [options.comicStyleLabel='漫画']
+   * @param {string} [options.characterBlock=''] - 人物外貌参考
+   * @returns {Promise<Array<{index:number,caption:string,visualPrompt:string,characters:string[]}>>}
+   */
+  async comicStoryboardFromText(text, options = {}) {
+    const excerpt = typeof text === 'string' ? text.trim() : ''
+    if (!excerpt) {
+      throw new Error('正文内容为空，无法生成分镜')
+    }
+
+    const allowedCounts = [4, 6, 8]
+    const rawCount = Number(options.panelCount)
+    const panelCount = allowedCounts.includes(rawCount) ? rawCount : 6
+    const comicStyleLabel = String(options.comicStyleLabel || options.comicStyle || '漫画').trim()
+    const characterBlock = String(options.characterBlock || '').trim()
+
+    const systemContent = [
+      `你是专业漫画分镜师。用户会提供小说正文，请你拆分为恰好 ${panelCount} 个漫画分镜。`,
+      '输出必须是合法 JSON，且仅输出 JSON，不要 markdown 代码块，不要任何解释。',
+      'JSON 格式：{"panels":[{"index":1,"caption":"情节一句话","visualPrompt":"200字以内的画面描述，只写可见内容","characters":["角色名"]}]}',
+      `要求：panels 数组长度必须为 ${panelCount}；index 从 1 递增；visualPrompt 适合 AI 绘图；按正文顺序覆盖关键情节。`
+    ].join('\n')
+
+    const userParts = []
+    if (characterBlock) {
+      userParts.push(
+        '【人物外貌参考（分镜中出现的角色请在 visualPrompt 中保持外貌一致）】',
+        characterBlock,
+        ''
+      )
+    }
+    userParts.push(
+      `漫画风格：${comicStyleLabel || '漫画'}`,
+      `目标分镜格数：${panelCount}`,
+      '',
+      '正文：',
+      excerpt
+    )
+
+    const messages = [
+      { role: 'system', content: systemContent },
+      { role: 'user', content: userParts.join('\n') }
+    ]
+
+    const requestId = `comicStoryboard_${Date.now()}`
+    const result = await this.chat({
+      messages,
+      temperature: 0.5,
+      max_tokens: Math.min(4096, 400 + panelCount * 220),
+      requestId
+    })
+
+    const parsed = this._parseComicStoryboardJson(result.content || '')
+    const panels = parsed.panels
+      .map((p, i) => ({
+        index: Number(p?.index) > 0 ? Number(p.index) : i + 1,
+        caption: String(p?.caption || '').trim(),
+        visualPrompt: String(p?.visualPrompt || '').trim().slice(0, 200),
+        characters: Array.isArray(p?.characters)
+          ? p.characters.map((c) => String(c).trim()).filter(Boolean)
+          : []
+      }))
+      .slice(0, panelCount)
+
+    if (panels.length !== panelCount) {
+      throw new Error(`分镜格数不符（期望 ${panelCount} 格，实际 ${panels.length} 格），请重试`)
+    }
+
+    for (const panel of panels) {
+      if (!panel.visualPrompt || panel.visualPrompt.length < 5) {
+        throw new Error('分镜画面描述不完整，请重试')
+      }
+    }
+
+    return panels
+  }
+
+  /**
    * 检查 API Key 是否有效
    * @returns {Promise<{isValid: boolean, message?: string}>}
    */
