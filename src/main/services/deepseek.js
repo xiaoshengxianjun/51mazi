@@ -4,7 +4,7 @@
  */
 
 const DEEPSEEK_API_BASE = 'https://api.deepseek.com'
-const DEFAULT_MODEL = 'deepseek-chat' // 或 'deepseek-reasoner' 用于推理任务
+const DEFAULT_MODEL = 'deepseek-v4-pro' // 或 'deepseek-v4-flash' 省钱
 
 class DeepSeekService {
   constructor() {
