@@ -189,6 +189,8 @@
     "redo": "回退 (Ctrl+Shift+Z)",
     "copy": "复制",
     "search": "搜索",
+    "phonePreview": "手机预览",
+    "phonePreviewEmpty": "当前章节暂无内容",
     "save": "保存",
     "export": "导出",
     "colorYellow": "黄色",

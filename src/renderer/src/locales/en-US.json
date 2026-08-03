@@ -189,6 +189,8 @@
     "redo": "Redo (Ctrl+Shift+Z)",
     "copy": "Copy",
     "search": "Search",
+    "phonePreview": "Phone preview",
+    "phonePreviewEmpty": "This chapter has no content yet",
     "save": "Save",
     "export": "Export",
     "colorYellow": "Yellow",
