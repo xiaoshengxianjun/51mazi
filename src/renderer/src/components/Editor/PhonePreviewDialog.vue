@@ -230,8 +230,15 @@ function close() {
 }
 
 .phone-preview-close {
-  background: rgba(255, 255, 255, 0.92) !important;
+  /* 固定白底深色图标，避免暗色主题下 text 色变浅导致看不清 */
+  background: #ffffff !important;
   border: none !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #1a1a1a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+
+  .el-icon,
+  svg {
+    color: #1a1a1a !important;
+  }
 }
 </style>
