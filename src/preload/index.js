@@ -248,6 +248,15 @@ const customElectronAPI = {
   addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
   // 删除禁词
   removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word),
+  // 批量追加禁词（自动去重）
+  appendBannedWords: (bookName, words) =>
+    ipcRenderer.invoke('append-banned-words', bookName, words),
+  // 清空禁词
+  clearBannedWords: (bookName) => ipcRenderer.invoke('clear-banned-words', bookName),
+  // 选择文本词库文件
+  selectTextFile: () => ipcRenderer.invoke('select-text-file'),
+  // 读取文本文件
+  readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
 
   // --------- 自动更新相关 ---------
   // 手动检查更新
