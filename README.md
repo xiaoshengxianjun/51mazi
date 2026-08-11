@@ -536,8 +536,8 @@ npm run build:linux
 
 <a href="https://www.star-history.com/?repos=xiaoshengxianjun%2F51mazi&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&theme=dark&legend=top-left&sealed_token=mZc5bm1uJF5UlqVBX-DmyLSwxT8IfOVzQjoZKyfb-mxs2kfnyoVDyRuNmylPoigYQlYQMGVxleoFNVFUJZ4DeucZ6S9707TdpcEa7Q5r98K5n5gEfRTl1AUmhb7GUUvW3BfMJ45Ooh18c1oX2PZUlb6KHP5WuIMwLCLRQbWcp0d3LpYGFCmlbq3VDfMQ" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left&sealed_token=mZc5bm1uJF5UlqVBX-DmyLSwxT8IfOVzQjoZKyfb-mxs2kfnyoVDyRuNmylPoigYQlYQMGVxleoFNVFUJZ4DeucZ6S9707TdpcEa7Q5r98K5n5gEfRTl1AUmhb7GUUvW3BfMJ45Ooh18c1oX2PZUlb6KHP5WuIMwLCLRQbWcp0d3LpYGFCmlbq3VDfMQ" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaoshengxianjun/51mazi&type=date&legend=top-left&sealed_token=mZc5bm1uJF5UlqVBX-DmyLSwxT8IfOVzQjoZKyfb-mxs2kfnyoVDyRuNmylPoigYQlYQMGVxleoFNVFUJZ4DeucZ6S9707TdpcEa7Q5r98K5n5gEfRTl1AUmhb7GUUvW3BfMJ45Ooh18c1oX2PZUlb6KHP5WuIMwLCLRQbWcp0d3LpYGFCmlbq3VDfMQ" />
  </picture>
 </a>

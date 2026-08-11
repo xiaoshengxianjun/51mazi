@@ -3564,6 +3564,101 @@ ipcMain.handle('remove-banned-word', async (event, bookName, word) => {
   }
 })
 
+// 批量追加禁词（自动去重）
+ipcMain.handle('append-banned-words', async (event, bookName, words) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName || !Array.isArray(words)) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    let data = { words: [] }
+    if (fs.existsSync(bannedWordsPath)) {
+      data = JSON.parse(fs.readFileSync(bannedWordsPath, 'utf-8'))
+    }
+    if (!Array.isArray(data.words)) {
+      data.words = []
+    }
+    const existing = new Set(data.words)
+    const seenIncoming = new Set()
+    const newWords = []
+    let added = 0
+    let skipped = 0
+    for (const raw of words) {
+      const word = typeof raw === 'string' ? raw.trim() : ''
+      if (!word) continue
+      if (seenIncoming.has(word)) {
+        skipped += 1
+        continue
+      }
+      seenIncoming.add(word)
+      if (existing.has(word)) {
+        skipped += 1
+        continue
+      }
+      existing.add(word)
+      newWords.push(word)
+      added += 1
+    }
+    // 新词按出现顺序置于列表头部
+    for (let i = newWords.length - 1; i >= 0; i -= 1) {
+      data.words.unshift(newWords[i])
+    }
+    if (added > 0) {
+      fs.writeFileSync(bannedWordsPath, JSON.stringify(data, null, 2), 'utf-8')
+    }
+    return { success: true, data: { added, skipped } }
+  } catch (error) {
+    console.error('批量追加禁词失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 清空禁词
+ipcMain.handle('clear-banned-words', async (event, bookName) => {
+  try {
+    const booksDir = store.get('booksDir')
+    if (!booksDir || !bookName) {
+      return { success: false, message: '参数错误' }
+    }
+    const bannedWordsPath = join(booksDir, bookName, 'banned-words.json')
+    fs.writeFileSync(bannedWordsPath, JSON.stringify({ words: [] }, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('清空禁词失败:', error)
+    return { success: false, message: error.message }
+  }
+})
+
+// 选择文本词库文件
+ipcMain.handle('select-text-file', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: mt('textFiles'), extensions: ['txt'] },
+      { name: mt('allFiles'), extensions: ['*'] }
+    ]
+  })
+  if (!result.canceled && result.filePaths.length > 0) {
+    return { filePath: result.filePaths[0] }
+  }
+  return null
+})
+
+// 读取文本文件内容
+ipcMain.handle('read-text-file', async (event, filePath) => {
+  try {
+    if (!filePath) {
+      return { success: false, message: '参数错误' }
+    }
+    const content = fs.readFileSync(filePath, 'utf-8')
+    return { success: true, data: content }
+  } catch (error) {
+    console.error('读取文本文件失败:', error)
+    return { success: false, message: error.message || '读取文件失败' }
+  }
+})
+
 // --------- 自动更新相关 ---------
 
 // 设置更新方式：'auto' 自动更新 | 'manual' 手动更新；会立即生效（暂停或恢复自动检查）

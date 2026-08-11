@@ -79,6 +79,7 @@ declare module 'vue' {
     OutlineAiWorkbenchDialog: typeof import('./src/components/Editor/OutlineAiWorkbenchDialog.vue')['default']
     OutlineManagerDrawer: typeof import('./src/components/Editor/OutlineManagerDrawer.vue')['default']
     OutlineManagerPanel: typeof import('./src/components/Editor/OutlineManagerPanel.vue')['default']
+    PhonePreviewDialog: typeof import('./src/components/Editor/PhonePreviewDialog.vue')['default']
     RadialMenu: typeof import('./src/components/RadialMenu.vue')['default']
     RandomName: typeof import('./src/components/RandomName.vue')['default']
     RecycleBinDialog: typeof import('./src/components/Editor/RecycleBinDialog.vue')['default']
