@@ -206,6 +206,17 @@
       </el-tooltip>
     </div>
     <div class="toolbar-right">
+      <!-- 章节手机端预览：位于保存按钮左侧 -->
+      <el-tooltip
+        v-if="!isNoteEditor"
+        :content="t('editorMenubar.phonePreview')"
+        placement="bottom"
+        :show-after="TOOLTIP_SHOW_AFTER"
+      >
+        <el-button size="small" class="toolbar-item" @click="handlePhonePreview">
+          <Smartphone :size="12" />
+        </el-button>
+      </el-tooltip>
       <el-tooltip
         :content="t('editorMenubar.save')"
         placement="bottom"
@@ -227,6 +238,13 @@
       </el-tooltip>
     </div>
   </div>
+
+  <PhonePreviewDialog
+    v-model:visible="phonePreviewVisible"
+    :title="phonePreviewTitle"
+    :content="phonePreviewContent"
+    :typography="modelValue"
+  />
 </template>
 
 <script setup>
@@ -234,10 +252,11 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DocumentCopy, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Redo, Undo } from 'lucide-vue-next'
+import { Redo, Smartphone, Undo } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEditorStore } from '@renderer/stores/editor'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
+import PhonePreviewDialog from '@renderer/components/Editor/PhonePreviewDialog.vue'
 
 const TOOLTIP_SHOW_AFTER = 2000
 const { t } = useI18n()
@@ -696,6 +715,21 @@ function handleRedo() {
 
 function handleSave() {
   emit('save')
+}
+
+// 手机预览：读取当前编辑器实时正文与章节标题
+const phonePreviewVisible = ref(false)
+const phonePreviewTitle = ref('')
+const phonePreviewContent = ref('')
+
+function handlePhonePreview() {
+  phonePreviewTitle.value = editorStore.chapterTitle || editorStore.file?.name || ''
+  if (props.editor) {
+    phonePreviewContent.value = props.editor.getText() || ''
+  } else {
+    phonePreviewContent.value = editorStore.content || ''
+  }
+  phonePreviewVisible.value = true
 }
 
 // 导出书籍全部内容

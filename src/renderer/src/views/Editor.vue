@@ -1,5 +1,17 @@
 <template>
   <div class="editor-container">
+    <el-tooltip :content="t('recycleBin.title')" placement="top" :show-after="400">
+      <button type="button" class="recycle-bin-entry" @click="openRecycleBin">
+        <el-icon :size="20"><Delete /></el-icon>
+      </button>
+    </el-tooltip>
+
+    <RecycleBinDialog
+      ref="recycleBinRef"
+      :book-name="bookName"
+      @restored="handleTrashRestored"
+    />
+
     <el-splitter>
       <el-splitter-panel :size="240" :min="200" :max="400">
         <!-- 左侧面板：笔记章节 -->
@@ -32,18 +44,22 @@
 <script setup>
 import { ref, nextTick, onActivated, onDeactivated } from 'vue'
 import { useRoute } from 'vue-router'
+import { Delete } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({ name: 'Editor' })
 import NoteChapter from '@renderer/components/Editor/NoteChapter.vue'
 import EditorPanel from '@renderer/components/Editor/EditorPanel.vue'
 import EditorToolbar from '@renderer/components/Editor/EditorToolbar.vue'
 import OutlineManagerPanel from '@renderer/components/Editor/OutlineManagerPanel.vue'
+import RecycleBinDialog from '@renderer/components/Editor/RecycleBinDialog.vue'
 import {
   getOutlineDisplayMode,
   isOutlineCompactMode as checkOutlineCompactMode
 } from '@renderer/composables/useOutlineDisplayMode'
 
 const route = useRoute()
+const { t } = useI18n()
 
 // 解析新窗口参数
 let bookName = null
@@ -59,7 +75,22 @@ if (!bookName) {
 }
 
 const noteChapterRef = ref(null)
+const recycleBinRef = ref(null)
 const isOutlineCompactMode = ref(false)
+
+function openRecycleBin() {
+  recycleBinRef.value?.open()
+}
+
+function handleTrashRestored(result) {
+  if (!result?.type) return
+  if (result.type === 'chapter' || result.type === 'volume') {
+    refreshChapters()
+  }
+  if (result.type === 'note' || result.type === 'notebook') {
+    refreshNotes()
+  }
+}
 
 async function loadOutlineDisplayMode() {
   const mode = await getOutlineDisplayMode(bookName)
@@ -103,5 +134,33 @@ onDeactivated(() => {
   background-color: var(--bg-primary);
   position: relative;
   overflow: hidden;
+}
+
+.recycle-bin-entry {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    border-color 0.2s;
+
+  &:hover {
+    color: var(--el-color-primary);
+    background-color: var(--bg-mute);
+    border-color: var(--el-color-primary-light-5);
+  }
 }
 </style>
