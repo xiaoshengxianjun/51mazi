@@ -244,6 +244,7 @@
     :title="phonePreviewTitle"
     :content="phonePreviewContent"
     :typography="modelValue"
+    :editor="editor"
   />
 </template>
 

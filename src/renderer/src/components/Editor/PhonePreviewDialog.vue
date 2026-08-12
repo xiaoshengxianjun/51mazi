@@ -10,9 +10,20 @@
     @update:model-value="handleVisibleChange"
   >
     <div class="phone-preview-shell">
+      <!-- 同步滚动开关：位于模拟器上方 -->
+      <div class="phone-preview-sync-row">
+        <span class="phone-preview-sync-label">{{ t('editorMenubar.syncViewScroll') }}</span>
+        <el-switch v-model="syncScroll" size="small" @change="handleSyncScrollChange" />
+      </div>
+
       <!-- 手机外框 -->
       <div class="phone-frame">
-        <div class="phone-screen">
+        <el-scrollbar
+          ref="scrollbarRef"
+          class="phone-screen"
+          always
+          @scroll="handlePhoneScroll"
+        >
           <div v-if="title" class="phone-chapter-title">{{ title }}</div>
           <div
             v-if="previewHtml"
@@ -23,7 +34,7 @@
           <div v-else class="phone-empty">
             {{ t('editorMenubar.phonePreviewEmpty') }}
           </div>
-        </div>
+        </el-scrollbar>
         <div class="phone-home-indicator" aria-hidden="true" />
       </div>
       <el-button class="phone-preview-close" circle @click="close">
@@ -34,9 +45,19 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Close } from '@element-plus/icons-vue'
+import {
+  getEditorScrollContainer,
+  getScrollAnchor,
+  loadPhonePreviewSyncScroll,
+  savePhonePreviewSyncScroll,
+  scrollToAnchor
+} from '@renderer/utils/scroll-anchor'
+
+const EDITOR_PARA_SELECTOR = '.tiptap p'
+const PREVIEW_PARA_SELECTOR = '.phone-chapter-body p'
 
 const { t } = useI18n()
 
@@ -64,6 +85,11 @@ const props = defineProps({
       isBold: false,
       isItalic: false
     })
+  },
+  /** TipTap editor 实例，用于同步滚动定位 */
+  editor: {
+    type: Object,
+    default: null
   }
 })
 
@@ -84,6 +110,21 @@ function resolveFontFamily(fontKey) {
 }
 
 const emit = defineEmits(['update:visible'])
+
+const scrollbarRef = ref(null)
+const syncScroll = ref(loadPhonePreviewSyncScroll())
+/** 程序化滚动时上锁，避免回环 */
+let syncing = false
+let scrollRaf = 0
+
+/** 获取 el-scrollbar 实际滚动容器（wrap） */
+function getPhoneScroller() {
+  const inst = scrollbarRef.value
+  if (!inst) return null
+  // Element Plus 暴露 wrapRef；部分版本为 Ref，统一解包
+  const wrap = inst.wrapRef
+  return wrap?.value ?? wrap ?? null
+}
 
 /** 纯文本转预览 HTML（转义后按行分段，与章节编辑器一致） */
 function plainTextToPreviewHtml(text) {
@@ -121,6 +162,73 @@ const bodyStyle = computed(() => {
   }
 })
 
+/** 打开时 / 开启开关时：编辑器可视段落 → 预览（不做开关判断，由调用方控制） */
+function syncEditorToPreview() {
+  const editorScroller = getEditorScrollContainer(props.editor)
+  const phoneScroller = getPhoneScroller()
+  if (!editorScroller || !phoneScroller) return
+
+  const anchor = getScrollAnchor(editorScroller, EDITOR_PARA_SELECTOR)
+  syncing = true
+  scrollToAnchor(phoneScroller, anchor, PREVIEW_PARA_SELECTOR)
+  requestAnimationFrame(() => {
+    syncing = false
+  })
+}
+
+function handleSyncScrollChange(enabled) {
+  savePhonePreviewSyncScroll(Boolean(enabled))
+  // el-switch @change 时 v-model 已更新；显式用 enabled 避免时序歧义
+  if (enabled && props.visible) {
+    nextTick(() => syncEditorToPreview())
+  }
+}
+
+/** 预览滚动：预览可视段落 → 编辑器 */
+function handlePhoneScroll() {
+  if (!syncScroll.value || syncing) return
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0
+    const editorScroller = getEditorScrollContainer(props.editor)
+    const phoneScroller = getPhoneScroller()
+    if (!editorScroller || !phoneScroller) return
+
+    const anchor = getScrollAnchor(phoneScroller, PREVIEW_PARA_SELECTOR)
+    syncing = true
+    scrollToAnchor(editorScroller, anchor, EDITOR_PARA_SELECTOR)
+    requestAnimationFrame(() => {
+      syncing = false
+    })
+  })
+}
+
+watch(
+  () => props.visible,
+  async (open) => {
+    if (!open) return
+    // destroy-on-close 后需等 DOM 挂载并完成布局再定位
+    await nextTick()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (syncScroll.value) {
+          syncEditorToPreview()
+        } else {
+          const scroller = getPhoneScroller()
+          if (scroller) scroller.scrollTop = 0
+          else if (typeof scrollbarRef.value?.setScrollTop === 'function') {
+            scrollbarRef.value.setScrollTop(0)
+          }
+        }
+      })
+    })
+  }
+)
+
+onBeforeUnmount(() => {
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+})
+
 function handleVisibleChange(val) {
   emit('update:visible', val)
 }
@@ -151,7 +259,26 @@ function close() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+}
+
+.phone-preview-sync-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #1a1a1a;
+}
+
+.phone-preview-sync-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
 }
 
 .phone-frame {
@@ -175,17 +302,16 @@ function close() {
   min-height: 0;
   border-radius: 24px;
   background: #faf8f5;
-  overflow-y: auto;
-  padding: 16px 18px 24px;
   color: #1a1a1a;
-  /* 隐藏滚动条，保留滚动 */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 
-  &::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
+  /* el-scrollbar 填满阅读屏，内容区保留内边距 */
+  .el-scrollbar__wrap {
+    max-height: none !important;
+  }
+
+  .el-scrollbar__view {
+    padding: 16px 18px 24px;
+    box-sizing: border-box;
   }
 }
 
