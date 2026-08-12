@@ -190,6 +190,8 @@ function handlePhoneScroll() {
   if (scrollRaf) cancelAnimationFrame(scrollRaf)
   scrollRaf = requestAnimationFrame(() => {
     scrollRaf = 0
+    // rAF 内再次校验，避免程序化滚动刚解锁时误同步
+    if (!syncScroll.value || syncing) return
     const editorScroller = getEditorScrollContainer(props.editor)
     const phoneScroller = getPhoneScroller()
     if (!editorScroller || !phoneScroller) return
