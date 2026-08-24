@@ -454,6 +454,9 @@
       "manualUpdate": "Manual Update",
       "updateModeDesc": "When set to Manual, auto update checks are disabled. You can manually check updates from the left menu."
     },
+    "sunsetNotice": {
+      "text": "This version is no longer maintained. Please download the official release:"
+    },
     "update": {
       "newVersion": "New version: {version}",
       "releaseDate": "Release date: {date}",

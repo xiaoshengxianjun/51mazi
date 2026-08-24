@@ -2,7 +2,7 @@
   <div class="bookshelf">
     <!-- 顶部操作栏 -->
     <div class="top-bar">
-      <div>
+      <div class="top-bar-actions">
         <el-button type="primary" class="new-book-btn" @click="handleNewBook">
           <el-icon><Plus /></el-icon>
           {{ t('bookshelf.newBook') }}
@@ -19,6 +19,7 @@
           "
         />
       </div>
+      <DeprecatedVersionNotice />
       <!-- <el-dropdown class="update-dropdown">
         <span class="el-dropdown-link">
           最近更新
@@ -110,6 +111,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Book from './Book.vue'
+import DeprecatedVersionNotice from './DeprecatedVersionNotice.vue'
 import WordCountChart from './WordCountChart.vue'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { useMainStore } from '@renderer/stores'
@@ -548,7 +550,13 @@ onBeforeUnmount(() => {
 .top-bar {
   flex-shrink: 0;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.top-bar-actions {
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
 }
 .books-box {

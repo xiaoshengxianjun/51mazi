@@ -20,6 +20,7 @@ declare module 'vue' {
     BookshelfPasswordSettings: typeof import('./src/components/BookshelfPasswordSettings.vue')['default']
     ChapterEditorContent: typeof import('./src/components/Editor/ChapterEditorContent.vue')['default']
     ChapterSettingsDialog: typeof import('./src/components/Editor/ChapterSettingsDialog.vue')['default']
+    DeprecatedVersionNotice: typeof import('./src/components/DeprecatedVersionNotice.vue')['default']
     EditorMenubar: typeof import('./src/components/Editor/EditorMenubar.vue')['default']
     EditorPanel: typeof import('./src/components/Editor/EditorPanel.vue')['default']
     EditorProgress: typeof import('./src/components/Editor/EditorProgress.vue')['default']

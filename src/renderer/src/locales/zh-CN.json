@@ -454,6 +454,9 @@
       "manualUpdate": "手动更新",
       "updateModeDesc": "选择「手动更新」后，将不再自动检查更新，可随时通过左侧菜单「检查更新」手动检查。"
     },
+    "sunsetNotice": {
+      "text": "此版本不再维护，请下载正式版："
+    },
     "update": {
       "newVersion": "新版本：{version}",
       "releaseDate": "发布日期：{date}",

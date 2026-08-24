@@ -315,6 +315,11 @@ async function validateBooksDirOrNotify(pathValue) {
 
 // 定时器 ID
 let sponsorDialogTimer = null
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+/** 点击「朕已恩赏」后，7 天再弹 */
+const SPONSOR_DIALOG_REWARD_INTERVAL = 7 * ONE_DAY_MS
+/** 点击「考虑一下」后，1 天再弹 */
+const SPONSOR_DIALOG_CONSIDER_INTERVAL = ONE_DAY_MS
 
 // 打开 AI 设置
 function handleOpenAISettings() {
@@ -374,7 +379,6 @@ async function checkAutoShowSponsorDialog() {
     // 检查最后一次关闭时间和操作
     const lastCloseTime = await window.electronStore?.get('home.sponsorDialogLastCloseTime')
     const lastAction = await window.electronStore?.get('home.sponsorDialogLastAction')
-    const considerCount = (await window.electronStore?.get('home.sponsorDialogConsiderCount')) || 0
 
     // 如果没有关闭记录，说明还没有显示过，使用首次访问逻辑
     if (!lastCloseTime) {
@@ -395,17 +399,9 @@ async function checkAutoShowSponsorDialog() {
     // 根据上次操作决定下次显示时间
     let nextShowDelay = 0
     if (lastAction === 'reward') {
-      // 点击"朕已恩赏"，15天后显示
-      nextShowDelay = 15 * 24 * 60 * 60 * 1000 // 15天
+      nextShowDelay = SPONSOR_DIALOG_REWARD_INTERVAL
     } else if (lastAction === 'consider') {
-      // 点击"考虑一下"
-      if (considerCount >= 3) {
-        // 连续3次点击"考虑一下"，改为1天显示一次
-        nextShowDelay = 24 * 60 * 60 * 1000 // 1天
-      } else {
-        // 前3次点击"考虑一下"，3天后显示
-        nextShowDelay = 3 * 24 * 60 * 60 * 1000 // 3天
-      }
+      nextShowDelay = SPONSOR_DIALOG_CONSIDER_INTERVAL
     }
 
     // 计算距离上次关闭已经过了多长时间
@@ -440,15 +436,7 @@ async function handleConsiderClick() {
     const newConsiderCount = considerCount + 1
     await window.electronStore?.set('home.sponsorDialogConsiderCount', newConsiderCount)
 
-    // 根据连续点击次数决定下次显示延迟
-    let nextShowDelay = 0
-    if (newConsiderCount >= 3) {
-      // 连续3次点击"考虑一下"，改为1天显示一次
-      nextShowDelay = 24 * 60 * 60 * 1000 // 1天
-    } else {
-      // 前3次点击"考虑一下"，3天后显示
-      nextShowDelay = 3 * 24 * 60 * 60 * 1000 // 3天
-    }
+    const nextShowDelay = SPONSOR_DIALOG_CONSIDER_INTERVAL
 
     // 清理旧定时器
     if (sponsorDialogTimer) {
@@ -486,8 +474,7 @@ async function handleRewardClick() {
     // 重置"考虑一下"的连续点击次数（因为用户点击了"朕已恩赏"）
     await window.electronStore?.set('home.sponsorDialogConsiderCount', 0)
 
-    // 15天后显示
-    const nextShowDelay = 15 * 24 * 60 * 60 * 1000 // 15天
+    const nextShowDelay = SPONSOR_DIALOG_REWARD_INTERVAL
 
     // 清理旧定时器
     if (sponsorDialogTimer) {
