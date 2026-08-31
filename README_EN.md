@@ -2,6 +2,8 @@
 
 [English](README_EN.md) | [中文](README.md)
 
+> 🎉 **Welcome to download the official release**: [Get it from the official website](https://www.51mazi.com)
+
 > 💡 As a novel creator, have you ever been frustrated by the lack of suitable writing tools? Today, I'd like to introduce **51mazi**, a powerful and beautifully designed desktop novel writing software. Built with modern technology, this software provides comprehensive support for novel creators, from outline planning to content creation.
 >
 > 💡 **If this project helps you, please give it a Star!**
